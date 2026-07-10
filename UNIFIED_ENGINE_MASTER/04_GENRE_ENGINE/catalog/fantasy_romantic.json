@@ -1,0 +1,13 @@
+{
+  "genre": "fantasy_romantic",
+  "display_name": "Романтическое фэнтези",
+  "description": "Фэнтези где романтика = главная линия, магия служит романтике",
+  "key_elements": ["Романтика на первом месте", "Фэнтезийный сеттинг", "Chemistry протагонистов", "HEA (happily ever after) обязателен", "Магия усиливает романтику"],
+  "balance": "60% romance / 40% fantasy adventure",
+  "tone": "Эмоциональный, страстный, оптимистичный",
+  "tropes": ["Fated mates", "Enemies to lovers", "Forbidden love", "Magical bond"],
+  "steam_level": "Варьируется (от sweet до explicit)",
+  "ending": "HEA обязательно (или HFN — happy for now)",
+  "mistakes": ["Романтика без конфликта", "Мир как декорация (должен влиять)", "Insta-love без chemistry"],
+  "recommended": ["Sarah J. Maas — ACOTAR", "Jennifer L. Armentrout — From Blood and Ash", "Elise Kova — Air Awakens", "Grace Draven — Radiance"]
+}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <div class="page-title">🔍 Сравнение итераций</div>
+      <div class="page-sub">Глава {{ run.chapter_num }} · {{ by_iter|length }} итераций</div>
+    </div>
+    <a href="/pipeline" class="btn btn-secondary">← Назад</a>
+  </div>
+</div>
+
+{% if by_iter|length < 2 %}
+<div class="card" style="text-align:center;padding:40px;color:var(--text2);">
+  Только одна итерация — сравнивать не с чем.
+  <div style="margin-top:16px;">
+    <a href="/pipeline" class="btn btn-secondary">← Назад</a>
+  </div>
+</div>
+{% else %}
+
+<!-- Выбор итераций для сравнения -->
+<div class="card">
+  <div class="card-title">Выбери итерации</div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;min-width:120px;">
+      <label>Итерация A</label>
+      <select id="sel-a" onchange="loadComparison()">
+        {% for n in by_iter.keys() %}
+        <option value="{{ n }}" {% if loop.first %}selected{% endif %}>Итерация {{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="font-size:20px;color:var(--text2);margin-top:16px;">vs</div>
+    <div class="form-group" style="margin:0;min-width:120px;">
+      <label>Итерация B</label>
+      <select id="sel-b" onchange="loadComparison()">
+        {% for n in by_iter.keys() %}
+        <option value="{{ n }}" {% if loop.last %}selected{% endif %}>Итерация {{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Данные всех итераций (скрыты, для JS) -->
+<script>
+const iterations = {
+  {% for n, stages in by_iter.items() %}
+  {{ n }}: {
+    text: {{ (stages.generate or stages.edit or {})|tojson }},
+    critique: {{ (stages.critique or {})|tojson }},
+    judge: {{ (stages.judge or {})|tojson }},
+  },
+  {% endfor %}
+};
+
+function getScore(judgeText) {
+  if (!judgeText) return null;
+  const m = judgeText.match(/ИТОГ:\s*(\d+)/);
+  return m ? parseInt(m[1]) : null;
+}
+
+function loadComparison() {
+  const a = parseInt(document.getElementById('sel-a').value);
+  const b = parseInt(document.getElementById('sel-b').value);
+  const ia = iterations[a];
+  const ib = iterations[b];
+
+  // Тексты
+  document.getElementById('text-a').textContent = ia?.text?.output_text || '—';
+  document.getElementById('text-b').textContent = ib?.text?.output_text || '—';
+
+  // Оценки
+  const scoreA = getScore(ia?.judge?.output_text);
+  const scoreB = getScore(ib?.judge?.output_text);
+  const diff = scoreA !== null && scoreB !== null ? scoreB - scoreA : null;
+
+  const saEl = document.getElementById('score-a');
+  const sbEl = document.getElementById('score-b');
+  const diffEl = document.getElementById('score-diff');
+
+  saEl.textContent = scoreA !== null ? `${scoreA}/50` : '—';
+  sbEl.textContent = scoreB !== null ? `${scoreB}/50` : '—';
+
+  if (diff !== null) {
+    diffEl.textContent = (diff > 0 ? '+' : '') + diff;
+    diffEl.style.color = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--error)' : 'var(--text2)';
+  } else {
+    diffEl.textContent = '';
+  }
+
+  // Критика
+  document.getElementById('critique-a').textContent = ia?.critique?.output_text || '—';
+  document.getElementById('critique-b').textContent = ib?.critique?.output_text || '—';
+}
+
+window.addEventListener('DOMContentLoaded', loadComparison);
+</script>
+
+<!-- Оценки -->
+<div class="card" style="display:flex;justify-content:center;gap:40px;padding:20px;text-align:center;">
+  <div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Итерация A</div>
+    <div id="score-a" style="font-size:28px;font-weight:700;color:var(--accent2);">—</div>
+  </div>
+  <div style="align-self:center;">
+    <div id="score-diff" style="font-size:22px;font-weight:700;"></div>
+  </div>
+  <div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Итерация B</div>
+    <div id="score-b" style="font-size:28px;font-weight:700;color:var(--accent2);">—</div>
+  </div>
+</div>
+
+<!-- Сравнение текстов -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <span>Текст A</span>
+      <button class="btn btn-secondary btn-sm" onclick="copyText('text-a')">Копировать</button>
+    </div>
+    <div id="text-a"
+         style="white-space:pre-wrap;font-family:Georgia,serif;font-size:13px;
+                line-height:1.8;max-height:500px;overflow-y:auto;
+                background:var(--bg);border:1px solid var(--border);
+                border-radius:8px;padding:14px;color:var(--text);"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <span>Текст B</span>
+      <button class="btn btn-secondary btn-sm" onclick="copyText('text-b')">Копировать</button>
+    </div>
+    <div id="text-b"
+         style="white-space:pre-wrap;font-family:Georgia,serif;font-size:13px;
+                line-height:1.8;max-height:500px;overflow-y:auto;
+                background:var(--bg);border:1px solid var(--border);
+                border-radius:8px;padding:14px;color:var(--text);"></div>
+  </div>
+
+</div>
+
+<!-- Сравнение критики -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+  <div class="card" style="border-color:#92400e55;">
+    <div class="card-title" style="color:var(--warning);">🔍 Критика A</div>
+    <div id="critique-a" class="text-mono" style="color:var(--text);max-height:300px;overflow-y:auto;"></div>
+  </div>
+
+  <div class="card" style="border-color:#92400e55;">
+    <div class="card-title" style="color:var(--warning);">🔍 Критика B</div>
+    <div id="critique-b" class="text-mono" style="color:var(--text);max-height:300px;overflow-y:auto;"></div>
+  </div>
+
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyText(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Скопировано', 'success'));
+}
+</script>
+{% endblock %}

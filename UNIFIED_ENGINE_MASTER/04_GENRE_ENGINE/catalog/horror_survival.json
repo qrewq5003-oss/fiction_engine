@@ -1,0 +1,13 @@
+{
+  "genre": "horror_survival",
+  "display_name": "Survival Horror",
+  "description": "Хоррор выживания: угроза преследует, ресурсы ограничены, убегай или умри",
+  "key_elements": ["Конкретная угроза (монстр/зомби/убийца)", "Survival focus", "Ограниченные ресурсы", "Изоляция", "Group dynamics (часто)", "Body count"],
+  "threat_types": ["Зомби", "Монстр/существо", "Серийный убийца", "Паразит/инфекция"],
+  "tone": "Напряжённый, паника, desperation",
+  "pacing": "Быстрый, ratcheting tension",
+  "structure": "Escalation: безопасно → угроза → бегство → confrontation",
+  "character_death": "Ожидаемо (не все выживут)",
+  "mistakes": ["Unrealistic decisions (почему в подвал?!)", "Invincible протагонист", "Нет stakes (все выживут = скучно)"],
+  "recommended": ["Josh Malerman — Bird Box", "Stephen King — The Mist", "Paul Tremblay — Cabin at the End of the World", "Max Brooks — World War Z"]
+}

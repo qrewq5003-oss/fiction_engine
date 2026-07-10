@@ -1,0 +1,12 @@
+{
+  "genre": "scifi_cyberpunk",
+  "display_name": "Киберпанк",
+  "description": "Дистопия + hi-tech: корпорации, хакеры, кибернетика, urban decay",
+  "key_elements": ["Hi-tech, low-life", "Мегакорпорации", "Хакеры/киборги", "Урбанистическая дистопия", "Neon aesthetic", "Киберпространство"],
+  "tone": "Циничный, нуар, мрачный",
+  "aesthetics": "Неон, дождь, высокие здания, грязные улицы",
+  "themes": "Трансгуманизм, корпоративный контроль, resistance",
+  "protagonist": "Часто антигерой (hacker, merc)",
+  "mistakes": ["Только эстетика без смысла", "Копировать Blade Runner/Neuromancer", "Технология без последствий"],
+  "recommended": ["William Gibson — Neuromancer", "Neal Stephenson — Snow Crash", "Richard K. Morgan — Altered Carbon", "Paolo Bacigalupi — Wind-Up Girl"]
+}

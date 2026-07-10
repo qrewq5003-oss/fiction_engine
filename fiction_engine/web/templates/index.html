@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">{% if current %}{{ current.name }}{% else %}Fiction Engine{% endif %}</div>
+  <div class="page-sub">{% if current %}{{ current.genre }}{% else %}Выбери или создай проект{% endif %}</div>
+</div>
+
+<!-- Предупреждение о необработанных обновлениях -->
+{% if pending_updates %}
+<div class="alert alert-warning">
+  ⚠️ Есть {{ pending_updates|length }} необработанных обновлений State Engine —
+  <a href="/state" style="color:inherit;font-weight:600;">открыть</a>
+</div>
+{% endif %}
+
+<div class="grid-2">
+
+  <!-- Левая колонка: Главы -->
+  <div>
+    {% if current %}
+    <div class="card">
+      <div class="card-title">
+        📖 Главы
+        <span class="badge">{{ chapters|length }}</span>
+        <a href="/prompt" class="btn btn-primary btn-sm" style="margin-left:auto;">✍️ Генерировать</a>
+      </div>
+
+      <!-- Загрузка главы -->
+      <div class="tabs">
+        <div class="tab active" data-group="upload" data-target="upload-file">📁 Файл</div>
+        <div class="tab" data-group="upload" data-target="upload-text">📝 Текст</div>
+      </div>
+
+      <div id="upload-file" class="tab-content active" data-group="upload">
+        <form method="POST" action="/chapter/upload" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Номер главы</label>
+            <input type="number" name="number" min="1" placeholder="1" required style="max-width:100px;">
+          </div>
+          <div class="form-group">
+            <label>Название (необязательно)</label>
+            <input type="text" name="title" placeholder="Название главы">
+          </div>
+          <div class="upload-area" onclick="document.getElementById('file-input').click()">
+            <p>Нажми или перетащи .txt файл</p>
+            <input type="file" id="file-input" name="file" accept=".txt" style="display:none"
+                   onchange="document.querySelector('#upload-file .upload-area p').textContent=this.files[0]?.name||'файл выбран'">
+          </div>
+          <br>
+          <button type="submit" class="btn btn-primary btn-full">Сохранить главу</button>
+        </form>
+      </div>
+
+      <div id="upload-text" class="tab-content" data-group="upload">
+        <form method="POST" action="/chapter/upload">
+          <div class="form-group">
+            <label>Номер главы</label>
+            <input type="number" name="number" min="1" placeholder="1" required style="max-width:100px;">
+          </div>
+          <div class="form-group">
+            <label>Текст главы</label>
+            <textarea name="text" rows="8" placeholder="Вставь текст главы..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">Сохранить</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Список глав -->
+    {% if chapters %}
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>Список глав</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="toggleSearch()" title="Поиск по главам">🔍</button>
+          <a href="/export/txt" class="btn btn-secondary btn-sm" title="Скачать TXT">TXT</a>
+          <a href="/export/docx" class="btn btn-secondary btn-sm" title="Скачать DOCX">DOCX</a>
+        </div>
+      </div>
+
+      <!-- Поиск по главам -->
+      <div id="search-panel" style="display:none;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="search-input" placeholder="Поиск по тексту глав..."
+                 style="flex:1;" oninput="searchChapters(this.value)">
+        </div>
+        <div id="search-results" style="margin-top:8px;font-size:12px;color:var(--text2);"></div>
+      </div>
+
+      <div class="chapter-list">
+        {% for ch in chapters %}
+        <div class="chapter-item">
+          <span class="chapter-num">{{ ch.number }}</span>
+          <span class="chapter-title">
+            <a href="/chapter/{{ ch.number }}/view" style="color:var(--text);text-decoration:none;">
+              {{ ch.title or 'Глава ' + ch.number|string }}
+            </a>
+          </span>
+          <span class="chapter-words">{{ ch.word_count }} сл.</span>
+          <span class="l3-badge" id="l3-badge-{{ ch.number }}"
+                style="display:none;font-size:10px;color:var(--success);cursor:pointer;margin-right:4px;"
+                title="L3 саммари готово"
+                onclick="showL3Summary({{ ch.number }})">🧠</span>
+          <button class="btn btn-secondary btn-sm" onclick="startAnalyze({{ ch.number }})">
+            ⚙️ Анализ
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="rebuildL3({{ ch.number }})"
+                  title="Пересоздать L3-саммари" style="padding:4px 6px;">🔄</button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Нет проекта -->
+    <div class="card" style="text-align:center;padding:40px;">
+      <div style="font-size:40px;margin-bottom:16px;">📚</div>
+      <div style="color:var(--text2);">Создай проект чтобы начать</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Правая колонка: Проект + Новый проект -->
+  <div>
+    <div class="card">
+      <div class="card-title">➕ Новый проект</div>
+      <form method="POST" action="/project/new">
+        <div class="form-group">
+          <label>Название серии</label>
+          <input type="text" name="name" placeholder="Моя серия" required>
+        </div>
+        <div class="form-group">
+          <label>Жанр</label>
+          <input type="text" name="genre" placeholder="тёмное фэнтези">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Создать</button>
+      </form>
+    </div>
+
+    {% if current %}
+    <!-- Быстрые действия -->
+    <div class="card">
+      <div class="card-title">⚡ Быстрые действия</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="/state" class="btn btn-secondary btn-full">⚙️ Открыть State Engine</a>
+        <a href="/prompt" class="btn btn-secondary btn-full">✍️ Создать промпт</a>
+      </div>
+    </div>
+
+    <!-- Все проекты -->
+    {% if projects|length > 1 %}
+    <div class="card">
+      <div class="card-title">Все проекты</div>
+      {% for p in projects %}
+      {% if not (current and p.id == current.id) %}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="flex:1;font-size:13px;">{{ p.name }}</span>
+        <span style="font-size:11px;color:var(--text2);">{{ p.genre }}</span>
+        <a href="/project/{{ p.id }}/switch" class="btn btn-secondary btn-sm">Открыть</a>
+        <form method="POST" action="/project/{{ p.id }}/delete" style="margin:0;"
+              onsubmit="return confirm('Удалить «{{ p.name }}»? Все главы и данные будут удалены.')">
+          <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+        </form>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Модал анализа главы -->
+<div class="modal-overlay" id="analyze-modal">
+  <div class="modal">
+    <div class="modal-title">⚙️ Анализ главы</div>
+
+    <div id="analyze-form">
+      <div class="form-group">
+        <label>Глава</label>
+        <input type="number" id="analyze-chapter-num" min="1" readonly
+               style="background:var(--bg);width:80px;">
+      </div>
+      <div class="form-group">
+        <label>Модель для анализа</label>
+        <select id="analyze-model">
+          {% for m in [] %}{% endfor %}
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAnalyzeModal()">Отмена</button>
+        <button class="btn btn-primary" onclick="runAnalyze()">
+          <span class="spinner" id="analyze-spinner" style="display:none;"></span>
+          Запустить анализ
+        </button>
+      </div>
+    </div>
+
+    <div id="analyze-result" style="display:none;">
+      <div class="alert alert-info">✅ Анализ завершён. Проверь изменения и подтверди применение.</div>
+      <div class="form-group">
+        <label>Результат анализа</label>
+        <div class="text-mono" id="analyze-output"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="discardUpdate()">Отклонить</button>
+        <button class="btn btn-success" onclick="applyUpdate()">✅ Применить изменения</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUpdateId = null;
+
+// Загрузить модели в select
+async function loadModels() {
+  const models = await fetch('/api/models').then(r => r.json());
+  const sel = document.getElementById('analyze-model');
+  sel.innerHTML = '';
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.value;
+    opt.textContent = m.label;
+    sel.appendChild(opt);
+  });
+}
+
+function startAnalyze(chapterNum) {
+  document.getElementById('analyze-chapter-num').value = chapterNum;
+  document.getElementById('analyze-form').style.display = 'block';
+  document.getElementById('analyze-result').style.display = 'none';
+  document.getElementById('analyze-modal').classList.add('active');
+  loadModels();
+}
+
+function closeAnalyzeModal() {
+  document.getElementById('analyze-modal').classList.remove('active');
+}
+
+async function runAnalyze() {
+  const chapterNum = parseInt(document.getElementById('analyze-chapter-num').value);
+  const model = document.getElementById('analyze-model').value;
+  const spinner = document.getElementById('analyze-spinner');
+  spinner.style.display = 'inline-block';
+
+  // Запускаем анализ в фоне — сразу получаем job_id
+  const launch = await apiPost('/state/analyze', {chapter_num: chapterNum, model});
+  if (launch.error) {
+    spinner.style.display = 'none';
+    showToast('Ошибка: ' + launch.error, 'error');
+    return;
+  }
+
+  // Polling каждые 2 сек
+  const jobId = launch.job_id;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch('/state/analyze/status/' + jobId).then(x => x.json());
+      if (r.status === 'done') {
+        clearInterval(poll);
+        spinner.style.display = 'none';
+        const result = r.result;
+        currentUpdateId = result.update_id;
+        document.getElementById('analyze-output').textContent = result.analysis;
+        document.getElementById('analyze-form').style.display = 'none';
+        document.getElementById('analyze-result').style.display = 'block';
+        if (result.drift_warning) {
+          showToast('⚠ Дрейф голоса: ' + result.drift_warning, 'warning');
+        }
+      } else if (r.status === 'error') {
+        clearInterval(poll);
+        spinner.style.display = 'none';
+        showToast('Ошибка: ' + r.error, 'error');
+      }
+    } catch(e) { /* сеть — продолжаем */ }
+  }, 2000);
+}
+
+async function applyUpdate() {
+  if (!currentUpdateId) return;
+  const result = await apiPost(`/state/apply/${currentUpdateId}`, {});
+  if (result.ok) {
+    showToast('State Engine обновлён', 'success');
+    closeAnalyzeModal();
+    setTimeout(() => location.reload(), 1000);
+  }
+}
+
+async function discardUpdate() {
+  if (!currentUpdateId) return;
+  await apiPost(`/state/discard/${currentUpdateId}`, {});
+  showToast('Обновление отклонено', 'info');
+  closeAnalyzeModal();
+}
+
+// Закрыть модал по клику вне
+document.getElementById('analyze-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('analyze-modal')) closeAnalyzeModal();
+});
+
+// ─── L3 Memory ───────────────────────────────────────────────────────────────
+async function loadL3Status() {
+  try {
+    const r = await fetch('/api/l3/status').then(x => x.json());
+    const summaries = r.summaries || {};
+    Object.keys(summaries).forEach(num => {
+      const badge = document.getElementById('l3-badge-' + num);
+      if (badge) {
+        badge.style.display = 'inline';
+        badge.title = 'L3: ' + (summaries[num].mood || 'саммари готово');
+      }
+    });
+  } catch(e) {}
+}
+
+async function showL3Summary(num) {
+  const r = await fetch('/api/l3/' + num).then(x => x.json()).catch(() => null);
+  if (!r || r.error) { showToast('Нет саммари', 'warning'); return; }
+  const msg = [
+    r.events && '📌 ' + r.events,
+    r.characters && '👤 ' + r.characters,
+    r.conflicts && '⚡ ' + r.conflicts,
+    r.promises && '🔮 ' + r.promises,
+    r.mood && '🎭 ' + r.mood,
+  ].filter(Boolean).join('\n');
+  alert('L3 — Глава ' + num + ':\n\n' + msg);
+}
+
+async function rebuildL3(num) {
+  const modelSel = document.querySelector('[name=model], #model-select, .model-select');
+  const model = modelSel ? modelSel.value : '';
+  showToast('Генерирую саммари гл.' + num + '...', 'info');
+  const r = await fetch('/api/l3/' + num + '/generate', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({model})
+  }).then(x => x.json()).catch(() => ({error: 'Ошибка'}));
+
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showToast('Саммари гл.' + num + ' готово', 'success');
+  const badge = document.getElementById('l3-badge-' + num);
+  if (badge) { badge.style.display = 'inline'; badge.title = 'L3: ' + (r.summary?.mood || 'готово'); }
+}
+
+loadL3Status();
+
+// ─── Поиск по главам ──────────────────────────────────────────────────────
+
+function toggleSearch() {
+  const panel = document.getElementById('search-panel');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  if (!visible) document.getElementById('search-input').focus();
+}
+
+let _searchTimer = null;
+function searchChapters(q) {
+  clearTimeout(_searchTimer);
+  const resultsEl = document.getElementById('search-results');
+  if (!q || q.length < 2) { resultsEl.innerHTML = ''; return; }
+  resultsEl.innerHTML = '<span style="color:var(--text2);">Ищу...</span>';
+  _searchTimer = setTimeout(async () => {
+    const r = await fetch('/api/chapters/search?q=' + encodeURIComponent(q))
+      .then(x => x.json()).catch(() => null);
+    if (!r) { resultsEl.innerHTML = 'Ошибка'; return; }
+    if (!r.results.length) { resultsEl.innerHTML = 'Не найдено'; return; }
+    let html = `<div style="color:var(--text);margin-bottom:6px;">Найдено в ${r.total} гл.</div>`;
+    for (const res of r.results) {
+      html += `<div style="margin-bottom:10px;">
+        <a href="/chapter/${res.chapter_num}/view" style="color:var(--accent2);font-weight:600;">
+          Гл.${res.chapter_num}: ${res.chapter_title}
+        </a>`;
+      for (const m of res.matches) {
+        const hi = m.replace(new RegExp(q, 'gi'),
+          s => `<mark style="background:#1e3a5f;color:#60a5fa;border-radius:2px;">${s}</mark>`);
+        html += `<div style="margin:3px 0 3px 12px;color:var(--text);">${hi}</div>`;
+      }
+      html += '</div>';
+    }
+    resultsEl.innerHTML = html;
+  }, 400);
+}
+
+
+</script>
+{% endblock %}

@@ -1,0 +1,1030 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">✍️ Генерация</div>
+  <div class="page-sub">Пишешь задачу — получаешь текст. Prep + State Engine цепляются автоматически.</div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Левая: настройки -->
+  <div>
+    <div class="card">
+      <div class="card-title">Настройки</div>
+
+      <div class="form-group">
+        <label>Номер главы</label>
+        <input type="number" id="gen-chapter" min="1"
+               value="{{ (chapters[-1].number + 1) if chapters else 1 }}"
+               style="max-width:100px;">
+      </div>
+
+      <div class="form-group">
+        <label>Режим</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+          {% for mode, label, hint in [
+            ('quick',   'QUICK — черновик',    'Высокий темп, 1500-2000 слов'),
+            ('quality', 'QUALITY — важная',    'Повороты, кульминации, эмоции'),
+            ('master',  'MASTER — финал арки', 'Точка невозврата, максимальный контекст'),
+          ] %}
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+                        background:var(--surface2);border:1px solid var(--border);
+                        border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);">
+            <input type="radio" name="gen-mode" value="{{ mode }}"
+                   {% if mode == 'quick' %}checked{% endif %}
+                   style="width:auto;margin-top:2px;">
+            <span><strong>{{ label }}</strong><br>
+              <span style="color:var(--text2);font-size:12px;">{{ hint }}</span></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Модель</label>
+        <select id="gen-model">
+          {% for m in models %}
+          <option value="{{ m.value }}">{{ m.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Режиссёрская заметка -->
+      <div id="director-note-block" style="display:none;background:rgba(100,80,180,.12);border:1px solid rgba(120,100,200,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--accent2);font-weight:600;margin-bottom:4px;">📋 Заметка из предыдущей главы</div>
+        <div id="director-note-text" style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;"></div>
+      </div>
+
+      <div class="form-group">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>
+            Задача главы
+            <span style="color:var(--text2);font-size:11px;margin-left:4px;">
+              — что происходит, сцены, тональность
+            </span>
+          </span>
+          <span id="task-history-btn" style="display:none">
+            <button onclick="showTaskHistory()" style="background:none;border:none;color:var(--accent2);font-size:11px;cursor:pointer;padding:0">↺ предыдущие задачи</button>
+          </span>
+        </label>
+        <!-- Выпадающий список прошлых задач -->
+        <div id="task-history-list" style="display:none;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;max-height:160px;overflow-y:auto"></div>
+
+        <!-- Ассистент промта -->
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+          <input type="number" id="prompt-chapter-num" min="1" placeholder="№ гл."
+                 style="width:70px;" title="Номер главы для которой составляем промт">
+          <button class="btn btn-secondary" style="flex:1;" onclick="assistPrompt()">
+            🧠 Подготовить промт для главы
+          </button>
+          <span id="prompt-assist-status" style="font-size:11px;color:var(--text2);"></span>
+        </div>
+        <!-- Панель ассистента -->
+        <div id="prompt-assist-panel" style="display:none;margin-bottom:10px;padding:10px;
+             background:var(--surface2);border:1px solid var(--accent);border-radius:8px;font-size:12px;">
+          <div style="color:var(--accent2);font-weight:600;margin-bottom:8px;">🧠 Черновик промта — отредактируй и используй</div>
+          <div id="prompt-assist-text" style="white-space:pre-wrap;color:var(--text);line-height:1.6;max-height:250px;overflow-y:auto;"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-primary btn-sm" onclick="useAssistPrompt()">← Вставить в поле задачи</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('prompt-assist-panel').style.display='none'">Закрыть</button>
+          </div>
+        </div>
+
+        <textarea id="gen-task" rows="10"
+                  placeholder="ЗАДАЧА: Кира узнаёт что наставник знал о предательстве.
+
+СЦЕНЫ:
+1. Библиотека — Кира находит письмо
+2. Столкновение — наставник не отрицает
+
+ТОНАЛЬНОСТЬ: холодная, сдержанная
+ЗАКАНЧИВАЕТСЯ НА: открытый вопрос"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="buildPromptOnly()">
+          👁 Промпт
+        </button>
+        <button class="btn btn-secondary" style="flex:1;" id="btn-validate" onclick="runValidate()">
+          <span class="spinner" id="validate-spinner" style="display:none;"></span>
+          🔍 Проверить
+        </button>
+        <button class="btn btn-primary" style="flex:2;" id="btn-generate" onclick="runGenerate()">
+          <span class="spinner" id="gen-spinner" style="display:none;"></span>
+          <span class="btn-label">✍️ Сгенерировать</span>
+        </button>
+      </div>
+
+      <!-- Результат пре-валидации -->
+      <div id="validation-result" style="display:none;margin-top:12px;"></div>
+    </div>
+
+    <!-- Контекст -->
+    <div class="card" style="border-color:var(--accent);opacity:0.85;">
+      <div class="card-title" style="font-size:13px;">🔗 Цепляется к генерации</div>
+      <div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:4px;">
+        <span>📋 Подготовка (персонажи, мир, сюжет)</span>
+        <span>⚙️ State Engine (состояние, линии)</span>
+        <span>📖 Голос из последних {{ chapters|length if chapters else 0 }} глав</span>
+        <span>🚫 Антиклише блок</span>
+      </div>
+      <!-- Предупреждение о размере prep -->
+      <div id="prep-warning" style="display:none;margin-top:10px;padding:8px 10px;
+           background:#78350f33;border:1px solid #92400e;border-radius:6px;
+           font-size:12px;color:var(--warning);"></div>
+      <!-- Модули движка -->
+      <div id="engine-modules-block" style="margin-top:10px;display:none;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">⚙️ UNIFIED ENGINE:</div>
+        <div id="engine-modules-list" style="font-size:11px;line-height:1.8;"></div>
+      </div>
+    </div>
+
+    <!-- История генераций -->
+    <div class="card" id="history-card">
+      <div class="card-title" style="font-size:13px;display:flex;justify-content:space-between;align-items:center">
+        <span>🕒 История <span id="history-count" style="font-size:11px;color:var(--text2);margin-left:4px;"></span></span>
+        <button onclick="clearAllHistory()" title="Очистить всю историю"
+          style="background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer;padding:2px 6px">🗑 Очистить</button>
+      </div>
+      <div id="history-list" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:12px;color:var(--text2);">Загружаю...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Правая: результат -->
+  <div>
+    <!-- Предупреждение API -->
+    <div id="api-warning" class="alert alert-warning" style="display:none;"></div>
+
+    <!-- Промпт -->
+    <div class="card" id="prompt-block" style="display:none;">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>Промпт</span>
+        <button class="btn btn-secondary btn-sm" onclick="copyText('prompt-output')">Копировать</button>
+      </div>
+      <div class="text-mono" id="prompt-output" style="max-height:300px;"></div>
+    </div>
+
+    <!-- Результат -->
+    <div class="card" id="result-block" style="display:none;">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>Глава <span id="result-chapter-num"></span></span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="result-words" style="font-size:12px;color:var(--text2);"></span>
+          <button class="btn btn-secondary btn-sm" onclick="copyText('result-output')">Копировать</button>
+          <button class="btn btn-secondary btn-sm" id="btn-voice-check" onclick="checkVoice()"
+                  style="display:none;">🎙 Голос</button>
+          <button class="btn btn-secondary btn-sm" id="btn-score" onclick="scoreGeneration()"
+                  style="display:none;">⭐ Оценить</button>
+          <button class="btn btn-secondary btn-sm" id="btn-continue" onclick="setContinue()"
+                  style="display:none;" title="Сохранить конец текста как подсказку для следующей генерации">
+            ✂️ Продолжить
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-merge" onclick="mergeWithPrev()"
+                  style="display:none;" title="Склеить с предыдущей частью главы для полной оценки">
+            🔗 Склеить
+          </button>
+          <button class="btn btn-success btn-sm" id="btn-save" onclick="saveAsChapter()">
+            💾 Сохранить как главу
+          </button>
+        </div>
+      </div>
+      <textarea id="result-output" rows="30"
+                style="font-family:Georgia,serif;font-size:14px;line-height:1.8;
+                       background:var(--bg);border:1px solid var(--border);"></textarea>
+
+      <!-- Оценка текста -->
+      <div id="score-block" style="display:none;margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="spinner" id="score-spinner" style="display:none;"></span>
+          <span id="score-total" style="font-size:28px;font-weight:700;color:var(--accent2);"></span>
+          <div id="score-axes" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);"></div>
+        </div>
+        <div id="score-verdict" style="font-size:13px;color:var(--text);margin-top:8px;"></div>
+        <div id="score-issue" style="font-size:12px;color:var(--error);margin-top:4px;"></div>
+      </div>
+
+      <!-- Проверка голоса -->
+      <div id="voice-check-block" style="display:none;margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span class="spinner" id="voice-check-spinner" style="display:none;"></span>
+          <span id="voice-check-score" style="font-size:20px;font-weight:700;"></span>
+          <span id="voice-check-name" style="font-size:12px;color:var(--text2);"></span>
+        </div>
+        <div id="voice-check-result" class="text-mono"
+             style="font-size:12px;max-height:250px;overflow-y:auto;
+                    background:var(--surface2);border:1px solid var(--border);
+                    border-radius:8px;padding:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Пустой стейт -->
+    <div id="empty-state" class="card" style="text-align:center;padding:60px 40px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:16px;">✍️</div>
+      <div>Заполни задачу главы и нажми «Сгенерировать»</div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let lastGeneratedText = '';
+let lastChapterNum = 1;
+let lastGenerationId = null;
+
+// ─── Сохранение результата при уходе со страницы ────────────────────────────
+
+function _saveResultToSession() {
+  const text = document.getElementById('result-output') ?
+    document.getElementById('result-output').value : '';
+  if (!text) return;
+  sessionStorage.setItem('gen_result', JSON.stringify({
+    text, chapterNum: lastChapterNum, genId: lastGenerationId
+  }));
+}
+
+function _restoreResultFromSession() {
+  const saved = sessionStorage.getItem('gen_result');
+  if (!saved) return;
+  try {
+    const { text, chapterNum, genId } = JSON.parse(saved);
+    if (!text) return;
+    lastGeneratedText = text;
+    lastChapterNum = chapterNum || 1;
+    lastGenerationId = genId || null;
+    document.getElementById('result-output').value = text;
+    document.getElementById('result-chapter-num').textContent = chapterNum;
+    const words = text.trim().split(/\s+/).length;
+    document.getElementById('result-words').textContent = words + ' слов';
+    document.getElementById('result-block').style.display = 'block';
+    document.getElementById('btn-voice-check').style.display = 'inline-flex';
+    document.getElementById('btn-score').style.display = genId ? 'inline-flex' : 'none';
+    document.getElementById('btn-continue').style.display = 'inline-flex';
+    document.getElementById('btn-merge').style.display = 'inline-flex';
+    document.getElementById('empty-state').style.display = 'none';
+  } catch(e) {
+    sessionStorage.removeItem('gen_result');
+  }
+}
+
+// Показывать кнопки если в поле есть текст (например после ручной вставки)
+document.getElementById('result-output').addEventListener('input', function() {
+  const hasText = this.value.trim().length > 50;
+  document.getElementById('btn-continue').style.display = hasText ? 'inline-flex' : 'none';
+  document.getElementById('btn-merge').style.display = hasText ? 'inline-flex' : 'none';
+  document.getElementById('result-block').style.display = hasText ? 'block' : 'none';
+});
+
+// Сохраняем при уходе
+// При загрузке — показать кнопки если текст уже есть в поле
+// setTimeout чтобы поймать момент после восстановления из sessionStorage
+function _checkTextAndShowButtons() {
+  const out = document.getElementById('result-output');
+  if (out && out.value.trim().length > 50) {
+    document.getElementById('btn-continue').style.display = 'inline-flex';
+    document.getElementById('btn-merge').style.display = 'inline-flex';
+    document.getElementById('result-block').style.display = 'block';
+    const empty = document.getElementById('empty-state');
+    if (empty) empty.style.display = 'none';
+    const words = out.value.trim().split(/\s+/).length;
+    document.getElementById('result-words').textContent = words + ' слов';
+  }
+}
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(_checkTextAndShowButtons, 100);
+  setTimeout(_checkTextAndShowButtons, 500); // второй раз на случай медленной страницы
+});
+
+window.addEventListener('pagehide', _saveResultToSession);
+window.addEventListener('beforeunload', _saveResultToSession);
+// Восстанавливаем при загрузке — вызов ниже после DOM ready
+
+// ─── Проверка размера Prep ────────────────────────────────────────────────────
+
+async function checkPrepSize() {
+  const r = await fetch('/api/prep/size').then(x => x.json()).catch(() => null);
+  if (!r) return;
+  const el = document.getElementById('prep-warning');
+  if (r.warning) {
+    el.textContent = '⚠ ' + r.message;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ─── Модули движка ────────────────────────────────────────────────────────────
+
+async function loadEngineModules() {
+  const mode = document.querySelector('input[name="gen-mode"]:checked')?.value || 'quick';
+  const model = document.getElementById('gen-model')?.value || '';
+  const r = await fetch(`/api/engine/modules?mode=${mode}&model=${encodeURIComponent(model)}`).then(x => x.json()).catch(() => null);
+  if (!r || !r.available || !r.modules?.length) return;
+  document.getElementById('engine-modules-block').style.display = 'block';
+  const budgetK = r.token_budget ? Math.round(r.token_budget / 1000) + 'k токенов' : '';
+  document.getElementById('engine-modules-list').innerHTML =
+    r.modules.map(m => {
+      const label = m.split('_').slice(1).join(' ');
+      return `<span style="display:inline-block;background:var(--surface2);border:1px solid var(--border);
+              border-radius:4px;padding:1px 6px;margin:2px;color:var(--accent2);">${label}</span>`;
+    }).join('') +
+    (budgetK ? `<div style="font-size:10px;color:var(--text2);margin-top:4px;">Бюджет модели: ${budgetK}</div>` : '');
+}
+
+document.querySelectorAll('input[name="gen-mode"]').forEach(r => {
+  r.addEventListener('change', loadEngineModules);
+});
+
+// ─── История ─────────────────────────────────────────────────────────────────
+
+// ─── Режиссёрская заметка ────────────────────────────────────────────────────
+
+async function loadDirectorNote(chapterNum) {
+  const r = await fetch(`/api/director_note/${chapterNum}`).then(x => x.json()).catch(() => null);
+  const block = document.getElementById('director-note-block');
+  const text  = document.getElementById('director-note-text');
+  if (r && r.note) {
+    text.textContent = r.note;
+    block.style.display = 'block';
+  } else {
+    block.style.display = 'none';
+  }
+}
+
+// ─── История задач ────────────────────────────────────────────────────────────
+
+async function loadTaskHistory(chapterNum) {
+  const r = await fetch(`/api/generation/tasks/${chapterNum}`).then(x => x.json()).catch(() => null);
+  const btn  = document.getElementById('task-history-btn');
+  const list = document.getElementById('task-history-list');
+  if (!r || !r.tasks.length) { btn.style.display = 'none'; return; }
+  btn.style.display = 'inline';
+  list._tasks = r.tasks;
+}
+
+function showTaskHistory() {
+  const list = document.getElementById('task-history-list');
+  if (list.style.display === 'block') { list.style.display = 'none'; return; }
+  const tasks = list._tasks || [];
+  list.innerHTML = tasks.map((t, i) => `
+    <div onclick="useTask(${i})" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);"
+         onmouseover="this.style.background='var(--bg-primary)'" onmouseout="this.style.background=''">
+      ${t.slice(0, 120)}${t.length > 120 ? '…' : ''}
+    </div>`).join('');
+  list.style.display = 'block';
+}
+
+function useTask(i) {
+  const list = document.getElementById('task-history-list');
+  const tasks = list._tasks || [];
+  if (tasks[i]) document.getElementById('gen-task').value = tasks[i];
+  list.style.display = 'none';
+}
+
+// Загружать при смене номера главы
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('gen-chapter');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      const num = parseInt(sel.value);
+      loadDirectorNote(num);
+      loadTaskHistory(num);
+    });
+    // Загрузить сразу для текущего значения
+    const num = parseInt(sel.value);
+    if (num) { loadDirectorNote(num); loadTaskHistory(num); }
+  }
+});
+
+// ─── История генераций ────────────────────────────────────────────────────────
+
+let _compareMode = false;
+let _compareId1 = null, _compareId2 = null;
+let _historyItems = [];
+
+async function loadHistory() {
+  const r = await fetch('/api/generation/history').then(x => x.json()).catch(() => []);
+  _historyItems = r;
+  const list = document.getElementById('history-list');
+  const count = document.getElementById('history-count');
+  count.textContent = r.length ? `(${r.length})` : '';
+
+  if (!r.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text2);">Пусто — генерации появятся здесь</div>';
+    return;
+  }
+
+  list.innerHTML = r.map(h => `
+    <div id="hist-${h.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                padding:10px 12px;position:relative;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer" onclick="loadFromHistory(${h.id})">
+        <span style="font-size:12px;font-weight:600;">Гл.${h.chapter_num} · ${h.mode?.toUpperCase() || ''}</span>
+        <span style="font-size:11px;color:var(--text2);">${h.word_count || 0} слов</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="loadFromHistory(${h.id})">
+        ${h.task_preview || ''}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <div style="font-size:10px;color:var(--text2);">${h.created_at?.slice(0,16) || ''}</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="toggleCompare(${h.id})" id="cmp-${h.id}"
+            style="background:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;color:var(--text2);cursor:pointer"
+            title="Сравнить">⇔</button>
+          <button onclick="deleteHistory(${h.id})"
+            style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;padding:0 2px"
+            title="Удалить">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function deleteHistory(id) {
+  const el = document.getElementById('hist-' + id);
+  if (el) el.style.opacity = '0.4';
+  await fetch(`/api/generation/${id}/delete`, {method:'POST'}).catch(() => null);
+  loadHistory();
+}
+
+async function clearAllHistory() {
+  if (!confirm('Удалить всю историю генераций? Это действие нельзя отменить.')) return;
+  await fetch('/api/generation/clear', {method:'POST'}).catch(() => null);
+  loadHistory();
+  showToast('История очищена', 'info');
+}
+
+// ─── Сравнение двух версий ────────────────────────────────────────────────────
+
+function toggleCompare(id) {
+  const btn = document.getElementById('cmp-' + id);
+  if (_compareId1 === id) {
+    // Снять выделение
+    _compareId1 = null;
+    btn.style.background = '';
+    btn.style.color = 'var(--text2)';
+    return;
+  }
+  if (_compareId2 === id) {
+    _compareId2 = null;
+    btn.style.background = '';
+    btn.style.color = 'var(--text2)';
+    return;
+  }
+  if (!_compareId1) {
+    _compareId1 = id;
+    btn.style.background = 'var(--accent2)';
+    btn.style.color = '#fff';
+    showToast('Выбрана первая версия — выбери вторую для сравнения', 'info');
+  } else {
+    _compareId2 = id;
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    showDiff(_compareId1, _compareId2);
+  }
+}
+
+async function showDiff(id1, id2) {
+  const [r1, r2] = await Promise.all([
+    fetch(`/api/generation/${id1}`).then(x => x.json()),
+    fetch(`/api/generation/${id2}`).then(x => x.json()),
+  ]);
+  if (!r1 || !r2) return;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;background:var(--bg-primary)';
+  modal.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:600;font-size:14px">Сравнение версий — Гл.${r1.chapter_num}</span>
+      <button onclick="this.closest('div[style]').remove();_compareId1=null;_compareId2=null;loadHistory()"
+        style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;overflow:hidden">
+      <div style="display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden">
+        <div style="padding:8px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)">
+          ${r1.created_at?.slice(0,16)} · ${r1.word_count} слов · ${r1.mode?.toUpperCase()}
+        </div>
+        <textarea style="flex:1;padding:16px;font-size:13px;line-height:1.7;background:var(--bg-secondary);border:none;resize:none;color:var(--text);font-family:inherit" readonly>${r1.result_text}</textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:8px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)">
+          ${r2.created_at?.slice(0,16)} · ${r2.word_count} слов · ${r2.mode?.toUpperCase()}
+        </div>
+        <textarea style="flex:1;padding:16px;font-size:13px;line-height:1.7;background:var(--bg-secondary);border:none;resize:none;color:var(--text);font-family:inherit" readonly>${r2.result_text}</textarea>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function loadFromHistory(id) {
+  const r = await fetch(`/api/generation/${id}`).then(x => x.json()).catch(() => null);
+  if (!r) return;
+
+  lastGeneratedText = r.result_text;
+  lastChapterNum = r.chapter_num;
+
+  // Временно отключаем сохранение в localStorage чтобы данные из истории
+  // не перезаписывали то что пользователь вводил сам
+  window._pauseLocalStorageSave = true;
+
+  document.getElementById('gen-chapter').value = r.chapter_num;
+  document.getElementById('gen-task').value = r.task || '';
+  if (r.mode) {
+    const radio = document.querySelector(`input[name="gen-mode"][value="${r.mode}"]`);
+    if (radio) radio.checked = true;
+  }
+  if (r.model) {
+    const sel = document.getElementById('gen-model');
+    if (sel) {
+      // Ищем опцию с этим значением
+      const opt = Array.from(sel.options).find(o => o.value === r.model);
+      if (opt) sel.value = r.model;
+    }
+  }
+
+  window._pauseLocalStorageSave = false;
+
+  document.getElementById('result-output').value = r.result_text;
+  document.getElementById('result-chapter-num').textContent = r.chapter_num;
+  const words = r.result_text.trim().split(/\s+/).length;
+  document.getElementById('result-words').textContent = words + ' слов';
+  document.getElementById('result-block').style.display = 'block';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('btn-save').textContent = '💾 Сохранить как главу';
+
+  showToast('Загружено из истории', 'info');
+}
+
+// ─── Пре-валидация ───────────────────────────────────────────────────────────
+
+async function runValidate() {
+  const chapterNum = parseInt(document.getElementById('gen-chapter').value);
+  const model = document.getElementById('gen-model').value;
+  const task = document.getElementById('gen-task').value.trim();
+  if (!task) { showToast('Сначала заполни задачу главы', 'error'); return; }
+
+  const btn = document.getElementById('btn-validate');
+  const spin = document.getElementById('validate-spinner');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+
+  const r = await apiPost('/generate/validate', {
+    chapter_num: chapterNum, task, model
+  });
+
+  btn.disabled = false;
+  spin.style.display = 'none';
+
+  const block = document.getElementById('validation-result');
+
+  if (r.error && !r.blocking) {
+    block.innerHTML = `<div style="font-size:12px;color:var(--text2);">Проверка недоступна: ${r.error}</div>`;
+    block.style.display = 'block';
+    return;
+  }
+
+  if (r.skipped) {
+    block.innerHTML = `<div style="font-size:12px;color:var(--text2);">State Engine пуст — проверка пропущена.</div>`;
+    block.style.display = 'block';
+    return;
+  }
+
+  let html = '';
+
+  if (r.blocking && r.blocking.length) {
+    html += `<div style="background:#7f1d1d33;border:1px solid #991b1b;border-radius:8px;padding:10px 12px;margin-bottom:8px;">`;
+    html += `<div style="font-size:12px;font-weight:700;color:var(--error);margin-bottom:6px;">🚫 Блокирующие проблемы (${r.blocking.length})</div>`;
+    r.blocking.forEach(b => {
+      html += `<div style="margin-bottom:8px;">`;
+      html += `<div style="font-size:12px;font-weight:600;">${b.issue}</div>`;
+      html += `<div style="font-size:11px;color:var(--text2);">${b.detail}</div>`;
+      if (b.fix) html += `<div style="font-size:11px;color:var(--success);margin-top:2px;">→ ${b.fix}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (r.warnings && r.warnings.length) {
+    html += `<div style="background:#78350f33;border:1px solid #92400e;border-radius:8px;padding:10px 12px;margin-bottom:8px;">`;
+    html += `<div style="font-size:12px;font-weight:700;color:var(--warning);margin-bottom:6px;">⚠ Предупреждения (${r.warnings.length})</div>`;
+    r.warnings.forEach(w => {
+      html += `<div style="margin-bottom:6px;">`;
+      html += `<div style="font-size:12px;">${w.issue}</div>`;
+      html += `<div style="font-size:11px;color:var(--text2);">${w.detail}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (r.suggestions && r.suggestions.length) {
+    html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;">`;
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">💡 Можно улучшить</div>`;
+    r.suggestions.forEach(s => {
+      html += `<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">· ${s}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (!r.blocking?.length && !r.warnings?.length) {
+    html = `<div style="background:#14532d33;border:1px solid #166534;border-radius:8px;
+                        padding:10px 12px;font-size:12px;color:var(--success);">
+              ✅ Задача главы прошла проверку — противоречий не найдено.
+            </div>`;
+  }
+
+  block.innerHTML = html;
+  block.style.display = 'block';
+}
+
+// ─── Промпт ──────────────────────────────────────────────────────────────────
+
+async function buildPromptOnly() {
+  const chapterNum = parseInt(document.getElementById('gen-chapter').value);
+  const mode = document.querySelector('input[name="gen-mode"]:checked').value;
+  const result = await apiPost('/prompt/generate', { chapter_num: chapterNum, mode });
+  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+  const task = document.getElementById('gen-task').value.trim();
+  const fullPrompt = task ? result.prompt + '\n\n' + task : result.prompt;
+  document.getElementById('prompt-output').textContent = fullPrompt;
+  document.getElementById('prompt-block').style.display = 'block';
+  document.getElementById('empty-state').style.display = 'none';
+}
+
+// ─── Генерация ────────────────────────────────────────────────────────────────
+
+// ─── Фоновая генерация с polling ─────────────────────────────────────────────
+
+let _pollTimer = null;
+
+function _stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+function _showGenerating() {
+  const btn  = document.getElementById('btn-generate');
+  const spin = document.getElementById('gen-spinner');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+  btn.querySelector('span.btn-label') && (btn.querySelector('span.btn-label').textContent = 'Генерирую…');
+  document.getElementById('api-warning').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('result-block').style.display = 'none';
+}
+
+function _stopGenerating() {
+  const btn  = document.getElementById('btn-generate');
+  const spin = document.getElementById('gen-spinner');
+  btn.disabled = false;
+  spin.style.display = 'none';
+  btn.querySelector('span.btn-label') && (btn.querySelector('span.btn-label').textContent = '✨ Сгенерировать');
+}
+
+function _onGenerationDone(result, chapterNum) {
+  _stopGenerating();
+  sessionStorage.removeItem('gen_job');
+
+  const apiWarn = document.getElementById('api-warning');
+
+  if (result.error) {
+    apiWarn.textContent = '⚠ ' + result.error;
+    apiWarn.style.display = 'block';
+    document.getElementById('empty-state').style.display = 'block';
+    showToast('Ошибка', 'error');
+    return;
+  }
+
+  if (result.warning) {
+    apiWarn.textContent = '⚠ ' + result.warning;
+    apiWarn.style.display = 'block';
+  }
+
+  lastGeneratedText = result.result;
+  lastChapterNum = chapterNum;
+  if (result.gen_id) { lastGenerationId = result.gen_id; }
+
+  document.getElementById('result-output').value = result.result;
+  document.getElementById('result-chapter-num').textContent = chapterNum;
+  const words = result.result.trim().split(/\s+/).length;
+  document.getElementById('result-words').textContent = words + ' слов';
+  document.getElementById('result-block').style.display = 'block';
+  document.getElementById('btn-save').textContent = '💾 Сохранить как главу';
+  document.getElementById('btn-voice-check').style.display = 'inline-flex';
+  document.getElementById('btn-score').style.display = result.gen_id ? 'inline-flex' : 'none';
+  document.getElementById('btn-continue').style.display = 'inline-flex';
+  document.getElementById('voice-check-block').style.display = 'none';
+  document.getElementById('score-block').style.display = 'none';
+
+  loadHistory();
+  showToast('Готово — ' + words + ' слов', 'success');
+}
+
+function _startPolling(jobId, chapterNum) {
+  _stopPolling();
+  _pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/generate/status/' + jobId).then(x => x.json());
+      if (r.status === 'done' || r.status === 'error') {
+        _stopPolling();
+        _onGenerationDone(r, chapterNum);
+      } else if (r.status === 'not_found') {
+        // Сервер перезапустился — задача потеряна
+        _stopPolling();
+        sessionStorage.removeItem('gen_job');
+        _stopGenerating();
+        showToast('Задача потеряна после перезапуска сервера — запусти генерацию заново', 'error', 6000);
+      }
+      // status === 'running' — продолжаем ждать
+    } catch(e) {
+      // сеть временно недоступна — продолжаем polling
+    }
+  }, 2000);
+}
+
+async function runGenerate() {
+  const chapterNum = parseInt(document.getElementById('gen-chapter').value);
+  const mode  = document.querySelector('input[name="gen-mode"]:checked').value;
+  const model = document.getElementById('gen-model').value;
+  const task  = document.getElementById('gen-task').value.trim();
+
+  if (!task) { showToast('Заполни задачу главы', 'error'); return; }
+
+  _showGenerating();
+
+  const r = await apiPost('/generate/run', { chapter_num: chapterNum, mode, model, task });
+
+  if (r.error) {
+    _stopGenerating();
+    const apiWarn = document.getElementById('api-warning');
+    apiWarn.textContent = '⚠ ' + r.error;
+    apiWarn.style.display = 'block';
+    document.getElementById('empty-state').style.display = 'block';
+    showToast('Ошибка', 'error');
+    return;
+  }
+
+  // Сохраняем job в sessionStorage — если уйти и вернуться, polling восстановится
+  sessionStorage.setItem('gen_job', JSON.stringify({ jobId: r.job_id, chapterNum }));
+  _startPolling(r.job_id, chapterNum);
+}
+
+// При загрузке страницы: восстановить результат и/или возобновить polling
+(function() {
+  // Сначала восстанавливаем последний результат
+  _restoreResultFromSession();
+
+  // Потом проверяем незавершённую задачу
+  const saved = sessionStorage.getItem('gen_job');
+  if (!saved) return;
+  try {
+    const { jobId, chapterNum } = JSON.parse(saved);
+    if (!jobId) return;
+    fetch('/generate/status/' + jobId).then(x => x.json()).then(r => {
+      if (r.status === 'done' || r.status === 'error') {
+        _onGenerationDone(r, chapterNum);
+      } else if (r.status === 'running') {
+        _showGenerating();
+        showToast('Генерация продолжается…', 'info');
+        _startPolling(jobId, chapterNum);
+      } else {
+        sessionStorage.removeItem('gen_job');
+      }
+    }).catch(() => sessionStorage.removeItem('gen_job'));
+  } catch(e) {
+    sessionStorage.removeItem('gen_job');
+  }
+})();
+
+async function checkVoice() {
+  const text = document.getElementById('result-output').value.trim();
+  const model = document.getElementById('gen-model').value;
+  if (!text) return;
+
+  const btn = document.getElementById('btn-voice-check');
+  const spin = document.getElementById('voice-check-spinner');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+  document.getElementById('voice-check-block').style.display = 'block';
+  document.getElementById('voice-check-result').textContent = 'Проверяю...';
+
+  const r = await apiPost('/voice/check', { text, model });
+
+  btn.disabled = false;
+  spin.style.display = 'none';
+
+  if (r.error) {
+    document.getElementById('voice-check-result').textContent = r.error;
+    return;
+  }
+
+  const score = r.score;
+  const scoreEl = document.getElementById('voice-check-score');
+  scoreEl.textContent = score ? score + '/10' : '';
+  scoreEl.style.color = score >= 8 ? 'var(--success)' : score >= 6 ? 'var(--warning)' : 'var(--error)';
+  document.getElementById('voice-check-name').textContent = r.voice_name || '';
+  document.getElementById('voice-check-result').textContent = r.analysis;
+}
+
+// ─── Сохранение ──────────────────────────────────────────────────────────────
+
+async function saveAsChapter() {
+  const text = document.getElementById('result-output').value;
+  const model = document.getElementById('gen-model')?.value || '';
+  const result = await apiPost('/generate/save', { chapter_num: lastChapterNum, text, model });
+  if (result.ok) {
+    showToast('Глава ' + lastChapterNum + ' сохранена', 'success');
+    document.getElementById('btn-save').textContent = '✓ Сохранено';
+    if (result.drift_warning) {
+      showToast('⚠ ' + result.drift_warning, 'warning', 8000);
+    }
+  } else {
+    showToast('Ошибка: ' + result.error, 'error');
+  }
+}
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  const text = el.tagName === 'TEXTAREA' ? el.value : el.textContent;
+  if (!text.trim()) { showToast('Нечего копировать', 'warning'); return; }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => showToast('Скопировано', 'success'))
+      .catch(() => copyFallback(text));
+  } else {
+    copyFallback(text);
+  }
+}
+
+function copyFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Скопировано', 'success');
+  } catch {
+    showToast('Не удалось скопировать — выдели текст вручную', 'error');
+  }
+  document.body.removeChild(ta);
+}
+
+// ─── Инициализация ────────────────────────────────────────────────────────────
+
+async function scoreGeneration() {
+  if (!lastGenerationId) { showToast('Сначала сохрани главу или сгенерируй текст', 'warning'); return; }
+
+  document.getElementById('score-block').style.display = 'block';
+  document.getElementById('score-spinner').style.display = 'inline-block';
+  document.getElementById('score-total').textContent = '';
+  document.getElementById('score-axes').textContent = '';
+  document.getElementById('score-verdict').textContent = '';
+  document.getElementById('score-issue').textContent = '';
+
+  const r = await fetch(`/api/generation/${lastGenerationId}/score`, {method:'POST'})
+    .then(x => x.json()).catch(() => ({error: 'Ошибка сети'}));
+
+  document.getElementById('score-spinner').style.display = 'none';
+
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+
+  const s = r.score;
+  // total теперь 0-50 (5 критериев × 10)
+  const total = s.total || 0;
+  const color = total >= 40 ? 'var(--success)' : total >= 30 ? 'var(--accent2)' : 'var(--error)';
+  document.getElementById('score-total').textContent = total + '/50';
+  document.getElementById('score-total').style.color = color;
+
+  // Новые ключи: voice, structure, characters, scenes, dialog
+  // Обратная совместимость со старыми записями: literary_quality и др.
+  const axes = [
+    ['Голос',       s.voice      ?? s.literary_quality ?? '—'],
+    ['Структура',   s.structure  ?? s.voice_genre      ?? '—'],
+    ['Персонажи',   s.characters ?? s.commercial       ?? '—'],
+    ['Сцены',       s.scenes     ?? s.scene_health      ?? '—'],
+    ['Диалог',      s.dialog     ?? '—'],
+  ];
+  document.getElementById('score-axes').innerHTML = axes
+    .map(([name, val]) => `<span><b>${val}</b> ${name}</span>`)
+    .join('');
+
+  if (s.verdict) document.getElementById('score-verdict').textContent = '→ ' + s.verdict;
+  if (s.main_issue) document.getElementById('score-issue').textContent = '⚠ ' + s.main_issue;
+  // Ритм предложений (R05)
+  if (s.rhythm && s.rhythm.hint) {
+    const issueEl = document.getElementById('score-issue');
+    if (issueEl) issueEl.textContent += '  |  ' + s.rhythm.hint;
+  }
+}
+
+checkPrepSize();
+loadEngineModules();
+loadHistory();
+
+// ─── Ассистент промта ─────────────────────────────────────────────────────────
+
+let _assistPromptText = '';
+
+async function assistPrompt() {
+  const chNum = parseInt(document.getElementById('prompt-chapter-num').value || '0');
+  if (!chNum) { showToast('Укажи номер главы', 'error'); return; }
+
+  const statusEl = document.getElementById('prompt-assist-status');
+  const panelEl  = document.getElementById('prompt-assist-panel');
+  const textEl   = document.getElementById('prompt-assist-text');
+
+  statusEl.textContent = '⏳ Собираю контекст...';
+  panelEl.style.display = 'none';
+
+  const r = await apiPost('/api/prompt-assist', { chapter_num: chNum });
+
+  if (r.error) {
+    statusEl.textContent = '❌ ' + r.error;
+    showToast(r.error, 'error');
+    return;
+  }
+
+  _assistPromptText = r.prompt;
+  textEl.textContent = r.prompt;
+  panelEl.style.display = 'block';
+  statusEl.textContent = '';
+  panelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function useAssistPrompt() {
+  if (!_assistPromptText) return;
+  document.getElementById('gen-task').value = _assistPromptText;
+  document.getElementById('prompt-assist-panel').style.display = 'none';
+  showToast('Промт вставлен — отредактируй перед запуском', 'info');
+}
+
+// ─── Продолжение главы ────────────────────────────────────────────────────────
+async function setContinue() {
+  const text = document.getElementById('result-output').value.trim();
+  if (!text) { showToast('Нет текста для продолжения', 'error'); return; }
+
+  // Берём последние ~400 слов
+  const words = text.split(/\s+/);
+  const tail  = words.slice(-400).join(' ');
+  const chapterNum = lastChapterNum || parseInt(document.getElementById('gen-chapter').value);
+
+  const note = `⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ — СТРОГИЕ ИНСТРУКЦИИ ДЛЯ ВСЕХ ЭТАПОВ\n\n` +
+               `ДЛЯ ГЕНЕРАТОРА:\n` +
+               `- Это вторая часть главы. Первая уже написана и сохранена.\n` +
+               `- Начинай СТРОГО с того места где обрывается текст ниже.\n` +
+               `- Не повторяй уже написанное. Не вводи персонажей заново.\n` +
+               `- Доведи главу до финала: 1500-1700 слов, полный финал с крюком.\n\n` +
+               `ДЛЯ КРИТИКА И СУДЬИ:\n` +
+               `- Это ВТОРАЯ ЧАСТЬ главы, не самостоятельный текст.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за отсутствие экспозиции, знакомства с персонажами или завязки — их нет намеренно.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за резкое начало — текст начинается с середины действия намеренно.\n` +
+               `- Оценивай: органичность продолжения, качество финала, ритм, диалог, финальный крюк.\n` +
+               `- СТРУКТУРА считается нормой если вторая часть имеет нарастание и финал.\n\n` +
+               `КОНЕЦ ПЕРВОЙ ЧАСТИ (последние абзацы):\n\n${tail}\n\n` +
+               `Продолжай отсюда.`;
+
+  const r = await apiPost(`/api/director_note/${chapterNum}/save`, { note });
+  if (r.ok) {
+    showToast(`✂️ Сохранено. Запусти генерацию главы ${chapterNum} снова — FE продолжит с этого места.`);
+    // Обновить блок director note на странице
+    loadDirectorNote(chapterNum);
+  } else {
+    showToast(r.error || 'Ошибка', 'error');
+  }
+}
+
+// ─── Склейка частей главы ─────────────────────────────────────────────────────
+async function mergeWithPrev() {
+  const currentText = document.getElementById('result-output').value.trim();
+  if (!currentText) { showToast('Нет текста для склейки', 'error'); return; }
+
+  const chapterNum = lastChapterNum || parseInt(document.getElementById('gen-chapter').value);
+
+  // Пробуем найти предыдущую сохранённую часть этой же главы
+  const r = await fetch(`/api/chapter/${chapterNum}/text`).then(x=>x.json()).catch(()=>null);
+
+  if (!r || !r.text) {
+    showToast('Нет сохранённой первой части. Сначала сохрани первую часть как главу.', 'error');
+    return;
+  }
+
+  // Склеиваем: сохранённая часть + текущий результат
+  const merged = r.text.trimEnd() + '\n\n' + currentText;
+  document.getElementById('result-output').value = merged;
+
+  // Обновляем счётчик слов
+  const words = merged.trim().split(/\s+/).length;
+  const wordEl = document.getElementById('result-words');
+  if (wordEl) wordEl.textContent = words + ' слов';
+
+  showToast(`🔗 Склеено. Итого ~${words} слов. Теперь можно оценить полную главу.`);
+
+  // Скрываем кнопку склейки чтобы не склеивать дважды
+  document.getElementById('btn-merge').style.display = 'none';
+}
+</script>
+{% endblock %}

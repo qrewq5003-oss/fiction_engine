@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">⚡ Pipeline</div>
+  <div class="page-sub">Генерация → Критика → Редактура → Оценка → Твоё решение</div>
+</div>
+
+<!-- ── Настройка нового pipeline ── -->
+<div class="card" id="setup-card">
+  <div class="card-title">Новый запуск</div>
+
+  <div class="grid-2">
+    <div class="form-group">
+      <label>Глава</label>
+      <input type="number" id="pl-chapter" min="1"
+             value="{{ (chapters[-1].number + 1) if chapters else 1 }}"
+             style="max-width:100px;">
+    </div>
+  </div>
+
+  <!-- Выбор моделей -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+    <div class="form-group">
+      <label>🖊 Генератор <span style="color:var(--text2);font-size:10px;">пишет главу</span></label>
+      <select id="pl-model-gen" class="key-input" style="background:var(--surface2);">
+        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>🔍 Критик <span style="color:var(--text2);font-size:10px;">находит проблемы</span></label>
+      <select id="pl-model-critic" class="key-input" style="background:var(--surface2);">
+        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>✏️ Редактор <span style="color:var(--text2);font-size:10px;">исправляет по критике</span></label>
+      <select id="pl-model-editor" class="key-input" style="background:var(--surface2);">
+        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>⚖️ Судья <span style="color:var(--text2);font-size:10px;">финальная оценка</span></label>
+      <select id="pl-model-judge" class="key-input" style="background:var(--surface2);">
+        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Промпт для генератора <span style="color:var(--text2);font-size:10px;">задача главы, сцены, тональность</span></label>
+    <textarea id="pl-prompt" rows="8"
+              placeholder="Напиши главу 5.
+
+ЗАДАЧА: Кира узнаёт что наставник знал о предательстве с самого начала.
+
+СЦЕНЫ:
+1. Разговор в библиотеке — Кира находит письмо
+2. Столкновение — наставник не отрицает
+
+ТОНАЛЬНОСТЬ: холодная, сдержанная
+ЗАКАНЧИВАЕТСЯ НА: открытый вопрос — кому ещё можно доверять
+
+Объём: 1500-2000 слов."></textarea>
+  </div>
+
+  <button class="btn btn-primary" id="btn-start" onclick="startPipeline()">
+    <span id="start-spinner" class="spinner" style="display:none;"></span>
+    ⚡ Запустить pipeline
+  </button>
+
+</div>
+
+<!-- ── Активный pipeline ── -->
+<div id="pipeline-active" style="display:none;">
+
+  <!-- Прогресс -->
+  <div class="card" id="progress-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="card-title" style="margin:0;">
+        Итерация <span id="iter-num">1</span>
+        <span id="iter-verdict" style="font-size:12px;margin-left:8px;"></span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);" id="iter-scores"></div>
+      <div id="drift-banner" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid #92400e;background:#431407;color:#fbbf24;"></div>
+    </div>
+
+    <!-- Степ-индикатор -->
+    <div style="display:flex;gap:0;margin-bottom:20px;">
+      {% for step, label in [('gen','Генерация'),('critique','Критика'),('judge','Оценка')] %}
+      <div class="step-indicator" id="step-{{ step }}">
+        <div class="step-dot"></div>
+        <div class="step-label">{{ label }}</div>
+      </div>
+      {% if not loop.last %}
+      <div class="step-line"></div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Спиннер текущего шага -->
+    <div id="step-status" style="color:var(--text2);font-size:13px;display:flex;align-items:center;gap:8px;">
+      <span class="spinner"></span> <span id="step-status-text">Запускаю...</span>
+    </div>
+  </div>
+
+  <!-- Результаты итерации -->
+  <div id="iteration-results" style="display:none;">
+
+    <!-- Текст главы -->
+    <div class="card">
+      <div class="card-title">
+        📄 Текст главы
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto;"
+                onclick="copyToClipboard(document.getElementById('result-text').textContent)">
+          📋 Копировать
+        </button>
+        <button class="btn btn-secondary btn-sm" id="pl-btn-continue" onclick="plSetContinue()"
+                style="display:none;" title="Сохранить хвост текста для продолжения">
+          ✂️ Продолжить
+        </button>
+        <button class="btn btn-secondary btn-sm" id="pl-btn-merge" onclick="plMergeWithPrev()"
+                style="display:none;" title="Склеить с предыдущей частью для полной оценки">
+          🔗 Склеить
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-continue-pipeline" onclick="continuePipeline()"
+                style="display:none;" title="Сгенерировать продолжение прямо здесь">
+          ▶️ Продолжить главу
+        </button>
+      </div>
+      <div id="result-text"
+           style="white-space:pre-wrap;font-family:'Georgia',serif;font-size:14px;
+                  line-height:1.8;max-height:500px;overflow-y:auto;
+                  border:1px solid var(--border);border-radius:8px;padding:16px;
+                  background:var(--surface2);"></div>
+    </div>
+
+    <!-- Критика -->
+    <div class="card" style="border-color:#92400e33;">
+      <div class="card-title" style="color:var(--warning);">🔍 Критика</div>
+      <div id="result-critique" class="text-mono" style="color:var(--text);"></div>
+    </div>
+
+    <!-- Оценка судьи -->
+    <div class="card" id="judge-card">
+      <div class="card-title">⚖️ Финальная оценка</div>
+
+      <!-- Баллы -->
+      <div id="score-bars" style="margin-bottom:16px;"></div>
+
+      <div id="result-judgment" class="text-mono" style="color:var(--text);"></div>
+    </div>
+
+    <!-- Решение -->
+    <div class="card" style="border-color:var(--accent);">
+      <div class="card-title">Твоё решение</div>
+
+      <!-- Редактирование промпта перед следующей итерацией -->
+      <div id="prompt-edit-block" style="margin-bottom:16px;">
+        <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="edit-prompt-toggle" onchange="togglePromptEdit()" style="width:auto;">
+          Изменить промпт для следующей итерации
+        </label>
+        <div id="prompt-edit-area" style="display:none;margin-top:10px;">
+          <textarea id="pl-prompt-edit" rows="5"
+                    style="font-size:13px;font-family:inherit;"
+                    placeholder="Скорректируй задачу главы перед следующим кругом..."></textarea>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+            Оставь пустым чтобы использовать оригинальный промпт.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="acceptResult()" style="flex:1;justify-content:center;">
+          ✅ Принять главу
+        </button>
+        <button class="btn btn-primary" onclick="nextIteration()" style="flex:1;justify-content:center;">
+          🔄 Ещё круг редактуры
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="rejectResult()">
+          ✕ Отклонить
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── История runs ── -->
+{% if runs %}
+<div class="card" style="margin-top:24px;">
+  <div class="card-title" style="justify-content:space-between;">
+    <span>История запусков</span>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-secondary btn-sm" onclick="cleanupRunning()" style="font-size:11px;">
+        🧹 Зависшие
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="deleteHistory()"
+              style="font-size:11px;color:var(--error);border-color:var(--error);">
+        🗑 Удалить всё
+      </button>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    {% for r in runs %}
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;
+                background:var(--surface2);border-radius:8px;font-size:12px;">
+      <span style="color:var(--text2);">Гл.{{ r.chapter_num }}</span>
+      <span style="flex:1;color:var(--text);">{{ r.created_at[:16] }}</span>
+      <span style="color:var(--text2);">{{ r.iterations or 0 }} итер.</span>
+      <span style="padding:2px 8px;border-radius:20px;font-size:10px;
+            {% if r.status == 'accepted' %}background:#14532d33;color:var(--success);border:1px solid #166534;
+            {% elif r.status == 'rejected' %}background:#7f1d1d33;color:var(--error);border:1px solid #991b1b;
+            {% else %}background:var(--surface);color:var(--text2);border:1px solid var(--border);{% endif %}">
+        {{ r.status }}
+      </span>
+      {% if r.iterations and r.iterations > 1 %}
+      <a href="/pipeline/{{ r.id }}/compare" class="btn btn-secondary btn-sm">🔍 Сравнить</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<style>
+.step-indicator {
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.step-dot {
+  width:12px;height:12px;border-radius:50%;
+  background:var(--border);border:2px solid var(--border);
+  transition:all .3s;
+}
+.step-dot.active { background:var(--accent);border-color:var(--accent); }
+.step-dot.done   { background:var(--success);border-color:var(--success); }
+.step-label { font-size:10px;color:var(--text2); }
+.step-line {
+  flex:1;height:2px;background:var(--border);
+  margin-top:5px;align-self:flex-start;
+}
+.score-bar-row { display:flex;align-items:center;gap:10px;margin-bottom:8px; }
+.score-bar-label { font-size:12px;color:var(--text2);min-width:90px; }
+.score-bar-track {
+  flex:1;height:6px;background:var(--surface2);
+  border-radius:3px;overflow:hidden;
+}
+.score-bar-fill {
+  height:100%;border-radius:3px;transition:width .5s ease;
+}
+.score-bar-value { font-size:12px;font-weight:700;min-width:30px;text-align:right; }
+.key-input {
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:8px 12px;
+  font-size:12px;font-family:inherit;outline:none;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let state = {
+  runId: null,
+  chapterNum: null,
+  prompt: null,
+  currentText: null,
+  currentCritique: null,
+  iteration: 0,
+};
+
+// Восстановить сохранённые модели
+function initModelSelects() {
+  ['gen','critic','editor','judge'].forEach(role => {
+    const saved = localStorage.getItem(`pl_model_${role}`);
+    const sel = document.getElementById(`pl-model-${role}`);
+    if (saved && sel) {
+      for (let o of sel.options) {
+        if (o.value === saved) { sel.value = saved; break; }
+      }
+    }
+    sel?.addEventListener('change', () => {
+      localStorage.setItem(`pl_model_${role}`, sel.value);
+    });
+  });
+}
+
+function setStep(step) {
+  // step: 'gen' | 'critique' | 'judge' | 'done'
+  const order = ['gen','critique','judge'];
+  const idx = order.indexOf(step);
+  order.forEach((s, i) => {
+    const dot = document.querySelector(`#step-${s} .step-dot`);
+    if (!dot) return;
+    if (i < idx)       { dot.className = 'step-dot done'; }
+    else if (i === idx) { dot.className = 'step-dot active'; }
+    else               { dot.className = 'step-dot'; }
+  });
+}
+
+function setStatus(text) {
+  document.getElementById('step-status-text').textContent = text;
+}
+
+function renderScoreBars(judgeText) {
+  const criteria = ['ГОЛОС','СТРУКТУРА','ПЕРСОНАЖИ','СЦЕНЫ','ДИАЛОГ'];
+  const colors = ['#7c6af7','#a78bfa','#4ade80','#fbbf24','#60a5fa'];
+  let html = '';
+  criteria.forEach((c, i) => {
+    const m = judgeText.match(new RegExp(c + ':\\s*(\\d+)'));
+    const score = m ? parseInt(m[1]) : 0;
+    const pct = score * 10;
+    const color = score >= 8 ? '#4ade80' : score >= 6 ? '#fbbf24' : '#f87171';
+    html += `<div class="score-bar-row">
+      <span class="score-bar-label">${c}</span>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" style="width:${pct}%;background:${color};"></div>
+      </div>
+      <span class="score-bar-value" style="color:${color};">${score}/10</span>
+    </div>`;
+  });
+  // Итог
+  const total = judgeText.match(/ИТОГ:\s*(\d+)/);
+  if (total) {
+    const t = parseInt(total[1]);
+    const tcolor = t >= 40 ? '#4ade80' : t >= 30 ? '#fbbf24' : '#f87171';
+    html += `<div class="score-bar-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+      <span class="score-bar-label" style="font-weight:700;color:var(--text);">ИТОГО</span>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" style="width:${t*2}%;background:${tcolor};"></div>
+      </div>
+      <span class="score-bar-value" style="color:${tcolor};font-size:14px;">${t}/50</span>
+    </div>`;
+  }
+  document.getElementById('score-bars').innerHTML = html;
+}
+
+function showResults(data) {
+  document.getElementById('step-status').style.display = 'none';
+  document.getElementById('iteration-results').style.display = 'block';
+
+  document.getElementById('result-text').textContent = data.generated_text || '';
+  if (data.generated_text) {
+    document.getElementById('pl-btn-continue').style.display = 'inline-flex';
+    document.getElementById('pl-btn-merge').style.display = 'inline-flex';
+    document.getElementById('btn-continue-pipeline').style.display = 'inline-flex';
+  }
+  document.getElementById('result-critique').textContent = data.critique || '';
+  document.getElementById('result-judgment').textContent = data.judgment || '';
+
+  if (data.judgment) renderScoreBars(data.judgment);
+
+  // Вердикт
+  const verdict = data.verdict || '';
+  const vEl = document.getElementById('iter-verdict');
+  if (verdict === 'ПРИНЯТЬ') {
+    vEl.innerHTML = '<span style="color:var(--success);border:1px solid #166534;border-radius:20px;padding:2px 8px;">ПРИНЯТЬ</span>';
+  } else {
+    vEl.innerHTML = '<span style="color:var(--warning);border:1px solid #92400e;border-radius:20px;padding:2px 8px;">НА ДОРАБОТКУ</span>';
+  }
+
+  const scores = `Критик: ${data.critic_score || 0}/50 · Судья: ${data.judge_score || 0}/50`;
+  document.getElementById('iter-scores').textContent = scores;
+
+  // Дрейф голоса — показываем если пришло предупреждение
+  const driftBanner = document.getElementById('drift-banner');
+  if (data.drift_warning) {
+    const score = data.drift_score ? ` (${data.drift_score}/10)` : '';
+    driftBanner.textContent = '⚠ Голос' + score + ': ' + data.drift_warning;
+    driftBanner.style.display = 'block';
+  } else {
+    driftBanner.style.display = 'none';
+  }
+
+  setStep('done');
+  document.querySelectorAll('.step-dot').forEach(d => d.className = 'step-dot done');
+}
+
+async function startPipeline() {
+  const chapter = parseInt(document.getElementById('pl-chapter').value);
+  const prompt  = document.getElementById('pl-prompt').value.trim();
+  const modelGen    = document.getElementById('pl-model-gen').value;
+  const modelCritic = document.getElementById('pl-model-critic').value;
+  const modelEditor = document.getElementById('pl-model-editor').value;
+  const modelJudge  = document.getElementById('pl-model-judge').value;
+
+  if (!chapter || !prompt) {
+    showToast('Заполни номер главы и промпт', 'error'); return;
+  }
+
+  state.chapterNum = chapter;
+  state.prompt = prompt;
+  state.iteration = 1;
+
+  document.getElementById('setup-card').style.display = 'none';
+  document.getElementById('pipeline-active').style.display = 'block';
+  document.getElementById('iteration-results').style.display = 'none';
+  document.getElementById('step-status').style.display = 'flex';
+  document.getElementById('iter-num').textContent = '1';
+
+  setStep('gen'); setStatus('Генерирую текст главы...');
+
+  const result = await apiPost('/pipeline/start', {
+    chapter_num: chapter,
+    generation_prompt: prompt,
+    model_gen: modelGen,
+    model_critic: modelCritic,
+    model_editor: modelEditor,
+    model_judge: modelJudge,
+  });
+
+  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+
+  state.runId = result.run_id;
+  state.currentText = result.generated_text;
+  state.currentCritique = result.critique;
+
+  showResults(result);
+}
+
+function togglePromptEdit() {
+  const checked = document.getElementById('edit-prompt-toggle').checked;
+  const area = document.getElementById('prompt-edit-area');
+  area.style.display = checked ? 'block' : 'none';
+  if (checked) {
+    document.getElementById('pl-prompt-edit').value = state.prompt;
+    document.getElementById('pl-prompt-edit').focus();
+  }
+}
+
+async function nextIteration() {
+  state.iteration += 1;
+  document.getElementById('iter-num').textContent = state.iteration;
+  document.getElementById('iteration-results').style.display = 'none';
+  document.getElementById('step-status').style.display = 'flex';
+
+  // Использовать отредактированный промпт если есть
+  const editedPrompt = document.getElementById('pl-prompt-edit').value.trim();
+  if (editedPrompt) {
+    state.prompt = editedPrompt;
+  }
+  // Сбросить форму редактирования
+  document.getElementById('edit-prompt-toggle').checked = false;
+  document.getElementById('prompt-edit-area').style.display = 'none';
+
+  document.querySelectorAll('.step-dot').forEach(d => d.className = 'step-dot');
+  setStep('gen'); setStatus('Отправляю на редактуру...');
+
+  const result = await apiPost('/pipeline/continue', {
+    run_id: state.runId,
+    chapter_num: state.chapterNum,
+    generation_prompt: state.prompt,
+    previous_text: state.currentText,
+    previous_critique: state.currentCritique,
+  });
+
+  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+
+  state.currentText = result.generated_text;
+  state.currentCritique = result.critique;
+
+  showResults(result);
+}
+
+async function acceptResult() {
+  const modelGen = document.getElementById('pl-model-gen').value;
+  const r = await apiPost('/pipeline/accept', {
+    run_id: state.runId,
+    chapter_num: state.chapterNum,
+    final_text: state.currentText,
+    model_value: modelGen,
+  });
+  if (r.state_updated) {
+    showToast('Глава принята. State Engine обновлён автоматически ✓', 'success');
+  } else {
+    showToast('Глава принята и сохранена', 'success');
+  }
+  setTimeout(() => location.reload(), 2000);
+}
+
+async function rejectResult() {
+  if (!confirm('Отклонить этот pipeline и начать заново?')) return;
+  await apiPost('/pipeline/reject', { run_id: state.runId });
+  location.reload();
+}
+
+
+// ─── Сохранение состояния ────────────────────────────────────────────────────
+const PL_IDS = ['pl-prompt', 'iteration-results', 'result-text', 'result-critique', 'result-judgment', 'pl-prompt-edit'];
+
+window.addEventListener('pagehide', () => PageState.save('pipeline', PL_IDS));
+window.addEventListener('beforeunload', () => PageState.save('pipeline', PL_IDS));
+
+async function cleanupRunning() {
+  const r = await apiPost('/pipeline/cleanup', {});
+  if (r.ok) {
+    showToast(`Сброшено ${r.cleaned} зависших запусков`, 'success');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast('Ошибка: ' + r.error, 'error');
+  }
+}
+
+async function deleteHistory() {
+  if (!confirm('Удалить всю историю pipeline? Это действие нельзя отменить.')) return;
+  const r = await apiPost('/pipeline/delete-history', {});
+  if (r.ok) {
+    showToast('История удалена', 'success');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast('Ошибка: ' + r.error, 'error');
+  }
+}
+
+(function() {
+  PageState.restore('pipeline', PL_IDS);
+})();
+
+initModelSelects();
+
+// ─── Продолжение и склейка для Pipeline ──────────────────────────────────────
+async function plSetContinue() {
+  const text = document.getElementById('result-text').textContent.trim();
+  if (!text) { alert('Нет текста'); return; }
+
+  const words = text.split(/\s+/);
+  const tail  = words.slice(-400).join(' ');
+  const chapterNum = state.chapterNum;
+
+  const note = `⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ — СТРОГИЕ ИНСТРУКЦИИ ДЛЯ ВСЕХ ЭТАПОВ\n\n` +
+               `ДЛЯ ГЕНЕРАТОРА:\n` +
+               `- Это вторая часть главы. Первая уже написана и сохранена.\n` +
+               `- Начинай СТРОГО с того места где обрывается текст ниже.\n` +
+               `- Не повторяй уже написанное. Не вводи персонажей заново.\n` +
+               `- Доведи главу до финала: 1500-1700 слов, полный финал с крюком.\n\n` +
+               `ДЛЯ КРИТИКА И СУДЬИ:\n` +
+               `- Это ВТОРАЯ ЧАСТЬ главы, не самостоятельный текст.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за отсутствие экспозиции, знакомства с персонажами или завязки.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за резкое начало.\n` +
+               `- Оценивай: органичность продолжения, качество финала, ритм, диалог, финальный крюк.\n\n` +
+               `КОНЕЦ ПЕРВОЙ ЧАСТИ:\n\n${tail}\n\nПродолжай отсюда.`;
+
+  const r = await fetch(`/api/director_note/${chapterNum}/save`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ note })
+  }).then(x=>x.json()).catch(()=>null);
+
+  if (r && r.ok) {
+    alert(`✂️ Сохранено. Запусти Pipeline для главы ${chapterNum} снова — продолжит с этого места.`);
+  } else {
+    alert('Ошибка сохранения');
+  }
+}
+
+async function plMergeWithPrev() {
+  const currentText = document.getElementById('result-text').textContent.trim();
+  if (!currentText) { alert('Нет текста'); return; }
+
+  const chapterNum = state.chapterNum;
+  const r = await fetch(`/api/chapter/${chapterNum}/text`).then(x=>x.json()).catch(()=>null);
+
+  if (!r || !r.text) {
+    alert('Нет сохранённой первой части. Сначала сохрани первую часть.');
+    return;
+  }
+
+  const merged = r.text.trimEnd() + '\n\n' + currentText;
+  document.getElementById('result-text').textContent = merged;
+  document.getElementById('pl-btn-merge').style.display = 'none';
+  const words = merged.trim().split(/\s+/).length;
+  alert(`🔗 Склеено. Итого ~${words} слов. Теперь можно сохранить как главу.`);
+}
+
+// ─── Продолжение главы без перезапуска ───────────────────────────────────────
+async function continuePipeline() {
+  const text = document.getElementById('result-text').textContent.trim();
+  if (!text) { showToast('Нет текста для продолжения', 'error'); return; }
+
+  const chapterNum = state.chapterNum;
+  if (!chapterNum) { showToast('Нет номера главы', 'error'); return; }
+
+  // Сохраняем хвост в director_note
+  const words = text.split(/\s+/);
+  const tail  = words.slice(-400).join(' ');
+
+  const note = `⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ — СТРОГИЕ ИНСТРУКЦИИ ДЛЯ ВСЕХ ЭТАПОВ\n\n` +
+               `ДЛЯ ГЕНЕРАТОРА:\n` +
+               `- Это вторая часть главы. Первая уже написана и сохранена.\n` +
+               `- Начинай СТРОГО с того места где обрывается текст ниже.\n` +
+               `- Не повторяй уже написанное. Не вводи персонажей заново.\n` +
+               `- Доведи главу до финала: 1500-1700 слов, полный финал с крюком.\n\n` +
+               `ДЛЯ КРИТИКА И СУДЬИ:\n` +
+               `- Это ВТОРАЯ ЧАСТЬ главы, не самостоятельный текст.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за отсутствие экспозиции и завязки.\n` +
+               `- ЗАПРЕЩЕНО снижать оценку за резкое начало.\n` +
+               `- Оценивай: органичность продолжения, качество финала, ритм, крюк.\n\n` +
+               `КОНЕЦ ПЕРВОЙ ЧАСТИ:\n\n${tail}\n\nПродолжай отсюда.`;
+
+  const saveR = await fetch(`/api/director_note/${chapterNum}/save`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ note })
+  }).then(x=>x.json()).catch(()=>null);
+
+  if (!saveR || !saveR.ok) {
+    showToast('Ошибка сохранения заметки', 'error'); return;
+  }
+
+  // Запускаем pipeline с теми же параметрами
+  const modelGen    = document.getElementById('pl-model-gen').value;
+  const modelCritic = document.getElementById('pl-model-critic').value;
+  const modelEditor = document.getElementById('pl-model-editor').value;
+  const modelJudge  = document.getElementById('pl-model-judge').value;
+  const prompt      = state.prompt;
+
+  state.iteration += 1;
+
+  document.getElementById('iteration-results').style.display = 'none';
+  document.getElementById('step-status').style.display = 'flex';
+  document.getElementById('iter-num').textContent = state.iteration;
+  document.getElementById('pl-btn-continue').style.display = 'none';
+  document.getElementById('pl-btn-merge').style.display = 'none';
+  document.getElementById('btn-continue-pipeline').style.display = 'none';
+
+  setStep('gen'); setStatus('Генерирую продолжение главы...');
+
+  // Меняем задачу — модель должна продолжить, а не начать заново
+  const continuePrompt = `ПРОДОЛЖЕНИЕ ГЛАВЫ ${chapterNum}. НЕ НАЧИНАЙ ЗАНОВО.
+Первая часть уже написана. Продолжи строго с того места где обрывается текст в director_note.
+Не повторяй уже написанное. Не вводи персонажей заново.
+Доведи главу до финала: 1500-1700 слов, полный финал с крюком.
+${prompt}`;
+
+  // Последние 250 слов как prefill — модель физически продолжает с этого места
+  const allWords = text.split(/\s+/);
+  const prefillText = allWords.slice(-250).join(' ');
+
+  const result = await apiPost('/pipeline/start', {
+    chapter_num: chapterNum,
+    generation_prompt: continuePrompt,
+    model_gen: modelGen,
+    model_critic: modelCritic,
+    model_editor: modelEditor,
+    model_judge: modelJudge,
+    prefill: prefillText,
+  });
+
+  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+
+  state.runId = result.run_id;
+  state.currentText = result.generated_text;
+  state.currentCritique = result.critique;
+
+  document.getElementById('result-text').textContent = result.generated_text || '';
+  document.getElementById('result-critique').textContent = result.critique || '';
+
+  document.getElementById('pl-btn-continue').style.display = 'inline-flex';
+  document.getElementById('pl-btn-merge').style.display = 'inline-flex';
+  document.getElementById('btn-continue-pipeline').style.display = 'inline-flex';
+
+  setStep('judge'); setStatus('');
+  document.getElementById('step-status').style.display = 'none';
+  document.getElementById('iteration-results').style.display = 'block';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+# META_RULES v3.0 - Правила валидации текста
+
+meta:
+  version: "3.0.0"
+  priority: 1  # Highest priority in conflict resolution
+  description: "Базовые правила стиля и структуры для литературного движка"
+
+hard_rules:
+  # Непереопределяемые правила
+  
+  R01_em_dash:
+    rule: "Эм-дэш (—) только в диалогах прямой речи"
+    priority: "HARD"
+    validation: "block"
+    examples:
+      good: "— Привет, — сказал он."
+      bad: "\"Привет\" - сказал он."
+    
+  R03_atmospheric_details:
+    rule: "1-2 уникальные НЕканоничные сенсорные детали на атмосферную сцену"
+    priority: "HARD"
+    validation: "block"
+    note: "Детали должны быть конкретными, избегать клише"
+    
+  R06_scene_changes_status:
+    rule: "Каждая сцена меняет знание/отношения/мир/цель персонажа"
+    priority: "HARD"
+    validation: "block"
+    note: "Если сцену можно вырезать без ущерба сюжету — она не нужна"
+
+soft_rules:
+  # Рекомендации, могут переопределяться
+
+  R02_chapter_length:
+    rule: "Длина главы 1500-1700 слов (±10%)"
+    priority: "SOFT"
+    validation: "warning"
+    flexibility: "Можно переопределить в project/config.json"
+    
+  R04_phrase_repetition:
+    rule: "Фраза не повторяется >3 раз в главе"
+    priority: "SOFT"
+    validation: "warning"
+    
+  R05_sentence_distribution:
+    rule: "Распределение предложений: короткие 30% / средние 50% / длинные 20%"
+    priority: "SOFT"
+    validation: "warning"
+    note: "Короткие <8 слов, средние 8-20, длинные >20"
+    
+  R07_avoid_cliches:
+    rule: "Избегать клише из списка cliches_list.txt"
+    priority: "SOFT"
+    validation: "warning"
+
+commercial_optimization:
+  # Коммерческая привлекательность
+  
+  hooks:
+    chapter_start: "Начинать главу с интриги/действия/вопроса"
+    chapter_end: "Заканчивать на cliffhanger или вопросе"
+    
+  pacing:
+    intensity_variation: "Чередовать интенсивность глав"
+    no_sagging: "Не >2 низких (1-4/10) глав подряд"
+    
+  readability:
+    dialogue_balance: "Баланс диалоги/описания/действие"
+    show_vs_tell: "60% show / 40% tell"
+    
+  emotional_engagement:
+    stakes_clarity: "Читатель понимает, что на кону"
+    character_empathy: "Читатель болеет за персонажей"
+    
+  genre_promises:
+    delivery: "Выполнять обещания жанра 100%"
+
+validation_levels:
+  block: "Нарушение блокирует публикацию"
+  warning: "Нарушение создаёт предупреждение"
+  info: "Информационное сообщение"

@@ -1,0 +1,13 @@
+{
+  "genre": "realism_family_saga",
+  "display_name": "Семейная сага",
+  "description": "История семьи на протяжении поколений, семейные связи и конфликты",
+  "key_elements": ["Несколько поколений", "Семейные связи = центр", "Долгий временной span", "Multi-POV (члены семьи)", "Семейные тайны", "Наследие и традиции"],
+  "structure": "Обычно хронологическая, может быть с флешбэками",
+  "scope": "Десятилетия или century+",
+  "pov": "Multiple (разные члены семьи, поколения)",
+  "themes": "Наследие, семейные паттерны, связь поколений, secrets",
+  "pacing": "Медленный, эпический",
+  "mistakes": ["Слишком много персонажей (трудно следить)", "Genealogy вместо истории", "Потеря фокуса"],
+  "recommended": ["Gabriel García Márquez — Сто лет одиночества", "Min Jin Lee — Pachinko", "Isabel Allende — House of Spirits", "Steinbeck — East of Eden"]
+}

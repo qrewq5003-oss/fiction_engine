@@ -1,0 +1,12 @@
+{
+  "genre": "fantasy_dark",
+  "display_name": "Тёмное фэнтези",
+  "description": "Мрачное фэнтези с моральной амбивалентностью, жестокостью, антигероями",
+  "key_elements": ["Антигерои", "Моральная серая зона", "Жестокость (не избыточная)", "Мрачная атмосфера", "Нет чистого добра/зла", "Последствия магии"],
+  "tone": "Мрачный, циничный, безысходный",
+  "violence_level": "Высокий, но осмысленный (не gore ради gore)",
+  "magic": "Тёмная, с ценой (кровь, жизнь, душа)",
+  "character_arcs": "Часто деградация, редко искупление",
+  "mistakes": ["Edginess ради edginess", "Нет надежды вообще (баланс!)", "Жестокость без цели"],
+  "recommended": ["Joe Abercrombie — First Law", "Mark Lawrence — Broken Empire", "Glen Cook — Black Company", "Michael R. Fletcher — Beyond Redemption"]
+}

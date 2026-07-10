@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Экспорт{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+  <div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Выбери сцены для главы</div>
+      <div class="form-group">
+        <label>Номер главы в Fiction Engine</label>
+        <input type="number" id="chapter-num" value="1" min="1" style="width:120px;">
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Выдели нужные сцены:</div>
+      {% for a in acts %}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:600;color:{{ a.color }};margin-bottom:4px;">{{ a.title }}</div>
+        {% for s in scenes if s.act_id == a.id %}
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);margin-bottom:4px;">
+          <input type="checkbox" class="scene-check" value="{{ s.id }}" style="width:auto;">
+          <span style="font-size:12px;">{{ s.title or 'Сцена #'+s.id|string }}</span>
+          {% if s.characters %}<span style="font-size:10px;color:var(--text2);">{{ s.characters }}</span>{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="generatePrompt()">Сгенерировать промт</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" id="prompt-card" style="display:none;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Промт для главы</div>
+      <textarea id="prompt-output" rows="20" style="font-family:monospace;font-size:12px;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-secondary" onclick="copyPrompt()">📋 Скопировать</button>
+        <button class="btn btn-primary" style="flex:1;" id="btn-send" onclick="sendToFE()">
+          <span class="spinner" id="send-spin" style="display:none;"></span>
+          📤 Отправить в Fiction Engine
+        </button>
+      </div>
+      <div id="send-status" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const SCENES_DATA = {{ scenes | tojson }};
+
+function generatePrompt() {
+  const checked = [...document.querySelectorAll('.scene-check:checked')].map(c => parseInt(c.value));
+  if (!checked.length) { showToast('Выбери хотя бы одну сцену', 'error'); return; }
+
+  const chNum = document.getElementById('chapter-num').value;
+  const scenes = checked.map(id => SCENES_DATA.find(s => s.id === id)).filter(Boolean);
+
+  let lines = [`ПЛАН ГЛАВЫ ${chNum}\n`];
+  scenes.forEach((s, i) => {
+    lines.push(`СЦЕНА ${i+1}: ${s.title || 'Без названия'}`);
+    if (s.location)     lines.push(`  Локация: ${s.location}${s.time_of_day ? ' / '+s.time_of_day : ''}`);
+    if (s.characters)   lines.push(`  Персонажи: ${s.characters}`);
+    if (s.what_happens) lines.push(`  Что происходит: ${s.what_happens}`);
+    if (s.emotion)      lines.push(`  Эмоция: ${s.emotion}`);
+    if (s.notes)        lines.push(`  Заметки: ${s.notes}`);
+    lines.push('');
+  });
+
+  document.getElementById('prompt-output').value = lines.join('\n');
+  document.getElementById('prompt-card').style.display = 'block';
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(document.getElementById('prompt-output').value);
+  showToast('Скопировано');
+}
+
+async function sendToFE() {
+  const checked = [...document.querySelectorAll('.scene-check:checked')].map(c => parseInt(c.value));
+  const chNum   = parseInt(document.getElementById('chapter-num').value);
+  const btn     = document.getElementById('btn-send');
+  const spin    = document.getElementById('send-spin');
+  const status  = document.getElementById('send-status');
+
+  btn.disabled = true; spin.style.display = 'inline-block';
+
+  const r = await apiPost('/api/export/send', { scene_ids: checked, chapter_num: chNum });
+
+  btn.disabled = false; spin.style.display = 'none';
+
+  if (r.sent) {
+    status.textContent = `✅ Отправлено в Fiction Engine как заметка к главе ${chNum}`;
+    showToast('Отправлено в FE');
+  } else {
+    status.textContent = '⚠️ FE недоступен. Скопируй промт вручную.';
+    showToast('FE недоступен', 'error');
+  }
+}
+</script>
+{% endblock %}

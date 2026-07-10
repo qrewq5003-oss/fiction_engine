@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">📚 База знаний</div>
+  <div class="page-sub">Справочник мира — подтягивается в контекст генерации автоматически по совпадению с задачей главы</div>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:16px;height:calc(100vh - 160px)">
+
+  <!-- Левая колонка: список статей -->
+  <div style="display:flex;flex-direction:column;gap:8px;overflow:hidden">
+
+    <button onclick="newArticle()"
+      style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;font-weight:600">
+      + Новая статья
+    </button>
+
+    <input id="kb-search" type="text" placeholder="Поиск..."
+      oninput="filterList(this.value)"
+      style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px">
+
+    <div id="article-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+      {% for art in articles %}
+      <div class="art-item" id="art-{{ art.id }}"
+        onclick="loadArticle({{ art.id }})"
+        style="padding:10px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--surface2)">
+        <div style="font-size:12px;font-weight:600;color:var(--text)">{{ art.title }}</div>
+        {% if art.tags %}
+        <div style="font-size:10px;color:var(--accent2);margin-top:2px">{{ art.tags }}</div>
+        {% endif %}
+        <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
+          {% if art.auto_inject %}
+          <span style="font-size:9px;background:rgba(99,102,241,.2);color:var(--accent2);padding:1px 5px;border-radius:3px">авто</span>
+          {% endif %}
+          <span style="font-size:10px;color:var(--text2)">{{ art.content|length }} символов</span>
+        </div>
+      </div>
+      {% else %}
+      <div id="empty-list" style="font-size:12px;color:var(--text2);padding:16px;text-align:center">
+        Пусто — создай первую статью
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+
+  <!-- Правая колонка: редактор -->
+  <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+
+    <!-- Пустое состояние -->
+    <div id="empty-editor" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:14px">
+      Выбери статью или создай новую
+    </div>
+
+    <!-- Редактор -->
+    <div id="editor-block" style="display:none;flex:1;display:none;flex-direction:column;gap:10px">
+
+      <div style="display:flex;gap:8px">
+        <input id="art-title" type="text" placeholder="Название статьи"
+          style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:14px;font-weight:600">
+        <input id="art-tags" type="text" placeholder="Теги через запятую: орден, Прага, магия"
+          style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:12px">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="art-auto-inject" style="accent-color:var(--accent)">
+          <span>Всегда в контексте (auto-inject)</span>
+        </label>
+        <span style="font-size:11px;color:var(--text2)">— без auto-inject статья подтягивается только если совпадает с задачей главы</span>
+      </div>
+
+      <textarea id="art-content" rows="20"
+        placeholder="Содержимое статьи..."
+        style="flex:1;resize:vertical;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:12px;color:var(--text);font-size:13px;line-height:1.6;font-family:inherit"></textarea>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="saveArticle()"
+          style="flex:2;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px;font-size:13px;cursor:pointer;font-weight:600">
+          💾 Сохранить
+        </button>
+        <button onclick="deleteArticle()"
+          style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:6px;padding:10px 16px;font-size:13px;cursor:pointer">
+          Удалить
+        </button>
+        <button onclick="cancelEdit()"
+          style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:10px 16px;font-size:13px;cursor:pointer">
+          Отмена
+        </button>
+      </div>
+
+      <!-- Превью поиска -->
+      <div id="search-preview" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2)">
+        <span style="font-weight:600;color:var(--accent2)">🔍 Как статья найдётся:</span>
+        введи слова в поиск справа чтобы проверить — или слова из задачи главы автоматически совпадут с тегами.
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- Тестовый поиск (снизу) -->
+<div style="position:fixed;bottom:0;left:60px;right:0;background:var(--bg-primary);border-top:1px solid var(--border);padding:10px 20px;display:flex;gap:8px;align-items:center">
+  <span style="font-size:12px;color:var(--text2);white-space:nowrap">🧪 Тест поиска:</span>
+  <input id="test-query" type="text" placeholder="Введи текст задачи главы — увидишь какие статьи найдутся"
+    oninput="testSearch(this.value)"
+    style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px">
+  <div id="test-result" style="font-size:12px;color:var(--text2);min-width:200px"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentId = null;
+let allArticles = {{ articles | tojson }};
+
+function setActive(id) {
+  document.querySelectorAll('.art-item').forEach(el => {
+    el.style.background = el.id === 'art-' + id ? 'var(--accent-muted)' : 'var(--surface2)';
+    el.style.borderColor = el.id === 'art-' + id ? 'var(--accent)' : 'var(--border)';
+  });
+}
+
+async function loadArticle(id) {
+  const r = await fetch(`/api/knowledge/${id}`).then(x => x.json()).catch(() => null);
+  if (!r) return;
+  currentId = id;
+  document.getElementById('art-title').value = r.title;
+  document.getElementById('art-tags').value = r.tags || '';
+  document.getElementById('art-content').value = r.content;
+  document.getElementById('art-auto-inject').checked = !!r.auto_inject;
+  document.getElementById('empty-editor').style.display = 'none';
+  document.getElementById('editor-block').style.display = 'flex';
+  setActive(id);
+}
+
+function newArticle() {
+  currentId = null;
+  document.getElementById('art-title').value = '';
+  document.getElementById('art-tags').value = '';
+  document.getElementById('art-content').value = '';
+  document.getElementById('art-auto-inject').checked = false;
+  document.getElementById('empty-editor').style.display = 'none';
+  document.getElementById('editor-block').style.display = 'flex';
+  document.getElementById('art-title').focus();
+  setActive(null);
+}
+
+function cancelEdit() {
+  currentId = null;
+  document.getElementById('empty-editor').style.display = 'flex';
+  document.getElementById('editor-block').style.display = 'none';
+  setActive(null);
+}
+
+async function saveArticle() {
+  const title   = document.getElementById('art-title').value.trim();
+  const content = document.getElementById('art-content').value.trim();
+  const tags    = document.getElementById('art-tags').value.trim();
+  const auto    = document.getElementById('art-auto-inject').checked ? 1 : 0;
+
+  if (!title || !content) { showToast('Заполни название и содержимое', 'error'); return; }
+
+  const r = await apiPost('/api/knowledge/save', { id: currentId, title, content, tags, auto_inject: auto });
+  if (r.error) { showToast(r.error, 'error'); return; }
+
+  showToast('Сохранено', 'success');
+  setTimeout(() => location.reload(), 400);
+}
+
+async function deleteArticle() {
+  if (!currentId) return;
+  if (!confirm('Удалить статью?')) return;
+  await fetch(`/api/knowledge/${currentId}/delete`, {method:'POST'});
+  showToast('Удалено', 'info');
+  setTimeout(() => location.reload(), 400);
+}
+
+function filterList(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.art-item').forEach(el => {
+    const title = el.querySelector('div')?.textContent.toLowerCase() || '';
+    const tags  = el.querySelectorAll('div')[1]?.textContent.toLowerCase() || '';
+    el.style.display = (!q || title.includes(q) || tags.includes(q)) ? '' : 'none';
+  });
+}
+
+async function testSearch(query) {
+  if (!query.trim()) { document.getElementById('test-result').textContent = ''; return; }
+  const r = await fetch('/api/knowledge/search?q=' + encodeURIComponent(query)).then(x => x.json()).catch(() => null);
+  if (!r) return;
+  const el = document.getElementById('test-result');
+  if (!r.articles.length) {
+    el.textContent = 'Ничего не найдено';
+    el.style.color = 'var(--text2)';
+  } else {
+    el.textContent = 'Найдено: ' + r.articles.map(a => a.title).join(', ');
+    el.style.color = 'var(--success)';
+  }
+}
+</script>
+{% endblock %}

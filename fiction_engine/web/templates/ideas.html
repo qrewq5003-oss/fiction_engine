@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">💡 Рабочий стол идей</div>
+  <div class="page-sub">Вставь ответ из внешнего чата — напиши <strong>принято</strong> чтобы разобрать</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 400px;gap:16px;height:calc(100vh - 160px)">
+
+  <!-- Левая колонка: буфер вставки -->
+  <div style="display:flex;flex-direction:column;gap:10px">
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+
+      <select id="model-select"
+        style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:13px">
+        {% for m in models %}
+        <option value="{{ m.value }}">{{ m.name }}</option>
+        {% endfor %}
+      </select>
+
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted)">
+        Действие:
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="action" value="state" checked> в State Engine
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="action" value="project"> новый проект
+        </label>
+      </div>
+
+      <!-- Поля нового проекта — показываются только при "новый проект" -->
+      <div id="project-fields" style="display:none;display:none;gap:6px;align-items:center">
+        <input id="proj-name" type="text" placeholder="Название проекта"
+          style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:13px;width:180px">
+        <input id="proj-genre" type="text" placeholder="Жанр (необязательно)"
+          style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:13px;width:160px">
+      </div>
+
+      <span style="font-size:12px;color:var(--text-muted);margin-left:auto">
+        Триггер: <code style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px">принято</code>
+      </span>
+    </div>
+
+    <div style="position:relative;flex:1">
+      <textarea id="chat-buffer"
+        style="width:100%;height:100%;font-size:14px;line-height:1.6;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text-primary);resize:none;font-family:inherit"
+        placeholder="Вставь сюда ответ Клода или ChatGPT...
+
+Можно вставлять любой текст: синопсис, описание персонажей, обсуждение сюжета, идеи по миру — движок сам разберёт что куда.
+
+Когда текст готов — напиши слово  принято  в конце и нажми Enter, или нажми кнопку ниже."
+        oninput="checkTrigger(this)"></textarea>
+      <div id="trigger-hint" style="display:none;position:absolute;bottom:12px;right:12px;background:var(--accent);color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;pointer-events:none">
+        ↵ принято
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="accept-btn" onclick="runAccept()">✅ Принято — разобрать</button>
+      <button class="btn btn-secondary" onclick="clearBuffer()">Очистить</button>
+      <span id="status-msg" style="font-size:13px;color:var(--text-muted);align-self:center"></span>
+    </div>
+  </div>
+
+  <!-- Правая колонка: предпросмотр и история -->
+  <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+
+    <div id="preview-panel" style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-y:auto;display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px">РАЗБОР</div>
+
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">🧍 Персонажи / Мир</div>
+        <textarea id="prev-global" rows="6"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">📊 Сюжетные линии</div>
+        <textarea id="prev-plot" rows="5"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">🕸 Память / Отношения</div>
+        <textarea id="prev-memory" rows="5"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+
+      <div id="new-project-info" style="display:none;padding:8px;background:var(--success-bg,#1a3a1a);border-radius:6px;font-size:12px;margin-bottom:8px"></div>
+
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-success btn-sm" onclick="applyPreview()">✅ Применить</button>
+        <button class="btn btn-secondary btn-sm" onclick="discardPreview()">Отмена</button>
+      </div>
+    </div>
+
+    <!-- История сессии -->
+    <div style="flex:0 0 auto">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">История сессии</div>
+      <div id="history-list"
+        style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:12px">
+        <div style="color:var(--text-muted);font-style:italic">Пока пусто</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let pendingData = null;
+const history  = [];
+
+// Показывать/скрывать поля нового проекта
+document.querySelectorAll('input[name="action"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const pf = document.getElementById('project-fields');
+    pf.style.display = r.value === 'project' ? 'flex' : 'none';
+  });
+});
+
+// Триггер "принято" в тексте
+function checkTrigger(ta) {
+  const val = ta.value;
+  const hint = document.getElementById('trigger-hint');
+  // Показываем подсказку если последние слова — "принято"
+  if (/принято\s*$/i.test(val.trim())) {
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+// Перехватываем Enter после "принято"
+document.getElementById('chat-buffer').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && /принято\s*$/i.test(this.value.trim())) {
+    e.preventDefault();
+    runAccept();
+  }
+});
+
+async function runAccept() {
+  const raw = document.getElementById('chat-buffer').value.trim();
+  // Убираем триггерное слово из текста перед отправкой
+  const text = raw.replace(/принято\s*$/i, '').trim();
+
+  if (!text) { showToast('Нет текста', 'warning'); return; }
+
+  const model   = document.getElementById('model-select').value;
+  const action  = document.querySelector('input[name="action"]:checked').value;
+  const projName = document.getElementById('proj-name')?.value?.trim() || '';
+  const genre    = document.getElementById('proj-genre')?.value?.trim() || '';
+
+  const btn = document.getElementById('accept-btn');
+  const msg = document.getElementById('status-msg');
+  btn.disabled = true;
+  btn.textContent = 'Разбираю…';
+  msg.textContent = '';
+
+  try {
+    const resp = await fetch('/ideas/accept', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, model, action, project_name: projName, genre })
+    });
+    const data = await resp.json();
+
+    if (!data.ok) {
+      showToast('Ошибка: ' + (data.error || 'неизвестно'), 'error');
+      return;
+    }
+
+    // Заполняем предпросмотр
+    document.getElementById('prev-global').value = data.global_state || '';
+    document.getElementById('prev-plot').value   = data.plot_matrix  || '';
+    document.getElementById('prev-memory').value = data.memory_graph || '';
+    document.getElementById('preview-panel').style.display = 'block';
+    document.getElementById('trigger-hint').style.display  = 'none';
+
+    pendingData = data;
+
+    if (data.action === 'project') {
+      const info = document.getElementById('new-project-info');
+      info.style.display = 'block';
+      info.textContent = `✅ Новый проект: «${data.project_name}» уже создан и активирован`;
+    }
+
+    // Добавляем в историю
+    addHistory(text, data.action, data.project_name);
+    msg.textContent = 'Готово — проверь разбор справа';
+
+  } catch(e) {
+    showToast('Сетевая ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Принято — разобрать';
+  }
+}
+
+async function applyPreview() {
+  if (!pendingData) return;
+
+  // Если уже новый проект — state уже применён на сервере
+  if (pendingData.action === 'project') {
+    showToast('Проект создан, State Engine заполнен', 'success');
+    discardPreview();
+    return;
+  }
+
+  // Для action=state отправляем отредактированный предпросмотр
+  const global_state = document.getElementById('prev-global').value;
+  const plot_matrix  = document.getElementById('prev-plot').value;
+  const memory_graph = document.getElementById('prev-memory').value;
+
+  const result = await fetch('/state/apply/0', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ global_state, plot_matrix, memory_graph })
+  }).then(r => r.json());
+
+  if (result.ok) {
+    showToast('State Engine обновлён', 'success');
+    discardPreview();
+  } else {
+    showToast('Ошибка: ' + (result.error || '?'), 'error');
+  }
+}
+
+function discardPreview() {
+  document.getElementById('preview-panel').style.display = 'none';
+  document.getElementById('new-project-info').style.display = 'none';
+  pendingData = null;
+}
+
+function clearBuffer() {
+  document.getElementById('chat-buffer').value = '';
+  document.getElementById('trigger-hint').style.display = 'none';
+  discardPreview();
+}
+
+function addHistory(text, action, projName) {
+  const list = document.getElementById('history-list');
+  if (list.querySelector('div[style*="italic"]')) list.innerHTML = '';
+
+  const short = text.slice(0, 80).replace(/\n/g, ' ') + (text.length > 80 ? '…' : '');
+  const label = action === 'project' ? `📁 ${projName}` : '⚙️ State';
+  const ts    = new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+
+  const el = document.createElement('div');
+  el.style.cssText = 'padding:6px 8px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border)';
+  el.innerHTML = `<span style="color:var(--accent)">${label}</span>
+    <span style="color:var(--text-muted);font-size:11px;float:right">${ts}</span>
+    <div style="color:var(--text-muted);margin-top:2px;font-size:11px">${short}</div>`;
+  list.prepend(el);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{
+  "lexicon": [
+    "говорит",
+    "смотрит",
+    "идет",
+    "думает",
+    "чувствует"
+  ],
+  "avg_reply_length": 8,
+  "traits": [
+    "measured",
+    "reserved"
+  ]
+}

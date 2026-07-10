@@ -1,0 +1,13 @@
+{
+  "genre": "detective_procedural",
+  "display_name": "Полицейский процедурал",
+  "description": "Реалистичный детектив с фокусом на процедуре расследования, командной работе и деталях полицейской работы",
+  "key_elements": ["Команда детективов", "Реалистичная процедура", "Forensics и улики", "Иерархия и бюрократия", "Multi-POV (команда)"],
+  "style_recommendations": {
+    "tone": "Профессиональный, деловой, детальный",
+    "pacing": "Методичный, пошаговый",
+    "technical_detail": "Высокий (forensics, legal, police work)"
+  },
+  "common_mistakes": ["Слишком много jargon (делай понятно)", "Скучная процедура (баланс с драмой)", "Нет личных storylines (команда = люди)"],
+  "recommended_reading": ["Ed McBain — серия 87th Precinct", "Michael Connelly — серия про Bosch", "Tana French — Dublin Murder Squad"]
+}

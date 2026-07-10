@@ -1,0 +1,12 @@
+{
+  "lexicon": [
+    "да-да",
+    "конечно",
+    "как будто"
+  ],
+  "avg_reply_length": 10,
+  "traits": [
+    "sarcastic",
+    "ironic"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "genre": "realism_psychological",
+  "display_name": "Психологический реализм",
+  "description": "Глубокое исследование внутреннего мира персонажа, мотиваций, психологии",
+  "key_elements": ["Внутренний мир = фокус", "Психологическая глубина", "Character study", "Минимум внешнего action", "Рефлексия", "Сложные эмоции"],
+  "tone": "Интроспективный, рефлексивный, серьёзный",
+  "pacing": "Медленный, размышляющий",
+  "style": "Литературный, метафоричный, rich prose",
+  "plot": "Character-driven, события вторичны",
+  "internal_monologue": "Очень много (50%+)",
+  "mistakes": ["Только мысли без сюжета", "Navel-gazing без purpose", "Непонятные мотивации"],
+  "recommended": ["Достоевский — Преступление и наказание", "Virginia Woolf — Mrs Dalloway", "Ian McEwan — Atonement", "Celeste Ng — Little Fires Everywhere"]
+}

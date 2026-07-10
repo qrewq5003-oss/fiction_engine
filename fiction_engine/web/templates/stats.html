@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <div class="page-title">📊 Статистика</div>
+      <div class="page-sub">{{ current.name }}</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <a href="/export/txt" class="btn btn-secondary">⬇ Скачать .txt</a>
+    </div>
+  </div>
+</div>
+
+{% if not chapters %}
+<div class="card" style="text-align:center;padding:60px;color:var(--text2);">
+  <div style="font-size:40px;margin-bottom:16px;">📭</div>
+  <div>Нет глав. Загрузи или сгенерируй первую.</div>
+</div>
+{% else %}
+
+<!-- Общая статистика -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+  {% set avg = (total_words / chapters|length)|int if chapters else 0 %}
+  {% for label, value, sub in [
+    ('Слов всего', total_words|string, 'в проекте'),
+    ('Глав', chapters|length|string, 'загружено'),
+    ('Среднее', avg|string, 'слов на главу'),
+    ('Макс. глава', chapters|sort(attribute='word_count')|last|attr('number')|string if chapters else '—', 'самая длинная'),
+  ] %}
+  <div class="card" style="text-align:center;padding:20px 12px;">
+    <div style="font-size:28px;font-weight:700;color:var(--accent2);">{{ value }}</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px;">{{ label }}<br>{{ sub }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- График по главам -->
+<div class="card">
+  <div class="card-title">Слов по главам</div>
+  <div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0;">
+    {% set max_words = chapters|map(attribute='word_count')|max or 1 %}
+    {% for ch in chapters %}
+    {% set pct = ((ch.word_count or 0) / max_words * 100)|int %}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;">
+      <div style="font-size:9px;color:var(--text2);">{{ ch.word_count or 0 }}</div>
+      <div style="width:100%;background:var(--accent);border-radius:3px 3px 0 0;
+                  height:{{ pct }}%;min-height:4px;opacity:0.8;
+                  transition:opacity .15s;" title="Глава {{ ch.number }}: {{ ch.word_count }} слов"></div>
+      <div style="font-size:9px;color:var(--text2);">{{ ch.number }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+
+<!-- График качества -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-title">📈 Динамика качества по главам</div>
+  <div id="quality-graph-wrap">
+    <div id="quality-loading" style="font-size:12px;color:var(--text2);">Загрузка...</div>
+    <canvas id="quality-canvas" style="display:none;width:100%;max-height:220px;"></canvas>
+    <div id="quality-empty" style="display:none;font-size:12px;color:var(--text2);">
+      Нет данных — оценки появятся автоматически при сохранении глав
+      <span style="font-size:11px;display:block;margin-top:4px;">Нужно задать модель-оценщик в Настройках</span>
+    </div>
+  </div>
+  <!-- Детали при наведении -->
+  <div id="quality-detail" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:8px;font-size:12px;"></div>
+</div>
+
+<!-- Таблица глав -->
+<div class="card">
+  <div class="card-title" style="justify-content:space-between;">
+    <span>Главы</span>
+    <a href="/export/txt" class="btn btn-secondary btn-sm">⬇ Весь проект .txt</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    {% for ch in chapters %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;
+                background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <span style="font-size:11px;font-weight:700;color:var(--accent2);min-width:28px;">{{ ch.number }}</span>
+      <span style="flex:1;font-size:13px;">
+        <a href="/chapter/{{ ch.number }}/view" style="color:var(--text);text-decoration:none;">
+          {{ ch.title or 'Глава ' + ch.number|string }}
+        </a>
+      </span>
+      <span style="font-size:12px;color:var(--text2);">{{ ch.word_count or 0 }} слов</span>
+      {% set pct = ((ch.word_count or 0) / max_words * 100)|int %}
+      <div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="width:{{ pct }}%;height:100%;background:var(--accent);border-radius:2px;"></div>
+      </div>
+      <a href="/export/chapter/{{ ch.number }}/txt" class="btn btn-secondary btn-sm">⬇</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endif %}
+
+{% block scripts %}
+<script>
+async function loadQualityGraph() {
+  const r = await fetch('/api/quality/graph').then(x => x.json()).catch(() => null);
+  document.getElementById('quality-loading').style.display = 'none';
+
+  if (!r || !r.scores || !r.scores.length) {
+    document.getElementById('quality-empty').style.display = 'block';
+    return;
+  }
+
+  const scores = r.scores;
+  const canvas = document.getElementById('quality-canvas');
+  canvas.style.display = 'block';
+
+  // Размеры
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 600;
+  const H = 200;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD = { top: 20, right: 20, bottom: 30, left: 36 };
+  const gW = W - PAD.left - PAD.right;
+  const gH = H - PAD.top - PAD.bottom;
+
+  // Фон
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Сетка
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  [2,4,6,8,10].forEach(v => {
+    const y = PAD.top + gH - (v / 10 * gH);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(v, PAD.left - 24, y + 4);
+  });
+
+  // Линии критериев (тонкие)
+  const CRITERIA = [
+    {key:'literary_quality', color:'rgba(120,180,255,0.4)'},
+    {key:'voice_genre',      color:'rgba(180,120,255,0.4)'},
+    {key:'commercial',       color:'rgba(255,180,80,0.4)'},
+    {key:'scene_health',     color:'rgba(80,220,120,0.4)'},
+  ];
+
+  CRITERIA.forEach(({key, color}) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    scores.forEach((s, i) => {
+      const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
+      const y = PAD.top + gH - ((s[key] || 0) / 10 * gH);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Основная линия total
+  const grad = ctx.createLinearGradient(PAD.left, 0, PAD.left + gW, 0);
+  grad.addColorStop(0, '#6366f1');
+  grad.addColorStop(1, '#a78bfa');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  scores.forEach((s, i) => {
+    const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
+    const y = PAD.top + gH - (s.total / 10 * gH);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Точки + подписи глав
+  scores.forEach((s, i) => {
+    const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
+    const y = PAD.top + gH - (s.total / 10 * gH);
+    const color = s.total >= 8 ? '#4ade80' : s.total >= 6 ? '#facc15' : '#f87171';
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.chapter_num, x, PAD.top + gH + 20);
+  });
+
+  // Среднее
+  const avg = (scores.reduce((s,x) => s + x.total, 0) / scores.length).toFixed(1);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('среднее: ' + avg, W - PAD.right, PAD.top - 6);
+
+  // Клик по точке — детали
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    scores.forEach((s, i) => {
+      const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
+      if (Math.abs(mx - x) < 14) {
+        const det = document.getElementById('quality-detail');
+        det.style.display = 'block';
+        det.innerHTML = `<strong>Глава ${s.chapter_num}</strong> — <b>${s.total}/10</b>
+          <span style="margin-left:8px;color:var(--text2);">ЛитКачество:${s.literary_quality} · Голос:${s.voice_genre} · Читаемость:${s.commercial} · Сцена:${s.scene_health}</span>
+          ${s.verdict ? '<div style="margin-top:6px;color:var(--text);">' + s.verdict + '</div>' : ''}
+          ${s.main_issue ? '<div style="margin-top:4px;color:#f87171;">⚠ ' + s.main_issue + '</div>' : ''}`;
+      }
+    });
+  };
+}
+
+loadQualityGraph();
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{
+  "genre": "scifi_space_opera",
+  "display_name": "Космоопера",
+  "description": "Эпическая НФ: космос, империи, войны, большой масштаб, romance+adventure",
+  "key_elements": ["Космический масштаб", "Империи/федерации", "Космические битвы", "Множество планет", "Романтика часто", "Heroic протагонисты"],
+  "tone": "Героический, эпичный, adventure",
+  "science": "Soft (FTL, aliens без детального объяснения)",
+  "pacing": "Быстрый, action-driven",
+  "structure": "Часто серия",
+  "mistakes": ["Нет личных stakes (эпик + личное)", "Только битвы (нужны персонажи)", "Логика науки полностью игнорируется"],
+  "recommended": ["Звёздные войны (Star Wars)", "Lois McMaster Bujold — Vorkosigan Saga", "Ann Leckie — Ancillary Justice", "John Scalzi — Old Man's War"]
+}

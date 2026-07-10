@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}{{ scene.title or 'Сцена' }}{% endblock %}
+
+{% block topbar %}
+<a href="/board" class="btn btn-secondary btn-sm">← Доска</a>
+<span style="color:var(--text2);font-size:13px;">{{ scene.title or 'Без названия' }}</span>
+<div style="margin-left:auto;display:flex;gap:8px;">
+  <button class="btn btn-primary btn-sm" onclick="saveScene()">💾 Сохранить</button>
+  <button class="btn btn-secondary btn-sm" id="btn-history" onclick="toggleHistory()">🕒 История</button>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.scene-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; height: calc(100vh - 100px); }
+.scene-form { overflow-y: auto; }
+.ai-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-y: auto; }
+.ai-action { display: block; width: 100%; margin-bottom: 8px; text-align: left; }
+.ai-result { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.6; margin-top: 12px; white-space: pre-wrap; display: none; }
+.history-panel { margin-top: 16px; display: none; }
+.snap-item { padding: 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
+.snap-item:hover { border-color: var(--accent); }
+.snap-reason { font-size: 12px; font-weight: 600; }
+.snap-date { font-size: 11px; color: var(--text2); }
+
+@media (max-width: 640px) {
+  .scene-layout { grid-template-columns: 1fr; }
+  .ai-panel { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="scene-layout">
+  <!-- Форма -->
+  <div class="scene-form">
+    <div class="card">
+      <div class="form-group">
+        <label>Название сцены</label>
+        <input type="text" id="f-title" value="{{ scene.title or '' }}" placeholder="Что-то происходит...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>Локация</label>
+          <input type="text" id="f-location" value="{{ scene.location or '' }}" placeholder="Где?">
+        </div>
+        <div class="form-group">
+          <label>Время суток</label>
+          <select id="f-time">
+            {% for t in ['', 'Утро', 'День', 'Вечер', 'Ночь'] %}
+            <option value="{{ t }}" {% if scene.time_of_day == t %}selected{% endif %}>{{ t or '— не указано —' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Акт</label>
+        <select id="f-act">
+          <option value="">— Без акта —</option>
+          {% for a in acts %}
+          <option value="{{ a.id }}" {% if scene.act_id == a.id %}selected{% endif %}>{{ a.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Персонажи (через запятую)</label>
+        <input type="text" id="f-characters" value="{{ scene.characters or '' }}" placeholder="Иван, Мария...">
+      </div>
+      <div class="form-group">
+        <label>Что происходит</label>
+        <textarea id="f-what" rows="5" placeholder="Опиши суть сцены...">{{ scene.what_happens or '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Эмоция сцены</label>
+        <input type="text" id="f-emotion" value="{{ scene.emotion or '' }}" placeholder="напряжение, облегчение, страх...">
+      </div>
+      <div class="form-group">
+        <label>Заметки</label>
+        <textarea id="f-notes" rows="3" placeholder="Детали, вопросы, идеи...">{{ scene.notes or '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- История снапшотов -->
+    <div class="history-panel" id="history-panel">
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">🕒 История изменений</div>
+        {% if snapshots %}
+        {% for s in snapshots %}
+        <div class="snap-item" onclick="previewSnap({{ s.id }}, {{ s.data | tojson }})">
+          <div class="snap-reason">{{ s.reason }}</div>
+          <div class="snap-date">{{ s.created_at }}</div>
+          {% if s.data.title %}<div style="font-size:11px;color:var(--text2);">{{ s.data.title }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--text2);font-size:12px;">Нет истории</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- AI панель -->
+  <div class="ai-panel">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">🤖 AI-ассистент</div>
+    <button class="btn btn-secondary ai-action" onclick="aiAction('develop')">💡 Развить идею</button>
+    <button class="btn btn-secondary ai-action" onclick="aiAction('conflict')">⚡ Добавить конфликт</button>
+    <button class="btn btn-secondary ai-action" onclick="aiAction('subtext')">🎭 Подтекст</button>
+    <button class="btn btn-secondary ai-action" onclick="aiAction('next')">→ Что дальше?</button>
+    <button class="btn btn-secondary ai-action" onclick="aiAction('rewrite')">✏️ Переписать описание</button>
+
+    <div style="margin-top:12px;" class="form-group">
+      <label>Модель FE</label>
+      <input type="text" id="ai-model" placeholder="deepseek::deepseek-chat" style="font-size:11px;">
+    </div>
+
+    <div id="ai-spinner" style="display:none;text-align:center;padding:12px;">
+      <span class="spinner"></span> Думаю...
+    </div>
+    <div class="ai-result" id="ai-result"></div>
+  </div>
+</div>
+
+<!-- Snap preview modal -->
+<div class="modal-overlay" id="modal-snap">
+  <div class="modal">
+    <div class="modal-title">Версия сцены</div>
+    <div id="snap-preview" style="font-size:13px;line-height:1.7;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary" id="btn-restore" onclick="restoreSnap()">↩ Восстановить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-snap')">Закрыть</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SCENE_ID = {{ scene.id }};
+let currentSnapId = null;
+
+function getFormData() {
+  return {
+    title:       document.getElementById('f-title').value.trim(),
+    location:    document.getElementById('f-location').value.trim(),
+    time_of_day: document.getElementById('f-time').value,
+    act_id:      document.getElementById('f-act').value || null,
+    characters:  document.getElementById('f-characters').value.trim(),
+    what_happens:document.getElementById('f-what').value.trim(),
+    emotion:     document.getElementById('f-emotion').value.trim(),
+    notes:       document.getElementById('f-notes').value.trim(),
+  };
+}
+
+async function saveScene() {
+  const r = await apiPost(`/scene/${SCENE_ID}/save`, getFormData());
+  if (r.ok) showToast('Сохранено');
+  else showToast(r.error || 'Ошибка', 'error');
+}
+
+function toggleHistory() {
+  const p = document.getElementById('history-panel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+
+function previewSnap(snapId, data) {
+  currentSnapId = snapId;
+  const fields = ['title','location','time_of_day','characters','what_happens','emotion','notes'];
+  const labels = ['Название','Локация','Время','Персонажи','Что происходит','Эмоция','Заметки'];
+  let html = '';
+  fields.forEach((f, i) => {
+    if (data[f]) html += `<div style="margin-bottom:8px;"><b>${labels[i]}:</b> ${data[f]}</div>`;
+  });
+  document.getElementById('snap-preview').innerHTML = html || 'Нет данных';
+  openModal('modal-snap');
+}
+
+async function restoreSnap() {
+  if (!currentSnapId) return;
+  const r = await apiPost(`/scene/${SCENE_ID}/snapshot/${currentSnapId}/restore`, {});
+  if (r.ok) { closeModal('modal-snap'); location.reload(); }
+  else showToast(r.error || 'Ошибка', 'error');
+}
+
+async function aiAction(action) {
+  const spin   = document.getElementById('ai-spinner');
+  const result = document.getElementById('ai-result');
+  const model  = document.getElementById('ai-model').value.trim();
+
+  spin.style.display = 'block';
+  result.style.display = 'none';
+
+  const r = await apiPost('/api/ai/assist', {
+    action, model, scene: getFormData()
+  });
+
+  spin.style.display = 'none';
+  if (r.ok) {
+    result.textContent = r.result;
+    result.style.display = 'block';
+  } else {
+    showToast(r.error || 'Ошибка', 'error');
+  }
+}
+
+// Автосохранение при уходе
+window.addEventListener('beforeunload', e => {
+  // не блокируем, просто тихое сохранение
+  apiPost(`/scene/${SCENE_ID}/save`, getFormData());
+});
+</script>
+{% endblock %}

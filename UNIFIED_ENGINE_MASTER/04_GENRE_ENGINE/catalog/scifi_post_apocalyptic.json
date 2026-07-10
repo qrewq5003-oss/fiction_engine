@@ -1,0 +1,12 @@
+{
+  "genre": "scifi_post_apocalyptic",
+  "display_name": "Постапокалипсис",
+  "description": "После катастрофы: выживание, восстановление, новые общества",
+  "key_elements": ["Мир после катастрофы", "Survival", "Новые общества", "Ограниченные ресурсы", "Hope vs despair", "Rebuilding"],
+  "apocalypse_types": ["Ядерная война", "Пандемия", "ИИ", "Климат", "Зомби", "Alien invasion"],
+  "tone": "От мрачного до надежды (варьируется)",
+  "focus": "Survival + социальная динамика",
+  "themes": "Человечность в кризисе, что стоит сохранять",
+  "mistakes": ["Grimdark без надежды", "Unrealistic survival", "Забыли про социум (люди = социальные)"],
+  "recommended": ["Cormac McCarthy — Дорога", "Emily St. John Mandel — Station Eleven", "Dmitry Glukhovsky — Метро 2033", "Hugh Howey — Wool"]
+}

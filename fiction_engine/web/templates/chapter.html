@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">
+    Глава {{ chapter.number }}{% if chapter.title %}: {{ chapter.title }}{% endif %}
+  </div>
+  <div class="page-sub">
+    {{ chapter.word_count }} слов · {{ chapter.created_at[:10] }}
+    · <a href="/" style="color:var(--accent2);">← Назад</a>
+  </div>
+</div>
+
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+  <button class="btn btn-secondary btn-sm" onclick="checkContinuity()">
+    🔗 Проверить непрерывность
+  </button>
+  <span id="continuity-status" style="font-size:12px;color:var(--text2);align-self:center;"></span>
+</div>
+
+<div id="continuity-result" style="display:none;" class="card" style="border-color:var(--warning);">
+  <div class="card-title" style="color:var(--warning);">🔗 Непрерывность</div>
+  <div id="continuity-content" style="font-size:13px;"></div>
+</div>
+
+<div class="card">
+  <div style="white-space:pre-wrap;font-size:14px;line-height:1.8;
+              font-family:'Georgia',serif;color:var(--text);max-width:700px;">{{ chapter.content }}</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function checkContinuity() {
+  const statusEl = document.getElementById('continuity-status');
+  const resultEl = document.getElementById('continuity-result');
+  const contentEl = document.getElementById('continuity-content');
+  statusEl.textContent = 'Проверяю...';
+
+  const r = await apiPost('/api/continuity/check', {
+    chapter_num: {{ chapter.number }},
+    text: {{ chapter.content | tojson }}
+  });
+
+  if (r.error) {
+    statusEl.textContent = 'Ошибка: ' + r.error;
+    return;
+  }
+
+  if (!r.violations || r.violations.length === 0) {
+    statusEl.textContent = '✓ Нарушений не найдено';
+    statusEl.style.color = 'var(--success)';
+    return;
+  }
+
+  statusEl.textContent = `⚠ Найдено ${r.count} нарушений`;
+  statusEl.style.color = 'var(--warning)';
+
+  let html = '';
+  for (const v of r.violations) {
+    const color = v.severity === 'critical' ? 'var(--error)' : 'var(--warning)';
+    html += `<div style="margin-bottom:12px;padding:8px;background:var(--surface2);border-radius:6px;border-left:3px solid ${color};">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Факт серии: ${v.fact}</div>
+      <div style="color:${color};">${v.violation}</div>
+    </div>`;
+  }
+  contentEl.innerHTML = html;
+  resultEl.style.display = 'block';
+}
+</script>
+{% endblock %}

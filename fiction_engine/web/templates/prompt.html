@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">✍️ Генерация промптов</div>
+  <div class="page-sub">Собирает промпт с актуальным контекстом из State Engine и голосом из последних глав</div>
+</div>
+
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <div class="card-title">Настройки промпта</div>
+
+      <div class="form-group">
+        <label>Номер главы для генерации</label>
+        <input type="number" id="chapter-num" min="1"
+               value="{{ (chapters[-1].number + 1) if chapters else 1 }}"
+               style="max-width:120px;">
+      </div>
+
+      <div class="form-group">
+        <label>Режим промпта</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+                        background:var(--surface2);border:1px solid var(--border);
+                        border-radius:8px;padding:12px;margin:0;" id="mode-quick-label">
+            <input type="radio" name="mode" value="quick" checked
+                   onchange="updateModeLabels()" style="width:auto;margin-top:2px;">
+            <div>
+              <div style="font-weight:600;font-size:13px;">QUICK — черновик</div>
+              <div style="color:var(--text2);font-size:12px;">Обычные главы, высокий темп. 5 мин на заполнение.</div>
+            </div>
+          </label>
+
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+                        background:var(--surface2);border:1px solid var(--border);
+                        border-radius:8px;padding:12px;margin:0;" id="mode-quality-label">
+            <input type="radio" name="mode" value="quality"
+                   onchange="updateModeLabels()" style="width:auto;margin-top:2px;">
+            <div>
+              <div style="font-weight:600;font-size:13px;">QUALITY — важная глава</div>
+              <div style="color:var(--text2);font-size:12px;">Повороты, кульминации, эмоциональные сцены. 10-15 мин.</div>
+            </div>
+          </label>
+
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+                        background:var(--surface2);border:1px solid var(--border);
+                        border-radius:8px;padding:12px;margin:0;" id="mode-master-label">
+            <input type="radio" name="mode" value="master"
+                   onchange="updateModeLabels()" style="width:auto;margin-top:2px;">
+            <div>
+              <div style="font-weight:600;font-size:13px;">MASTER — финал арки</div>
+              <div style="color:var(--text2);font-size:12px;">Точки невозврата. Максимальный контекст. 20-30 мин.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="generatePrompt()">
+        <span class="spinner" id="gen-spinner" style="display:none;"></span>
+        Сгенерировать промпт
+      </button>
+    </div>
+
+    <!-- Подсказка -->
+    <div class="card" style="border-color:#2e2e3e;">
+      <div class="card-title" style="font-size:13px;">💡 Как использовать</div>
+      <ol style="color:var(--text2);font-size:12px;padding-left:16px;line-height:1.8;">
+        <li>Выбери номер главы и режим</li>
+        <li>Нажми «Сгенерировать промпт»</li>
+        <li>Заполни поля <code style="color:var(--accent2);">[в скобках]</code></li>
+        <li>Скопируй в GPT / Claude</li>
+        <li>Готовую главу загрузи обратно</li>
+        <li>Запусти анализ → подтверди обновление State Engine</li>
+      </ol>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" id="prompt-card" style="display:none;">
+      <div class="card-title">
+        Промпт готов
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto;"
+                onclick="copyToClipboard(document.getElementById('prompt-output').textContent)">
+          📋 Копировать
+        </button>
+      </div>
+      <div class="text-mono" id="prompt-output" style="max-height:600px;"></div>
+    </div>
+
+    {% if not chapters %}
+    <div class="card" style="text-align:center;padding:40px;color:var(--text2);">
+      <div style="font-size:32px;margin-bottom:12px;">📖</div>
+      Загрузи хотя бы одну главу чтобы промпт получил контекст голоса
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateModeLabels() {
+  ['quick','quality','master'].forEach(mode => {
+    const label = document.getElementById(`mode-${mode}-label`);
+    const radio = label.querySelector('input');
+    label.style.borderColor = radio.checked ? 'var(--accent)' : 'var(--border)';
+    label.style.background = radio.checked ? '#1e1b4b33' : 'var(--surface2)';
+  });
+}
+updateModeLabels();
+
+async function generatePrompt() {
+  const chapterNum = parseInt(document.getElementById('chapter-num').value);
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const spinner = document.getElementById('gen-spinner');
+
+  if (!chapterNum) {
+    showToast('Укажи номер главы', 'error');
+    return;
+  }
+
+  spinner.style.display = 'inline-block';
+
+  const result = await apiPost('/prompt/generate', {chapter_num: chapterNum, mode});
+
+  spinner.style.display = 'none';
+
+  if (result.error) {
+    showToast('Ошибка: ' + result.error, 'error');
+    return;
+  }
+
+  document.getElementById('prompt-output').textContent = result.prompt;
+  document.getElementById('prompt-card').style.display = 'block';
+  document.getElementById('prompt-card').scrollIntoView({behavior:'smooth'});
+}
+</script>
+{% endblock %}

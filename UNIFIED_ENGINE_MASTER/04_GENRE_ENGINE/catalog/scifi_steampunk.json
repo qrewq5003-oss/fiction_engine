@@ -1,0 +1,11 @@
+{
+  "genre": "scifi_steampunk",
+  "display_name": "Стимпанк",
+  "description": "Викторианская эпоха + паровые технологии, airships, механизмы",
+  "key_elements": ["Викторианская/Эдвардианская эра", "Паровые технологии", "Airships/механизмы", "Социальная иерархия", "Приключения", "Изобретатели"],
+  "aesthetics": "Латунь, шестерёнки, гогглы, корсеты, цилиндры",
+  "tone": "Авантюрный, изобретательный, чудесный",
+  "science": "Альтернативная история tech",
+  "mistakes": ["Только эстетика (должна быть сюжетная роль)", "Игнорировать социум эпохи", "Анахронизмы в языке/поведении"],
+  "recommended": ["Philip Reeve — Mortal Engines", "Gail Carriger — Parasol Protectorate", "Cherie Priest — Boneshaker", "K.W. Jeter — Infernal Devices"]
+}

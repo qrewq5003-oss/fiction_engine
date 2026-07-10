@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">✂️ Редактор сцен</div>
+  <div class="page-sub">Точечная правка — берёшь кусок, выбираешь что не так, получаешь исправленное рядом.</div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Левая: настройки + ввод -->
+  <div>
+    <div class="card">
+      <div class="card-title">Режим правки</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;">
+        {% for key, label in edit_modes.items() %}
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                      background:var(--surface2);border:1px solid var(--border);
+                      border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text);"
+               onclick="setMode('{{ key }}')">
+          <input type="radio" name="edit-mode" value="{{ key }}"
+                 {% if key == 'cliches' %}checked{% endif %}
+                 style="width:auto;">
+          {{ label }}
+        </label>
+        {% endfor %}
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                      background:var(--surface2);border:1px solid var(--border);
+                      border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text);
+                      grid-column:1/-1;" onclick="setMode('custom')">
+          <input type="radio" name="edit-mode" value="custom" style="width:auto;">
+          Своя инструкция
+        </label>
+      </div>
+
+      <div id="custom-area" style="display:none;margin-bottom:16px;">
+        <div class="form-group">
+          <label>Что нужно сделать</label>
+          <textarea id="custom-instruction" rows="3"
+                    placeholder="Например: сделай диалог более напряжённым, убери объяснения..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Модель</label>
+        <select id="edit-model">
+          {% for m in models %}
+          <option value="{{ m.value }}">{{ m.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Загрузить из главы -->
+    {% if chapters %}
+    <div class="card">
+      <div class="card-title" style="font-size:13px;">Загрузить из главы</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="chapter-select" style="flex:1;">
+          {% for ch in chapters %}
+          <option value="{{ ch.number }}">Гл.{{ ch.number }} {{ ch.title or '' }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadChapter()">Загрузить</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Правая: редактор -->
+  <div>
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>Исходный текст</span>
+        <span id="input-words" style="font-size:11px;color:var(--text2);"></span>
+      </div>
+      <textarea id="edit-input" rows="14"
+                style="font-family:Georgia,serif;font-size:14px;line-height:1.8;"
+                placeholder="Вставь кусок текста — абзац, сцену, диалог..."
+                oninput="updateWordCount()"></textarea>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;min-height:16px;" id="autosave-status"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="clearAll()">Очистить</button>
+        <button class="btn btn-primary" style="flex:2;" id="btn-edit" onclick="runEdit()">
+          <span class="spinner" id="edit-spinner" style="display:none;"></span>
+          ✂️ Исправить
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Результат — во всю ширину -->
+<div id="result-section" style="display:none;">
+
+  <!-- Переключатель вид/дифф -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+    <button class="btn btn-secondary btn-sm" id="btn-view-split" onclick="setView('split')" style="opacity:1;">
+      ◫ Рядом
+    </button>
+    <button class="btn btn-secondary btn-sm" id="btn-view-diff" onclick="setView('diff')" style="opacity:0.5;">
+      ⟷ Diff
+    </button>
+    <span id="diff-stats" style="font-size:12px;color:var(--text2);margin-left:8px;"></span>
+  </div>
+
+  <!-- Split view -->
+  <div id="view-split" class="grid-2" style="align-items:start;">
+
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span style="color:var(--text2);">Оригинал</span>
+        <button class="btn btn-secondary btn-sm" onclick="copyText('original-display')">Копировать</button>
+      </div>
+      <div id="original-display"
+           style="white-space:pre-wrap;font-family:Georgia,serif;font-size:14px;
+                  line-height:1.8;color:var(--text2);padding:12px;
+                  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+                  min-height:100px;"></div>
+    </div>
+
+    <div class="card" style="border-color:var(--success);">
+      <div class="card-title" style="justify-content:space-between;color:var(--success);">
+        <span>Исправленный <span id="result-words" style="font-size:11px;color:var(--text2);font-weight:400;"></span></span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="copyText('result-display')">Копировать</button>
+          <button class="btn btn-success btn-sm" onclick="useResult()">← Использовать как основу</button>
+        </div>
+      </div>
+      <div id="result-display"
+           style="white-space:pre-wrap;font-family:Georgia,serif;font-size:14px;
+                  line-height:1.8;padding:12px;background:var(--bg);
+                  border:1px solid var(--border);border-radius:8px;min-height:100px;"></div>
+    </div>
+
+  </div>
+
+  <!-- Diff view -->
+  <div id="view-diff" style="display:none;">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>Изменения</span>
+        <div style="display:flex;gap:12px;font-size:12px;align-items:center;">
+          <span style="background:#14532d33;border:1px solid #166534;border-radius:4px;padding:2px 8px;color:var(--success);">+ добавлено</span>
+          <span style="background:#7f1d1d33;border:1px solid #991b1b;border-radius:4px;padding:2px 8px;color:var(--error);">- убрано</span>
+          <button class="btn btn-success btn-sm" onclick="useResult()">← Использовать</button>
+        </div>
+      </div>
+      <div id="diff-display"
+           style="font-family:Georgia,serif;font-size:14px;line-height:1.8;
+                  padding:12px;background:var(--bg);border:1px solid var(--border);
+                  border-radius:8px;min-height:100px;"></div>
+    </div>
+  </div>
+
+  <!-- Ещё круг -->
+  <div class="card" style="border-color:var(--accent);">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:13px;color:var(--text2);">Ещё правка:</span>
+      {% for key, label in edit_modes.items() %}
+      <button class="btn btn-secondary btn-sm" onclick="quickEdit('{{ key }}')">{{ label }}</button>
+      {% endfor %}
+      <button class="btn btn-secondary btn-sm" onclick="checkVoiceEdit()" style="margin-left:auto;">🎙 Проверить голос</button>
+    </div>
+  </div>
+
+  <!-- Проверка голоса -->
+  <div id="voice-edit-result" style="display:none;" class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <span>🎙 Голос — <span id="voice-edit-name" style="color:var(--accent2);"></span></span>
+      <span id="voice-edit-score" style="font-size:20px;font-weight:700;"></span>
+    </div>
+    <div id="voice-edit-analysis" class="text-mono" style="font-size:12px;"></div>
+  </div>
+
+</div><!-- /result-section -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentResultText = '';
+let currentView = 'split';
+
+function setMode(mode) {
+  document.getElementById('custom-area').style.display =
+    mode === 'custom' ? 'block' : 'none';
+}
+
+document.querySelectorAll('input[name="edit-mode"]').forEach(r => {
+  r.addEventListener('change', () => setMode(r.value));
+});
+
+function updateWordCount() {
+  const text = document.getElementById('edit-input').value;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('input-words').textContent = words ? words + ' слов' : '';
+}
+
+// ─── Diff алгоритм ───────────────────────────────────────────────────────────
+
+function computeDiff(oldText, newText) {
+  const oldWords = oldText.split(/(\s+)/);
+  const newWords = newText.split(/(\s+)/);
+  const m = oldWords.length, n = newWords.length;
+  const dp = Array(m+1).fill(null).map(() => Array(n+1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = oldWords[i-1] === newWords[j-1]
+        ? dp[i-1][j-1] + 1
+        : Math.max(dp[i-1][j], dp[i][j-1]);
+  const ops = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldWords[i-1] === newWords[j-1]) {
+      ops.unshift({ type: 'eq', text: oldWords[i-1] }); i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      ops.unshift({ type: 'add', text: newWords[j-1] }); j--;
+    } else {
+      ops.unshift({ type: 'del', text: oldWords[i-1] }); i--;
+    }
+  }
+  return ops;
+}
+
+function renderDiff(oldText, newText) {
+  const ops = computeDiff(oldText, newText);
+  let html = '', added = 0, removed = 0;
+  for (const op of ops) {
+    const t = op.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (op.type === 'eq') html += t;
+    else if (op.type === 'add') {
+      html += `<mark style="background:#14532d55;color:#4ade80;border-radius:2px;">${t}</mark>`;
+      if (op.text.trim()) added++;
+    } else {
+      html += `<del style="background:#7f1d1d55;color:#f87171;text-decoration:line-through;">${t}</del>`;
+      if (op.text.trim()) removed++;
+    }
+  }
+  return { html, added, removed };
+}
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('view-split').style.display = view === 'split' ? 'grid' : 'none';
+  document.getElementById('view-diff').style.display = view === 'diff' ? 'block' : 'none';
+  document.getElementById('btn-view-split').style.opacity = view === 'split' ? '1' : '0.5';
+  document.getElementById('btn-view-diff').style.opacity = view === 'diff' ? '1' : '0.5';
+}
+
+// ─── Загрузить из главы ──────────────────────────────────────────────────────
+
+async function loadChapter() {
+  const num = document.getElementById('chapter-select').value;
+  const r = await fetch('/api/chapters').then(x => x.json()).catch(() => null);
+  if (!r) return;
+  const ch = r.find(c => c.number == num);
+  if (ch && ch.content) {
+    document.getElementById('edit-input').value = ch.content;
+    updateWordCount();
+    showToast('Глава загружена', 'info');
+  } else {
+    showToast('Текст главы не найден', 'error');
+  }
+}
+
+// ─── Правка ──────────────────────────────────────────────────────────────────
+
+async function runEdit() {
+  const text = document.getElementById('edit-input').value.trim();
+  const mode = document.querySelector('input[name="edit-mode"]:checked').value;
+  const model = document.getElementById('edit-model').value;
+  const custom = document.getElementById('custom-instruction')?.value?.trim() || '';
+
+  if (!text) { showToast('Вставь текст для правки', 'error'); return; }
+
+  const btn = document.getElementById('btn-edit');
+  const spin = document.getElementById('edit-spinner');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+
+  const result = await apiPost('/edit/run', { text, mode, model, custom });
+
+  btn.disabled = false;
+  spin.style.display = 'none';
+
+  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+
+  currentResultText = result.text;
+  document.getElementById('original-display').textContent = text;
+  document.getElementById('result-display').textContent = result.text;
+  const rWords = result.text.trim().split(/\s+/).length;
+  const rwEl = document.getElementById('result-words');
+  if (rwEl) rwEl.textContent = rWords + ' слов';
+
+  const { html, added, removed } = renderDiff(text, result.text);
+  document.getElementById('diff-display').innerHTML = html;
+  document.getElementById('diff-stats').textContent =
+    '+' + added + ' добавлено · -' + removed + ' убрано';
+
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+  showToast('Готово', 'success');
+}
+
+async function quickEdit(mode) {
+  document.getElementById('edit-input').value = currentResultText;
+  updateWordCount();
+  const radio = document.querySelector('input[name="edit-mode"][value="' + mode + '"]');
+  if (radio) { radio.checked = true; setMode(mode); }
+  await runEdit();
+}
+
+function useResult() {
+  document.getElementById('edit-input').value = currentResultText;
+  updateWordCount();
+  document.getElementById('result-section').style.display = 'none';
+  showToast('Скопировано в поле редактирования', 'info');
+}
+
+function clearAll() {
+  document.getElementById('edit-input').value = '';
+  document.getElementById('result-section').style.display = 'none';
+  updateWordCount();
+}
+
+function copyText(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Скопировано', 'success'));
+}
+
+async function checkVoiceEdit() {
+  const text = currentResultText || document.getElementById('edit-input').value.trim();
+  const model = document.getElementById('edit-model').value;
+  if (!text) { showToast('Нет текста для проверки', 'error'); return; }
+
+  showToast('Проверяю голос...', 'info');
+  const r = await apiPost('/voice/check', { text, model });
+
+  if (r.error) { showToast(r.error, 'error'); return; }
+
+  const scoreEl = document.getElementById('voice-edit-score');
+  scoreEl.textContent = r.score ? r.score + '/10' : '';
+  scoreEl.style.color = r.score >= 8 ? 'var(--success)' : r.score >= 6 ? 'var(--warning)' : 'var(--error)';
+  document.getElementById('voice-edit-name').textContent = r.voice_name || '';
+  document.getElementById('voice-edit-analysis').textContent = r.analysis;
+  document.getElementById('voice-edit-result').style.display = 'block';
+}
+
+// ─── Сохранение состояния ────────────────────────────────────────────────────
+const EDIT_IDS = ['edit-input', 'result-section', 'result-display'];
+
+window.addEventListener('pagehide', () => PageState.save('edit', EDIT_IDS));
+
+// ─── Автосохранение черновика ─────────────────────────────────────────────
+
+let _autosaveTimer = null;
+let _lastAutosaved = '';
+
+function _doAutosave() {
+  const text = document.getElementById('edit-input').value;
+  if (!text || text === _lastAutosaved) return;
+  try {
+    sessionStorage.setItem('edit_autosave', text);
+    sessionStorage.setItem('edit_autosave_ts', new Date().toLocaleTimeString());
+    _lastAutosaved = text;
+    const el = document.getElementById('autosave-status');
+    if (el) el.textContent = '✓ черновик ' + sessionStorage.getItem('edit_autosave_ts');
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Восстановить автосохранённый черновик
+  const saved = sessionStorage.getItem('edit_autosave');
+  const ts = sessionStorage.getItem('edit_autosave_ts');
+  const inp = document.getElementById('edit-input');
+  if (saved && inp && !inp.value) {
+    inp.value = saved;
+    updateWordCount();
+    const el = document.getElementById('autosave-status');
+    if (el) el.textContent = '↺ восстановлен ' + (ts || '');
+  }
+  // Запустить автосохранение каждые 30 сек
+  _autosaveTimer = setInterval(_doAutosave, 30000);
+});
+
+// Сохранять сразу при любом изменении (debounced 5 сек)
+let _debounceTimer = null;
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'edit-input') {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(_doAutosave, 5000);
+  }
+});
+window.addEventListener('beforeunload', () => PageState.save('edit', EDIT_IDS));
+
+(function() {
+  PageState.restore('edit', EDIT_IDS, (data) => {
+    if (data['result-section'] && data['result-section'].display === 'block') {
+      currentResultText = document.getElementById('result-display').textContent || '';
+    }
+  });
+})();
+
+</script>
+{% endblock %}

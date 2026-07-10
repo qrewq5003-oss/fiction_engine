@@ -1,0 +1,12 @@
+{
+  "genre": "romance_historical",
+  "display_name": "Историческая романтика",
+  "description": "Романтика в историческом сеттинге (обычно Regency, Victorian, Medieval)",
+  "key_elements": ["Исторический сеттинг", "Точность эпохи (одежда, язык, социум)", "Социальные ограничения = конфликт", "Chemistry несмотря на правила", "HEA"],
+  "popular_eras": ["Regency (1811-1820) — самая популярная", "Victorian", "Medieval", "American West", "Война/мир"],
+  "tone": "Зависит от эпохи, но романтичный",
+  "research": "КРИТИЧНО (историческая точность важна)",
+  "language": "Умеренно архаичный (не переборщить)",
+  "mistakes": ["Анахронизмы (современное мышление в прошлом)", "Неточности эпохи", "Игнорирование социальных ограничений"],
+  "recommended": ["Julia Quinn — Bridgerton", "Lisa Kleypas", "Tessa Dare", "Mary Balogh"]
+}

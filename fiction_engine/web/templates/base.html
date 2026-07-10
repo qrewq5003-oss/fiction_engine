@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiction Engine{% if current %} — {{ current.name }}{% endif %}</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #22222e;
+    --border: #2e2e3e;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --text: #e2e2f0;
+    --text2: #8888a8;
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif;
+         font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border);
+             padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; }
+  .main { padding: 32px; overflow-y: auto; }
+
+  /* Logo */
+  .logo { font-size: 18px; font-weight: 700; color: var(--accent2);
+          letter-spacing: -0.5px; padding: 0 8px; }
+  .logo span { color: var(--text2); font-weight: 400; font-size: 12px; display: block; }
+
+  /* Nav */
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+            border-radius: 8px; color: var(--text2); text-decoration: none;
+            transition: all 0.15s; font-size: 13px; }
+  .nav a:hover, .nav a.active { background: var(--surface2); color: var(--text); }
+  .nav a .icon { width: 16px; text-align: center; }
+
+  /* Section labels */
+  .section-label { font-size: 10px; font-weight: 600; color: var(--text2);
+                   text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-top: 8px; }
+
+  /* Project selector */
+  .project-card { background: var(--surface2); border: 1px solid var(--border);
+                  border-radius: 10px; padding: 12px 14px; }
+  .project-name { font-weight: 600; font-size: 14px; color: var(--accent2); }
+  .project-genre { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .project-switch { font-size: 11px; color: var(--text2); text-decoration: none;
+                    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+                    display: inline-block; margin-top: 8px; transition: all 0.15s; }
+  .project-switch:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px;
+                display: flex; align-items: center; gap: 8px; }
+  .card-title .badge { font-size: 10px; background: var(--accent);
+                       color: white; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* Forms */
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+  input, select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 13px;
+    font-family: inherit; transition: border-color 0.15s; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: var(--surface2); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+         border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+         border: none; transition: all 0.15s; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #6b5ae0; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+  .btn-success { background: #166534; color: var(--success); border: 1px solid #166534; }
+  .btn-danger { background: #7f1d1d; color: var(--error); border: 1px solid #7f1d1d; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* Chapters table */
+  .chapter-list { display: flex; flex-direction: column; gap: 8px; }
+  .chapter-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+                  background: var(--surface2); border-radius: 8px; border: 1px solid var(--border); }
+  .chapter-num { font-size: 11px; font-weight: 700; color: var(--accent2);
+                 min-width: 28px; text-align: center; }
+  .chapter-title { flex: 1; font-size: 13px; }
+  .chapter-words { font-size: 11px; color: var(--text2); }
+
+  /* Alerts */
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .alert-success { background: #14532d33; border: 1px solid #166534; color: var(--success); }
+  .alert-error   { background: #7f1d1d33; border: 1px solid #991b1b; color: var(--error); }
+  .alert-info    { background: #1e1b4b33; border: 1px solid var(--accent); color: var(--accent2); }
+  .alert-warning { background: #78350f33; border: 1px solid #92400e; color: var(--warning); }
+
+  /* Badge */
+  .badge-count { background: var(--accent); color: white; border-radius: 20px;
+                 font-size: 10px; padding: 1px 6px; font-weight: 600; }
+
+  /* Pending updates */
+  .pending-update { background: var(--surface2); border: 1px solid var(--warning);
+                    border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .pending-title { color: var(--warning); font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+
+  /* Code/text blocks */
+  .text-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px;
+               background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+               padding: 12px; white-space: pre-wrap; word-break: break-word;
+               max-height: 400px; overflow-y: auto; color: var(--text2); }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: #000000cc;
+                   z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+           padding: 28px; width: min(600px, 95vw); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Spinner */
+  .spinner { width: 16px; height: 16px; border: 2px solid transparent;
+             border-top-color: currentColor; border-radius: 50%;
+             animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Page header */
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-size: 24px; font-weight: 700; }
+  .page-sub { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+  /* Upload area */
+  .upload-area { border: 2px dashed var(--border); border-radius: 10px; padding: 24px;
+                 text-align: center; transition: border-color 0.15s; cursor: pointer; }
+  .upload-area:hover { border-color: var(--accent); }
+  .upload-area p { color: var(--text2); font-size: 13px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px;
+          border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .tab { padding: 8px 16px; cursor: pointer; font-size: 13px; color: var(--text2);
+         border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">Fiction Engine <span>v1.0</span></div>
+
+    {% if current %}
+    <div class="project-card">
+      <div class="project-name">{{ current.name }}</div>
+      <div class="project-genre">{{ current.genre or 'жанр не указан' }}</div>
+    </div>
+    {% endif %}
+
+    <nav class="nav">
+      <div class="section-label">Навигация</div>
+      <a href="/" {% if request.path == '/' %}class="active"{% endif %}>
+        <span class="icon">🏠</span> Обзор
+      </a>
+      <a href="/state" {% if '/state' in request.path %}class="active"{% endif %}>
+        <span class="icon">⚙️</span> State Engine
+        {% if pending_count and pending_count > 0 %}
+        <span class="badge-count">{{ pending_count }}</span>
+        {% endif %}
+      </a>
+      <a href="/stats" {% if '/stats' in request.path %}class="active"{% endif %}>
+        <span class="icon">📊</span> Статистика
+      </a>
+      <a href="/generate" {% if request.path == '/generate' %}class="active"{% endif %}>
+        <span class="icon">✍️</span> Генерация
+      </a>
+      <a href="/edit" {% if '/edit' in request.path %}class="active"{% endif %}>
+        <span class="icon">✂️</span> Редактор сцен
+      </a>
+      <a href="/pipeline" {% if '/pipeline' in request.path %}class="active"{% endif %}>
+        <span class="icon">⚡</span> Pipeline
+      </a>
+      <a href="/prep" {% if '/prep' in request.path %}class="active"{% endif %}>
+        <span class="icon">📋</span> Подготовка
+      </a>
+      <a href="/voice" {% if '/voice' in request.path %}class="active"{% endif %}>
+        <span class="icon">🎙️</span> Голос
+      </a>
+      <a href="/score" {% if '/score' in request.path %}class="active"{% endif %}>
+        <span class="icon">🔍</span> Оценка
+      </a>
+      <a href="/ideas" {% if '/ideas' in request.path %}class="active"{% endif %}>
+        <span class="icon">💡</span> Идеи
+      </a>
+      <a href="/knowledge" {% if '/knowledge' in request.path %}class="active"{% endif %}>
+        <span class="nav-icon">📚</span>
+        <span class="nav-label">База знаний</span>
+      </a>
+      <a href="/symbols" {% if '/symbols' in request.path %}class="active"{% endif %}>
+        <span class="icon">🔮</span> Символы
+      </a>
+      <a href="/narrative" {% if '/narrative' in request.path %}class="active"{% endif %}>
+        <span class="icon">🧠</span> Нарратив
+      </a>
+      <a href="/prompt" {% if '/prompt' in request.path %}class="active"{% endif %}>
+        <span class="icon">🔧</span> Промпты
+      </a>
+
+      <div class="section-label" style="margin-top:16px">Проекты</div>
+      {% for p in projects %}
+      <a href="/project/{{ p.id }}/switch" {% if current and p.id == current.id %}class="active"{% endif %}
+         style="font-size:12px;">
+        <span class="icon">📚</span>
+        {{ p.name }}
+        {% if p.last_chapter %}
+        <span style="color:var(--text2);margin-left:auto;font-size:10px;">гл.{{ p.last_chapter }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+
+      <div class="section-label" style="margin-top:16px">Система</div>
+      <a href="/settings">
+        <span class="icon">🔑</span> API ключи
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+      <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script>
+// Вспомогательные функции
+async function apiPost(url, data) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  return r.json();
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Скопировано!', 'success');
+  });
+}
+
+function showToast(msg, type='info', duration=3000) {
+  const t = document.createElement('div');
+  t.className = `alert alert-${type}`;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999;min-width:200px;max-width:420px;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+// === Persist inputs across navigation ===
+(function() {
+  const ns = 'fe:' + location.pathname;
+
+  function save(el) {
+    if (!el.id) return;
+    const key = ns + ':' + el.id;
+    if (el.type === 'radio') {
+      if (el.checked) localStorage.setItem(key + ':radio:' + el.name, el.value);
+    } else {
+      localStorage.setItem(key, el.value);
+    }
+  }
+
+  function restore(el) {
+    if (!el.id) return;
+    const key = ns + ':' + el.id;
+    if (el.type === 'radio') {
+      const saved = localStorage.getItem(key + ':radio:' + el.name);
+      if (saved !== null && el.value === saved) el.checked = true;
+    } else {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) el.value = saved;
+    }
+  }
+
+  // Restore on load
+  document.querySelectorAll('input[id], textarea[id], select[id]').forEach(restore);
+
+  // Save on change — пропускаем если loadFromHistory заблокировал сохранение
+  document.addEventListener('input', e => { if (e.target.id && !window._pauseLocalStorageSave) save(e.target); });
+  document.addEventListener('change', e => { if (e.target.id && !window._pauseLocalStorageSave) save(e.target); });
+})();
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const group = tab.dataset.group;
+    document.querySelectorAll(`.tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
+    document.querySelectorAll(`.tab-content[data-group="${group}"]`).forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.target)?.classList.add('active');
+  });
+});
+</script>
+
+<script>
+// ─── Универсальное сохранение состояния страницы ──────────────────────────
+// Использование: PageState.init('page-key', ['id1','id2'], restoreFn)
+const PageState = {
+  save(key, ids) {
+    const data = {};
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+        data[id] = el.value;
+      } else {
+        data[id] = { html: el.innerHTML, display: el.style.display };
+      }
+    });
+    try { sessionStorage.setItem('ps_' + key, JSON.stringify(data)); } catch(e) {}
+  },
+  restore(key, ids, afterFn) {
+    try {
+      const raw = sessionStorage.getItem('ps_' + key);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      let restored = false;
+      ids.forEach(id => {
+        if (!data[id]) return;
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+          el.value = data[id];
+        } else {
+          if (data[id].html !== undefined) el.innerHTML = data[id].html;
+          if (data[id].display !== undefined) el.style.display = data[id].display;
+        }
+        restored = true;
+      });
+      if (restored && afterFn) afterFn(data);
+      return restored;
+    } catch(e) { return false; }
+  },
+  clear(key) {
+    try { sessionStorage.removeItem('ps_' + key); } catch(e) {}
+  }
+};
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

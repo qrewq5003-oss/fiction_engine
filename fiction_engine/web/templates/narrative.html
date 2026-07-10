@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Нарративный анализ</h1>
+  <p style="color:var(--text2)">Арки персонажей · Сюжетные обещания · Противоречия · Темп</p>
+</div>
+
+{% if not current %}
+<div class="card" style="color:var(--text2)">Нет активного проекта.</div>
+{% else %}
+
+<div class="card" style="margin-bottom:1rem">
+  <label style="color:var(--text2);font-size:.85rem">Анализировать по главу включительно:</label>
+  <div style="display:flex;gap:.75rem;align-items:center;margin-top:.5rem">
+    <select id="chapterSelect" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.4rem .7rem;border-radius:6px">
+      {% for ch in chapters %}
+      <option value="{{ ch.number }}">Глава {{ ch.number }}{% if ch.title %} — {{ ch.title }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" id="btnMetrics">Метрики (быстро)</button>
+    <button class="btn btn-accent" id="btnReport">Полный анализ</button>
+  </div>
+</div>
+
+<div id="status" style="display:none;color:var(--text2);font-size:.9rem;margin-bottom:1rem">
+  ⏳ <span id="statusText">Анализируем…</span>
+</div>
+
+<!-- Метрики -->
+<div id="metricsSection" style="display:none">
+  <h3 style="color:var(--text2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Метрики серии</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:1.5rem">
+    <div class="card" style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--accent)" id="mChapters">—</div>
+      <div style="color:var(--text2);font-size:.8rem">глав проанализировано</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--accent)" id="mPromises">—</div>
+      <div style="color:var(--text2);font-size:.8rem">сюжетных обещаний</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--accent)" id="mConflict">—</div>
+      <div style="color:var(--text2);font-size:.8rem">средний конфликт</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--accent)" id="mMoodShifts">—</div>
+      <div style="color:var(--text2);font-size:.8rem">смен настроения</div>
+    </div>
+    <div class="card" style="text-align:center" id="mPacingCard">
+      <div style="font-size:1.8rem;font-weight:700" id="mPacingCoverage">—</div>
+      <div style="color:var(--text2);font-size:.8rem">покрытие темпа</div>
+      <div style="color:var(--text2);font-size:.72rem;margin-top:.2rem" id="mPacingHint"></div>
+    </div>
+  </div>
+  <div id="conflictChart" style="margin-bottom:1.5rem"></div>
+</div>
+
+<!-- Полный отчёт -->
+<div id="reportSection" style="display:none">
+
+  <!-- Предупреждения -->
+  <div id="warningsBlock" style="margin-bottom:1.5rem"></div>
+
+  <!-- Арки -->
+  <div id="arcsBlock" style="margin-bottom:1.5rem"></div>
+
+  <!-- Обещания -->
+  <div id="promisesBlock" style="margin-bottom:1.5rem"></div>
+
+  <!-- Противоречия -->
+  <div id="contradictionsBlock" style="margin-bottom:1.5rem"></div>
+
+</div>
+
+{% endif %}
+
+<style>
+.card { background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem }
+.btn { background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-size:.9rem }
+.btn:hover { border-color:var(--accent) }
+.btn-accent { background:var(--accent);border-color:var(--accent);color:#fff }
+.btn-accent:hover { opacity:.85 }
+.tag { display:inline-block;padding:.15rem .55rem;border-radius:4px;font-size:.75rem;font-weight:600 }
+.tag-ok   { background:#1a3a2a;color:var(--success) }
+.tag-warn { background:#3a2a0a;color:var(--warning) }
+.tag-bad  { background:#3a1a1a;color:var(--error) }
+.arc-bar  { height:6px;border-radius:3px;background:var(--border);margin-top:.4rem;overflow:hidden }
+.arc-fill { height:100%;border-radius:3px;background:var(--accent) }
+table { width:100%;border-collapse:collapse;font-size:.88rem }
+th { text-align:left;color:var(--text2);font-weight:500;padding:.4rem .6rem;border-bottom:1px solid var(--border) }
+td { padding:.4rem .6rem;border-bottom:1px solid var(--border);vertical-align:top }
+</style>
+
+<script>
+const sel = document.getElementById("chapterSelect");
+const status = document.getElementById("status");
+const statusText = document.getElementById("statusText");
+
+function showStatus(msg) {
+  status.style.display = "block";
+  statusText.textContent = msg;
+}
+function hideStatus() { status.style.display = "none"; }
+
+// ── Метрики ──────────────────────────────────────────────────────────────────
+document.getElementById("btnMetrics").addEventListener("click", async () => {
+  const ch = sel.value;
+  showStatus("Считаем метрики…");
+  document.getElementById("metricsSection").style.display = "none";
+  try {
+    const r = await fetch(`/narrative/metrics/${ch}`);
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    const m = d.metrics;
+    document.getElementById("mChapters").textContent  = m.chapters_analyzed ?? "—";
+    document.getElementById("mPromises").textContent  = m.promise_count ?? "—";
+    document.getElementById("mConflict").textContent  = m.avg_conflict_score ?? "—";
+    document.getElementById("mMoodShifts").textContent= m.mood_shift_count ?? "—";
+    // pacing_coverage: насколько tension scores опираются на реальный темп из chapter_analysis
+    const pc = m.pacing_coverage;
+    if (pc !== undefined && pc !== null) {
+      const pct = Math.round(pc * 100);
+      const el = document.getElementById("mPacingCoverage");
+      el.textContent = pct + "%";
+      el.style.color = pc >= 0.8 ? "var(--success)" : pc >= 0.5 ? "var(--warning)" : "var(--error)";
+      document.getElementById("mPacingHint").textContent =
+        pc < 0.5 ? "запусти анализ глав" :
+        pc < 0.8 ? "анализ глав частичный" : "данные полные";
+    } else {
+      document.getElementById("mPacingCard").style.display = "none";
+    }
+    renderConflictChart(m.conflict_density || [], m.mood_trajectory || []);
+    document.getElementById("metricsSection").style.display = "block";
+    hideStatus();
+  } catch(e) {
+    statusText.textContent = "Ошибка: " + e.message;
+  }
+});
+
+function renderConflictChart(density, moods) {
+  if (!density.length) return;
+  const container = document.getElementById("conflictChart");
+  const max = Math.max(...density, 0.1);
+  const bars = density.map((v, i) => {
+    const pct = Math.round((v / max) * 100);
+    const mood = moods[i] || "";
+    const moodColor = mood.includes("мрач") || mood.includes("тревог") || mood.includes("ужас")
+      ? "var(--error)" : mood.includes("свет") || mood.includes("надежд") || mood.includes("тёпл")
+      ? "var(--success)" : "var(--accent)";
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:20px">
+      <div style="width:100%;height:${Math.max(pct,4)}px;background:${moodColor};border-radius:3px 3px 0 0;transition:height .3s" title="Гл.${i+1}: конфликт=${v} настроение=${mood}"></div>
+      <div style="font-size:.65rem;color:var(--text2);margin-top:2px">${i+1}</div>
+    </div>`;
+  }).join("");
+  container.innerHTML = `
+    <div style="color:var(--text2);font-size:.8rem;margin-bottom:.5rem">Плотность конфликта по главам</div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding-bottom:20px">${bars}</div>`;
+}
+
+// ── Полный отчёт ─────────────────────────────────────────────────────────────
+document.getElementById("btnReport").addEventListener("click", async () => {
+  const ch = sel.value;
+  showStatus("Полный анализ — 2-3 LLM-вызова, подождите…");
+  document.getElementById("reportSection").style.display = "none";
+  try {
+    const r = await fetch(`/narrative/report/${ch}`);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    renderWarnings(d.warnings || []);
+    renderArcs(d.arc_health || {});
+    renderPromises(d.promise_status || []);
+    renderContradictions(d.contradictions || []);
+    document.getElementById("reportSection").style.display = "block";
+    hideStatus();
+  } catch(e) {
+    statusText.textContent = "Ошибка: " + e.message;
+  }
+});
+
+function renderWarnings(warnings) {
+  const el = document.getElementById("warningsBlock");
+  if (!warnings.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<h3 style="color:var(--text2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Предупреждения</h3>` +
+    warnings.map(w => `<div style="background:var(--surface);border:1px solid var(--warning);border-radius:6px;padding:.6rem .9rem;margin-bottom:.5rem;color:var(--warning);font-size:.9rem">⚠ ${w}</div>`).join("");
+}
+
+function renderArcs(arcs) {
+  const el = document.getElementById("arcsBlock");
+  const names = Object.keys(arcs);
+  if (!names.length) { el.innerHTML = ""; return; }
+  const rows = names.map(name => {
+    const a = arcs[name];
+    const stages = (a.stages || []).slice(-5).join(" → ");
+    const statusTag = a.stalled ? `<span class="tag tag-warn">стагнация</span>` :
+                      a.resolved ? `<span class="tag tag-ok">завершена</span>` :
+                      `<span class="tag tag-ok">активна</span>`;
+    return `<tr>
+      <td style="font-weight:500">${name}</td>
+      <td>${statusTag}</td>
+      <td style="color:var(--text2)">${stages}</td>
+      <td style="color:var(--text2);font-size:.85rem">${a.tension_peak ? `пик: гл.${a.tension_peak}` : ""}</td>
+    </tr>`;
+  }).join("");
+  el.innerHTML = `<h3 style="color:var(--text2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Арки персонажей</h3>
+    <div class="card"><table><thead><tr><th>Персонаж</th><th>Статус</th><th>Этапы (последние 5)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderPromises(promises) {
+  const el = document.getElementById("promisesBlock");
+  if (!promises.length) { el.innerHTML = ""; return; }
+  const rows = promises.map(p => {
+    const tag = p.resolved
+      ? `<span class="tag tag-ok">выполнено гл.${p.resolved_chapter||"?"}</span>`
+      : p.overdue
+      ? `<span class="tag tag-bad">просрочено</span>`
+      : `<span class="tag tag-warn">открыто</span>`;
+    return `<tr>
+      <td style="color:var(--text2);font-size:.85rem">гл.${p.introduced_chapter||"?"}</td>
+      <td>${p.text || "—"}</td>
+      <td>${tag}</td>
+    </tr>`;
+  }).join("");
+  el.innerHTML = `<h3 style="color:var(--text2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Сюжетные обещания</h3>
+    <div class="card"><table><thead><tr><th>Введено</th><th>Обещание</th><th>Статус</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderContradictions(contradictions) {
+  const el = document.getElementById("contradictionsBlock");
+  if (!contradictions.length) {
+    el.innerHTML = `<div class="card" style="color:var(--success)">✓ Явных противоречий не обнаружено</div>`;
+    return;
+  }
+  el.innerHTML = `<h3 style="color:var(--text2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Противоречия</h3>` +
+    contradictions.map(c => `<div style="background:var(--surface);border:1px solid var(--error);border-radius:6px;padding:.6rem .9rem;margin-bottom:.5rem;font-size:.9rem">✗ ${c}</div>`).join("");
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Статистика{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+  <!-- По актам -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">📋 Сцен по актам</div>
+    {% for title, data in by_act.items() %}
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+        <span style="color:{{ data.color }};">{{ title }}</span>
+        <span>{{ data.count }}</span>
+      </div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px;">
+        <div style="height:100%;background:{{ data.color }};border-radius:3px;width:{% if scenes|length %}{{ (data.count / scenes|length * 100)|int }}{% else %}0{% endif %}%;"></div>
+      </div>
+    </div>
+    {% endfor %}
+    <div style="font-size:11px;color:var(--text2);margin-top:8px;">Итого: {{ scenes|length }} сцен</div>
+  </div>
+
+  <!-- По персонажам -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">👤 Персонажи</div>
+    {% if chars_count %}
+    {% for name, count in chars_count %}
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span>{{ name }}</span>
+      <span style="color:var(--accent2);">{{ count }} сц.</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:var(--text2);font-size:12px;">Нет данных</div>
+    {% endif %}
+  </div>
+
+  <!-- По локациям -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">📍 Локации</div>
+    {% if loc_count %}
+    {% for loc, count in loc_count %}
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span>{{ loc }}</span>
+      <span style="color:var(--accent2);">{{ count }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:var(--text2);font-size:12px;">Нет данных</div>
+    {% endif %}
+  </div>
+
+  <!-- По эмоциям -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">🎭 Эмоции</div>
+    {% if emo_count %}
+    {% for emo, count in emo_count %}
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span>{{ emo }}</span>
+      <span style="color:var(--accent2);">{{ count }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:var(--text2);font-size:12px;">Нет данных</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Незаполненные -->
+{% if incomplete %}
+<div class="card" style="margin-top:16px;border-color:var(--warning);">
+  <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--warning);">⚠️ Незаполненные карточки ({{ incomplete|length }})</div>
+  {% for s in incomplete %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+    <a href="/scene/{{ s.id }}" style="color:var(--text);text-decoration:none;font-size:13px;">{{ s.title }}</a>
+    <span style="font-size:11px;color:var(--text2);">нет: {{ s.missing | join(', ') }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Доска{% endblock %}
+
+{% block topbar %}
+<div style="margin-left:auto;display:flex;gap:8px;">
+  <button class="btn btn-secondary btn-sm" onclick="openModal('modal-acts')">⚙ Акты</button>
+  <button class="btn btn-primary btn-sm" onclick="addScene(null)">+ Сцена</button>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; min-height: calc(100vh - 120px); align-items: flex-start; }
+.act-col { min-width: 220px; max-width: 240px; flex-shrink: 0; }
+.act-header { padding: 10px 12px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between; }
+.act-title { font-size: 13px; font-weight: 600; }
+.act-count { font-size: 11px; opacity: .7; }
+.act-body { border-radius: 0 0 8px 8px; border: 1px solid var(--border); border-top: none; padding: 8px; min-height: 300px; display: flex; flex-direction: column; gap: 8px; }
+.act-body.drag-over { background: var(--surface2); }
+
+.scene-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: grab; user-select: none; transition: box-shadow .15s; position: relative; }
+.scene-card:hover { box-shadow: 0 0 0 1px var(--accent); }
+.scene-card.dragging { opacity: .4; }
+.scene-card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scene-card-meta { font-size: 11px; color: var(--text2); line-height: 1.4; }
+.scene-card-emotion { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 10px; font-size: 10px; background: var(--surface2); }
+.scene-card-actions { position: absolute; top: 6px; right: 6px; display: none; gap: 4px; }
+.scene-card:hover .scene-card-actions { display: flex; }
+
+.unassigned-col { min-width: 200px; max-width: 220px; flex-shrink: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="board" id="board">
+
+  {% for act in acts %}
+  <div class="act-col">
+    <div class="act-header" style="background:{{ act.color }}22;border:1px solid {{ act.color }}44;">
+      <span class="act-title" style="color:{{ act.color }};">{{ act.title }}</span>
+      <span class="act-count">{{ by_act[act.id]|length }} сц.</span>
+    </div>
+    <div class="act-body" id="act-{{ act.id }}"
+         ondragover="onDragOver(event)" ondrop="onDrop(event, {{ act.id }})"
+         ondragleave="onDragLeave(event)">
+      {% for s in by_act[act.id] %}
+      <div class="scene-card" id="sc-{{ s.id }}" draggable="true"
+           ondragstart="onDragStart(event, {{ s.id }})"
+           ondragend="onDragEnd(event)">
+        <div class="scene-card-title">{{ s.title or 'Без названия #' ~ s.id }}</div>
+        {% if s.location %}<div class="scene-card-meta">📍 {{ s.location }}{% if s.time_of_day %} / {{ s.time_of_day }}{% endif %}</div>{% endif %}
+        {% if s.characters %}<div class="scene-card-meta">👤 {{ s.characters }}</div>{% endif %}
+        {% if s.what_happens %}<div class="scene-card-meta" style="margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ s.what_happens }}</div>{% endif %}
+        {% if s.emotion %}<div class="scene-card-emotion">{{ s.emotion }}</div>{% endif %}
+        <div class="scene-card-actions">
+          <a href="/scene/{{ s.id }}" style="font-size:14px;text-decoration:none;">✏️</a>
+          <span style="font-size:14px;cursor:pointer;color:var(--error);" onclick="deleteScene({{ s.id }})">🗑</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:6px;border-radius:0 0 6px 6px;"
+            onclick="addScene({{ act.id }})">+ сцена</button>
+  </div>
+  {% endfor %}
+
+  <!-- Без акта -->
+  {% if unassigned %}
+  <div class="unassigned-col">
+    <div class="act-header" style="background:#6b728022;border:1px solid #6b728044;">
+      <span class="act-title" style="color:#9ca3af;">Без акта</span>
+      <span class="act-count">{{ unassigned|length }}</span>
+    </div>
+    <div class="act-body" id="act-null"
+         ondragover="onDragOver(event)" ondrop="onDrop(event, null)"
+         ondragleave="onDragLeave(event)">
+      {% for s in unassigned %}
+      <div class="scene-card" id="sc-{{ s.id }}" draggable="true"
+           ondragstart="onDragStart(event, {{ s.id }})"
+           ondragend="onDragEnd(event)">
+        <div class="scene-card-title">{{ s.title or 'Без названия #' ~ s.id }}</div>
+        {% if s.location %}<div class="scene-card-meta">📍 {{ s.location }}</div>{% endif %}
+        {% if s.characters %}<div class="scene-card-meta">👤 {{ s.characters }}</div>{% endif %}
+        {% if s.emotion %}<div class="scene-card-emotion">{{ s.emotion }}</div>{% endif %}
+        <div class="scene-card-actions">
+          <a href="/scene/{{ s.id }}" style="font-size:14px;text-decoration:none;">✏️</a>
+          <span style="font-size:14px;cursor:pointer;color:var(--error);" onclick="deleteScene({{ s.id }})">🗑</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Acts modal -->
+<div class="modal-overlay" id="modal-acts">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title">Управление актами</div>
+    <div id="acts-list"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-secondary" onclick="addActRow()">+ Акт</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="saveActs()">Сохранить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-acts')">Закрыть</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Drag & Drop ─────────────────────────────────────────────────────────────
+let dragId = null;
+
+function onDragStart(e, id) {
+  dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => document.getElementById('sc-' + id)?.classList.add('dragging'), 0);
+}
+
+function onDragEnd(e) {
+  document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('dragging'));
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function onDrop(e, actId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragId) return;
+
+  // Определяем позицию по карточкам в колонке
+  const col = e.currentTarget;
+  const cards = [...col.querySelectorAll('.scene-card')];
+  const pos = cards.length;
+
+  const r = await apiPost('/api/scenes/move', {
+    scene_id: dragId, act_id: actId, position: pos
+  });
+
+  if (r.ok) location.reload();
+  else showToast(r.error || 'Ошибка', 'error');
+  dragId = null;
+}
+
+// ─── Add / Delete Scene ───────────────────────────────────────────────────────
+async function addScene(actId) {
+  const r = await apiPost('/api/scenes/new', { act_id: actId });
+  if (r.ok) location.href = '/scene/' + r.id;
+  else showToast(r.error || 'Ошибка', 'error');
+}
+
+async function deleteScene(id) {
+  if (!confirm('Удалить сцену?')) return;
+  const r = await apiPost('/scene/' + id + '/delete', {});
+  if (r.ok) document.getElementById('sc-' + id)?.remove();
+  else showToast(r.error || 'Ошибка', 'error');
+}
+
+// ─── Acts ─────────────────────────────────────────────────────────────────────
+const ACTS = {{ acts | tojson }};
+
+function renderActsList() {
+  const el = document.getElementById('acts-list');
+  el.innerHTML = ACTS.map((a, i) => `
+    <div style="display:grid;grid-template-columns:40px 1fr 80px;gap:6px;margin-bottom:8px;align-items:center;"
+         data-idx="${i}">
+      <input type="number" value="${a.number}" min="1" style="text-align:center;"
+             onchange="ACTS[${i}].number=parseInt(this.value)">
+      <input type="text" value="${a.title}"
+             onchange="ACTS[${i}].title=this.value">
+      <input type="color" value="${a.color}" style="height:34px;padding:2px;"
+             onchange="ACTS[${i}].color=this.value">
+    </div>`).join('');
+}
+
+function addActRow() {
+  ACTS.push({ id: null, number: ACTS.length + 1, title: 'Новый акт', color: '#6b7280' });
+  renderActsList();
+}
+
+async function saveActs() {
+  for (const a of ACTS) {
+    await apiPost('/api/acts/save', a);
+  }
+  location.reload();
+}
+
+document.getElementById('modal-acts').addEventListener('shown', renderActsList);
+document.querySelector('[onclick="openModal(\'modal-acts\')"]')?.addEventListener('click', renderActsList);
+
+// Render on open
+const actsBtn = document.querySelector('button[onclick*="modal-acts"]');
+if (actsBtn) actsBtn.addEventListener('click', renderActsList);
+</script>
+{% endblock %}

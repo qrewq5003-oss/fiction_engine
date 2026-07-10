@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">🔮 Символика серии</div>
+  <div class="page-sub">Символ появляется больше одного раза и каждый раз несёт новый смысл. GPT не отслеживает это между главами — делаешь ты здесь.</div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Левая: список символов -->
+  <div>
+
+    <!-- Анализ главы -->
+    <div class="card">
+      <div class="card-title">🔍 Найти символы в главе</div>
+      <div style="display:flex;gap:8px;">
+        <select id="analyze-chapter" style="flex:1;">
+          {% for ch in chapters %}
+          <option value="{{ ch.number }}">Глава {{ ch.number }}{% if ch.title %} — {{ ch.title }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <select id="analyze-model" style="flex:1.2;">
+          {% for m in models %}
+          <option value="{{ m.value }}">{{ m.label }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="analyzeChapter()">
+          <span class="spinner" id="analyze-spin" style="display:none;"></span>
+          Анализировать
+        </button>
+      </div>
+      <div id="analyze-result" style="display:none;margin-top:12px;"></div>
+    </div>
+
+    <!-- Существующие символы -->
+    <div class="card">
+      <div class="card-title">Реестр символов ({{ symbols|length }})</div>
+      {% if symbols %}
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        {% for s in symbols %}
+        <div style="background:var(--surface2);border:1px solid var(--border);
+                    border-radius:10px;padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">{{ s.name }}</div>
+              <div style="font-size:11px;color:var(--accent2);margin-top:2px;">
+                {{ s.symbol_type }} · введён гл.{{ s.introduced_ch }}
+                {% if s.related_chars %} · {{ s.related_chars }}{% endif %}
+              </div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteSymbol({{ s.id }})">✕</button>
+          </div>
+
+          <!-- Начальное значение -->
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
+            <span style="color:var(--text);">Начально:</span> {{ s.initial_meaning }}
+          </div>
+
+          <!-- Появления -->
+          {% if s.appearances %}
+          <div style="margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">ПОЯВЛЕНИЯ:</div>
+            {% for app in s.appearances %}
+            <div style="font-size:11px;border-left:2px solid var(--accent);
+                        padding-left:8px;margin-bottom:4px;color:var(--text2);">
+              <span style="color:var(--accent2);">Гл.{{ app.chapter }}</span>
+              {% if app.context %} — {{ app.context }}{% endif %}
+              <span style="color:var(--success);"> → {{ app.meaning }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Запланированные -->
+          {% if s.planned %}
+          <div style="margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">ЗАПЛАНИРОВАНО:</div>
+            {% for p in s.planned %}
+            <div style="font-size:11px;border-left:2px solid var(--border);
+                        padding-left:8px;margin-bottom:4px;color:var(--text2);">
+              <span style="color:var(--text);">~Гл.{{ p.chapter }}</span>
+              {% if p.how %}: {{ p.how }}{% endif %}
+              <span style="color:var(--accent2);"> → {{ p.meaning }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Добавить появление -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            <button class="btn btn-secondary btn-sm"
+                    onclick="showAddAppearance({{ s.id }}, '{{ s.name }}')">
+              + Появление
+            </button>
+            <button class="btn btn-secondary btn-sm"
+                    onclick="showAddPlanned({{ s.id }}, '{{ s.name }}')">
+              + Запланировать
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="color:var(--text2);font-size:13px;">
+        Нет символов. Добавь вручную или проанализируй главу.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Правая: добавить символ -->
+  <div>
+
+    <div class="card" style="border-color:var(--accent);">
+      <div class="card-title">+ Добавить символ</div>
+
+      <div class="form-group">
+        <label>Название</label>
+        <input type="text" id="sym-name" placeholder="Отцовский нож, Сгоревший дом, 'Ничего не изменится'...">
+      </div>
+
+      <div class="form-group">
+        <label>Тип</label>
+        <select id="sym-type">
+          <option>предмет</option>
+          <option>место</option>
+          <option>фраза</option>
+          <option>действие</option>
+          <option>состояние</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Введён в главе</label>
+        <input type="number" id="sym-chapter" value="1" min="1">
+      </div>
+
+      <div class="form-group">
+        <label>Начальное значение</label>
+        <textarea id="sym-meaning" rows="2"
+                  placeholder="Что означает при первом появлении"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Связанные персонажи <span style="color:var(--text2);font-size:11px;">(необязательно)</span></label>
+        <input type="text" id="sym-chars" placeholder="Кира, Андрей...">
+      </div>
+
+      <div class="form-group">
+        <label>Заметки <span style="color:var(--text2);font-size:11px;">(необязательно)</span></label>
+        <textarea id="sym-notes" rows="2" placeholder="Куда должен прийти в финале..."></textarea>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;" onclick="addSymbol()">
+        Добавить символ
+      </button>
+    </div>
+
+    <!-- Подсказка -->
+    <div class="card" style="border-color:var(--border);">
+      <div class="card-title" style="color:var(--text2);">Как работает символ</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+        <p>Гл.1: персонаж носит отцовский нож. <span style="color:var(--text);">Деталь характера.</span></p>
+        <p>Гл.7: нож ломается в бою. <span style="color:var(--text);">Потеря защиты.</span></p>
+        <p>Гл.14: выбрасывает обломок. <span style="color:var(--text);">Отпускает прошлое.</span></p>
+        <p>Гл.20: дарит новый нож другому. <span style="color:var(--text);">Передаёт то что получил.</span></p>
+        <p style="margin-top:8px;">Читатель не обязан это анализировать. Он <em>чувствует</em> — и это работает.</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Модал: добавить появление -->
+<div id="modal-appearance" style="display:none;position:fixed;inset:0;
+     background:#00000088;z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+              max-width:480px;width:100%;padding:24px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px;">
+      Появление: <span id="modal-sym-name" style="color:var(--accent2);"></span>
+    </div>
+    <input type="hidden" id="modal-sym-id">
+    <div class="form-group">
+      <label>Глава</label>
+      <input type="number" id="app-chapter" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>Контекст <span style="color:var(--text2);font-size:11px;">(необязательно)</span></label>
+      <input type="text" id="app-context" placeholder="Как появляется — 1-2 слова">
+    </div>
+    <div class="form-group">
+      <label>Значение в этой главе</label>
+      <input type="text" id="app-meaning" placeholder="Что означает теперь">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="saveAppearance()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: запланировать -->
+<div id="modal-planned" style="display:none;position:fixed;inset:0;
+     background:#00000088;z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+              max-width:480px;width:100%;padding:24px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px;">
+      Запланировать: <span id="modal-plan-name" style="color:var(--accent2);"></span>
+    </div>
+    <input type="hidden" id="modal-plan-id">
+    <div class="form-group">
+      <label>Примерная глава</label>
+      <input type="number" id="plan-chapter" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>Как появится</label>
+      <input type="text" id="plan-how" placeholder="Сломается / вернётся / будет передан...">
+    </div>
+    <div class="form-group">
+      <label>Что должно означать</label>
+      <input type="text" id="plan-meaning" placeholder="Финальное значение">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closePlanModal()">Отмена</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="savePlanned()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function addSymbol() {
+  const name = document.getElementById('sym-name').value.trim();
+  if (!name) { showToast('Укажи название символа', 'error'); return; }
+  const r = await apiPost('/symbols/add', {
+    name,
+    symbol_type: document.getElementById('sym-type').value,
+    introduced_ch: parseInt(document.getElementById('sym-chapter').value),
+    initial_meaning: document.getElementById('sym-meaning').value.trim(),
+    related_chars: document.getElementById('sym-chars').value.trim(),
+    notes: document.getElementById('sym-notes').value.trim(),
+  });
+  if (r.ok) { showToast('Символ добавлен', 'success'); setTimeout(() => location.reload(), 600); }
+  else showToast('Ошибка: ' + r.error, 'error');
+}
+
+async function deleteSymbol(id) {
+  if (!confirm('Удалить символ?')) return;
+  await apiPost('/symbols/delete', { id });
+  showToast('Удалено', 'info');
+  setTimeout(() => location.reload(), 500);
+}
+
+function showAddAppearance(id, name) {
+  document.getElementById('modal-sym-id').value = id;
+  document.getElementById('modal-sym-name').textContent = name;
+  document.getElementById('app-chapter').value = 1;
+  document.getElementById('app-context').value = '';
+  document.getElementById('app-meaning').value = '';
+  document.getElementById('modal-appearance').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal-appearance').style.display = 'none';
+}
+
+async function saveAppearance() {
+  const r = await apiPost('/symbols/appearance', {
+    symbol_id: parseInt(document.getElementById('modal-sym-id').value),
+    chapter: parseInt(document.getElementById('app-chapter').value),
+    context: document.getElementById('app-context').value.trim(),
+    meaning: document.getElementById('app-meaning').value.trim(),
+  });
+  if (r.ok) { showToast('Появление добавлено', 'success'); closeModal(); setTimeout(() => location.reload(), 600); }
+  else showToast('Ошибка: ' + r.error, 'error');
+}
+
+function showAddPlanned(id, name) {
+  document.getElementById('modal-plan-id').value = id;
+  document.getElementById('modal-plan-name').textContent = name;
+  document.getElementById('plan-chapter').value = 1;
+  document.getElementById('plan-how').value = '';
+  document.getElementById('plan-meaning').value = '';
+  document.getElementById('modal-planned').style.display = 'flex';
+}
+
+function closePlanModal() {
+  document.getElementById('modal-planned').style.display = 'none';
+}
+
+async function savePlanned() {
+  const r = await apiPost('/symbols/planned', {
+    symbol_id: parseInt(document.getElementById('modal-plan-id').value),
+    chapter: parseInt(document.getElementById('plan-chapter').value),
+    how: document.getElementById('plan-how').value.trim(),
+    meaning: document.getElementById('plan-meaning').value.trim(),
+  });
+  if (r.ok) { showToast('Запланировано', 'success'); closePlanModal(); setTimeout(() => location.reload(), 600); }
+  else showToast('Ошибка: ' + r.error, 'error');
+}
+
+async function analyzeChapter() {
+  const ch = document.getElementById('analyze-chapter').value;
+  const model = document.getElementById('analyze-model').value;
+  const btn = event.target;
+  const spin = document.getElementById('analyze-spin');
+  btn.disabled = true; spin.style.display = 'inline-block';
+
+  const r = await apiPost('/symbols/analyze', { chapter_num: parseInt(ch), model });
+
+  btn.disabled = false; spin.style.display = 'none';
+
+  const block = document.getElementById('analyze-result');
+  if (r.error) {
+    block.innerHTML = `<div style="color:var(--error);font-size:12px;">${r.error}</div>`;
+    block.style.display = 'block';
+    return;
+  }
+
+  let html = '';
+  if (r.note) {
+    html += `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-style:italic;">${r.note}</div>`;
+  }
+  (r.found || []).forEach(f => {
+    html += `<div style="background:var(--surface2);border:1px solid var(--border);
+                         border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <span style="font-size:13px;font-weight:600;">${f.name}</span>
+          <span style="font-size:11px;color:var(--accent2);margin-left:8px;">${f.type}</span>
+          ${f.is_new ? '' : '<span style="font-size:10px;color:var(--success);margin-left:6px;">уже в реестре</span>'}
+        </div>
+        ${f.is_new ? `<button class="btn btn-success btn-sm" onclick="quickAdd('${f.name.replace(/'/g,"\\'")}','${f.type}',${ch},'${f.potential_meaning.replace(/'/g,"\\'")}')">+ Добавить</button>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;">${f.context}</div>
+      <div style="font-size:11px;color:var(--text);margin-top:2px;">→ ${f.potential_meaning}</div>
+    </div>`;
+  });
+
+  block.innerHTML = html;
+  block.style.display = 'block';
+}
+
+async function quickAdd(name, type, chapter, meaning) {
+  const r = await apiPost('/symbols/add', {
+    name, symbol_type: type, introduced_ch: chapter, initial_meaning: meaning
+  });
+  if (r.ok) { showToast(`"${name}" добавлен`, 'success'); setTimeout(() => location.reload(), 700); }
+  else showToast('Ошибка', 'error');
+}
+
+// Закрытие модалов по клику вне
+['modal-appearance','modal-planned'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) { this.style.display = 'none'; }
+  });
+});
+</script>
+{% endblock %}

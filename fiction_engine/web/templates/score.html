@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">🔍 Оценка текста</div>
+  <div class="page-sub">Подсветка по абзацам · Эталоны · История State Engine</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:16px;height:calc(100vh - 160px)">
+
+  <!-- Левая колонка: текст + оценка -->
+  <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="score-model"
+        style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:13px;flex:1">
+        {% for m in models %}
+        <option value="{{ m.value }}">{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" onclick="runAnnotate()" id="annotate-btn">🔍 Оценить</button>
+      <button class="btn btn-secondary" onclick="clearAll()">Очистить</button>
+      <button class="btn btn-secondary" onclick="saveAsExemplar()" title="Сохранить текст как эталон">⭐ В эталон</button>
+    </div>
+
+    <!-- Легенда -->
+    <div style="display:flex;gap:12px;font-size:11px;color:var(--text-muted)">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#1a4a1a;border-radius:2px;margin-right:4px"></span>8-10 хорошо</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#4a3a00;border-radius:2px;margin-right:4px"></span>5-7 нормально</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#4a1a1a;border-radius:2px;margin-right:4px"></span>1-4 слабо</span>
+    </div>
+
+    <!-- Textarea или подсвеченный результат -->
+    <div style="flex:1;position:relative;overflow:hidden">
+      <textarea id="score-input"
+        style="width:100%;height:100%;font-size:14px;line-height:1.7;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text-primary);resize:none;font-family:inherit"
+        placeholder="Вставь текст для оценки...
+
+Каждый абзац будет подсвечен по качеству.
+Наведи на абзац чтобы увидеть комментарий редактора.
+
+Если есть эталон — оценка сравнит с ним."></textarea>
+
+      <!-- Подсвеченный результат (скрыт пока нет оценки) -->
+      <div id="annotated-view"
+        style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:14px;line-height:1.7">
+      </div>
+    </div>
+
+    <div id="score-status" style="font-size:12px;color:var(--text-muted);min-height:16px"></div>
+  </div>
+
+  <!-- Правая колонка: эталоны + история state -->
+  <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+
+    <!-- Эталоны -->
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;flex:0 0 auto">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        ⭐ Эталоны
+        <button class="btn btn-secondary btn-sm" onclick="loadExemplars()" style="font-size:11px;padding:2px 8px">↻</button>
+      </div>
+      <div id="exemplars-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div style="color:var(--text-muted);font-style:italic">Загрузка...</div>
+      </div>
+    </div>
+
+    <!-- История State Engine -->
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        🕐 История State Engine
+        <button class="btn btn-secondary btn-sm" onclick="loadHistory()" style="font-size:11px;padding:2px 8px">↻</button>
+      </div>
+      <div id="history-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:12px">
+        <div style="color:var(--text-muted);font-style:italic">Загрузка...</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
+        Хранится 20 последних версий. Откат создаёт снапшот текущего перед восстановлением.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Тултип для подсветки -->
+<div id="para-tooltip"
+  style="display:none;position:fixed;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;max-width:280px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none">
+</div>
+
+<!-- Диалог сохранения эталона -->
+<div id="exemplar-dialog"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-primary);border:1px solid var(--border);border-radius:10px;padding:20px;z-index:2000;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.6)">
+  <div style="font-size:14px;font-weight:600;margin-bottom:12px">Сохранить как эталон</div>
+  <input id="exemplar-label" type="text" placeholder="Метка (необязательно)"
+    style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);font-size:13px;margin-bottom:10px">
+  <textarea id="exemplar-text" rows="5"
+    style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);font-size:12px;resize:vertical;margin-bottom:10px"
+    placeholder="Фрагмент текста..."></textarea>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-primary" onclick="confirmSaveExemplar()">Сохранить</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('exemplar-dialog').style.display='none'">Отмена</button>
+  </div>
+</div>
+<div id="exemplar-overlay"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1999"
+  onclick="document.getElementById('exemplar-dialog').style.display='none';this.style.display='none'"></div>
+
+<style>
+.para-block {
+  margin-bottom: 1em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: default;
+  transition: opacity .15s;
+}
+.para-block:hover { opacity: .85; }
+.para-green  { background: rgba(40,120,40,.18); border-left: 3px solid #4a9; }
+.para-yellow { background: rgba(180,140,0,.15); border-left: 3px solid #aa7; }
+.para-red    { background: rgba(160,40,40,.18); border-left: 3px solid #a55; }
+.score-badge {
+  display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;
+  margin-left:6px;vertical-align:middle;opacity:.7;
+}
+.badge-green  { background:#1a4a1a;color:#4c4; }
+.badge-yellow { background:#3a2e00;color:#cc9; }
+.badge-red    { background:#3a0f0f;color:#c66; }
+</style>
+
+<script>
+// ─── Оценка с подсветкой ─────────────────────────────────────────────────────
+
+async function runAnnotate() {
+  const text = document.getElementById('score-input').value.trim();
+  const model = document.getElementById('score-model').value;
+  const btn = document.getElementById('annotate-btn');
+  const status = document.getElementById('score-status');
+
+  if (!text) { showToast('Вставь текст', 'warning'); return; }
+
+  btn.disabled = true; btn.textContent = 'Оцениваю…';
+  status.textContent = '';
+
+  try {
+    const data = await fetch('/api/score/annotate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text, model})
+    }).then(r => r.json());
+
+    if (!data.ok) { showToast('Ошибка: ' + (data.error||'?'), 'error'); return; }
+
+    renderAnnotated(data.paragraphs);
+    const avg = (data.paragraphs.reduce((s,p) => s + p.score, 0) / data.paragraphs.length).toFixed(1);
+    status.textContent = `Средняя оценка: ${avg} / 10 · ${data.paragraphs.length} абзацев`;
+
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 Оценить';
+  }
+}
+
+function renderAnnotated(paragraphs) {
+  const view = document.getElementById('annotated-view');
+  const input = document.getElementById('score-input');
+  view.innerHTML = '';
+
+  paragraphs.forEach(p => {
+    const div = document.createElement('div');
+    div.className = `para-block para-${p.color}`;
+    div.dataset.comment = p.comment || '';
+    div.dataset.score = p.score;
+
+    const badge = `<span class="score-badge badge-${p.color}">${p.score}</span>`;
+    div.innerHTML = escapeHtml(p.text) + badge;
+
+    div.addEventListener('mouseenter', showTooltip);
+    div.addEventListener('mouseleave', hideTooltip);
+    div.addEventListener('mousemove', moveTooltip);
+    view.appendChild(div);
+  });
+
+  input.style.display = 'none';
+  view.style.display = 'block';
+}
+
+function clearAll() {
+  document.getElementById('score-input').style.display = 'block';
+  document.getElementById('annotated-view').style.display = 'none';
+  document.getElementById('score-input').value = '';
+  document.getElementById('score-status').textContent = '';
+}
+
+// ─── Тултип ─────────────────────────────────────────────────────────────────
+
+const tooltip = document.getElementById('para-tooltip');
+
+function showTooltip(e) {
+  const comment = e.currentTarget.dataset.comment;
+  const score = e.currentTarget.dataset.score;
+  if (!comment) return;
+  tooltip.innerHTML = `<strong>${score}/10</strong> — ${comment}`;
+  tooltip.style.display = 'block';
+  moveTooltip(e);
+}
+
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+function moveTooltip(e) {
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + 300 > window.innerWidth) x = e.clientX - 300;
+  if (y + 80 > window.innerHeight) y = e.clientY - 80;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ─── Эталоны ────────────────────────────────────────────────────────────────
+
+async function loadExemplars() {
+  const data = await fetch('/api/exemplars').then(r => r.json());
+  const list = document.getElementById('exemplars-list');
+  if (!data.exemplars.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-style:italic">Нет эталонов</div>';
+    return;
+  }
+  list.innerHTML = '';
+  data.exemplars.forEach(ex => {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:6px 8px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);display:flex;gap:6px;align-items:flex-start';
+    const short = ex.text.slice(0,80).replace(/\n/g,' ') + (ex.text.length>80?'…':'');
+    el.innerHTML = `
+      <div style="flex:1;min-width:0">
+        ${ex.label ? `<div style="font-weight:600;color:var(--accent);margin-bottom:2px">${ex.label}</div>` : ''}
+        <div style="color:var(--text-muted);font-size:11px">${short}</div>
+      </div>
+      <button onclick="loadExemplarIntoInput(${ex.id})" title="Загрузить в поле"
+        style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:0;flex-shrink:0">↙</button>
+      <button onclick="deleteExemplar(${ex.id})" title="Удалить"
+        style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0;flex-shrink:0">✕</button>`;
+    list.appendChild(el);
+  });
+}
+
+async function deleteExemplar(id) {
+  await fetch(`/api/exemplars/${id}/delete`, {method:'POST'});
+  loadExemplars();
+  showToast('Эталон удалён', 'info');
+}
+
+async function loadExemplarIntoInput(id) {
+  const data = await fetch('/api/exemplars').then(r => r.json());
+  const ex = data.exemplars.find(e => e.id === id);
+  if (ex) {
+    clearAll();
+    document.getElementById('score-input').value = ex.text;
+    showToast('Загружено в поле', 'info');
+  }
+}
+
+function saveAsExemplar() {
+  const text = document.getElementById('score-input').value.trim();
+  if (!text) { showToast('Нет текста', 'warning'); return; }
+  document.getElementById('exemplar-text').value = text.slice(0, 1000);
+  document.getElementById('exemplar-label').value = '';
+  document.getElementById('exemplar-dialog').style.display = 'block';
+  document.getElementById('exemplar-overlay').style.display = 'block';
+}
+
+async function confirmSaveExemplar() {
+  const text  = document.getElementById('exemplar-text').value.trim();
+  const label = document.getElementById('exemplar-label').value.trim();
+  if (!text) { showToast('Нет текста', 'warning'); return; }
+  const r = await fetch('/api/exemplars/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({text, label})
+  }).then(x => x.json());
+  if (r.ok) {
+    document.getElementById('exemplar-dialog').style.display = 'none';
+    document.getElementById('exemplar-overlay').style.display = 'none';
+    loadExemplars();
+    showToast('Эталон сохранён', 'success');
+  }
+}
+
+// ─── История State Engine ────────────────────────────────────────────────────
+
+async function loadHistory() {
+  const data = await fetch('/api/state/history').then(r => r.json());
+  const list = document.getElementById('history-list');
+  if (!data.history.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-style:italic">История пуста</div>';
+    return;
+  }
+  list.innerHTML = '';
+  data.history.forEach(h => {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:6px 8px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);display:flex;gap:6px;align-items:center';
+    const ts = h.saved_at ? h.saved_at.slice(0,16).replace('T',' ') : '';
+    el.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <div style="color:var(--text-primary);font-size:11px">${ts}</div>
+        <div style="color:var(--text-muted);font-size:11px">${h.reason || 'изменение'}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="restoreState(${h.id})"
+        style="font-size:11px;padding:2px 8px;flex-shrink:0">↩ Откат</button>`;
+    list.appendChild(el);
+  });
+}
+
+async function restoreState(snapshotId) {
+  if (!confirm('Откатить State Engine к этой версии?\n\nТекущая версия будет сохранена в историю.')) return;
+  const r = await fetch(`/api/state/restore/${snapshotId}`, {method:'POST'}).then(x => x.json());
+  if (r.ok) {
+    showToast('State Engine откатан', 'success');
+    loadHistory();
+  } else {
+    showToast('Ошибка: ' + (r.error||'?'), 'error');
+  }
+}
+
+
+// ─── Сохранение состояния ────────────────────────────────────────────────────
+const SCORE_IDS = ['score-input', 'annotated-view'];
+
+window.addEventListener('pagehide', () => PageState.save('score', SCORE_IDS));
+window.addEventListener('beforeunload', () => PageState.save('score', SCORE_IDS));
+
+(function() {
+  PageState.restore('score', SCORE_IDS, (data) => {
+    // Если был annotated-view — показываем его, прячем textarea
+    if (data['annotated-view'] && data['annotated-view'].display === 'block') {
+      document.getElementById('score-input').style.display = 'none';
+      // Восстанавливаем тултипы на абзацах
+      document.querySelectorAll('.para-block').forEach(div => {
+        div.addEventListener('mouseenter', showTooltip);
+        div.addEventListener('mouseleave', hideTooltip);
+        div.addEventListener('mousemove', moveTooltip);
+      });
+    }
+  });
+})();
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+loadExemplars();
+loadHistory();
+</script>
+{% endblock %}

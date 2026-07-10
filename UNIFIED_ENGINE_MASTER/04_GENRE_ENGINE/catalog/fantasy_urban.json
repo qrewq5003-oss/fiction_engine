@@ -1,0 +1,13 @@
+{
+  "genre": "fantasy_urban",
+  "display_name": "Городское фэнтези",
+  "description": "Фэнтези в современном городе: магия скрыта, городская атмосфера, часто детектив",
+  "key_elements": ["Современный город", "Скрытая магия (masquerade)", "Детектив-протагонист (часто)", "Паранормальные существа", "Урбанистическая атмосфера"],
+  "setting": "Реальный город (NY, London, Chicago) или вымышленный современный",
+  "magic": "Скрыта от обычных людей, есть правила",
+  "tone": "Часто нуар + фэнтези",
+  "pacing": "Быстрый, детективный",
+  "romance": "Часто есть (paranormal romance overlap)",
+  "mistakes": ["Магия решает всё (нужны ограничения)", "Забыли про город (урбанизм важен)", "Masquerade без причины"],
+  "recommended": ["Jim Butcher — Dresden Files", "Ben Aaronovitch — Rivers of London", "Ilona Andrews — Kate Daniels", "Seanan McGuire — October Daye"]
+}

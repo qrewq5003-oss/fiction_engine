@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">⚙️ State Engine</div>
+  <div class="page-sub">Состояние мира, персонажей и сюжета для {{ current.name }}</div>
+</div>
+
+{% if pending %}
+{% for update in pending %}
+<div class="pending-update" id="pending-{{ update.id }}">
+  <div class="pending-header">
+    <div class="pending-title">⚠️ Необработанное обновление — Глава {{ update.chapter_num }}</div>
+    <div class="pending-actions">
+      <button class="btn btn-success btn-sm" onclick="applyPending({{ update.id }})">✅ Применить</button>
+      <button class="btn btn-secondary btn-sm" onclick="toggleRaw({{ update.id }})">Сырой анализ</button>
+      <button class="btn btn-danger btn-sm" onclick="discardPending({{ update.id }})">Отклонить</button>
+    </div>
+  </div>
+  <div id="raw-{{ update.id }}" class="raw-analysis" style="display:none">{{ update.raw_analysis }}</div>
+  <div id="diff-{{ update.id }}" class="diff-view" style="display:none"></div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Импорт материала -->
+<div class="format-hint-bar" style="margin-top:8px">
+  <span class="format-hint-label">📥 Импорт материала</span>
+  <button class="btn btn-secondary btn-sm" onclick="toggleImport()">Загрузить файл / вставить текст</button>
+</div>
+
+<div id="import-panel" style="display:none;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+  <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+
+    <div style="flex:1;min-width:280px">
+      <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Вставь текст (сюжет, синопсис, описание персонажей)</label>
+      <textarea id="import-text" rows="8"
+        style="width:100%;font-size:13px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text-primary);resize:vertical"
+        placeholder="Главный герой — Андрей, 35 лет, бывший военный...&#10;&#10;Конфликт: Андрей ищет дочь которую похитили...&#10;&#10;Мир: современная Россия, провинциальный город..."></textarea>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;min-width:200px">
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Или загрузи файл (.txt / .docx)</label>
+        <input type="file" id="import-file" accept=".txt,.docx"
+          style="font-size:12px;color:var(--text-muted)"
+          onchange="loadFileText(this)">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Модель</label>
+        <select id="import-model" style="width:100%;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text-primary);font-size:13px">
+          {% for m in models %}
+          <option value="{{ m.value }}">{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="runImport()" id="import-btn">🔍 Анализировать</button>
+    </div>
+  </div>
+
+  <!-- Предпросмотр результата -->
+  <div id="import-preview" style="display:none;margin-top:16px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-muted)">
+      Предпросмотр — проверь и отредактируй перед применением:
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">🧍 Персонажи / Мир</label>
+        <textarea id="preview-global" rows="12"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">📊 Сюжетные линии</label>
+        <textarea id="preview-plot" rows="12"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">🕸 Память / Отношения</label>
+        <textarea id="preview-memory" rows="12"
+          style="width:100%;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn btn-success" onclick="applyImport()">✅ Применить в State Engine</button>
+      <button class="btn btn-secondary" onclick="discardImport()">Отменить</button>
+      <span style="font-size:12px;color:var(--text-muted);align-self:center">Изменения перезапишут текущий State Engine</span>
+    </div>
+  </div>
+</div>
+
+<!-- Формат-подсказка -->
+<div class="format-hint-bar">
+  <span class="format-hint-label">📋 Структурированный формат</span>
+  <button class="btn btn-secondary btn-sm" onclick="toggleFormatHint()">Показать пример</button>
+  <button class="btn btn-secondary btn-sm" onclick="insertTemplate()">Вставить шаблон</button>
+</div>
+
+<div id="format-hint-panel" class="format-hint-panel" style="display:none">
+  <div class="format-hint-cols">
+    <div class="format-hint-col">
+      <div class="format-hint-title">Персонажи / Мир (обязательные ключи)</div>
+      <pre class="format-example">## ПЕРСОНАЖИ
+
+### Имя персонажа
+СОСТОЯНИЕ: устал, ранен, напряжён
+ЛОКАЦИЯ: где находится прямо сейчас
+ЦЕЛЬ_СЕЙЧАС: что хочет в этой сцене
+ЦЕЛЬ_ГЛУБИННАЯ: что хочет на самом деле
+ЗНАЕТ: какой важный факт знает
+НЕ_ЗНАЕТ: что скрыто от него
+ИЗМЕНЕНИЕ: Гл.5
+
+---
+
+## МИР
+
+МОМЕНТ: одно предложение — где мы сейчас
+УГРОЗА: главная внешняя угроза
+НЕ_ДОЛЖНО_СЛУЧИТЬСЯ: что нельзя допустить</pre>
+    </div>
+    <div class="format-hint-col">
+      <div class="format-hint-title">Сюжет</div>
+      <pre class="format-example">## ОСНОВНАЯ ЛИНИЯ
+
+СТАТУС: активна
+ГДЕ_СЕЙЧАС: где находится сюжет
+СЛЕДУЮЩИЙ_ШАГ: что должно произойти
+ИЗМЕНЕНИЕ: Гл.5
+
+---
+
+## ВТОРОСТЕПЕННЫЕ ЛИНИИ
+
+---
+
+## ОТКРЫТЫЕ ВОПРОСЫ
+
+---
+
+## ЧТО НЕЛЬЗЯ ЗАБЫТЬ
+
+важная деталь которую нельзя потерять</pre>
+    </div>
+    <div class="format-hint-col">
+      <div class="format-hint-title">Почему ключи важны</div>
+      <div class="format-hint-why">
+        <p><strong>НЕ_ДОЛЖНО_СЛУЧИТЬСЯ</strong> — движок добавляет это как ⚠ НЕЛЬЗЯ в промпт генерации. Модель явно видит ограничение.</p>
+        <p><strong>ЦЕЛЬ_СЕЙЧАС vs ЦЕЛЬ_ГЛУБИННАЯ</strong> — конфликт между ними создаёт подтекст автоматически.</p>
+        <p><strong>ЗНАЕТ / НЕ_ЗНАЕТ</strong> — информационный баланс. Движок использует это в сценах где персонажи встречаются.</p>
+        <p><strong>ЧТО НЕЛЬЗЯ ЗАБЫТЬ</strong> — попадает в каждый промпт. Используй для деталей которые легко потерять к главе 15.</p>
+        <p class="format-hint-note">Если оставить старый свободный формат — всё работает через fallback, но ключи выше дают точный парсинг.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="/state/edit">
+  <div class="tabs">
+    <div class="tab active" data-group="state" data-target="state-global">🧍 Персонажи / Мир</div>
+    <div class="tab" data-group="state" data-target="state-plot">📊 Сюжетные линии</div>
+    <div class="tab" data-group="state" data-target="state-memory">🧠 Память</div>
+  </div>
+
+  <div id="state-global" class="tab-content active" data-group="state">
+    <div class="form-group">
+      <label>Global State — персонажи, мир, ситуация
+        <span class="format-keys-inline">ключи: СОСТОЯНИЕ · ЛОКАЦИЯ · ЦЕЛЬ_СЕЙЧАС · ЦЕЛЬ_ГЛУБИННАЯ · ЗНАЕТ · НЕ_ЗНАЕТ · МОМЕНТ · УГРОЗА · НЕ_ДОЛЖНО_СЛУЧИТЬСЯ</span>
+      </label>
+      <textarea id="ta-global" name="global_state" rows="22" style="font-family:monospace;font-size:12px;">{{ state.global_state }}</textarea>
+    </div>
+  </div>
+
+  <div id="state-plot" class="tab-content" data-group="state">
+    <div class="form-group">
+      <label>Plot Matrix — сюжетные линии
+        <span class="format-keys-inline">ключи: СТАТУС · ГДЕ_СЕЙЧАС · СЛЕДУЮЩИЙ_ШАГ · ЧТО НЕЛЬЗЯ ЗАБЫТЬ</span>
+      </label>
+      <textarea id="ta-plot" name="plot_matrix" rows="22" style="font-family:monospace;font-size:12px;">{{ state.plot_matrix }}</textarea>
+    </div>
+  </div>
+
+  <div id="state-memory" class="tab-content" data-group="state">
+    <div class="form-group">
+      <label>Memory Graph — кто что знает
+        <span class="format-keys-inline">ключи: ЗНАЕТ · НЕ_ЗНАЕТ · ДУМАЕТ_ЧТО_ЗНАЕТ</span>
+      </label>
+      <textarea id="ta-memory" name="memory_graph" rows="22" style="font-family:monospace;font-size:12px;">{{ state.memory_graph }}</textarea>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:8px;">
+    <button type="submit" class="btn btn-primary">💾 Сохранить изменения</button>
+    <a href="/" class="btn btn-secondary">Отмена</a>
+  </div>
+</form>
+
+<style>
+.format-hint-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.format-hint-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  flex: 1;
+}
+.format-hint-panel {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.format-hint-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .format-hint-cols { grid-template-columns: 1fr; }
+}
+.format-hint-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.format-example {
+  font-family: monospace;
+  font-size: 11px;
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text);
+  line-height: 1.5;
+}
+.format-hint-why p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text2);
+  margin: 0 0 8px 0;
+}
+.format-hint-why strong {
+  color: var(--accent2);
+  font-family: monospace;
+}
+.format-hint-note {
+  font-size: 11px;
+  color: var(--text2);
+  opacity: 0.7;
+  font-style: italic;
+}
+.format-keys-inline {
+  display: block;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--accent);
+  font-weight: 400;
+  margin-top: 3px;
+  opacity: 0.8;
+}
+.pending-update {
+  background: var(--surface);
+  border: 1px solid var(--warning);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.pending-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pending-title {
+  font-weight: 600;
+  color: var(--warning);
+}
+.pending-actions {
+  display: flex;
+  gap: 8px;
+}
+.raw-analysis {
+  margin-top: 12px;
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  color: var(--text2);
+}
+.diff-view {
+  margin-top: 14px;
+}
+.diff-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: monospace;
+}
+.diff-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.diff-table th:first-child { border-radius: 6px 0 0 0; width: 24%; }
+.diff-table th:last-child  { border-radius: 0 6px 0 0; }
+.diff-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.diff-field   { color: var(--accent2); font-weight: 600; }
+.diff-before  { color: var(--text2); }
+.diff-after   { color: var(--success); }
+.diff-empty   { color: var(--text2); font-style: italic; opacity: 0.5; }
+.diff-new-char {
+  background: rgba(124, 106, 247, 0.08);
+}
+.diff-no-changes {
+  padding: 10px 12px;
+  color: var(--text2);
+  font-size: 13px;
+  background: var(--surface2);
+  border-radius: 6px;
+  margin-top: 8px;
+}
+.diff-summary {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.diff-badge {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--success);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.diff-badge-warn {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleFormatHint() {
+  const p = document.getElementById('format-hint-panel');
+  const open = p.style.display !== 'none';
+  p.style.display = open ? 'none' : 'block';
+  event.target.textContent = open ? 'Показать пример' : 'Скрыть';
+}
+
+const TEMPLATE_GLOBAL = `## ПЕРСОНАЖИ
+
+### Имя персонажа
+СОСТОЯНИЕ: физическое и эмоциональное одним предложением
+ЛОКАЦИЯ: где находится
+ЦЕЛЬ_СЕЙЧАС: что хочет прямо сейчас
+ЦЕЛЬ_ГЛУБИННАЯ: что хочет на самом деле — может не осознавать
+ЗНАЕТ: важный факт
+НЕ_ЗНАЕТ: что скрыто от него
+ИЗМЕНЕНИЕ: Гл.—
+
+---
+
+## МИР
+
+МОМЕНТ: текущий момент одним предложением
+УГРОЗА: главная угроза
+НЕ_ДОЛЖНО_СЛУЧИТЬСЯ: что нельзя допустить в следующей главе`;
+
+const TEMPLATE_PLOT = `## ОСНОВНАЯ ЛИНИЯ
+
+СТАТУС: активна
+ГДЕ_СЕЙЧАС: где находится сюжет
+СЛЕДУЮЩИЙ_ШАГ: что должно произойти
+ИЗМЕНЕНИЕ: Гл.—
+
+---
+
+## ВТОРОСТЕПЕННЫЕ ЛИНИИ
+
+---
+
+## ОТКРЫТЫЕ ВОПРОСЫ
+
+---
+
+## ЧТО НЕЛЬЗЯ ЗАБЫТЬ`;
+
+const TEMPLATE_MEMORY = `## КТО ЧТО ЗНАЕТ
+
+### Имя
+ЗНАЕТ: важный факт
+НЕ_ЗНАЕТ: что скрыто
+ДУМАЕТ_ЧТО_ЗНАЕТ: ложное убеждение
+
+---
+
+## СЕКРЕТЫ И ТАЙНЫ
+
+## ИНФОРМАЦИОННЫЙ БАЛАНС`;
+
+function insertTemplate() {
+  // Определяем активную вкладку
+  const activeTab = document.querySelector('.tab.active[data-group="state"]');
+  if (!activeTab) return;
+  const target = activeTab.dataset.target;
+  const taMap = {
+    'state-global': 'ta-global',
+    'state-plot':   'ta-plot',
+    'state-memory': 'ta-memory',
+  };
+  const tplMap = {
+    'state-global': TEMPLATE_GLOBAL,
+    'state-plot':   TEMPLATE_PLOT,
+    'state-memory': TEMPLATE_MEMORY,
+  };
+  const ta = document.getElementById(taMap[target]);
+  const tpl = tplMap[target];
+  if (!ta || !tpl) return;
+
+  const confirmed = ta.value.trim().length < 50
+    || confirm('Текущий State Engine будет заменён шаблоном. Продолжить?');
+  if (confirmed) {
+    ta.value = tpl;
+    showToast('Шаблон вставлен — заполни поля и сохрани', 'info');
+  }
+}
+
+function toggleRaw(id) {
+  const el = document.getElementById('raw-' + id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderDiff(id, merge) {
+  const el = document.getElementById('diff-' + id);
+  if (!merge) { el.style.display = 'none'; return; }
+
+  if (!merge.changed || !merge.fields || merge.fields.length === 0) {
+    el.innerHTML = '<div class="diff-no-changes">Формат анализа не распознан — State не изменён. Проверьте вручную или нажмите «Сырой анализ».</div>';
+    el.style.display = 'block';
+    return;
+  }
+
+  const newChars = merge.new_chars || [];
+  let rows = merge.fields.map(f => {
+    const isNew = newChars.includes(f.field.replace(' (новый персонаж)', ''));
+    const before = f.before && f.before !== '[]' ? f.before : '<span class="diff-empty">—</span>';
+    const after  = f.after  ? f.after  : '<span class="diff-empty">—</span>';
+    return `<tr class="${isNew ? 'diff-new-char' : ''}">
+      <td class="diff-field">${escHtml(f.field)}</td>
+      <td class="diff-before">${escHtml(f.before || '') || '<span class="diff-empty">—</span>'}</td>
+      <td class="diff-after">${escHtml(f.after  || '') || '<span class="diff-empty">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  const newCharBadge = newChars.length
+    ? `<span class="diff-badge-warn">+${newChars.length} новых персонажей</span>`
+    : '';
+
+  el.innerHTML = `
+    <div class="diff-title">Применённые изменения</div>
+    <table class="diff-table">
+      <thead><tr>
+        <th>Поле</th>
+        <th>Было</th>
+        <th>Стало</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="diff-summary">
+      <span class="diff-badge">✓ ${merge.fields.length} полей обновлено</span>
+      ${newCharBadge}
+    </div>`;
+  el.style.display = 'block';
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function applyPending(updateId) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const result = await apiPost(`/state/apply/${updateId}`, {});
+  if (result.ok) {
+    renderDiff(updateId, result.merge);
+    const actions = document.querySelector(`#pending-${updateId} .pending-actions`);
+    actions.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="toggleRaw(${updateId})">Сырой анализ</button>
+      <span style="color:var(--success);font-size:13px;align-self:center">✅ ${result.message || 'Применено'}</span>`;
+    setTimeout(() => location.reload(), 2500);
+  } else {
+    btn.disabled = false;
+    btn.textContent = '✅ Применить';
+    showToast('Ошибка: ' + (result.error || 'неизвестно'), 'error');
+  }
+}
+
+async function discardPending(updateId) {
+  await apiPost(`/state/discard/${updateId}`, {});
+  document.getElementById('pending-' + updateId).remove();
+  showToast('Отклонено', 'info');
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const group = tab.dataset.group;
+    document.querySelectorAll(`.tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
+    document.querySelectorAll(`.tab-content[data-group="${group}"]`).forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.target)?.classList.add('active');
+  });
+});
+
+// ─── Импорт материала ────────────────────────────────────────────────────────
+
+function toggleImport() {
+  const panel = document.getElementById('import-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function loadFileText(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.name.endsWith('.txt')) {
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('import-text').value = e.target.result; };
+    reader.readAsText(file, 'utf-8');
+  }
+  // .docx handled server-side via FormData
+}
+
+async function runImport() {
+  const text = document.getElementById('import-text').value.trim();
+  const fileInput = document.getElementById('import-file');
+  const model = document.getElementById('import-model').value;
+  const btn = document.getElementById('import-btn');
+
+  if (!text && !fileInput.files.length) {
+    showToast('Вставь текст или загрузи файл', 'warning');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Анализирую…';
+
+  try {
+    const fd = new FormData();
+    fd.append('model', model);
+    if (fileInput.files.length && fileInput.files[0].name.endsWith('.docx')) {
+      fd.append('file', fileInput.files[0]);
+    } else {
+      fd.append('text', text);
+    }
+
+    const resp = await fetch('/state/import', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (!data.ok) {
+      showToast('Ошибка: ' + (data.error || 'неизвестно'), 'error');
+      return;
+    }
+
+    document.getElementById('preview-global').value = data.global_state || '';
+    document.getElementById('preview-plot').value   = data.plot_matrix  || '';
+    document.getElementById('preview-memory').value = data.memory_graph || '';
+    document.getElementById('import-preview').style.display = 'block';
+    showToast('Готово — проверь и отредактируй', 'success');
+
+  } catch (e) {
+    showToast('Сетевая ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Анализировать';
+  }
+}
+
+async function applyImport() {
+  const global_state = document.getElementById('preview-global').value;
+  const plot_matrix  = document.getElementById('preview-plot').value;
+  const memory_graph = document.getElementById('preview-memory').value;
+
+  const result = await apiPost('/state/apply/0', { global_state, plot_matrix, memory_graph });
+  if (result.ok) {
+    showToast('State Engine обновлён', 'success');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    showToast('Ошибка: ' + (result.error || 'неизвестно'), 'error');
+  }
+}
+
+function discardImport() {
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-text').value = '';
+  document.getElementById('import-file').value = '';
+  showToast('Отменено', 'info');
+}
+
+</script>
+{% endblock %}

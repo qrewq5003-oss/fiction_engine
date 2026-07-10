@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Граф{% endblock %}
+{% block topbar %}
+<span style="color:var(--text2);font-size:12px;">Перетаскивай узлы. Кликни на сцену чтобы открыть.</span>
+<div style="margin-left:auto;">
+  <select id="link-type-sel" style="width:auto;">
+    <option value="cause">причина → следствие</option>
+    <option value="parallel">параллельно</option>
+    <option value="mirror">отражает</option>
+    <option value="contrast">противоречит</option>
+  </select>
+</div>
+{% endblock %}
+{% block styles %}
+<style>
+#map-canvas { width: 100%; height: calc(100vh - 100px); border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); }
+</style>
+{% endblock %}
+{% block content %}
+<div id="map-canvas"></div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/dist/vis-network.min.css">
+<script>
+const ACTS   = {{ acts | tojson }};
+const SCENES = {{ scenes | tojson }};
+const LINKS  = {{ links | tojson }};
+
+const ACT_COLORS = Object.fromEntries(ACTS.map(a => [a.id, a.color]));
+const LINK_COLORS = { cause:'#f59e0b', parallel:'#3b82f6', mirror:'#22c55e', contrast:'#ef4444' };
+const LINK_LABELS = { cause:'→', parallel:'||', mirror:'↔', contrast:'≠' };
+
+const nodes = new vis.DataSet(SCENES.map(s => ({
+  id: s.id,
+  label: (s.title || 'Сцена #'+s.id) + (s.emotion ? '\n['+s.emotion+']' : ''),
+  color: { background: ACT_COLORS[s.act_id] ? ACT_COLORS[s.act_id]+'33' : '#1e253533',
+           border: ACT_COLORS[s.act_id] || '#6b7280',
+           highlight: { background: '#7c3aed33', border: '#7c3aed' } },
+  font: { color: '#e2e8f0', size: 12 },
+  shape: 'box', borderWidth: 1.5, margin: 8
+})));
+
+const edges = new vis.DataSet(LINKS.map(l => ({
+  id: l.id, from: l.from_id, to: l.to_id,
+  label: l.label || LINK_LABELS[l.link_type] || '',
+  color: { color: LINK_COLORS[l.link_type] || '#6b7280' },
+  arrows: 'to', font: { color: '#94a3b8', size: 10 }, smooth: { type: 'curvedCW', roundness: .15 }
+})));
+
+const net = new vis.Network(document.getElementById('map-canvas'), { nodes, edges }, {
+  physics: { solver: 'repulsion', repulsion: { nodeDistance: 180 } },
+  interaction: { hover: true, multiselect: true },
+  manipulation: {
+    enabled: true,
+    addNode: false,
+    addEdge: async (data, cb) => {
+      const lt = document.getElementById('link-type-sel').value;
+      const r  = await apiPost('/api/links/save', { from_id: data.from, to_id: data.to, link_type: lt });
+      if (r.ok) {
+        edges.add({ id: r.id, from: data.from, to: data.to,
+          label: LINK_LABELS[lt], color: { color: LINK_COLORS[lt] }, arrows: 'to' });
+        cb(null); showToast('Связь добавлена');
+      } else { cb(null); showToast(r.error || 'Ошибка', 'error'); }
+    },
+    deleteEdge: async (data, cb) => {
+      for (const id of data.edges) {
+        await apiPost('/api/links/'+id+'/delete', {});
+      }
+      cb(data); showToast('Связь удалена');
+    }
+  }
+});
+
+net.on('doubleClick', p => {
+  if (p.nodes.length) location.href = '/scene/' + p.nodes[0];
+});
+</script>
+{% endblock %}

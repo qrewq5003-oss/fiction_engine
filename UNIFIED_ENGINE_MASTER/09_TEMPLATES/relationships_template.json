@@ -1,0 +1,18 @@
+{
+  "_template_description": "Граф отношений персонажей",
+  "_usage": "Отслеживай динамику между персонажами",
+  
+  "relationships": [
+    {
+      "character_a": "персонаж_1_id",
+      "character_b": "персонаж_2_id",
+      "type": "romantic/professional/familial/antagonistic/friendship",
+      "status": "developing/stable/deteriorating",
+      "description": "Суть отношений. Как они видят друг друга.",
+      "evolution": "Как отношения меняются в истории",
+      "key_scenes": ["ch03", "ch07", "ch15"],
+      "tension_level": 7,
+      "notes": "Важные моменты, конфликты, chemistry"
+    }
+  ]
+}

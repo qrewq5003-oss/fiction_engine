@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Планировщик{% endblock %}</title>
+<style>
+:root {
+  --bg:       #0f1117;
+  --bg2:      #161b27;
+  --surface:  #1e2535;
+  --surface2: #252d3d;
+  --border:   #2d3748;
+  --accent:   #7c3aed;
+  --accent2:  #a78bfa;
+  --text:     #e2e8f0;
+  --text2:    #94a3b8;
+  --success:  #22c55e;
+  --error:    #ef4444;
+  --warning:  #f59e0b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* Layout */
+.app { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 200px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+.main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.content { flex: 1; overflow: auto; padding: 16px; }
+
+/* Sidebar */
+.sidebar-logo { padding: 16px; font-size: 16px; font-weight: 700; color: var(--accent2); border-bottom: 1px solid var(--border); }
+.sidebar-section { padding: 8px 0; }
+.sidebar-label { padding: 4px 16px; font-size: 10px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+.sidebar a { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: var(--text2); text-decoration: none; font-size: 13px; transition: background .15s; }
+.sidebar a:hover, .sidebar a.active { background: var(--surface); color: var(--text); }
+.sidebar a .icon { font-size: 15px; width: 18px; }
+
+/* Projects selector */
+.project-select { margin: 8px 12px; padding: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; width: calc(100% - 24px); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: opacity .15s; font-weight: 500; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-danger { background: #7f1d1d; color: #fca5a5; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+
+/* Forms */
+input, textarea, select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 13px; width: 100%; outline: none; font-family: inherit; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
+.form-group { margin-bottom: 12px; }
+
+/* Toast */
+#toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; z-index: 9999; display: none; }
+#toast.success { border-color: var(--success); color: var(--success); }
+#toast.error   { border-color: var(--error);   color: var(--error); }
+
+/* Spinner */
+.st-row { padding:2px 0; color:var(--text2); }
+.st-ok   { color: var(--success) !important; }
+.st-warn { color: var(--warning) !important; }
+.st-err  { color: var(--error)   !important; }
+.spinner { width: 14px; height: 14px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 380px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+@media (max-width: 640px) {
+  .sidebar { width: 160px; }
+}
+</style>
+{% block styles %}{% endblock %}
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">🎬 Планировщик</div>
+
+    {% if current %}
+    <select class="project-select" onchange="location='/switch/'+this.value">
+      {% for p in projects %}
+      <option value="{{ p.id }}" {% if current and p.id == current.id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Навигация</div>
+      <a href="/board" class="{% if '/board' in request.path %}active{% endif %}"><span class="icon">📋</span> Доска</a>
+      <a href="/map"   class="{% if '/map'   in request.path %}active{% endif %}"><span class="icon">🕸</span> Граф</a>
+      <a href="/stats" class="{% if '/stats' in request.path %}active{% endif %}"><span class="icon">📊</span> Статистика</a>
+      <a href="/export" class="{% if '/export' in request.path %}active{% endif %}"><span class="icon">📤</span> Экспорт</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Проекты</div>
+      <a href="/projects"><span class="icon">📁</span> Все проекты</a>
+      <a href="#" onclick="newProject()"><span class="icon">＋</span> Новый</a>
+    </div>
+    <!-- Status bar -->
+  <div id="status-bar" style="margin-top:auto;padding:10px 12px;border-top:1px solid var(--border);font-size:11px;">
+    <div style="margin-bottom:5px;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Статус</div>
+    <div id="st-fe-db"     class="st-row">⏳ FE база данных</div>
+    <div id="st-fe-keys"   class="st-row">⏳ API ключи</div>
+    <div id="st-fe-server" class="st-row">⏳ FE сервер</div>
+  </div>
+</nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      {% if current %}
+      <span style="font-weight:600;color:var(--accent2);">{{ current.name }}</span>
+      {% if current.genre %}<span style="color:var(--text2);font-size:12px;">{{ current.genre }}</span>{% endif %}
+      {% endif %}
+      {% block topbar %}{% endblock %}
+    </div>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- New Project Modal -->
+<div class="modal-overlay" id="modal-new-project">
+  <div class="modal">
+    <div class="modal-title">Новый проект</div>
+    <div class="form-group"><label>Название</label><input type="text" id="np-name" placeholder="Моя история"></div>
+    <div class="form-group"><label>Жанр</label><input type="text" id="np-genre" placeholder="городское фэнтези"></div>
+    <div class="form-group"><label>Описание</label><textarea id="np-desc" rows="3"></textarea></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="flex:2;" onclick="saveNewProject()">Создать</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-new-project')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = type; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+async function apiPost(url, data) {
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    return await r.json();
+  } catch(e) { return {error: e.message}; }
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function newProject() { openModal('modal-new-project'); }
+async function saveNewProject() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { showToast('Введи название', 'error'); return; }
+  const r = await apiPost('/projects/new', {
+    name, genre: document.getElementById('np-genre').value.trim(),
+    description: document.getElementById('np-desc').value.trim()
+  });
+  if (r.ok) location.href = '/board';
+  else showToast(r.error || 'Ошибка', 'error');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+// ─── Статус ──────────────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status').then(x=>x.json());
+    const feDb = document.getElementById('st-fe-db');
+    if (r.fe_db) { feDb.className='st-row st-ok'; feDb.textContent='✅ FE база данных'; }
+    else { feDb.className='st-row st-err'; feDb.textContent='❌ FE база не найдена'; }
+
+    const feKeys = document.getElementById('st-fe-keys');
+    if (r.has_keys) {
+      const active = Object.entries(r.keys).filter(([,v])=>v).map(([k])=>k).join(', ');
+      feKeys.className='st-row st-ok'; feKeys.textContent=`✅ Ключи: ${active}`;
+    } else { feKeys.className='st-row st-warn'; feKeys.textContent='⚠️ Нет API ключей'; }
+
+    const feServer = document.getElementById('st-fe-server');
+    if (r.fe_server) { feServer.className='st-row st-ok'; feServer.textContent='✅ FE сервер'; }
+    else { feServer.className='st-row st-warn'; feServer.textContent='○ FE сервер выкл.'; }
+  } catch(e) {}
+}
+loadStatus();
+setInterval(loadStatus, 15000);
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

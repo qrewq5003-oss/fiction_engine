@@ -1,0 +1,26 @@
+{
+  "_template_description": "База локаций (Story Architect)",
+  "_usage": "Храни все значимые места истории",
+  
+  "locations": [
+    {
+      "id": "location_1",
+      "name": "Название локации",
+      "type": "interior/exterior",
+      "description": "Детальное описание места. Архитектура, атмосфера, детали.",
+      "importance": "major/minor",
+      "sensory_details": {
+        "sight": "Что видно",
+        "sound": "Что слышно",
+        "smell": "Запах",
+        "touch": "Тактильные ощущения",
+        "taste": "Вкус (если релевантно)"
+      },
+      "atmosphere": "Общая атмосфера места (уютная/мрачная/напряжённая и т.д.)",
+      "first_appearance": "ch01",
+      "scenes_used": ["scene_1", "scene_5", "scene_12"],
+      "related_characters": ["персонажи, связанные с местом"],
+      "notes": "Дополнительные заметки"
+    }
+  ]
+}

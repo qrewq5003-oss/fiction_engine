@@ -1,0 +1,45 @@
+{
+  "_template_description": "Расширенный шаблон персонажа (SA/Scrivener style)",
+  "_usage": "Используй для главных и важных второстепенных персонажей",
+  
+  "characters": [
+    {
+      "id": "unique_id",
+      "name": "Полное имя",
+      "age": 30,
+      "role": "protagonist/antagonist/deuteragonist/supporting",
+      "archetype": "Hero/Mentor/Shadow/Trickster/и т.д.",
+      
+      "physical_description": "Детальное описание внешности",
+      "biography": "История персонажа до начала книги",
+      
+      "personality_traits": ["Черта 1", "Черта 2", "Черта 3"],
+      "values": ["Что важно для персонажа"],
+      "fears": ["Чего боится"],
+      "desires": ["Чего хочет"],
+      "quirks": ["Привычки, манеры, особенности"],
+      
+      "speech_patterns": "Как говорит: формально/неформально, специфические фразы",
+      "internal_conflict": "Внутренняя борьба персонажа",
+      
+      "arc_type": "redemption/coming_of_age/fall/corruption/static",
+      "arc_stages": {
+        "start": "Кто он в начале",
+        "midpoint": "Ключевой момент изменения",
+        "end": "Кем становится"
+      },
+      
+      "relationships": {
+        "character_id": "тип отношений"
+      },
+      
+      "abilities": ["Навыки, таланты, магия (если есть)"],
+      "weaknesses": ["Уязвимости физические/эмоциональные"],
+      
+      "first_appearance": "ch01",
+      "scenes_present": ["ch01", "ch02", "ch05"],
+      
+      "notes": "Любые дополнительные заметки"
+    }
+  ]
+}

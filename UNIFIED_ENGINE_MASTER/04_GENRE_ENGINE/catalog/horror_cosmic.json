@@ -1,0 +1,13 @@
+{
+  "genre": "horror_cosmic",
+  "display_name": "Космический хоррор",
+  "description": "Лавкрафтианский хоррор: непостижимые силы, insignificance человека, madness",
+  "key_elements": ["Непостижимые сущности", "Cosmic insignificance", "Madness от знания", "Нет победы (в лучшем случае survival)", "Атмосфера dread", "Неописуемое"],
+  "philosophy": "Человек = песчинка, космос = враждебен и равнодушен",
+  "tone": "Dread, безысходность, философский ужас",
+  "horror_source": "Не gore, а осознание ничтожности",
+  "description_style": "Недосказанность (непостижимое нельзя описать полностью)",
+  "protagonist": "Обычно обречён (madness или death)",
+  "mistakes": ["Полностью описать сущность (должна быть beyond comprehension)", "Happy ending (not for cosmic horror)", "Забыть философию"],
+  "recommended": ["H.P. Lovecraft — классика", "Laird Barron", "Thomas Ligotti", "Jeff VanderMeer — Annihilation", "Caitlín R. Kiernan"]
+}

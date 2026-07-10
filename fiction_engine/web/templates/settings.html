@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">🔑 API ключи</div>
+  <div class="page-sub">Ключи хранятся локально. Добавь любые — работают независимо.</div>
+</div>
+
+<div style="max-width:580px;display:flex;flex-direction:column;gap:14px;">
+
+  <!-- Anthropic -->
+  <div class="key-card" id="card-anthropic_direct">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">Anthropic</div>
+        <div class="key-models-hint">Claude Opus, Sonnet, Haiku</div>
+      </div>
+      <div class="key-status inactive" id="status-anthropic_direct">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-anthropic_direct">
+      <input class="key-input" type="password" id="input-anthropic_direct"
+             placeholder="sk-ant-api03-..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('anthropic_direct')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-anthropic_direct" style="display:none;">
+      <span class="key-value" id="value-anthropic_direct"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('anthropic_direct')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('anthropic_direct')">✕</button>
+    </div>
+    <div class="key-hint">→ <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys</div>
+  </div>
+
+  <!-- OpenAI -->
+  <div class="key-card" id="card-openai_direct">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">OpenAI</div>
+        <div class="key-models-hint">GPT-4o, o3-mini, o1</div>
+      </div>
+      <div class="key-status inactive" id="status-openai_direct">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-openai_direct">
+      <input class="key-input" type="password" id="input-openai_direct"
+             placeholder="sk-proj-..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('openai_direct')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-openai_direct" style="display:none;">
+      <span class="key-value" id="value-openai_direct"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('openai_direct')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('openai_direct')">✕</button>
+    </div>
+    <div class="key-hint">→ <a href="https://platform.openai.com" target="_blank">platform.openai.com</a> → API Keys</div>
+  </div>
+
+  <!-- Gemini -->
+  <div class="key-card" id="card-gemini_direct">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">Google Gemini</div>
+        <div class="key-models-hint">Gemini 2.0 Flash, 1.5 Pro</div>
+      </div>
+      <div class="key-status inactive" id="status-gemini_direct">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-gemini_direct">
+      <input class="key-input" type="password" id="input-gemini_direct"
+             placeholder="AIza..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('gemini_direct')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-gemini_direct" style="display:none;">
+      <span class="key-value" id="value-gemini_direct"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('gemini_direct')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('gemini_direct')">✕</button>
+    </div>
+    <div class="key-hint">→ <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → Get API key</div>
+  </div>
+
+  <!-- DeepSeek -->
+  <div class="key-card" id="card-deepseek_direct">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">DeepSeek</div>
+        <div class="key-models-hint">DeepSeek Chat (V3), Reasoner (R1)</div>
+      </div>
+      <div class="key-status inactive" id="status-deepseek_direct">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-deepseek_direct">
+      <input class="key-input" type="password" id="input-deepseek_direct"
+             placeholder="sk-..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('deepseek_direct')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-deepseek_direct" style="display:none;">
+      <span class="key-value" id="value-deepseek_direct"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('deepseek_direct')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('deepseek_direct')">✕</button>
+    </div>
+    <div class="key-hint">→ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> → API Keys</div>
+  </div>
+
+  <!-- nano-gpt -->
+  <div class="key-card" id="card-nano_gpt" style="border-color:#4c1d95;">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">NanoGPT <span style="font-size:10px;color:var(--accent2);background:#2e1065;border-radius:4px;padding:1px 6px;margin-left:4px;">300+ моделей</span></div>
+        <div class="key-models-hint">GPT-5, Gemini 2.5 Pro, DeepSeek V3.2, Kimi K2, Euryale и другие</div>
+      </div>
+      <div class="key-status inactive" id="status-nano_gpt">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-nano_gpt">
+      <input class="key-input" type="password" id="input-nano_gpt"
+             placeholder="nano-..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('nano_gpt')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-nano_gpt" style="display:none;">
+      <span class="key-value" id="value-nano_gpt"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('nano_gpt')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('nano_gpt')">✕</button>
+    </div>
+    <div class="key-hint">→ <a href="https://nano-gpt.com" target="_blank">nano-gpt.com</a> → Account → API</div>
+
+    <!-- Загрузка моделей -->
+    <div id="nano-models-section" style="display:none;margin-top:14px;
+         border-top:1px solid var(--border);padding-top:14px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button id="btn-refresh"
+                style="display:flex;align-items:center;gap:6px;
+                       background:var(--surface2);border:1px solid var(--accent);
+                       color:var(--accent2);border-radius:8px;padding:7px 14px;
+                       font-size:12px;cursor:pointer;font-family:inherit;"
+                onclick="loadNanoModels()">
+          <span id="refresh-icon">↻</span> Обновить список моделей
+        </button>
+        <div id="models-count"
+             style="display:none;font-size:11px;color:var(--success);
+                    border:1px solid var(--success);border-radius:6px;padding:4px 10px;">
+        </div>
+      </div>
+      <select id="nano-model-select" class="key-input"
+              style="margin-top:10px;display:none;"
+              onchange="onModelSelect(this.value)">
+        <option value="">— выбери модель по умолчанию —</option>
+      </select>
+    </div>
+  </div>
+
+</div>
+
+<style>
+.key-card {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:16px 18px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.key-header { display:flex;align-items:flex-start;justify-content:space-between;gap:10px; }
+.key-provider-label { font-size:13px;font-weight:700;color:var(--text); }
+.key-models-hint { font-size:11px;color:var(--text2);margin-top:2px; }
+.key-status { font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0; }
+.key-status.active { background:#14532d33;color:var(--success);border:1px solid #166534; }
+.key-status.inactive { background:var(--surface2);color:var(--text2);border:1px solid var(--border); }
+.key-row { display:flex;gap:8px;align-items:center; }
+.key-input {
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:8px 12px;
+  font-size:13px;font-family:'JetBrains Mono',monospace;
+  outline:none;transition:border-color .15s;width:100%;box-sizing:border-box;
+}
+.key-input:focus { border-color:var(--accent); }
+.key-btn {
+  border:none;border-radius:8px;cursor:pointer;
+  padding:8px 12px;font-family:inherit;transition:all .15s;flex-shrink:0;
+}
+.key-btn-save { background:var(--accent);color:white;font-size:16px;font-weight:700; }
+.key-btn-save:hover { background:#6b5ae0; }
+.key-btn-edit { background:var(--surface2);color:var(--text2);border:1px solid var(--border);font-size:13px; }
+.key-btn-edit:hover { color:var(--accent2);border-color:var(--accent); }
+.key-btn-delete { background:#7f1d1d33;color:var(--error);border:1px solid #991b1b;font-size:13px; }
+.key-btn-delete:hover { background:#7f1d1d; }
+.key-masked {
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;
+}
+.key-value { font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);flex:1;letter-spacing:1px; }
+.key-hint { font-size:11px;color:var(--text2); }
+.key-hint a { color:var(--accent2); }
+</style>
+
+<!-- Модель оценщика -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">⭐ Модель оценщика</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+    Оценивает сгенерированный текст по 4 критериям: литература, голос/жанр, коммерция, здоровье сцены.
+    Рекомендуется другое семейство моделей чем для генерации — оценка будет честнее.
+    Если не задана — используется та же модель что генерировала.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select id="input-scorer-model" class="key-input" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;">
+      <option value="">— не задана (использует модель генерации) —</option>
+      {% for m in models %}
+      <option value="{{ m.value }}">{{ m.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="key-btn key-btn-save" onclick="saveScorerModel()">✓</button>
+    <button class="key-btn key-btn-delete" onclick="clearScorerModel()" title="Сбросить">✕</button>
+  </div>
+  <div id="scorer-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+</div>
+
+<!-- Модель для анализа задачи (master-режим) -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">🧠 Модель анализа задачи</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+    В master-режиме перед генерацией делается быстрый вызов для выбора нужных модулей движка.
+    Укажи дешёвую модель — она получает только список модулей и задачу (≈200 токенов).
+    Если не задана — используется та же модель что и для генерации.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select id="input-resolver-model" class="key-input" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;">
+      <option value="">— не задана (использует модель генерации) —</option>
+      {% for m in models %}
+      <option value="{{ m.value }}">{{ m.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="key-btn key-btn-save" onclick="saveResolverModel()">✓</button>
+    <button class="key-btn key-btn-delete" onclick="clearResolverModel()" title="Сбросить">✕</button>
+  </div>
+  <div id="resolver-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+</div>
+
+<!-- UNIFIED ENGINE статус -->
+<div class="card" style="border-color:var(--accent);margin-top:20px;">
+  <div class="card-title">⚙️ UNIFIED ENGINE</div>
+  <div id="engine-status" style="font-size:13px;">Проверяю...</div>
+  <div style="margin-top:12px;font-size:12px;color:var(--text2);">
+    Положи папку <code style="background:var(--bg);padding:2px 6px;border-radius:4px;">UNIFIED_ENGINE_MASTER</code>
+    рядом с папкой приложения — подключится автоматически.
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROVIDERS = ['anthropic_direct','openai_direct','gemini_direct','deepseek_direct','nano_gpt'];
+
+async function loadKeyStatus() {
+  const status = await fetch('/api/keys/status').then(r => r.json());
+  PROVIDERS.forEach(p => {
+    if (status[p]) showActive(p, status[p]);
+    else showInactive(p);
+  });
+  if (status['nano_gpt']) {
+    document.getElementById('nano-models-section').style.display = 'block';
+  }
+}
+
+function showActive(provider, masked) {
+  document.getElementById(`row-${provider}`).style.display = 'none';
+  document.getElementById(`masked-${provider}`).style.display = 'flex';
+  document.getElementById(`value-${provider}`).textContent = masked;
+  const st = document.getElementById(`status-${provider}`);
+  st.textContent = '● активен';
+  st.className = 'key-status active';
+}
+
+function showInactive(provider) {
+  document.getElementById(`row-${provider}`).style.display = 'flex';
+  document.getElementById(`masked-${provider}`).style.display = 'none';
+  const st = document.getElementById(`status-${provider}`);
+  st.textContent = '○ не задан';
+  st.className = 'key-status inactive';
+}
+
+function editKey(provider) {
+  showInactive(provider);
+  document.getElementById(`input-${provider}`).focus();
+}
+
+async function saveKey(provider) {
+  const inp = document.getElementById(`input-${provider}`);
+  const key = inp.value.trim();
+  if (!key) { showToast('Введи ключ', 'error'); return; }
+
+  const r = await apiPost('/api/keys/save', {provider, key});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+
+  const masked = key.slice(0,8) + '·'.repeat(8) + key.slice(-4);
+  showActive(provider, masked);
+  inp.value = '';
+  showToast('Ключ сохранён', 'success');
+
+  if (provider === 'nano_gpt') {
+    document.getElementById('nano-models-section').style.display = 'block';
+  }
+}
+
+async function deleteKey(provider) {
+  if (!confirm('Удалить ключ?')) return;
+  await apiPost('/api/keys/delete', {provider});
+  showInactive(provider);
+  if (provider === 'nano_gpt') {
+    document.getElementById('nano-models-section').style.display = 'none';
+  }
+  showToast('Ключ удалён', 'info');
+}
+
+async function loadNanoModels() {
+  const btn = document.getElementById('btn-refresh');
+  const icon = document.getElementById('refresh-icon');
+  icon.style.animation = 'spin .7s linear infinite';
+  btn.disabled = true;
+
+  const r = await fetch('/api/nano/models').then(res => res.json());
+  icon.style.animation = '';
+  btn.disabled = false;
+
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+
+  const sel = document.getElementById('nano-model-select');
+  sel.innerHTML = '<option value="">— выбери модель по умолчанию —</option>';
+  r.models.forEach(id => {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = id;
+    sel.appendChild(o);
+  });
+  sel.style.display = 'block';
+
+  const counter = document.getElementById('models-count');
+  counter.textContent = `${r.count} моделей загружено`;
+  counter.style.display = 'block';
+
+  const saved = localStorage.getItem('nano_default_model');
+  if (saved && r.models.includes(saved)) sel.value = saved;
+}
+
+function onModelSelect(val) {
+  if (val) {
+    localStorage.setItem('nano_default_model', val);
+    showToast('Модель по умолчанию: ' + val.split('/').pop(), 'success');
+  }
+}
+
+// Enter для сохранения
+PROVIDERS.forEach(p => {
+  const inp = document.getElementById(`input-${p}`);
+  if (inp) inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveKey(p);
+  });
+});
+
+loadKeyStatus();
+
+// UNIFIED ENGINE статус
+async function checkEngineStatus() {
+  const r = await fetch('/api/engine/status').then(x => x.json());
+  const el = document.getElementById('engine-status');
+  if (r.available) {
+    el.innerHTML = `<span style="color:var(--success);">✓ Подключён</span>
+      <span style="color:var(--text2);font-size:11px;margin-left:8px;">${r.path}</span>
+      <span style="margin-left:8px;font-size:11px;color:var(--text2);">${r.genres.length} жанров</span>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--error);">✗ Не найден</span>
+      <span style="color:var(--text2);font-size:11px;margin-left:8px;">Ожидается по пути: ${r.path}</span>`;
+  }
+}
+// Scorer model
+async function loadScorerModel() {
+  const r = await fetch('/api/scorer/model').then(x => x.json());
+  const inp = document.getElementById('input-scorer-model');
+  const hint = document.getElementById('scorer-model-hint');
+  if (r.model) {
+    inp.value = r.model;
+    hint.textContent = '✓ Задана: ' + r.model;
+    hint.style.color = 'var(--success)';
+  } else {
+    hint.textContent = 'Не задана — будет использоваться модель генерации';
+  }
+}
+
+async function saveScorerModel() {
+  const model = document.getElementById('input-scorer-model').value;
+  const r = await apiPost('/api/scorer/model', {model});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  const hint = document.getElementById('scorer-model-hint');
+  if (model) {
+    hint.textContent = '✓ Задана: ' + model;
+    hint.style.color = 'var(--success)';
+    showToast('Сохранено', 'success');
+  } else {
+    hint.textContent = 'Не задана — будет использоваться модель генерации';
+    hint.style.color = 'var(--text2)';
+    showToast('Сброшено', 'info');
+  }
+}
+
+async function clearScorerModel() {
+  await apiPost('/api/scorer/model', {model: ''});
+  document.getElementById('input-scorer-model').value = '';
+  const hint = document.getElementById('scorer-model-hint');
+  hint.textContent = 'Не задана — будет использоваться модель генерации';
+  hint.style.color = 'var(--text2)';
+  showToast('Сброшено', 'info');
+}
+
+loadScorerModel();
+// Resolver model
+async function loadResolverModel() {
+  const r = await fetch('/api/resolver/model').then(x => x.json());
+  const inp = document.getElementById('input-resolver-model');
+  const hint = document.getElementById('resolver-model-hint');
+  if (r.model) {
+    inp.value = r.model;
+    hint.textContent = '✓ Задана: ' + r.model;
+    hint.style.color = 'var(--success)';
+  } else {
+    hint.textContent = 'Не задана — будет использоваться модель генерации';
+  }
+}
+
+async function saveResolverModel() {
+  const model = document.getElementById('input-resolver-model').value;
+  const r = await apiPost('/api/resolver/model', {model});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  const hint = document.getElementById('resolver-model-hint');
+  if (model) {
+    hint.textContent = '✓ Задана: ' + model;
+    hint.style.color = 'var(--success)';
+    showToast('Сохранено', 'success');
+  } else {
+    hint.textContent = 'Не задана — будет использоваться модель генерации';
+    hint.style.color = 'var(--text2)';
+    showToast('Сброшено', 'info');
+  }
+}
+
+async function clearResolverModel() {
+  await apiPost('/api/resolver/model', {model: ''});
+  document.getElementById('input-resolver-model').value = '';
+  const hint = document.getElementById('resolver-model-hint');
+  hint.textContent = 'Не задана — будет использоваться модель генерации';
+  hint.style.color = 'var(--text2)';
+  showToast('Сброшено', 'info');
+}
+
+loadResolverModel();
+checkEngineStatus();
+
+</script>
+{% endblock %}

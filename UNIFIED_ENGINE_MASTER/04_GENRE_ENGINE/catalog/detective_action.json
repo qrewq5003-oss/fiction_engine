@@ -1,0 +1,10 @@
+{
+  "genre": "detective_action",
+  "display_name": "Детектив-экшен",
+  "description": "Детектив с элементами боевика: погони, драки, опасность, ticking clock",
+  "key_elements": ["Физический danger", "Погони и экшен-сцены", "Ticking clock", "Детектив = action hero", "Высокие stakes"],
+  "style": {"tone": "Динамичный, напряжённый", "pacing": "Быстрый, короткие главы", "sentence_structure": "Короткие предложения в экшене"},
+  "balance": "50% action / 30% investigation / 20% personal",
+  "mistakes": ["Только экшен без расследования", "Нереалистичный superman-детектив", "Потеря логики ради зрелища"],
+  "recommended": ["Lee Child — серия про Jack Reacher", "Vince Flynn — серия про Mitch Rapp", "Robert Crais — Elvis Cole series"]
+}

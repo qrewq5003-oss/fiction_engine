@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Проекты{% endblock %}
+{% block topbar %}
+<button class="btn btn-primary btn-sm" onclick="newProject()">+ Новый проект</button>
+<button class="btn btn-secondary btn-sm" onclick="openFEImport()">📥 Импорт из FE</button>
+{% endblock %}
+{% block content %}
+{% if projects %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+  {% for p in projects %}
+  <div class="card" style="cursor:pointer;" onclick="location='/switch/{{ p.id }}'">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px;color:var(--accent2);">{{ p.name }}</div>
+    {% if p.genre %}<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">{{ p.genre }}</div>{% endif %}
+    {% if p.description %}<div style="font-size:12px;line-height:1.5;">{{ p.description[:120] }}{% if p.description|length > 120 %}…{% endif %}</div>{% endif %}
+    <div style="margin-top:12px;font-size:11px;color:var(--text2);">{{ p.created_at[:10] }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text2);">
+  <div style="font-size:48px;margin-bottom:16px;">🎬</div>
+  <div style="font-size:18px;margin-bottom:8px;">Нет проектов</div>
+  <button class="btn btn-primary" onclick="newProject()">Создать первый</button>
+</div>
+{% endif %}
+
+<!-- FE Import modal -->
+<div class="modal-overlay" id="modal-fe-import">
+  <div class="modal" style="width:420px;">
+    <div class="modal-title">📥 Импорт контекста из Fiction Engine</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Импортирует состояние мира, активные линии и незакрытые обещания из FE в описание текущего проекта планировщика.</div>
+    <div class="form-group">
+      <label>Проект в FE</label>
+      <select id="fe-proj-select" style="width:100%;"><option value="">— загрузка... —</option></select>
+    </div>
+    <div id="fe-import-status" style="font-size:12px;color:var(--text2);margin-bottom:12px;display:none;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="flex:2;" onclick="doFEImport()">
+        <span class="spinner" id="fe-import-spin" style="display:none;"></span>
+        📥 Импортировать
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-fe-import')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

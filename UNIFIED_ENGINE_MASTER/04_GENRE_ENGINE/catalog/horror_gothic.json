@@ -1,0 +1,13 @@
+{
+  "genre": "horror_gothic",
+  "display_name": "Готический хоррор",
+  "description": "Классический хоррор: старые дома, проклятия, атмосфера, психологический страх",
+  "key_elements": ["Старый дом/замок", "Семейные тайны", "Проклятия/наследие", "Атмосфера > gore", "Психологический страх", "Часто романтическая subplot"],
+  "setting": "Изолированные особняки, поместья, маленькие городки",
+  "tone": "Атмосферный, зловещий, мрачный",
+  "horror_type": "Психологический + атмосферный (не gore)",
+  "pacing": "Медленный, нарастающий",
+  "techniques": ["Foreshadowing", "Ненадёжный нарратор", "Изоляция", "Decay imagery"],
+  "mistakes": ["Слишком быстро показать угрозу", "Gore вместо атмосферы", "Отсутствие sense of place"],
+  "recommended": ["Ширли Джексон — Haunting of Hill House", "Дафна дю Морье — Rebecca", "Guillermo del Toro — Crimson Peak (фильм)", "Silvia Moreno-Garcia — Mexican Gothic"]
+}

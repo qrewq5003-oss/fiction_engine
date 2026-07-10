@@ -1,0 +1,330 @@
+{
+  "engine": "UNIFIED_ENGINE_MASTER",
+  "version": "1.8",
+  "total_files": 226,
+  "changelog": "v1.8: 11_PROMPTS QUALITY/MASTER переписаны под машинное извлечение. Оригинальные шаблоны в 11_PROMPTS/templates/. Лимит извлечения 8→20 строк.",
+  "files": {
+    ".": [
+      "IMPROVEMENTS_CRITIQUE.md",
+      "README.md"
+    ],
+    "00_CORE": [
+      "CORE_FULL.md",
+      "CORE_MINI.md",
+      "META_RULES.yaml",
+      "ai_cliches.md",
+      "anticliche_replacements.md",
+      "cliches_list.txt",
+      "style_rules.md"
+    ],
+    "01_WRITING_CORE": [
+      "01_dialogues.md",
+      "02_descriptions.md",
+      "03_action.md",
+      "04_emotions.md",
+      "05_pov.md",
+      "06_scene_structure.md",
+      "07_genre_techniques.md"
+    ],
+    "02_STRUCTURE_ENGINE": [
+      "arc_validator.md",
+      "composition_guide.md",
+      "scene_health_checklist.md",
+      "scene_template.md",
+      "tension_model.md"
+    ],
+    "03_ADVANCED_ENGINES": [
+      "01_tension_curve.md",
+      "02_character_resonance.md",
+      "03_thematic_dna.md",
+      "04_reader_simulation.md",
+      "05_commercial_heatmap.md",
+      "06_multibook_causality.md",
+      "07_voice_consistency.md",
+      "08_world_state_kernel.md",
+      "09_deep_character_psychology.md",
+      "10_subtext_engine.md",
+      "11_micromoments_library.md",
+      "12_pacing_engine.md",
+      "13_foreshadowing_engine.md",
+      "14_narrative_distance.md",
+      "15_dialogue_style.md",
+      "16_pov_filters.md",
+      "17_character_chemistry.md",
+      "18_beats_rhythm.md",
+      "19_hooks_closings.md",
+      "20_stakes_escalation.md",
+      "21_voice_constructor.md",
+      "22_sensory_immersion.md",
+      "23_literary_craft.md",
+      "24_artistic_foundation.md",
+      "25_style_transformations.md"
+    ],
+    "04_GENRE_ENGINE": [
+      "AUTO_ROUTER.md",
+      "GENRE_MERGER.md"
+    ],
+    "04_GENRE_ENGINE/catalog": [
+      "detective_action.json",
+      "detective_classic.json",
+      "detective_cozy.json",
+      "detective_noir.json",
+      "detective_procedural.json",
+      "detective_psychological.json",
+      "fantasy_dark.json",
+      "fantasy_epic.json",
+      "fantasy_romantic.json",
+      "fantasy_sword_sorcery.json",
+      "fantasy_urban.json",
+      "horror_cosmic.json",
+      "horror_gothic.json",
+      "horror_psychological.json",
+      "horror_survival.json",
+      "realism_family_saga.json",
+      "realism_psychological.json",
+      "realism_social.json",
+      "romance_contemporary.json",
+      "romance_historical.json",
+      "romance_paranormal.json",
+      "scifi_cyberpunk.json",
+      "scifi_hard.json",
+      "scifi_post_apocalyptic.json",
+      "scifi_social.json",
+      "scifi_space_opera.json",
+      "scifi_steampunk.json",
+      "thriller_psychological.json",
+      "thriller_spy.json",
+      "thriller_survival.json"
+    ],
+    "04_GENRE_ENGINE/formulas": [
+      "detective_case.md",
+      "urban_fantasy_arc.md"
+    ],
+    "05_CHARACTER_ENGINE/antagonists": [
+      "antagonist_by_genre.md",
+      "antagonist_core.md"
+    ],
+    "05_CHARACTER_ENGINE/profiles/GENRE": [
+      "adventure.md",
+      "comedic.md",
+      "detective.md",
+      "epic.md",
+      "family_drama.md",
+      "fantasy.md",
+      "historical.md",
+      "horror.md",
+      "legal_thriller.md",
+      "magical_realism.md",
+      "medical_thriller.md",
+      "noir.md",
+      "psychological.md",
+      "romance.md",
+      "sci_fi.md",
+      "spec_fic.md",
+      "spy.md",
+      "thriller.md",
+      "urban_mystic.md",
+      "young_adult.md"
+    ],
+    "05_CHARACTER_ENGINE/profiles/STYLE": [
+      "atmospheric.md",
+      "cinematic.md",
+      "commercial.md",
+      "dialogue_focused.md",
+      "emotional_depth.md",
+      "epic_voice.md",
+      "first_person_close.md",
+      "literary.md",
+      "modern_minimal.md",
+      "noir_style.md",
+      "omniscient.md",
+      "tight_thriller.md"
+    ],
+    "05_CHARACTER_ENGINE/voices": [
+      "neutral_voice.json",
+      "sarcastic_voice.json",
+      "stoic_voice.json"
+    ],
+    "06_PATTERN_LIBRARY": [
+      "hooks_by_genre.md"
+    ],
+    "06_PATTERN_LIBRARY/dialogues": [
+      "cinematic_dialogue.md",
+      "minimalistic_dialogue.md",
+      "subtext_dialogue.md"
+    ],
+    "06_PATTERN_LIBRARY/genre_situations": [
+      "detective_situations.md",
+      "fantasy_situations.md",
+      "horror_situations.md",
+      "realism_situations.md",
+      "romance_situations.md",
+      "scifi_situations.md",
+      "thriller_situations.md",
+      "universal_situations.md"
+    ],
+    "06_PATTERN_LIBRARY/scenes": [
+      "atmospheric_scene.md",
+      "chapter_structures.md",
+      "classic_arc_chapter.txt",
+      "dynamic_scene.md",
+      "emotional_scene.md",
+      "intense_chapter.txt",
+      "quiet_chapter.txt"
+    ],
+    "06_PATTERN_LIBRARY/transitions": [
+      "scene_transitions.md"
+    ],
+    "08_STATE_ENGINE": [
+      "global_state.md",
+      "global_state_template.md",
+      "memory_graph.md",
+      "memory_graph_template.md",
+      "plot_matrix.md",
+      "plot_matrix_template.md",
+      "update_prompt.md"
+    ],
+    "09_TEMPLATES": [
+      "characters_extended_template.json",
+      "locations_template.json",
+      "plot_points_template.json",
+      "relationships_template.json",
+      "scene_cards_template.json"
+    ],
+    "10_VALIDATION": [
+      "checklist_detective.md",
+      "checklist_fantasy.md",
+      "checklist_horror.md",
+      "checklist_romance.md",
+      "checklist_thriller.md",
+      "checklist_universal.md",
+      "claude_validation_prompt.md"
+    ],
+    "11_PROMPTS": [
+      "MASTER_generation.md",
+      "QUALITY_generation.md",
+      "QUICK_generation.md",
+      "README_prompts.md",
+      "detective_MASTER.md",
+      "detective_QUALITY.md",
+      "detective_QUICK.md",
+      "fantasy_MASTER.md",
+      "fantasy_QUALITY.md",
+      "fantasy_QUICK.md",
+      "horror_MASTER.md",
+      "horror_QUALITY.md",
+      "horror_QUICK.md",
+      "pace_fix.md",
+      "realism_MASTER.md",
+      "realism_QUALITY.md",
+      "realism_QUICK.md",
+      "romance_MASTER.md",
+      "romance_QUALITY.md",
+      "romance_QUICK.md",
+      "scifi_MASTER.md",
+      "scifi_QUALITY.md",
+      "scifi_QUICK.md",
+      "thriller_MASTER.md",
+      "thriller_QUALITY.md",
+      "thriller_QUICK.md",
+      "voice_lock.md"
+    ],
+    "11_PROMPTS/templates": [
+      "detective_MASTER_template.md",
+      "detective_QUALITY_template.md",
+      "fantasy_MASTER_template.md",
+      "fantasy_QUALITY_template.md",
+      "horror_MASTER_template.md",
+      "horror_QUALITY_template.md",
+      "realism_MASTER_template.md",
+      "realism_QUALITY_template.md",
+      "romance_MASTER_template.md",
+      "romance_QUALITY_template.md",
+      "scifi_MASTER_template.md",
+      "scifi_QUALITY_template.md",
+      "thriller_MASTER_template.md",
+      "thriller_QUALITY_template.md"
+    ],
+    "12_ARCS": [
+      "arc_fantasy_templates.md",
+      "arc_planner.md",
+      "arcs_by_genre.md"
+    ],
+    "13_VOICE_LIBRARY": [
+      "README.md",
+      "voice_builder.md",
+      "voice_check.md"
+    ],
+    "13_VOICE_LIBRARY/voice_profiles": [
+      "classic_detective_voice.md",
+      "dark_fantasy_voice.md",
+      "epic_fantasy_voice.md",
+      "horror_voice.md",
+      "noir_detective_voice.md",
+      "psychological_detective_voice.md",
+      "realism_voice.md",
+      "romance_voice.md",
+      "scifi_voice.md",
+      "thriller_voice.md",
+      "urban_fantasy_voice.md"
+    ],
+    "14_CHARACTER_DIALECTICS": [
+      "dialectics_by_genre.md",
+      "dialectics_consistency_check.md",
+      "dialectics_core.md"
+    ],
+    "15_SYMBOLISM": [
+      "symbolism_core.md"
+    ],
+    "16_GENRE_CONTRACT": [
+      "contract_checker.md",
+      "detective_contracts.md",
+      "fantasy_contracts.md",
+      "horror_contracts.md",
+      "realism_contracts.md",
+      "romance_contracts.md",
+      "scifi_contracts.md",
+      "thriller_contracts.md"
+    ]
+  },
+  "module_dependencies": {
+    "11_micromoments_library": [
+      "24_artistic_foundation"
+    ],
+    "17_character_chemistry": [
+      "02_character_resonance"
+    ],
+    "13_foreshadowing_engine": [
+      "03_thematic_dna"
+    ],
+    "10_subtext_engine": [
+      "15_dialogue_style"
+    ],
+    "20_stakes_escalation": [
+      "01_tension_curve"
+    ],
+    "09_deep_character_psychology": [
+      "02_character_resonance"
+    ],
+    "25_style_transformations": [
+      "24_artistic_foundation",
+      "23_literary_craft"
+    ],
+    "22_sensory_immersion": [
+      "24_artistic_foundation"
+    ],
+    "16_pov_filters": [
+      "14_narrative_distance"
+    ],
+    "18_beats_rhythm": [
+      "12_pacing_engine"
+    ],
+    "05_commercial_heatmap": [
+      "04_reader_simulation",
+      "12_pacing_engine"
+    ],
+    "06_multibook_causality": [
+      "03_thematic_dna"
+    ]
+  }
+}

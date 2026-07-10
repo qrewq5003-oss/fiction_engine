@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">📋 Подготовка</div>
+  <div class="page-sub">Персонажи, мир, сюжет — всё это цепляется при генерации</div>
+</div>
+
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+  {% for key, label in sections.items() %}
+  <button class="btn {% if loop.first %}btn-primary{% else %}btn-secondary{% endif %} prep-tab-btn"
+          data-section="{{ key }}" onclick="switchTab('{{ key }}')">
+    {{ label }}
+  </button>
+  {% endfor %}
+</div>
+
+{% for key, label in sections.items() %}
+<div class="prep-section {% if not loop.first %}hidden{% endif %}" id="section-{{ key }}">
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <span>{{ label }}</span>
+      <span id="status-{{ key }}" style="font-size:12px;color:var(--text2);"></span>
+    </div>
+    <textarea id="editor-{{ key }}" rows="28"
+              style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;line-height:1.7;"
+              oninput="markDirty('{{ key }}')"
+    >{{ prep[key] }}</textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="resetSection('{{ key }}')">Сбросить</button>
+      <button class="btn btn-primary" id="save-btn-{{ key }}" onclick="saveSection('{{ key }}')">
+        <span class="spinner" id="spin-{{ key }}" style="display:none;"></span>
+        Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<div class="card" style="border-color:var(--accent);opacity:0.7;">
+  <div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;">
+    <span>💡 Заполненные разделы автоматически добавляются в контекст при генерации.</span>
+    <span id="prep-total-size" style="font-size:11px;"></span>
+  </div>
+  <div id="prep-size-warning" style="display:none;margin-top:8px;padding:6px 10px;
+       background:#78350f33;border:1px solid #92400e;border-radius:6px;
+       font-size:12px;color:var(--warning);"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const originals = {};
+{% for key in sections %}
+originals['{{ key }}'] = document.getElementById('editor-{{ key }}').value;
+{% endfor %}
+
+function switchTab(active) {
+  document.querySelectorAll('.prep-section').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.prep-tab-btn').forEach(b => {
+    b.className = b.className.replace('btn-primary', 'btn-secondary');
+  });
+  document.getElementById('section-' + active).classList.remove('hidden');
+  const btn = document.querySelector(`[data-section="${active}"]`);
+  btn.className = btn.className.replace('btn-secondary', 'btn-primary');
+}
+
+function markDirty(key) {
+  document.getElementById('status-' + key).textContent = '● несохранено';
+  document.getElementById('status-' + key).style.color = 'var(--warning)';
+}
+
+async function saveSection(key) {
+  const content = document.getElementById('editor-' + key).value;
+  const spin = document.getElementById('spin-' + key);
+  spin.style.display = 'inline-block';
+
+  const result = await apiPost('/prep/save', { section: key, content });
+
+  spin.style.display = 'none';
+  if (result.ok) {
+    originals[key] = content;
+    document.getElementById('status-' + key).textContent = '✓ сохранено';
+    document.getElementById('status-' + key).style.color = 'var(--success)';
+    showToast('Сохранено', 'success');
+  } else {
+    showToast('Ошибка: ' + result.error, 'error');
+  }
+}
+
+function resetSection(key) {
+  if (!confirm('Вернуть шаблонный текст?')) return;
+  document.getElementById('editor-' + key).value = originals[key];
+  document.getElementById('status-' + key).textContent = '';
+}
+
+// Предупреждение о размере prep
+async function checkPrepSize() {
+  const r = await fetch('/api/prep/size').then(x => x.json()).catch(() => null);
+  if (!r) return;
+  document.getElementById('prep-total-size').textContent = r.message;
+  if (r.warning) {
+    document.getElementById('prep-size-warning').textContent =
+      '⚠ Подготовка большая. При генерации часть может не войти в контекстное окно модели. Сократи или используй модель с большим контекстом (Claude, Gemini 1.5 Pro).';
+    document.getElementById('prep-size-warning').style.display = 'block';
+  }
+}
+checkPrepSize();
+
+window.addEventListener('beforeunload', function(e) {
+  {% for key in sections %}
+  if (document.getElementById('editor-{{ key }}').value !== originals['{{ key }}']) {
+    e.preventDefault(); return '';
+  }
+  {% endfor %}
+});
+</script>
+<style>
+.hidden { display: none; }
+</style>
+{% endblock %}
