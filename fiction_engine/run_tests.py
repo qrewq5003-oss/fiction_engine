@@ -5256,7 +5256,11 @@ def test_exec_critique_score():
         from engine.db_projects import create_project
         pid = create_project("Тест", "детектив")
 
-        with _mock.patch("engine.pipeline.save_pipeline_iteration"):
+        # Мокать надо модуль, который РЕАЛЬНО пишет: step_critique зовёт
+        # save_pipeline_iteration из pipeline_steps. Промах по цели раньше
+        # не был виден — строка молча писалась с несуществующим run_id,
+        # пока PRAGMA foreign_keys был выключен.
+        with _mock.patch("engine.pipeline_steps.save_pipeline_iteration"):
             with _mock.patch("engine.pipeline._call", return_value=critique_resp):
                 with _mock.patch("engine.db.get_all_logical_gaps", return_value=[]):
                     with _mock.patch("engine.pipeline.handle_error"):
@@ -5279,7 +5283,8 @@ def test_exec_judge_verdict():
         from engine.db_projects import create_project
         pid = create_project("Тест", "хоррор")
 
-        with _mock.patch("engine.pipeline.save_pipeline_iteration"):
+        # См. выше: писатель — pipeline_steps, а не pipeline.
+        with _mock.patch("engine.pipeline_steps.save_pipeline_iteration"):
             with _mock.patch("engine.pipeline._call", return_value=judge_resp):
                 with _mock.patch("engine.pipeline.handle_error"):
                     result = _execute_steps(
@@ -5317,26 +5322,29 @@ def test_call_json_no_json_raises():
 run("pipeline: call_json нет JSON → ValueError", test_call_json_no_json_raises)
 
 def test_score_text_returns_total():
-    import json as _j
-    resp = _j.dumps({
-        "literary_quality": 7, "voice_genre": 8,
-        "commercial": 6, "scene_health": 7,
-        "total": 7.0, "verdict": "Норм", "main_issue": "Темп",
-    })
+    """SYS_CRITIC отвечает текстом с метками — ИТОГ берётся из ответа."""
+    resp = (
+        "ГОЛОС: 7\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 6\n"
+        "СЦЕНЫ: 7\nДИАЛОГ: 8\nИТОГ: 36\n"
+        "ГЛАВНЫЕ ПРОБЛЕМЫ:\n- Темп проседает в середине"
+    )
     with _mock.patch("engine.pipeline._call", return_value=resp):
         result = score_text("Текст.", "фэнтези", "m::x")
-    assert "total" in result and isinstance(result["total"], float)
+    assert isinstance(result["total"], float)
+    assert result["total"] == 36.0
+    assert result["voice"] == 7 and result["dialog"] == 8
+    assert result["main_issue"] == "Темп проседает в середине"
 run("pipeline: score_text возвращает dict с total", test_score_text_returns_total)
 
 def test_score_text_computes_missing_total():
-    import json as _j
-    resp = _j.dumps({
-        "literary_quality": 8, "voice_genre": 8,
-        "commercial": 8, "scene_health": 8,
-    })
+    """Нет строки ИТОГ → total считается как сумма пяти критериев (0-50)."""
+    resp = ("ГОЛОС: 8\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 8\n"
+            "СЦЕНЫ: 8\nДИАЛОГ: 8")
     with _mock.patch("engine.pipeline._call", return_value=resp):
         result = score_text("Текст.", "детектив", "m::x")
-    assert result.get("total") == 8.0
+    assert isinstance(result["total"], float)
+    assert result["total"] == 40.0
+    assert result["verdict"] == "ПРИНЯТЬ"
 run("pipeline: score_text вычисляет total если отсутствует", test_score_text_computes_missing_total)
 
 
@@ -5363,7 +5371,7 @@ def test_start_pipeline_returns_run_id():
         with _mock.patch("engine.pipeline._call", return_value=judge_resp):
             with _mock.patch("engine.pipeline_steps.save_pipeline_iteration"):
                 with _mock.patch("engine.pipeline.step_generate",
-                                 side_effect=lambda run_id, iteration, chapter_num, gen_prompt, full_prompt, model, sys_p, call_fn, results: results.__setitem__("generated_text", "Текст." * 30)):
+                                 side_effect=lambda run_id, iteration, chapter_num, gen_prompt, full_prompt, model, sys_p, call_fn, results, prefill="": results.__setitem__("generated_text", "Текст." * 30)):
                     with _mock.patch("engine.pipeline.step_drift_check"):
                         with _mock.patch("engine.pipeline.step_chapter_analysis"):
                             with _mock.patch("engine.pipeline._build_context", return_value="ctx"):
@@ -5396,7 +5404,7 @@ def test_start_pipeline_auto_retry_stops_on_degradation():
         with _mock.patch("engine.pipeline._call", side_effect=_safe_next):
             with _mock.patch("engine.pipeline_steps.save_pipeline_iteration"):
                 with _mock.patch("engine.pipeline.step_generate",
-                                 side_effect=lambda run_id, iteration, chapter_num, gen_prompt, full_prompt, model, sys_p, call_fn, results: results.__setitem__("generated_text", "T" * 30)):
+                                 side_effect=lambda run_id, iteration, chapter_num, gen_prompt, full_prompt, model, sys_p, call_fn, results, prefill="": results.__setitem__("generated_text", "T" * 30)):
                     with _mock.patch("engine.pipeline.step_drift_check"):
                         with _mock.patch("engine.pipeline.step_chapter_analysis"):
                             with _mock.patch("engine.pipeline._build_context", return_value="ctx"):
@@ -5434,10 +5442,6 @@ def test_continue_pipeline_returns_run_id():
                     )
     assert "run_id" in result and result["run_id"] == run_id
 run("pipeline: continue_pipeline возвращает run_id", test_continue_pipeline_returns_run_id)
-
-
-# ════════════════════════════════════════════════════════
-total = passed + failed
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -9104,6 +9108,266 @@ def test_trim_modules_empty():
     assert _trim_modules_to_budget([], 1000) == []
 run("loaders/_trim_modules: пустой список", test_trim_modules_empty)
 
+
+# ══════════════════════════════════════════════════════════════════════
+# РЕГРЕССИИ ПО АУДИТУ 2026-08-22
+# Проверяют стыки, а не отдельные функции: именно там жили баги,
+# которых не заметили остальные 777 тестов.
+# ══════════════════════════════════════════════════════════════════════
+
+print("\n══ регрессии: движок, State-парсер, бюджет токенов ══")
+
+
+def test_engine_context_not_empty():
+    """
+    Блок UNIFIED_ENGINE должен реально собираться.
+    Ловит потерю обёртки _load_module (str/str TypeError → пустой контекст).
+    """
+    from engine.unified_engine import build_engine_context
+    from engine.engine_loaders import engine_available
+    if not engine_available():
+        return  # без базы знаний проверять нечего
+    for mode in ("quick", "quality", "master"):
+        out = build_engine_context("фэнтези", mode, model_value="anthropic::claude-opus-4")
+        assert out and len(out) > 1000, f"{mode}: контекст движка пуст ({len(out)} символов)"
+        assert "UNIFIED ENGINE" in out, f"{mode}: нет заголовка блока"
+run("регрессия: контекст движка непустой во всех режимах", test_engine_context_not_empty)
+
+
+def _merge_case(template, changes, plot=""):
+    """Прогнать merge_analysis_into_state на изолированной БД."""
+    import json as _j
+    db = _make_tmp_db()
+    with _mock.patch("engine.db_core.DB_PATH", db):
+        from engine.db_core import init_db; init_db()
+        from engine.db_projects import create_project
+        from engine.db_state import merge_analysis_into_state, get_state, update_state
+        pid = create_project("t", "детектив")
+        update_state(pid, template, plot, "")
+        res = merge_analysis_into_state(
+            pid, _j.dumps(changes, ensure_ascii=False), 3)
+        return res, get_state(pid)["global_state"], template
+
+
+_UPPER = "## ПЕРСОНАЖИ\n\n### Марк\nСОСТОЯНИЕ: спокоен\nЛОКАЦИЯ: дом\nЗНАЕТ: []\n"
+_TITLE = "## ПЕРСОНАЖИ\n\n### Марк\nСостояние: спокоен\nЛокация: дом\nЗнает: []\n"
+_FREE  = "[МАРК — ГЕРОЙ]\nВозраст: 34\nСтатус: спокоен\nМесто: дом\n"
+_CRLF  = "[МАРК — ГЕРОЙ]\r\nВозраст: 34\r\nСтатус: спокоен\r\nМесто: дом\r\n"
+_CHANGE = {"global_state_changes": [{"name": "Марк", "состояние": "ранен", "локация": "склад"}]}
+
+
+def test_state_merge_uppercase_format():
+    res, after, before = _merge_case(_UPPER, _CHANGE)
+    assert res["changed"] and after != before
+    assert "СОСТОЯНИЕ: ранен" in after, after
+run("регрессия: State-merge, формат ВЕРХНИЙ РЕГИСТР", test_state_merge_uppercase_format)
+
+
+def test_state_merge_titlecase_format():
+    res, after, before = _merge_case(_TITLE, _CHANGE)
+    assert res["changed"] and after != before
+    assert "Состояние: ранен" in after, after
+run("регрессия: State-merge, формат Title Case", test_state_merge_titlecase_format)
+
+
+def test_state_merge_freeform_format():
+    """Авторский формат: [ИМЯ — РОЛЬ] и ключи Статус/Место."""
+    res, after, before = _merge_case(_FREE, _CHANGE)
+    assert res["changed"] and after != before
+    assert "Статус: ранен" in after, after
+    assert not res["new_chars"], "персонаж не должен дублироваться"
+run("регрессия: State-merge, авторский формат [ИМЯ — РОЛЬ]", test_state_merge_freeform_format)
+
+
+def test_state_merge_crlf():
+    """Файлы State из Windows хранятся в CRLF — парсер обязан их понимать."""
+    res, after, before = _merge_case(_CRLF, _CHANGE)
+    assert res["changed"] and after != before
+    assert "Статус: ранен" in after, after
+    assert "\r\n" in after, "переводы строк CRLF должны сохраниться"
+run("регрессия: State-merge понимает CRLF", test_state_merge_crlf)
+
+
+def test_state_merge_no_false_report():
+    """Плейсхолдеры и пустые значения не должны давать «Применено N изменений»."""
+    res, after, before = _merge_case(
+        _FREE, {"global_state_changes": [
+            {"name": "Марк", "состояние": "[без изменений]", "локация": ""}]})
+    assert not res["changed"], res
+    assert after == before
+run("регрессия: State-merge не рапортует о несделанном", test_state_merge_no_false_report)
+
+
+def test_state_merge_same_value_is_not_change():
+    res, after, before = _merge_case(
+        _FREE, {"global_state_changes": [{"name": "Марк", "локация": "дом"}]})
+    assert not res["changed"], res
+    assert after == before
+run("регрессия: повтор того же значения — не изменение", test_state_merge_same_value_is_not_change)
+
+
+def test_state_merge_appends_missing_field():
+    """Поля нет в блоке — его надо дописать, а не потерять."""
+    res, after, before = _merge_case(
+        "[МАРК — ГЕРОЙ]\nВозраст: 34\n",
+        {"global_state_changes": [{"name": "Марк", "состояние": "ранен"}]})
+    assert res["changed"]
+    assert "ранен" in after, after
+run("регрессия: отсутствующее поле дописывается", test_state_merge_appends_missing_field)
+
+
+def test_prose_budget_covers_target():
+    """max_tokens должен вмещать объём, который требуют промпты."""
+    from engine.pipeline_config import (PROSE_MAX_TOKENS, tokens_for_words,
+                                        TARGET_CHAPTER_WORDS)
+    assert PROSE_MAX_TOKENS >= tokens_for_words(TARGET_CHAPTER_WORDS), \
+        f"{PROSE_MAX_TOKENS} < нужного для {TARGET_CHAPTER_WORDS} слов"
+run("регрессия: бюджет токенов покрывает целевой объём", test_prose_budget_covers_target)
+
+
+def test_edit_budget_not_below_generate():
+    """Редактура не должна резать главу, которую генерация написала целиком."""
+    from engine.pipeline_config import DEEP, CONTINUE, QUICK, STANDARD, AUTO_IMPROVE
+    for cfg in (QUICK, STANDARD, DEEP, CONTINUE, AUTO_IMPROVE):
+        steps = {s.name: s.max_tokens for s in cfg.steps}
+        if "edit" in steps and "generate" in steps:
+            assert steps["edit"] >= steps["generate"], \
+                f"{cfg.description}: edit={steps['edit']} < generate={steps['generate']}"
+run("регрессия: edit не меньше generate по max_tokens", test_edit_budget_not_below_generate)
+
+
+def test_truncation_detected():
+    from engine.api import _remember_stop_reason
+    from engine.pipeline import describe_truncation
+    for reason in ("max_tokens", "length"):
+        _remember_stop_reason(reason)
+        assert describe_truncation("x " * 2400, 2400), f"обрыв {reason} не распознан"
+    _remember_stop_reason("end_turn")
+    assert not describe_truncation("x " * 2900, 2900), "ложное предупреждение"
+run("регрессия: обрыв по max_tokens распознаётся", test_truncation_detected)
+
+
+def test_detect_truncation_structured():
+    """Интерфейсу нужен флаг, а не строка: по строке кнопку не покажешь."""
+    from engine.api import _remember_stop_reason
+    from engine.pipeline import detect_truncation
+    _remember_stop_reason("max_tokens")
+    d = detect_truncation("x " * 2400, 2400)
+    assert d["truncated"] is True and d["reason"] == "max_tokens" and d["message"]
+    _remember_stop_reason("length")
+    assert detect_truncation("x " * 2600, 2600)["reason"] == "max_tokens"
+    _remember_stop_reason("end_turn")
+    d = detect_truncation("x " * 1100, 1100)
+    assert d["truncated"] is True and d["reason"] == "short"
+    d = detect_truncation("x " * 2900, 2900)
+    assert d["truncated"] is False and d["reason"] == "" and d["message"] == ""
+run("регрессия: detect_truncation отдаёт структуру", test_detect_truncation_structured)
+
+
+def test_flag_truncation_fills_results():
+    """step_generate и step_edit кладут флаг в results — оттуда он идёт в UI."""
+    from engine.api import _remember_stop_reason
+    from engine.pipeline_steps import _flag_truncation
+    res = {}
+    _remember_stop_reason("max_tokens")
+    _flag_truncation("слово " * 2400, res, "тест")
+    assert res["truncated"] is True
+    assert res["cut_reason"] == "max_tokens"
+    assert res["truncation_warning"]
+    res2 = {}
+    _remember_stop_reason("end_turn")
+    _flag_truncation("слово " * 2900, res2, "тест")
+    assert res2["truncated"] is False
+    assert "truncation_warning" not in res2
+run("регрессия: _flag_truncation заполняет results", test_flag_truncation_fills_results)
+
+
+def test_run_generation_reports_truncation():
+    """run_generation обязан отдать флаг наверх, а не только текст warning."""
+    from engine.api import _remember_stop_reason
+    import engine.pipeline as pl
+    db = _make_tmp_db()
+    with _mock.patch("engine.db_core.DB_PATH", db):
+        from engine.db_core import init_db; init_db()
+        from engine.db_projects import create_project
+        pid = create_project("Т", "детектив")
+        proj = {"id": pid, "name": "Т", "genre": "детектив"}
+
+        def fake_call(model, system, user, max_tokens=6000, prefill=""):
+            _remember_stop_reason("max_tokens")
+            return "слово " * 2400
+
+        with _mock.patch("engine.pipeline._call", fake_call):
+            with _mock.patch("engine.pipeline._build_context", return_value="ctx"):
+                with _mock.patch("engine.pipeline.step_chapter_analysis"):
+                    r = pl.run_generation(proj, 1, "quick",
+                                          "anthropic_direct::claude-opus-4", "Задача")
+    assert r["truncated"] is True
+    assert r["cut_reason"] == "max_tokens"
+    assert r["word_count"] == 2400
+    assert "max_tokens" in (r["warning"] or "")
+run("регрессия: run_generation сообщает об обрыве наверх", test_run_generation_reports_truncation)
+
+
+def test_max_tokens_retry_only_on_output_limit():
+    """Повтор с меньшим потолком — только когда дело действительно в нём."""
+    from engine.api import _reduced_max_tokens
+    assert _reduced_max_tokens(Exception("max_tokens: must be <= 8192"), 11730) == 5865
+    assert _reduced_max_tokens(Exception("max output tokens exceeded"), 11730) == 5865
+    for msg in ("This model's maximum context length is 8192 tokens",
+                "rate_limit_exceeded: 429", "invalid_api_key", "Connection timeout"):
+        assert _reduced_max_tokens(Exception(msg), 11730) is None, msg
+run("регрессия: понижение max_tokens только по лимиту вывода", test_max_tokens_retry_only_on_output_limit)
+
+
+def test_max_tokens_retry_recovers():
+    """Модель с меньшим лимитом вывода не должна ронять генерацию."""
+    from engine.api import call_model
+    tries = []
+
+    def fake(model_id, system, user, key, max_tokens, prefill=""):
+        tries.append(max_tokens)
+        if max_tokens > 8192:
+            raise Exception("max_tokens: must be <= 8192")
+        return "текст главы"
+
+    with _mock.patch("engine.api._call_anthropic", fake):
+        out = call_model("anthropic_direct::claude-opus-4", "s", "u",
+                         anthropic_key="k", max_tokens=11730)
+    assert out == "текст главы"
+    assert tries == [11730, 5865], tries
+run("регрессия: повтор с уменьшенным потолком спасает генерацию", test_max_tokens_retry_recovers)
+
+
+def test_max_tokens_retry_not_infinite():
+    """Повтор ровно один: вторая та же ошибка должна пробрасываться."""
+    from engine.api import call_model
+    tries = []
+
+    def always_fail(model_id, system, user, key, max_tokens, prefill=""):
+        tries.append(max_tokens)
+        raise Exception("max_tokens: must be <= 128")
+
+    with _mock.patch("engine.api._call_anthropic", always_fail):
+        try:
+            call_model("anthropic_direct::claude-opus-4", "s", "u",
+                       anthropic_key="k", max_tokens=11730)
+            assert False, "должно было пробросить"
+        except Exception as e:
+            assert "max_tokens" in str(e)
+    assert len(tries) == 2, tries
+run("регрессия: повтор не зацикливается", test_max_tokens_retry_not_infinite)
+
+
+def test_short_chapter_warns():
+    from engine.api import _remember_stop_reason
+    from engine.pipeline import describe_truncation
+    _remember_stop_reason("end_turn")
+    assert describe_truncation("x " * 1200, 1200), "короткая глава должна давать предупреждение"
+run("регрессия: недописанная глава даёт предупреждение", test_short_chapter_warns)
+
+
+total = passed + failed
 print(f"\n{'━'*50}")
 print(f"Итого: {passed}/{total} прошли", end="")
 if failed:

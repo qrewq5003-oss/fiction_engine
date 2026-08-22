@@ -1070,11 +1070,11 @@ class TestEngineLoadersGenrePrivate:
     def test_extract_quality_rules_fallback_found(self):
         from engine.engine_loaders_genre import _extract_quality_rules_fallback
         text = "некий текст\nКАЧЕСТВО:\nправило 1\nправило 2\n"
-        result = _extract_quality_rules_fallback(text)
+        result = _extract_quality_rules_fallback(text, "detective", "detective", Path("."))
         assert "правило 1" in result or result != ""
 
     def test_extract_quality_rules_fallback_not_found(self):
         from engine.engine_loaders_genre import _extract_quality_rules_fallback
         text = "текст без секции качества"
-        result = _extract_quality_rules_fallback(text)
+        result = _extract_quality_rules_fallback(text, "detective", "detective", Path("."))
         assert isinstance(result, str)

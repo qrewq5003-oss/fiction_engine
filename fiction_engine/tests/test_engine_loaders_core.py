@@ -111,7 +111,7 @@ class TestLoadWritingCoreHint:
 class TestLoadPatternLibrary:
     def test_returns_string(self, tmp_path):
         from engine.engine_loaders_core import load_pattern_library
-        result = load_pattern_library(tmp_path)
+        result = load_pattern_library(tmp_path, "detective", "quick")
         assert isinstance(result, str)
 
     def test_with_actual_file(self, tmp_path):
@@ -121,6 +121,6 @@ class TestLoadPatternLibrary:
         lib = module_dir / "LIBRARY_PATTERNS.md"
         lib.write_text("## ПАТТЕРНЫ\n\nПравило: конкретность.\n", encoding="utf-8")
 
-        result = load_pattern_library(tmp_path)
+        result = load_pattern_library(tmp_path, "detective", "quick")
         # Либо нашло файл и вернуло содержимое, либо вернуло пустую строку
         assert isinstance(result, str)
