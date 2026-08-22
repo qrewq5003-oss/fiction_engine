@@ -83,6 +83,16 @@
       </div>
       <div style="font-size:12px;color:var(--text2);" id="iter-scores"></div>
       <div id="drift-banner" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid #92400e;background:#431407;color:#fbbf24;"></div>
+
+      <!-- Глава не дописана. Раньше обрыв по потолку токенов вообще не
+           определялся: текст сохранялся как есть, оборванный на полуслове. -->
+      <div id="cut-banner" style="display:none;margin-top:8px;padding:8px 10px;border-radius:6px;
+           font-size:12px;border:1px solid #92400e;background:#431407;color:#fbbf24;
+           align-items:center;gap:10px;justify-content:space-between;">
+        <span id="cut-banner-text"></span>
+        <button class="btn btn-primary btn-sm" style="white-space:nowrap;"
+                onclick="continuePipeline()">✂️ Продолжить главу</button>
+      </div>
     </div>
 
     <!-- Степ-индикатор -->
@@ -361,6 +371,19 @@ function showResults(data) {
 
   const scores = `Критик: ${data.critic_score || 0}/50 · Судья: ${data.judge_score || 0}/50`;
   document.getElementById('iter-scores').textContent = scores;
+
+  // Глава не дописана — предложить продолжение одной кнопкой.
+  // truncated приходит из detect_truncation() на шаге generate или edit.
+  const cutBanner = document.getElementById('cut-banner');
+  if (data.truncated) {
+    const hard = data.cut_reason === 'max_tokens';
+    document.getElementById('cut-banner-text').textContent =
+      (hard ? '✂️ Глава оборвана на полуслове: ' : '📏 Глава короче требуемого: ') +
+      (data.truncation_warning || '');
+    cutBanner.style.display = 'flex';
+  } else {
+    cutBanner.style.display = 'none';
+  }
 
   // Дрейф голоса — показываем если пришло предупреждение
   const driftBanner = document.getElementById('drift-banner');

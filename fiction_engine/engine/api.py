@@ -3,6 +3,7 @@ API клиенты: Anthropic, OpenAI, Gemini, DeepSeek (прямые) + nano-gp
 """
 
 import os
+from contextvars import ContextVar
 from openai import OpenAI
 import anthropic
 
@@ -219,6 +220,32 @@ def parse_model_value(model_value: str):
 
 # ─── Роутер ───────────────────────────────────────────────────────────────────
 
+# ─── Причина остановки последнего вызова ──────────────────────────────────────
+#
+# SDK возвращают stop_reason (Anthropic) / finish_reason (OpenAI-совместимые),
+# но call_model по контракту отдаёт строку — менять сигнатуру значит трогать
+# весь pipeline и contracts.LLMCaller. Поэтому причина кладётся в ContextVar:
+# он изолирован по потокам, а генерация как раз идёт в фоновых потоках.
+# Читать сразу после вызова — через get_last_stop_reason().
+
+_last_stop_reason: ContextVar[str] = ContextVar("fe_last_stop_reason", default="")
+
+
+def get_last_stop_reason() -> str:
+    """
+    Причина остановки последнего вызова модели в текущем потоке.
+
+    "max_tokens" / "length" — ответ упёрся в потолок и оборван;
+    "end_turn" / "stop"     — модель закончила сама;
+    ""                      — провайдер не сообщил.
+    """
+    return _last_stop_reason.get()
+
+
+def _remember_stop_reason(reason) -> None:
+    _last_stop_reason.set(str(reason or ""))
+
+
 def call_model(model_value: str, system: str, user: str,
                anthropic_key: str = None, nano_key: str = None,
                openai_key: str = None, gemini_key: str = None,
@@ -229,19 +256,61 @@ def call_model(model_value: str, system: str, user: str,
     Модель продолжает генерацию с этого текста, не может начать заново.
     Идеально для продолжения главы: передаём последние 200-300 слов."""
     provider, model_id = parse_model_value(model_value)
+    _remember_stop_reason("")
 
-    if provider == "anthropic_direct":
-        return _call_anthropic(model_id, system, user, anthropic_key, max_tokens, prefill)
-    elif provider == "openai_direct":
-        return _call_openai_direct(model_id, system, user, openai_key, max_tokens, prefill)
-    elif provider == "gemini_direct":
-        return _call_gemini_direct(model_id, system, user, gemini_key, max_tokens, prefill)
-    elif provider == "deepseek_direct":
-        return _call_deepseek_direct(model_id, system, user, deepseek_key, max_tokens, prefill)
-    elif provider == "nano_gpt":
-        return _call_nanogpt(model_id, system, user, nano_key, max_tokens, prefill)
-    else:
+    dispatch = {
+        "anthropic_direct": (_call_anthropic,       anthropic_key),
+        "openai_direct":    (_call_openai_direct,   openai_key),
+        "gemini_direct":    (_call_gemini_direct,   gemini_key),
+        "deepseek_direct":  (_call_deepseek_direct, deepseek_key),
+        "nano_gpt":         (_call_nanogpt,         nano_key),
+    }
+    if provider not in dispatch:
         raise ValueError(f"Неизвестный провайдер: {provider}")
+    fn, key = dispatch[provider]
+
+    try:
+        return fn(model_id, system, user, key, max_tokens, prefill)
+    except Exception as exc:
+        # Часть моделей (особенно из каталога nano-gpt) отдаёт меньше токенов,
+        # чем просит пайплайн под полную главу. Такой отказ виден только по
+        # тексту ошибки — единожды повторяем с уменьшенным потолком, вместо
+        # того чтобы ронять генерацию целиком.
+        retry = _reduced_max_tokens(exc, max_tokens)
+        if retry is None:
+            raise
+        return fn(model_id, system, user, key, retry, prefill)
+
+
+# Формулировки, которыми провайдеры сообщают именно о завышенном ПОТОЛКЕ ВЫВОДА.
+_MAX_TOKEN_ERROR_MARKERS = (
+    "max_tokens", "max tokens", "maximum tokens",
+    "max_completion_tokens", "max output tokens", "output limit",
+)
+
+# Формулировки, при которых повторять бессмысленно или вредно.
+_NO_RETRY_MARKERS = (
+    "rate_limit", "rate limit", "429", "quota",
+    "invalid_api_key", "authentication", "permission",
+    "context length", "context_length", "context window",
+)
+
+
+def _reduced_max_tokens(exc: Exception, current: int) -> int | None:
+    """
+    Если ошибка — про слишком большой потолок ВЫВОДА, вернуть уменьшенное значение.
+    Иначе None: ошибка не наша, пробрасываем как есть.
+
+    Отдельно отсекаются лимиты запросов, проблемы с ключом и переполнение окна
+    ВВОДА: повтор с меньшим max_tokens их не лечит, а лишний вызов стоит денег.
+    """
+    msg = str(exc).lower()
+    if any(mark in msg for mark in _NO_RETRY_MARKERS):
+        return None
+    if not any(mark in msg for mark in _MAX_TOKEN_ERROR_MARKERS):
+        return None
+    reduced = max(4096, current // 2)
+    return reduced if reduced < current else None
 
 
 # ─── Клиенты ─────────────────────────────────────────────────────────────────
@@ -259,6 +328,7 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
         system=system,
         messages=messages,
     )
+    _remember_stop_reason(getattr(msg, "stop_reason", ""))
     result = msg.content[0].text
     return (prefill + result) if prefill else result
 
@@ -279,6 +349,7 @@ def _call_openai_direct(model_id, system, user, api_key, max_tokens, prefill="")
              {"role": "user",   "content": user}]
         ),
     )
+    _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -303,6 +374,7 @@ def _call_gemini_direct(model_id, system, user, api_key, max_tokens, prefill="")
              {"role": "user",   "content": user}]
         ),
     )
+    _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -327,6 +399,7 @@ def _call_deepseek_direct(model_id, system, user, api_key, max_tokens, prefill="
              {"role": "user",   "content": user}]
         ),
     )
+    _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -350,5 +423,6 @@ def _call_nanogpt(model_id, system, user, api_key, max_tokens, prefill=""):
              {"role": "user",   "content": user}]
         ),
     )
+    _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result

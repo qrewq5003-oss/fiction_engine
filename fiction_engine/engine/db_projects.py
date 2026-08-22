@@ -74,9 +74,19 @@ def get_project(project_id: int):
 
 
 def delete_project(project_id: int):
+    """
+    Удалить проект и все его данные.
+
+    Список подчинённых таблиц строится из схемы (`project_scoped_tables`),
+    а не задаётся вручную: захардкоженный перечень отставал от схемы и
+    оставлял осиротевшие строки в state_engine, l3_memory, chapter_analysis
+    и ещё восьми таблицах.
+    """
+    from .db_core import project_scoped_tables
     with get_conn() as conn:
-        for table in ("chapters", "state_updates", "pipeline_runs",
-                      "voice_profiles", "symbols", "generation_history"):
+        for table in project_scoped_tables(conn):
+            if table == "projects":
+                continue
             try:
                 conn.execute(f"DELETE FROM {table} WHERE project_id=?", (project_id,))
             except Exception as e:

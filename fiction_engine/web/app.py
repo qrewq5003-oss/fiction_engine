@@ -34,6 +34,10 @@ from engine.state import analyze_chapter, build_prompt
 
 app = Flask(__name__)
 
+# Глава читается в память целиком (chapters.py, state_bp.py). Без лимита
+# один большой файл кладёт процесс. 32 МБ — с большим запасом на любой роман.
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+
 # ─── Secret Key ───────────────────────────────────────────────────────────────
 _secret = os.environ.get("FLASK_SECRET_KEY", "")
 if not _secret:
@@ -444,5 +448,12 @@ if __name__ == "__main__":
     init_db()
     # validate_engine_paths вызывается автоматически при первом запросе
     # через @before_request хук _validate_engine_once — работает при любом запуске.
-    print("Fiction Engine запускается на http://localhost:5000")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    # По умолчанию только петля: аутентификации нет, а в БД лежат API-ключи.
+    # Выставить наружу — осознанно через FE_HOST=0.0.0.0.
+    host = os.environ.get("FE_HOST", "127.0.0.1")
+    port = int(os.environ.get("FE_PORT", "5000"))
+    print(f"Fiction Engine запускается на http://{host}:{port}")
+    if host == "0.0.0.0":
+        print("  ВНИМАНИЕ: слушаем все интерфейсы без аутентификации — "
+              "в БД хранятся API-ключи.")
+    app.run(debug=False, host=host, port=port)

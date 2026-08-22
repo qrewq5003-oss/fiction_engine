@@ -87,6 +87,21 @@ def _call(model_value: str, system: str, user: str,
                       prefill=prefill)
 
 
+def call_llm(model_value: str, system: str, user: str,
+             max_tokens: int = 6000, prefill: str = "") -> str:
+    """
+    Публичный сырой вызов модели — санкционированная точка входа для web-слоя.
+
+    Существует потому, что web иногда нужен именно одиночный вызов
+    (проверка непрерывности, генерация промпта по кнопке), а не целый
+    шаг пайплайна. Раньше blueprints импортировали приватный _call,
+    что ломало границу слоёв (см. check_architecture.py).
+
+    Для структурированных ответов используй call_json.
+    """
+    return _call(model_value, system, user, max_tokens=max_tokens, prefill=prefill)
+
+
 def _get_resolver_model(fallback_model: str) -> str:
     try:
         from .db import get_conn
@@ -533,6 +548,44 @@ def _truncate_context_by_blocks(context: str,
     return result, removed
 
 
+def detect_truncation(text: str, word_count: int) -> dict:
+    """
+    Понять, дописана ли глава, и вернуть разбор для интерфейса.
+
+    Возвращает {"truncated": bool, "reason": str, "message": str}:
+      reason="max_tokens" — жёсткий обрыв: провайдер сообщил, что упёрся
+                            в потолок. Текст оборван буквально на полуслове.
+      reason="short"      — модель закончила сама, но объём заметно ниже
+                            требуемого промптом.
+      reason=""           — всё в порядке.
+
+    Раньше здесь стоял порог в 800 слов при требовании 2500+ — глава,
+    обрезанная вдвое, проходила молча. И признак обрыва был только текстом
+    в предупреждении: интерфейс не мог на него среагировать кнопкой.
+    """
+    from .api import get_last_stop_reason
+    from .pipeline_config import MIN_ACCEPTABLE_WORDS, TARGET_CHAPTER_WORDS
+
+    if get_last_stop_reason() in ("max_tokens", "length"):
+        msg = (f"Глава оборвана: ответ упёрся в потолок max_tokens. "
+               f"Написано {word_count} слов из ~{TARGET_CHAPTER_WORDS}.")
+        import logging; logging.warning(msg)
+        return {"truncated": True, "reason": "max_tokens", "message": msg}
+
+    if word_count < MIN_ACCEPTABLE_WORDS:
+        msg = (f"Глава короче требуемого: {word_count} слов "
+               f"(промпт требует ~{TARGET_CHAPTER_WORDS}).")
+        import logging; logging.warning(msg)
+        return {"truncated": True, "reason": "short", "message": msg}
+
+    return {"truncated": False, "reason": "", "message": ""}
+
+
+def describe_truncation(text: str, word_count: int) -> str:
+    """Текстовая обёртка над detect_truncation — для мест, где нужна строка."""
+    return detect_truncation(text, word_count)["message"]
+
+
 def run_generation(project: dict, chapter_num: int, mode: str,
                    model_value: str, task: str) -> dict:
     from .db import get_prep_context
@@ -558,20 +611,24 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     context_prompt = _build_context(project_id, chapter_num, full_prompt,
                                     mode, model_value, task_text=task)
 
-    if len(context_prompt) // 4 > 90_000:
+    from .pipeline_config import (PROSE_MAX_TOKENS, MIN_ACCEPTABLE_WORDS,
+                                  estimate_tokens, TARGET_CHAPTER_WORDS)
+
+    if estimate_tokens(context_prompt) > 90_000:
         context_prompt, truncated = _truncate_context_by_blocks(context_prompt)
         if truncated:
             warning = (warning or "") + f" Контекст обрезан: удалены блоки {truncated}."
 
-    text = _call(model_value, sys_prompt, context_prompt, max_tokens=8000)
+    text = _call(model_value, sys_prompt, context_prompt, max_tokens=PROSE_MAX_TOKENS)
     if not text or not text.strip():
         raise RuntimeError("Модель вернула пустой ответ.")
     word_count = len(text.split())
     if len(text.strip()) < 100:
         raise RuntimeError(f"Слишком короткий ответ: {text[:200]}")
-    if word_count < 800:
-        import logging
-        logging.warning(f"Глава короткая: {word_count} слов (ожидается 2500+)")
+
+    cut = detect_truncation(text, word_count)
+    if cut["truncated"]:
+        warning = (warning or "") + " " + cut["message"]
 
     # ── Фоновый анализ главы — замыкаем петлю для следующей генерации ────────
     # RECOVERABLE — не блокирует возврат результата при ошибке.
@@ -584,7 +641,13 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     except Exception as e:
         handle_error("run_generation chapter_analysis", e, level=ErrorLevel.RECOVERABLE)
 
-    return {"text": text, "warning": warning}
+    return {
+        "text":      text,
+        "warning":   warning,
+        "truncated": cut["truncated"],
+        "cut_reason": cut["reason"],
+        "word_count": word_count,
+    }
 
 
 def call_json(model_value: str, system: str, prompt: str,
@@ -672,7 +735,7 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     dialog     = extract_score("ДИАЛОГ")
 
     m_total = re.search(r"ИТОГ:\s*(\d+(?:\.\d+)?)", raw)
-    total   = float(m_total.group(1)) if m_total else sum([voice, structure, characters, scenes, dialog])
+    total   = float(m_total.group(1)) if m_total else float(sum([voice, structure, characters, scenes, dialog]))
 
     # Главная проблема — первый пункт из ГЛАВНЫЕ ПРОБЛЕМЫ
     main_issue = ""
@@ -749,6 +812,32 @@ def run_narrative_analysis(project_id: int, through_chapter: int,
     """
     from .narrative_intelligence import analyze_narrative
     return analyze_narrative(project_id, through_chapter, _make_model_caller(model_value))
+
+
+def get_active_promises_for_project(project_id: int,
+                                   through_chapter: int | None = None,
+                                   limit: int = 100) -> list[str]:
+    """
+    Тексты незакрытых обещаний проекта — публичная замена прямому
+    импорту l3_memory.normalize_promises / get_active_promises в web-слое.
+
+    through_chapter=None — учитывать все главы.
+    Возвращает список строк, готовый к отдаче в JSON.
+    """
+    from .db_narrative import get_l3_summaries
+    from .l3_memory import normalize_promises, get_active_promises
+
+    before = (through_chapter + 1) if through_chapter is not None else 10 ** 9
+    summaries = get_l3_summaries(project_id, before_chapter=before, n=limit)
+
+    collected: list[dict] = []
+    for s in summaries:
+        raw = s.get("promises")
+        if not raw:
+            continue
+        collected.extend(normalize_promises(raw, s.get("chapter_num", 0)))
+
+    return [p.get("text", "") for p in get_active_promises(collected) if p.get("text")]
 
 
 def run_batch_l3(project_id: int, model_value: str,

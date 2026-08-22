@@ -476,6 +476,25 @@ def cmd_pipeline():
 # ─── Диспетчер ───────────────────────────────────────────────────────────────
 
 # Единая таблица команд — используется и в argv-режиме, и в меню
+def cmd_cleanup():
+    """Удалить строки, оставшиеся от удалённых проектов."""
+    from engine.db_core import count_orphans, cleanup_orphans
+    orphans = count_orphans()
+    if not orphans:
+        print("  Осиротевших данных нет.")
+        return
+    total = sum(orphans.values())
+    print(f"\n  Найдено {total} строк от удалённых проектов:")
+    for table, n in sorted(orphans.items(), key=lambda kv: -kv[1]):
+        print(f"    {table:20} {n}")
+    ans = input("\n  Удалить? (да/нет): ").strip().lower()
+    if ans not in ("да", "y", "yes", "д"):
+        print("  Отменено.")
+        return
+    removed = cleanup_orphans()
+    print(f"  ✓ Удалено {sum(removed.values())} строк из {len(removed)} таблиц.")
+
+
 COMMANDS: dict[str, callable] = {
     "status":   cmd_status,
     "pipeline": cmd_pipeline,
@@ -485,6 +504,7 @@ COMMANDS: dict[str, callable] = {
     "state":    cmd_state_view,
     "keys":     cmd_keys,
     "web":      cmd_web,
+    "cleanup":  cmd_cleanup,
 }
 
 # Пункты меню в нужном порядке
@@ -498,6 +518,7 @@ MENU = [
     ("projects", "Проекты (список / переключить / новый)"),
     ("keys",     "API ключи"),
     ("web",      "Открыть веб-интерфейс"),
+    ("cleanup",  "Почистить данные удалённых проектов"),
     ("quit",     "Выход"),
 ]
 

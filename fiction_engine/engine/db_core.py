@@ -13,6 +13,10 @@ from pathlib import Path
 
 DB_PATH = Path.home() / "fiction_engine" / "projects.db"
 
+# Результат включения WAL: имя режима ("wal", "delete") либо "недоступен: ...".
+# None — ещё не пробовали. Заполняется при первом get_conn().
+WAL_STATUS: str | None = None
+
 # Импорт логгера отложен чтобы избежать циклической зависимости
 # (logger импортирует db_core для DBHandler)
 def _get_log():
@@ -23,10 +27,89 @@ def _get_log():
 # ─── Соединение ───────────────────────────────────────────────────────────────
 
 def get_conn():
+    """
+    Соединение с БД.
+
+    PRAGMA-настройки задаются на каждое соединение — в SQLite они не хранятся
+    в файле (кроме journal_mode) и сбрасываются при каждом подключении:
+
+      foreign_keys=ON — объявленные в схеме REFERENCES без этого не работают,
+                        SQLite по умолчанию их не проверяет. Именно поэтому
+                        удаление проекта годами оставляло сирот в 11 таблицах.
+      journal_mode=WAL — читатели не блокируют писателя. Генерация идёт в
+                        фоновых потоках параллельно запросам веб-интерфейса.
+      busy_timeout    — вместо мгновенного "database is locked" ждать до 5 с.
+    """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=15.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
+    # WAL не везде доступен (сетевые ФС). Логировать отсюда нельзя: DBHandler
+    # логгера сам вызывает get_conn — получилась бы рекурсия. Поэтому причина
+    # отказа сохраняется в модульной переменной, её видно в /settings и в CLI.
+    global WAL_STATUS
+    if WAL_STATUS is None:
+        try:
+            WAL_STATUS = conn.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+        except sqlite3.Error as e:
+            WAL_STATUS = f"недоступен: {e}"
+    elif not WAL_STATUS.startswith("недоступен"):
+        conn.execute("PRAGMA journal_mode = WAL")
     return conn
+
+
+def project_scoped_tables(conn) -> list[str]:
+    """
+    Таблицы, у которых есть колонка project_id.
+
+    Список берётся из схемы, а не из константы: раньше delete_project держал
+    захардкоженный перечень из шести таблиц, отстал от схемы и оставлял
+    осиротевшие строки в остальных одиннадцати.
+    """
+    names = [r["name"] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()]
+    scoped = []
+    for t in names:
+        cols = [c["name"] for c in conn.execute(f"PRAGMA table_info({t})").fetchall()]
+        if "project_id" in cols:
+            scoped.append(t)
+    return scoped
+
+
+def count_orphans() -> dict[str, int]:
+    """Сколько строк ссылается на несуществующие проекты. Ничего не меняет."""
+    result: dict[str, int] = {}
+    with get_conn() as conn:
+        for t in project_scoped_tables(conn):
+            try:
+                n = conn.execute(
+                    f"SELECT count(*) AS n FROM {t} "
+                    "WHERE project_id NOT IN (SELECT id FROM projects)"
+                ).fetchone()["n"]
+            except sqlite3.Error:
+                continue
+            if n:
+                result[t] = n
+    return result
+
+
+def cleanup_orphans() -> dict[str, int]:
+    """
+    Удалить строки, ссылающиеся на несуществующие проекты.
+
+    Вызывать осознанно (CLI `python3 cli.py cleanup`), а не при каждом старте:
+    это удаление данных, пусть и принадлежавших уже удалённым проектам.
+    """
+    removed = count_orphans()
+    if not removed:
+        return {}
+    with get_conn() as conn:
+        for t in removed:
+            conn.execute(
+                f"DELETE FROM {t} WHERE project_id NOT IN (SELECT id FROM projects)")
+    return removed
 
 
 # ─── Схема ────────────────────────────────────────────────────────────────────

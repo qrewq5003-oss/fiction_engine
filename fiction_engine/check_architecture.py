@@ -38,16 +38,18 @@ RULES: list[Rule] = [
     Rule(
         pattern=r'from engine\.pipeline import _\w+',
         message="Импорт приватной функции pipeline (_*). "
-                "Используй публичный API: run_generation, call_json, score_text, "
-                "generate_l3, generate_director_note_for_chapter, auto_drift_check_if_needed, "
-                "run_narrative_analysis, run_batch_l3.",
+                "Используй публичный API: call_llm (сырой вызов модели), run_generation, "
+                "call_json, score_text, generate_l3, generate_director_note_for_chapter, "
+                "auto_drift_check_if_needed, run_narrative_analysis, run_batch_l3.",
         applies_to="web/",
     ),
     # l3_memory — только через pipeline.generate_l3
     Rule(
         pattern=r'from engine\.l3_memory import',
         message="Прямой импорт из l3_memory. "
-                "Используй engine.pipeline.run_batch_l3(project_id, model_value, chapter_nums).",
+                "Используй engine.pipeline.run_batch_l3(project_id, model_value, chapter_nums) "
+                "для генерации и engine.pipeline.get_active_promises_for_project(project_id) "
+                "для чтения активных обещаний.",
         applies_to="web/",
     ),
     # Приватные утилиты state

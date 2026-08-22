@@ -158,6 +158,19 @@
     <!-- Предупреждение API -->
     <div id="api-warning" class="alert alert-warning" style="display:none;"></div>
 
+    <!-- Глава не дописана: обрыв по потолку токенов или объём ниже требуемого.
+         Раньше это было видно только строчкой в предупреждении, и автор должен
+         был сам заметить обрыв и нажать «✂️ Продолжить». -->
+    <div id="truncation-banner" class="alert alert-warning"
+         style="display:none;align-items:center;gap:12px;justify-content:space-between;">
+      <div>
+        <div style="font-weight:700;margin-bottom:2px;" id="truncation-title"></div>
+        <div style="font-size:12px;opacity:.85;" id="truncation-text"></div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="white-space:nowrap;"
+              onclick="setContinue(true)">✂️ Продолжить главу</button>
+    </div>
+
     <!-- Промпт -->
     <div class="card" id="prompt-block" style="display:none;">
       <div class="card-title" style="justify-content:space-between;">
@@ -671,6 +684,7 @@ function _showGenerating() {
   spin.style.display = 'inline-block';
   btn.querySelector('span.btn-label') && (btn.querySelector('span.btn-label').textContent = 'Генерирую…');
   document.getElementById('api-warning').style.display = 'none';
+  document.getElementById('truncation-banner').style.display = 'none';
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('result-block').style.display = 'none';
 }
@@ -701,6 +715,8 @@ function _onGenerationDone(result, chapterNum) {
     apiWarn.textContent = '⚠ ' + result.warning;
     apiWarn.style.display = 'block';
   }
+
+  showTruncationBanner(result);
 
   lastGeneratedText = result.result;
   lastChapterNum = chapterNum;
@@ -963,7 +979,26 @@ function useAssistPrompt() {
 }
 
 // ─── Продолжение главы ────────────────────────────────────────────────────────
-async function setContinue() {
+
+// Показать баннер, если сервер сообщил что глава не дописана.
+// truncated приходит из detect_truncation(): reason="max_tokens" — жёсткий
+// обрыв по потолку, reason="short" — модель закончила сама, но объём мал.
+function showTruncationBanner(result) {
+  const banner = document.getElementById('truncation-banner');
+  if (!result || !result.truncated) {
+    banner.style.display = 'none';
+    return;
+  }
+  const hard = result.cut_reason === 'max_tokens';
+  document.getElementById('truncation-title').textContent =
+    hard ? '✂️ Глава оборвана на полуслове' : '📏 Глава короче требуемого';
+  document.getElementById('truncation-text').textContent =
+    (result.warning || '').replace(/^⚠\s*/, '') ||
+    (hard ? 'Ответ упёрся в потолок max_tokens.' : 'Объём ниже требуемого промптом.');
+  banner.style.display = 'flex';
+}
+
+async function setContinue(fromBanner) {
   const text = document.getElementById('result-output').value.trim();
   if (!text) { showToast('Нет текста для продолжения', 'error'); return; }
 
@@ -989,9 +1024,15 @@ async function setContinue() {
 
   const r = await apiPost(`/api/director_note/${chapterNum}/save`, { note });
   if (r.ok) {
-    showToast(`✂️ Сохранено. Запусти генерацию главы ${chapterNum} снова — FE продолжит с этого места.`);
+    document.getElementById('truncation-banner').style.display = 'none';
+    showToast(`✂️ Хвост сохранён. Запусти генерацию главы ${chapterNum} снова — FE продолжит с этого места.`);
     // Обновить блок director note на странице
     loadDirectorNote(chapterNum);
+    // Из баннера сразу подводим к следующему шагу: поле задачи и кнопка запуска.
+    if (fromBanner) {
+      const btn = document.getElementById('btn-generate');
+      if (btn) btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   } else {
     showToast(r.error || 'Ошибка', 'error');
   }

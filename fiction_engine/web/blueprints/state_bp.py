@@ -92,6 +92,20 @@ import threading, uuid as _uuid
 
 _analyze_jobs = {}
 _analyze_lock = threading.Lock()
+_ANALYZE_JOBS_KEEP = 50
+
+
+def _cleanup_analyze_jobs():
+    """
+    Держим не больше 50 последних задач.
+
+    Раньше словарь рос без ограничений, а каждая запись хранит полный текст
+    анализа главы и next_context — на долгоживущем сервере это утечка.
+    """
+    with _analyze_lock:
+        if len(_analyze_jobs) > _ANALYZE_JOBS_KEEP:
+            for k in list(_analyze_jobs.keys())[:-_ANALYZE_JOBS_KEEP]:
+                del _analyze_jobs[k]
 
 
 @bp.route("/state/analyze", methods=["POST"])
@@ -99,14 +113,16 @@ def state_analyze():
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
-    chapter_num = request.json.get("chapter_num")
-    model_value = request.json.get("model")
+    data = request.get_json(silent=True) or {}
+    chapter_num = data.get("chapter_num")
+    model_value = data.get("model")
     if not chapter_num or not model_value:
         return jsonify({"error": "Нужны chapter_num и model"}), 400
     provider = model_value.split("::")[0]
     if not get_api_key(provider):
         return jsonify({"error": f"Нет ключа для {provider}"}), 400
 
+    _cleanup_analyze_jobs()
     job_id = str(_uuid.uuid4())
     with _analyze_lock:
         _analyze_jobs[job_id] = {"status": "running", "result": None, "error": None}

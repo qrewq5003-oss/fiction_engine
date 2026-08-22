@@ -154,6 +154,54 @@ class PipelineConfig:
         return [PipelineStep(s.name, s.enabled) for s in self.steps]
 
 
+# ─── Бюджет вывода под объём главы ────────────────────────────────────────────
+#
+# Промпты (state_prompts.py) требуют «СТРОГО 2500-3000 слов».
+# Русский текст дорог в токенах: на реальной главе проекта — 6.8 символа на
+# слово, а кириллица укладывается примерно в 2.0-2.5 символа на токен.
+#
+#   3000 слов × 6.8 симв. = 20 400 симв. → 8 200 … 10 200 токенов
+#   2500 слов × 6.8 симв. = 17 000 симв. → 6 800 …  8 500 токенов
+#
+# Прежние значения (generate=8000, edit=7000) лежали НИЖЕ этого диапазона:
+# модель упиралась в потолок и глава обрывалась на середине фразы. Причём
+# edit был меньше generate — то есть редактура резала главу, которую
+# генерация успела написать целиком.
+#
+# max_tokens — это потолок, а не предоплата: счёт идёт за реально выданные
+# токены, поэтому запас ничего не стоит.
+
+TARGET_CHAPTER_WORDS = 3000          # верх требования из промптов
+RU_CHARS_PER_WORD    = 6.8           # замер на реальных главах проекта
+RU_CHARS_PER_TOKEN   = 2.0           # консервативная оценка для кириллицы
+PROSE_HEADROOM       = 1.15          # заголовок, разбивка, хвост фразы
+
+
+def tokens_for_words(words: int = TARGET_CHAPTER_WORDS) -> int:
+    """Сколько токенов вывода нужно, чтобы уместить главу заданного объёма."""
+    chars = words * RU_CHARS_PER_WORD
+    return int(chars / RU_CHARS_PER_TOKEN * PROSE_HEADROOM)
+
+
+# Единый потолок для шагов, которые выдают полный текст главы.
+# generate и edit обязаны быть равны: иначе редактура обрежет генерацию.
+PROSE_MAX_TOKENS = tokens_for_words()          # ≈ 11 700
+
+# Минимальный приемлемый объём — ниже него глава считается недописанной.
+MIN_ACCEPTABLE_WORDS = 2000
+
+# Оценка размера промпта. Прежний код считал len(text) // 4 — это отношение
+# для английского. На русско-язычном контексте оно занижает число токенов
+# примерно в полтора раза, поэтому защита от переполнения окна срабатывала
+# слишком поздно. 3.0 — компромисс: кириллица ~2.0-2.5, разметка и латиница ~4.
+MIXED_CHARS_PER_TOKEN = 3.0
+
+
+def estimate_tokens(text: str) -> int:
+    """Грубая оценка числа токенов в смешанном русско-английском тексте."""
+    return int(len(text) / MIXED_CHARS_PER_TOKEN)
+
+
 # ─── Пресеты ──────────────────────────────────────────────────────────────────
 
 QUICK = PipelineConfig(
@@ -161,7 +209,7 @@ QUICK = PipelineConfig(
     max_iterations=1,
     score_threshold=999,        # никогда не авто-принимает
     steps=[
-        StepConfig("generate", max_tokens=8000),
+        StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=1500),
         StepConfig("judge",    enabled=False),
     ],
@@ -172,7 +220,7 @@ STANDARD = PipelineConfig(
     max_iterations=2,
     score_threshold=38.0,
     steps=[
-        StepConfig("generate", max_tokens=8000),
+        StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
         StepConfig("judge",    max_tokens=2000),
     ],
@@ -183,9 +231,9 @@ DEEP = PipelineConfig(
     max_iterations=3,
     score_threshold=42.0,
     steps=[
-        StepConfig("generate", max_tokens=8000),
+        StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
-        StepConfig("edit",     max_tokens=7000),
+        StepConfig("edit",     max_tokens=PROSE_MAX_TOKENS),
         StepConfig("judge",    max_tokens=2000),
     ],
 )
@@ -207,7 +255,7 @@ CONTINUE = PipelineConfig(
     max_iterations=1,
     score_threshold=38.0,
     steps=[
-        StepConfig("edit",     max_tokens=7000),
+        StepConfig("edit",     max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
         StepConfig("judge",    max_tokens=2000),
     ],
@@ -223,7 +271,7 @@ AUTO_IMPROVE = PipelineConfig(
     score_threshold=38.0,
     max_auto_retries=2,
     steps=[
-        StepConfig("generate", max_tokens=8000),
+        StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
         StepConfig("judge",    max_tokens=2000),
     ],

@@ -21,7 +21,8 @@ _jobs_lock = threading.Lock()
 
 
 def _make_job(job_id: str):
-    return {"status": "running", "result": None, "error": None, "warning": None, "gen_id": None}
+    return {"status": "running", "result": None, "error": None, "warning": None,
+            "gen_id": None, "truncated": False, "cut_reason": "", "word_count": 0}
 
 
 def _classify_api_error(err: str) -> str:
@@ -96,7 +97,10 @@ def generate_run():
             gen_id = _save_gen_history(project_snapshot["id"], chapter_num,
                                        model_value, mode, task, result["text"])
             _set_job(job_id, status="done", result=result["text"],
-                     gen_id=gen_id, warning=result["warning"])
+                     gen_id=gen_id, warning=result["warning"],
+                     truncated=result.get("truncated", False),
+                     cut_reason=result.get("cut_reason", ""),
+                     word_count=result.get("word_count", 0))
 
         except Exception as e:
             _set_job(job_id, status="error", error=_classify_api_error(str(e)))
@@ -113,11 +117,16 @@ def generate_status(job_id):
     if not job:
         return jsonify({"status": "not_found"}), 404
     return jsonify({
-        "status":  job["status"],
-        "result":  job["result"],
-        "error":   job["error"],
-        "warning": job["warning"],
-        "gen_id":  job["gen_id"],
+        "status":     job["status"],
+        "result":     job["result"],
+        "error":      job["error"],
+        "warning":    job["warning"],
+        "gen_id":     job["gen_id"],
+        # Флаг для интерфейса: глава не дописана — предложить продолжение
+        # одной кнопкой, вместо того чтобы автор сам заметил обрыв.
+        "truncated":  job.get("truncated", False),
+        "cut_reason": job.get("cut_reason", ""),
+        "word_count": job.get("word_count", 0),
     })
 
 
@@ -461,6 +470,7 @@ def pipeline_start():
         prefill = data.get("prefill", "")
         result = start_pipeline(project_id=current["id"], prefill=prefill,
                                 **{k: data[k] for k in required})
+        # start_pipeline кладёт truncated/cut_reason в results на шаге generate
         return jsonify({"ok": True, **result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -498,25 +508,41 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
     try:
         from engine.state import analyze_chapter
         from engine.db import (mark_update_applied, get_pending_updates,
-                               get_state, update_state)
+                               merge_analysis_into_state)
         result   = analyze_chapter(project_id, chapter_num, model_value)
         auto_id  = result.get("update_id")
         if not auto_id:
             return False
-        cur_state = get_state(project_id)
+        # Применяем через тот же merge, что и ручной путь /state/apply.
+        # Раньше здесь читались ключи new_global_state / new_plot_matrix,
+        # которых нет в таблице state_updates: они всегда были None, State
+        # переписывался сам в себя, а update помечался применённым —
+        # то есть анализ молча терялся.
         for u in get_pending_updates(project_id):
             if u["id"] == auto_id:
-                update_state(
-                    project_id,
-                    u.get("new_global_state") or cur_state["global_state"],
-                    u.get("new_plot_matrix")  or cur_state["plot_matrix"],
-                    cur_state.get("memory_graph", ""),
+                raw = u.get("raw_analysis")
+                if not raw:
+                    return False
+                res = merge_analysis_into_state(
+                    project_id, raw, u.get("chapter_num", chapter_num)
                 )
                 mark_update_applied(auto_id)
-                return True
+                return bool(res.get("changed"))
+    except Exception as e:
+        _log_state_update_failure(project_id, chapter_num, e)
+    return False
+
+
+def _log_state_update_failure(project_id: int, chapter_num: int, exc: Exception) -> None:
+    """Автообновление State — некритично, но должно быть видно в логах."""
+    try:
+        from engine.logger import get_logger
+        get_logger(__name__).error(
+            "auto state update failed", exc,
+            project_id=project_id, chapter_num=chapter_num,
+        )
     except Exception:
         pass
-    return False
 
 
 @bp.route("/pipeline/accept", methods=["POST"])
@@ -821,8 +847,8 @@ def prompt_assist():
         )
 
         # 6. Call LLM
-        from engine.pipeline import _call
-        result = _call(model_value, sys_prompt, user_prompt, max_tokens=600)
+        from engine.pipeline import call_llm
+        result = call_llm(model_value, sys_prompt, user_prompt, max_tokens=600)
 
         if not result or len(result.strip()) < 50:
             return jsonify({"error": "Модель вернула пустой ответ"}), 500
@@ -850,14 +876,8 @@ def project_context():
     # Активные обещания из L3
     promises = []
     try:
-        from engine.db import get_l3_summaries
-        from engine.l3_memory import normalize_promises, get_active_promises
-        summaries = get_l3_summaries(pid)
-        all_promises = []
-        for s in summaries:
-            if s.get("promises"):
-                all_promises.extend(normalize_promises(s["promises"]))
-        promises = [p.get("text", str(p)) for p in get_active_promises(all_promises)]
+        from engine.pipeline import get_active_promises_for_project
+        promises = get_active_promises_for_project(pid)
     except Exception:
         pass
 

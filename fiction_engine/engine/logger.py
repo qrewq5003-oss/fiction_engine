@@ -93,10 +93,22 @@ class DBHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         try:
             from .db_core import get_conn
-            context = record.name + (
-                f" | project={record.__dict__.get('project_id', '')}"
-                f" ch={record.__dict__.get('chapter_num', '')}"
-            ).rstrip(" ch=").rstrip(" | project=")
+            # rstrip принимает НАБОР символов, а не суффикс: прежний
+            # .rstrip(" ch=").rstrip(" | project=") отгрызал у имени модуля
+            # хвостовые c/h/=/пробел и буквы из "project" —
+            # engine.state → engine.sta, engine.db_core → engine.db_.
+            # Собираем строку из непустых частей, ничего не отрезая.
+            parts = [record.name]
+            pid_ = record.__dict__.get("project_id", "")
+            ch_  = record.__dict__.get("chapter_num", "")
+            marks = []
+            if pid_ not in ("", None):
+                marks.append(f"project={pid_}")
+            if ch_ not in ("", None):
+                marks.append(f"ch={ch_}")
+            if marks:
+                parts.append(" ".join(marks))
+            context = " | ".join(parts)
             error = record.getMessage()
             if record.exc_info:
                 error += " :: " + self.formatException(record.exc_info)

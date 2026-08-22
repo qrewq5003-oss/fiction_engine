@@ -7,7 +7,20 @@ from flask import Flask, redirect, url_for, session, request, jsonify, render_te
 import os
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
-app.secret_key = os.environ.get("SECRET_KEY", "planner-secret-2026")
+# Ключ подписи сессий. Константа в коде — это публичный ключ: любой,
+# у кого есть доступ к репозиторию, подделает cookie. Если переменной нет,
+# генерируем случайный: сессии сбросятся при перезапуске, но не будут
+# подписаны общеизвестной строкой.
+_secret = os.environ.get("SECRET_KEY", "")
+if not _secret:
+    import secrets as _secrets, logging as _logging
+    _secret = _secrets.token_hex(32)
+    _logging.warning(
+        "SECRET_KEY не задан — используется случайный ключ, сессии сбросятся "
+        "при перезапуске. Задайте SECRET_KEY в окружении."
+    )
+app.secret_key = _secret
+del _secret
 
 # ─── Init DB ─────────────────────────────────────────────────────────────────
 from engine.db import init_db
@@ -47,5 +60,12 @@ def switch_project(pid):
 
 
 if __name__ == "__main__":
-    print("Планировщик запускается на http://localhost:5001")
-    app.run(debug=False, host="0.0.0.0", port=5001)
+    # По умолчанию слушаем только петлю: у приложения нет аутентификации,
+    # а 0.0.0.0 открывает его всей локальной сети. Для доступа с телефона
+    # (Tailscale) задайте PLANNER_HOST=0.0.0.0 осознанно.
+    host = os.environ.get("PLANNER_HOST", "127.0.0.1")
+    port = int(os.environ.get("PLANNER_PORT", "5001"))
+    print(f"Планировщик запускается на http://{host}:{port}")
+    if host == "0.0.0.0":
+        print("  ВНИМАНИЕ: слушаем все интерфейсы, аутентификации нет.")
+    app.run(debug=False, host=host, port=port)

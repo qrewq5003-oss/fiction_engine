@@ -236,7 +236,7 @@ def _trim_modules_to_budget(
 # ─── Реэкспорт загрузчиков (обратная совместимость) ──────────────────────────
 
 from .engine_loaders_core import (   # noqa: E402, F401
-    load_module       as _load_module,
+    load_module                   as _load_module_fn,
     load_anticliche_replacements  as _load_anticliche_replacements_fn,
     load_dialectics_hint          as _load_dialectics_hint_fn,
     load_symbolism_hint           as _load_symbolism_hint_fn,
@@ -257,6 +257,18 @@ from .engine_loaders_genre import (  # noqa: E402, F401
 
 
 # Обёртки с сигнатурой оригинальных функций (принимают только строки, путь берут сами)
+
+def _load_module(module_name: str, max_lines: int = 40) -> str:
+    """
+    Обёртка над engine_loaders_core.load_module.
+
+    Раньше load_module ре-экспортировался напрямую, без подстановки пути:
+    вызов _load_module(module, line_limit) попадал в load_module(engine_path=module,
+    module_name=line_limit) и падал с TypeError (str / str). Ошибка гасилась как
+    RECOVERABLE в _build_engine_block, и весь блок UNIFIED_ENGINE молча
+    выпадал из промпта.
+    """
+    return _load_module_fn(get_engine_path(), module_name, max_lines)
 
 def _load_genre_catalog(genre_key: str) -> str:
     return _load_genre_catalog_fn(get_engine_path(), genre_key)

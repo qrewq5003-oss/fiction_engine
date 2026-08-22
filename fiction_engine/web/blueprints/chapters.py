@@ -227,7 +227,7 @@ def continuity_check():
 
     try:
         from engine.continuity_checker import check_continuity
-        from engine.pipeline import _call as llm_call
+        from engine.pipeline import call_llm as llm_call
         import functools
 
         def api_fn(prompt):

@@ -227,6 +227,8 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     results["generated_text"] = gen_text
     results["stage"]          = "generate"
 
+    _flag_truncation(gen_text, results, f"step_generate (ch{chapter_num})")
+
 
 def step_drift_check(project_id: int, chapter_num: int,
                      gen_text: str, model_critic: str,
@@ -288,6 +290,28 @@ def step_chapter_analysis(project_id: int, chapter_num: int,
         )
 
 
+def _flag_truncation(text: str, results: dict, where: str) -> None:
+    """
+    Отметить в results, что текст не дописан.
+
+    Обрыв по потолку виден только сразу после вызова модели: дальше по
+    пайплайну обрезанный текст неотличим от законченного. Флаг доходит до
+    интерфейса, чтобы предложить продолжение кнопкой, а не ждать пока
+    автор сам заметит обрыв на полуслове.
+    """
+    try:
+        from .pipeline import detect_truncation
+        cut = detect_truncation(text, len(text.split()))
+        if cut["truncated"]:
+            results["truncation_warning"] = cut["message"]
+            results["truncated"]  = True
+            results["cut_reason"] = cut["reason"]
+        else:
+            results["truncated"] = False
+    except Exception as e:
+        handle_error(f"{where}: проверка обрыва", e, level=ErrorLevel.RECOVERABLE)
+
+
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
               model_editor: str, call_fn, results: dict) -> None:
@@ -304,6 +328,7 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                              generation_prompt, edited_text)
     results["generated_text"] = edited_text
     results["stage"]          = "edit"
+    _flag_truncation(edited_text, results, "step_edit")
 
 
 def step_critique(run_id: int, iteration: int, chapter_num: int,

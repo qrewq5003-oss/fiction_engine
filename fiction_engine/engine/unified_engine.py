@@ -227,7 +227,12 @@ def build_engine_context(
     genre_key = detect_genre(genre_text)
 
     token_budget = get_token_budget(model_value)
-    char_budget = int(token_budget * 4 * 0.35)
+    # 0.35 бюджета окна — на блок движка. Пересчёт токенов в символы идёт по
+    # реальному отношению для смешанного русского текста, а не по английским
+    # 4 символам на токен: иначе блок оказывается в полтора раза тяжелее,
+    # чем считает бюджет.
+    from .pipeline_config import MIXED_CHARS_PER_TOKEN
+    char_budget = int(token_budget * MIXED_CHARS_PER_TOKEN * 0.35)
 
     fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text)
     module_sections = _build_module_sections(

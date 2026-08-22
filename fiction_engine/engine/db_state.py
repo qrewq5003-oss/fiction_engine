@@ -238,32 +238,194 @@ def _is_real_value(val: str) -> bool:
     return bool(val) and not val.startswith("[") and "без изменений" not in val.lower()
 
 
+# ─── Терпимый разбор полей State Engine ───────────────────────────────────────
+#
+# В проекте исторически сосуществуют три написания одних и тех же полей:
+#   • db_core._default_global()            → СОСТОЯНИЕ: ЛОКАЦИЯ: ЦЕЛЬ_СЕЙЧАС: ЗНАЕТ:
+#   • 08_STATE_ENGINE/global_state_template.md → Состояние: Локация: Цель текущая: Знает:
+#   • реальные проекты авторов             → Статус: Место: Цель: и другие вариации
+#
+# Раньше парсер искал только ВЕРХНИЙ регистр и регистрозависимо, поэтому на
+# двух форматах из трёх не находил ничего, ничего не менял — но всё равно
+# сообщал об изменении. Ниже — терпимое сопоставление по синонимам.
+
+FIELD_ALIASES: dict[str, list[str]] = {
+    "состояние": ["СОСТОЯНИЕ", "Состояние", "Статус", "СТАТУС"],
+    "локация":   ["ЛОКАЦИЯ", "Локация", "Место", "МЕСТО"],
+    "цель":      ["ЦЕЛЬ_СЕЙЧАС", "Цель текущая", "Цель сейчас", "ЦЕЛЬ", "Цель"],
+    "знает":     ["ЗНАЕТ", "Знает"],
+    "не_знает":  ["НЕ_ЗНАЕТ", "Не знает"],
+    "момент":    ["МОМЕНТ", "Момент", "Текущий момент"],
+    "статус":    ["СТАТУС", "Статус"],
+    "след_шаг":  ["СЛЕДУЮЩИЙ_ШАГ", "Следующий шаг", "СЛЕДУЮЩИЙ ШАГ"],
+}
+
+
+def _field_pattern(alias: str) -> str:
+    """
+    Регексп строки поля: отступ, написание ключа, значение, хвостовой CR.
+
+    Группа 4 (\r) отделена специально: файлы State, пришедшие из Windows,
+    хранятся в CRLF, и без этого значение поля забирало бы \r внутрь,
+    а перезапись строки ломала бы единообразие переводов строк.
+    """
+    return rf"^([ \t]*)({re.escape(alias)})[ \t]*:[ \t]*([^\r\n]*)(\r?)$"
+
+
+def _find_field(text: str, field_key: str, fallback_key: str = ""):
+    """
+    Найти строку поля по любому из известных написаний, регистронезависимо.
+    Возвращает re.Match с группами (отступ, ключ-как-в-тексте, значение) или None.
+    """
+    aliases = list(FIELD_ALIASES.get(field_key, []))
+    if fallback_key and fallback_key not in aliases:
+        aliases.append(fallback_key)
+    # Синонимы перебираются по порядку списка, а не одной альтернативой:
+    # так каноничное написание побеждает приблизительное, если в блоке
+    # присутствуют оба (например "Состояние" рядом со "Статус").
+    for alias in aliases:
+        m = re.search(_field_pattern(alias), text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            return m
+    return None
+
+
+def _key_style(block: str, aliases: list[str]) -> str:
+    """
+    Выбрать написание ключа для нового поля так, чтобы оно совпало со стилем блока.
+    Если в блоке ключи в ВЕРХНЕМ регистре — берём верхний вариант, иначе Title Case.
+    """
+    keys = re.findall(r"^[ \t]*([А-ЯЁA-Za-zа-яё_ ]+):", block, re.MULTILINE)
+    upper = sum(1 for k in keys if k.strip() and k.strip() == k.strip().upper())
+    if keys and upper * 2 >= len(keys):
+        return next((a for a in aliases if a == a.upper()), aliases[0])
+    return next((a for a in aliases if a != a.upper()), aliases[0])
+
+
+def _append_field(block: str, key: str, value: str) -> str:
+    """
+    Дописать поле в конец блока, сохранив отступ и стиль переводов строк.
+    В CRLF-документе новая строка тоже будет CRLF.
+    """
+    crlf = "\r\n" in block
+    body = block.rstrip("\r\n")
+    lines = body.split("\n")
+    indent = ""
+    for ln in reversed(lines):
+        m = re.match(r"^([ \t]*)[^\s].*:", ln)
+        if m:
+            indent = m.group(1)
+            break
+    new_line = f"{indent}{key}: {value}" + ("\r" if crlf else "")
+    tail = block[len(body):]
+    return "\n".join(lines + [new_line]) + tail
+
+
 def _apply_char_field(field_key: str, regex_key: str, new_val: str,
                       char_block: str, char_name: str,
                       record_fn) -> str:
-    """Обновить одно поле персонажа в блоке. Возвращает обновлённый блок."""
+    """
+    Обновить одно поле персонажа в блоке. Возвращает обновлённый блок.
+
+    Терпим к написанию ключа (см. FIELD_ALIASES). Если поля в блоке нет —
+    дописывает его в стиле блока. record_fn вызывается ТОЛЬКО если текст
+    действительно изменился: иначе интерфейс рапортовал бы о несделанных правках.
+    """
     if not _is_real_value(new_val):
         return char_block
     if "→" in new_val:
         new_val = new_val.split("→", 1)[1].strip()
-    old_m = re.search(rf"{regex_key}:\s*(.*)", char_block)
-    old_val = old_m.group(1).strip() if old_m else ""
-    updated = re.sub(rf"({regex_key}:\s*).*", f"{regex_key}: {new_val}", char_block)
-    record_fn(f"{char_name}.{field_key.lower()}", old_val, new_val)
+
+    m = _find_field(char_block, field_key, regex_key)
+    if m:
+        old_val = m.group(3).strip()
+        updated = (char_block[:m.start()]
+                   + f"{m.group(1)}{m.group(2)}: {new_val}{m.group(4)}"
+                   + char_block[m.end():])
+    else:
+        old_val = ""
+        aliases = list(FIELD_ALIASES.get(field_key, [])) or [regex_key]
+        updated = _append_field(char_block, _key_style(char_block, aliases), new_val)
+
+    if updated != char_block:
+        record_fn(f"{char_name}.{field_key.lower()}", old_val, new_val)
+    return updated
+
+
+# ─── Терпимый поиск блока персонажа ──────────────────────────────────────────
+#
+# Заголовки персонажей в реальных проектах встречаются минимум в трёх видах:
+#   ### Имя                       — шаблон движка
+#   [ИМЯ ВАВРА — ГЛАВНЫЙ ГЕРОЙ]   — авторский формат
+#   **Имя**                       — markdown-выделение
+# Раньше искался только "### Имя", поэтому на остальных форматах персонаж
+# считался несуществующим и дописывался заново — дублем в чужом стиле.
+
+_HEADER_ANY = (r"(?:^#{2,4}[ \t]*\S"
+               r"|^\[[^\]\r\n]+\][ \t\r]*$"
+               r"|^\*\*[^*\r\n]+\*\*[ \t\r]*$)")
+
+
+def _char_block_pattern(name: str) -> str:
+    """Регексп: заголовок персонажа (любой стиль) + тело до следующего заголовка."""
+    n = re.escape(name)
+    header = (
+        rf"(?:^#{{2,4}}[ \t]*{n}\b[^\r\n]*$"
+        rf"|^\[[ \t]*{n}\b[^\]\r\n]*\][ \t\r]*$"
+        rf"|^\*\*[ \t]*{n}\b[^*\r\n]*\*\*[ \t\r]*$)"
+    )
+    return rf"({header}\n)((?:(?!{_HEADER_ANY}).*\n?)*)"
+
+
+def _find_char_block(global_text: str, name: str):
+    """Найти блок персонажа по имени в любом из форматов заголовка."""
+    if not name:
+        return None
+    return re.search(_char_block_pattern(name), global_text,
+                     re.IGNORECASE | re.MULTILINE)
+
+
+def _apply_doc_field(field_key: str, fallback_key: str, new_val: str,
+                     text: str, record_name: str, record_fn) -> str:
+    """
+    Обновить поле уровня документа (Сюжет.СТАТУС, Мир.МОМЕНТ и т.п.).
+
+    В отличие от полей персонажа, отсутствующее поле здесь НЕ дописывается:
+    у документа нет однозначного места для вставки. Запись в отчёт — только
+    при фактическом изменении текста.
+    """
+    m = _find_field(text, field_key, fallback_key)
+    if not m:
+        return text
+    old_val = m.group(3).strip()
+    updated = text[:m.start()] + f"{m.group(1)}{m.group(2)}: {new_val}{m.group(4)}" + text[m.end():]
+    if updated != text:
+        record_fn(record_name, old_val, new_val)
     return updated
 
 
 def _apply_char_knows(knows_val: str, char_block: str, char_name: str, record_fn) -> str:
-    """Дописать новое знание к полю ЗНАЕТ персонажа."""
+    """
+    Дописать новое знание к полю ЗНАЕТ персонажа.
+
+    Терпим к написанию (ЗНАЕТ / Знает). Если поля нет — создаёт его.
+    """
     if not _is_real_value(knows_val):
         return char_block
-    knows_m = re.search(r"(ЗНАЕТ:\s*)(.*?)(?=\nНЕ_ЗНАЕТ|$)", char_block, re.DOTALL)
+
+    knows_m = _find_field(char_block, "знает")
     if not knows_m:
-        return char_block
-    existing = knows_m.group(2).strip().rstrip(",").rstrip(";")
+        aliases = FIELD_ALIASES["знает"]
+        updated = _append_field(char_block, _key_style(char_block, aliases), knows_val)
+        if updated != char_block:
+            record_fn(f"{char_name}.знает", "", knows_val)
+        return updated
+
+    existing = knows_m.group(3).strip().rstrip(",").rstrip(";").strip()
     new_knows = (existing + "; " + knows_val) if existing and existing != "[]" else knows_val
-    updated = char_block[:knows_m.start(2)] + new_knows + char_block[knows_m.end(2):]
-    record_fn(f"{char_name}.знает", existing, new_knows)
+    updated = (char_block[:knows_m.start(3)] + new_knows + char_block[knows_m.end(3):])
+    if updated != char_block:
+        record_fn(f"{char_name}.знает", existing, new_knows)
     return updated
 
 
@@ -276,8 +438,7 @@ def _apply_existing_char(name: str, section: str, global_text: str, record_fn) -
         "узнал":     re.search(r"узнал:\s*(.+?)(?:\n|$)", section),
     }
 
-    pattern = rf"(###\s*{re.escape(name)}\n)(.*?)(?=\n###|\n##|\Z)"
-    char_m = re.search(pattern, global_text, re.DOTALL | re.IGNORECASE)
+    char_m = _find_char_block(global_text, name)
     if not char_m:
         return global_text
 
@@ -416,7 +577,7 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
         if not name:
             continue
 
-        char_exists = re.search(rf"###\s*{re.escape(name)}\n", global_text, re.IGNORECASE)
+        char_exists = _find_char_block(global_text, name)
 
         if char_exists:
             # Применяем по полям
@@ -436,8 +597,7 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
             # Поле "узнал" — дописываем к ЗНАЕТ
             uznal = (char.get("узнал") or "").strip()
             if _is_real_value(uznal):
-                pattern = rf"(###\s*{re.escape(name)}\n)(.*?)(?=\n###|\n##|\Z)"
-                char_m = re.search(pattern, global_text, re.DOTALL | re.IGNORECASE)
+                char_m = _find_char_block(global_text, name)
                 if char_m:
                     block = char_m.group(2)
                     block = _apply_char_knows(uznal, block, name, _record)
@@ -461,31 +621,19 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     plot = data.get("plot_changes", {})
     next_step = (plot.get("следующий_шаг") or "").strip()
     if _is_real_value(next_step):
-        old_m = re.search(r"СЛЕДУЮЩИЙ_ШАГ:\s*(.*)", plot_text)
-        old_val = old_m.group(1).strip() if old_m else ""
-        new_plot_text = re.sub(r"(СЛЕДУЮЩИЙ_ШАГ:\s*).*", f"СЛЕДУЮЩИЙ_ШАГ: {next_step}", plot_text)
-        if new_plot_text != plot_text:
-            _record("Сюжет.следующий_шаг", old_val, next_step)
-            plot_text = new_plot_text
+        plot_text = _apply_doc_field("след_шаг", "СЛЕДУЮЩИЙ_ШАГ", next_step,
+                                     plot_text, "Сюжет.следующий_шаг", _record)
 
     status = (plot.get("статус") or "").strip()
     if _is_real_value(status):
-        old_m = re.search(r"СТАТУС:\s*(.*)", plot_text)
-        old_val = old_m.group(1).strip() if old_m else ""
-        new_plot_text = re.sub(r"(СТАТУС:\s*).*", f"СТАТУС: {status}", plot_text)
-        if new_plot_text != plot_text:
-            _record("Сюжет.статус", old_val, status)
-            plot_text = new_plot_text
+        plot_text = _apply_doc_field("статус", "СТАТУС", status,
+                                     plot_text, "Сюжет.статус", _record)
 
     # ── Мир ────────────────────────────────────────────────────────────────
     world_moment = (data.get("world_moment") or "").strip()
     if _is_real_value(world_moment):
-        old_m = re.search(r"МОМЕНТ:\s*(.*)", global_text)
-        old_val = old_m.group(1).strip() if old_m else ""
-        updated = re.sub(r"(МОМЕНТ:\s*).*", f"МОМЕНТ: {world_moment[:200]}", global_text)
-        if updated != global_text:
-            _record("Мир.момент", old_val, world_moment[:200])
-            global_text = updated
+        global_text = _apply_doc_field("момент", "МОМЕНТ", world_moment[:200],
+                                       global_text, "Мир.момент", _record)
 
     # ── Память ─────────────────────────────────────────────────────────────
     for mem in data.get("memory_changes", []):
