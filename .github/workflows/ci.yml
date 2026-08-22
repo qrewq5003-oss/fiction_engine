@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fiction_engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Установка зависимостей
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install mypy hypothesis
+
+      # Не требует зависимостей: моки openai/anthropic внутри самого раннера.
+      # Держит 792 теста, включая регрессии на стыках (движок, State, токены).
+      - name: Тесты — автономный раннер
+        run: python run_tests.py
+
+      - name: Тесты — pytest
+        run: python -m pytest tests/ -q
+
+      # Границы слоёв: web не лезет в приватные функции engine.
+      - name: Архитектурные границы
+        run: python check_architecture.py
+
+      - name: Компиляция всех модулей
+        run: python -m compileall -q engine web cli.py
+
+      # Пока не блокирует: типизация ужесточается постепенно (см. mypy.ini).
+      - name: mypy
+        run: mypy engine web || true
+        continue-on-error: true
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Свои AST-анализаторы: сигнатуры вызовов между модулями и
+      # классические ловушки. Ловят класс багов, который юнит-тесты
+      # пропускают по построению.
+      - name: Сигнатуры вызовов
+        run: python tools/sigcheck.py fiction_engine
+
+      - name: Ловушки Python
+        run: python tools/pitfalls.py fiction_engine --skip-tests --fail-on-new
