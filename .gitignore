@@ -1,2 +1,47 @@
+# ─── Секреты ─────────────────────────────────────────────────────────────────
 .env
 **/.env
+.env.backup-*
+**/.env.backup-*
+!.env.example
+!**/.env.example
+
+# Резервные копии БД (создаются перед чисткой сирот)
+*.db.backup-*
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# ─── Кэши инструментов ───────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ─── Данные приложения ───────────────────────────────────────────────────────
+# Рабочие SQLite-БД (planner/planner.db, ~/fiction_engine/projects.db).
+# В git не хранятся: это пользовательские данные, а не код.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+prompts_out/
+
+# ─── Редакторы / ОС ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
