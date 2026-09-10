@@ -335,6 +335,29 @@ def test_analyze_empty_summaries_no_llm_calls():
 
 # ─── 11. analyze: с саммари — LLM вызывается, отчёт непустой ─────────────────
 
+def _nil_llm(arcs=None, promises=None, contradictions=None):
+    """
+    Заглушка LLM для NIL: отвечает по СОДЕРЖАНИЮ запроса, а не по порядку.
+
+    Позиционный side_effect здесь съезжает: _track_promises обращается к
+    модели только когда в саммари есть обещания, поэтому набор из трёх
+    ответов при пустых обещаниях сдвигался — «противоречия» получали ответ,
+    предназначенный для обещаний, и блокирующее противоречие терялось.
+    """
+    arcs = arcs if arcs is not None else _arc_response()
+    promises = promises if promises is not None else _promise_response()
+    contradictions = contradictions if contradictions is not None else _contradiction_response()
+
+    def _call(prompt, *a, **kw):
+        if '"contradictions"' in prompt:
+            return contradictions
+        if '"resolutions"' in prompt or "обещани" in prompt.lower():
+            return promises
+        return arcs
+
+    return MagicMock(side_effect=_call)
+
+
 def _arc_response():
     return '{"arcs": [{"character": "Иван", "status": "active", "evolution": "растёт", "stalled": false, "last_chapter": 3}]}'
 
@@ -354,8 +377,7 @@ def test_analyze_with_summaries_calls_llm():
         _make_summary(3, conflicts="смерть",   mood="ужас",
                       events="Финальная схватка", characters="Иван"),
     ]
-    responses = [_arc_response(), _promise_response(), _contradiction_response()]
-    llm = MagicMock(side_effect=responses)
+    llm = _nil_llm()
     nil = _make_nil(summaries)
 
     report = nil.analyze(project_id=1, through_chapter=3, api_call_fn=llm)
@@ -433,8 +455,7 @@ def test_analyze_blocking_contradiction_sets_ok_false():
                  for i in range(1, 4)]
 
     blocking_response = '{"contradictions": [{"chapters": [1, 3], "description": "Иван мёртв в гл.1 но жив в гл.3", "severity": "blocking"}]}'
-    llm = MagicMock(side_effect=[_arc_response(), _promise_response(),
-                                  blocking_response])
+    llm = _nil_llm(contradictions=blocking_response)
     nil = _make_nil(summaries)
 
     report = nil.analyze(project_id=1, through_chapter=3, api_call_fn=llm)

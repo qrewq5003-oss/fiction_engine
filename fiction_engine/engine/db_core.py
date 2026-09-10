@@ -422,8 +422,11 @@ def log_error(context: str, error: Exception) -> None:
                     "INSERT OR IGNORE INTO engine_error_log (context, error) VALUES (?,?)",
                     (context[:500], f"{type(error).__name__}: {error}"[:2000])
                 )
-        except sqlite3.Error:
-            # БД недоступна — молча игнорируем, логировать некуда
+        except Exception:
+            # Логировать некуда — молча сдаёмся. Ловим Exception, а не
+            # sqlite3.Error: обещание «никогда не бросает» должно держаться
+            # при любом отказе, иначе ошибка логирования подменит собой ту
+            # ошибку, ради записи которой сюда и пришли.
             pass
 
 

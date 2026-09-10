@@ -9,6 +9,11 @@ from .error_policy import error_boundary, handle_error, ErrorLevel
 
 # ─── Главы ───────────────────────────────────────────────────────────────────
 
+# created_at имеет секундную точность: две записи, сделанные подряд,
+# получают одинаковую метку, и порядок между ними становится
+# произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
+# без него «последнее обновление» и «свежие правки» врали при любой
+# паре записей внутри одной секунды.
 def save_chapter(project_id: int, number: int, content: str, title: str = "") -> int:
     words = len(content.split())
     with get_conn() as conn:
@@ -92,7 +97,7 @@ def get_generation_history(project_id: int, limit: int = 20) -> list[dict]:
                       substr(task, 1, 80) as task_preview
                FROM generation_history
                WHERE project_id=?
-               ORDER BY created_at DESC LIMIT ?""",
+               ORDER BY created_at DESC, id DESC LIMIT ?""",
             (project_id, limit)
         ).fetchall()
     return [dict(r) for r in rows]
@@ -287,7 +292,7 @@ def get_author_edit_patterns(project_id: int, n: int = 20) -> str:
             SELECT chapter_num, action, rejection_reason, judge_score
             FROM author_edits
             WHERE project_id = ?
-            ORDER BY created_at DESC LIMIT ?
+            ORDER BY created_at DESC, id DESC LIMIT ?
         """, (project_id, n)).fetchall()
     if not rows:
         return ""

@@ -64,6 +64,11 @@ def scripted_llm(generate="", critique="", judge="", edit="", other="{}"):
              "judge": judge, "edit": edit, "other": other}
     used = {role: 0 for role in table}
 
+    def _resolve(value, user):
+        # значение может быть функцией от текста запроса — так удобнее
+        # строить ответ, зависящий от промпта
+        return value(user) if callable(value) else value
+
     def _call(model_value, system, user, max_tokens=6000, prefill=""):
         role = llm_role(system)
         value = table[role]
@@ -72,8 +77,8 @@ def scripted_llm(generate="", critique="", judge="", edit="", other="{}"):
                 return ""
             i = min(used[role], len(value) - 1)
             used[role] += 1
-            return value[i]
-        return value
+            return _resolve(value[i], user)
+        return _resolve(value, user)
 
     return _call
 

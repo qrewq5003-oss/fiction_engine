@@ -12,6 +12,11 @@ from .error_policy import error_boundary, ErrorLevel
 
 # ─── Символы ─────────────────────────────────────────────────────────────────
 
+# created_at имеет секундную точность: две записи, сделанные подряд,
+# получают одинаковую метку, и порядок между ними становится
+# произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
+# без него «последнее обновление» и «свежие правки» врали при любой
+# паре записей внутри одной секунды.
 def _parse_symbol(row) -> dict:
     d = dict(row)
     try:
@@ -110,7 +115,8 @@ def init_symbol_tables(): pass  # таблицы создаются в db_core.i
 def get_voice_profiles(project_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM voice_profiles WHERE project_id=? ORDER BY active DESC, created_at DESC",
+            "SELECT * FROM voice_profiles WHERE project_id=? "
+            "ORDER BY active DESC, created_at DESC, id DESC",
             (project_id,)
         ).fetchall()
     return [dict(r) for r in rows]
@@ -358,7 +364,7 @@ def get_pipeline_runs(project_id: int) -> list[dict]:
                (SELECT COUNT(*) FROM pipeline_iterations WHERE run_id=r.id AND stage='generate') as iterations
                FROM pipeline_runs r
                WHERE r.project_id=?
-               ORDER BY r.created_at DESC LIMIT 20""",
+               ORDER BY r.created_at DESC, r.id DESC LIMIT 20""",
             (project_id,)
         ).fetchall()
         return [dict(r) for r in rows]
@@ -404,7 +410,7 @@ def save_exemplar(project_id: int, chapter_num: int, text: str, label: str = "")
 def get_exemplars(project_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM exemplars WHERE project_id=? ORDER BY created_at DESC",
+            "SELECT * FROM exemplars WHERE project_id=? ORDER BY created_at DESC, id DESC",
             (project_id,)
         ).fetchall()
     return [dict(r) for r in rows]

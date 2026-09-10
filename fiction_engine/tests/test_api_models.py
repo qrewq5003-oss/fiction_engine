@@ -18,10 +18,27 @@ class TestGetAllModelsFlat:
         for m in get_all_models_flat():
             assert "::" in m["value"], f"bad format: {m['value']}"
 
-    def test_no_duplicate_values(self):
+    def test_labels_are_unique(self):
+        """
+        Значения (value) намеренно повторяются: группа «★ Лучшие для прозы» —
+        это витрина, дублирующая модели из групп провайдеров, чтобы ходовые
+        варианты были наверху списка. Настоящий инвариант интерфейса —
+        уникальность подписей: две одинаковые строки в выпадающем списке
+        не дали бы выбрать осознанно.
+        """
         from engine.api import get_all_models_flat
-        values = [m["value"] for m in get_all_models_flat()]
-        assert len(values) == len(set(values))
+        labels = [m["label"] for m in get_all_models_flat()]
+        assert len(labels) == len(set(labels))
+
+    def test_duplicate_values_come_only_from_showcase(self):
+        """Повтор value допустим только между витриной и обычной группой."""
+        from engine.api import get_all_models_flat
+        from collections import Counter
+        models = get_all_models_flat()
+        dup_values = {v for v, c in Counter(m["value"] for m in models).items() if c > 1}
+        for value in dup_values:
+            groups = [m["label"].split("]")[0] for m in models if m["value"] == value]
+            assert any("★" in g for g in groups), f"{value} дублируется вне витрины"
 
 
 class TestParseModelValue:

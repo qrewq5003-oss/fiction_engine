@@ -46,6 +46,11 @@ from .db_narrative import (
 
 # ─── Проекты ─────────────────────────────────────────────────────────────────
 
+# created_at имеет секундную точность: две записи, сделанные подряд,
+# получают одинаковую метку, и порядок между ними становится
+# произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
+# без него «последнее обновление» и «свежие правки» врали при любой
+# паре записей внутри одной секунды.
 def create_project(name: str, genre: str = "") -> int:
     with get_conn() as conn:
         cur = conn.execute(
@@ -63,7 +68,7 @@ def get_projects():
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT p.*, (SELECT MAX(number) FROM chapters WHERE project_id=p.id) as last_chapter "
-            "FROM projects p ORDER BY p.created_at DESC"
+            "FROM projects p ORDER BY p.created_at DESC, p.id DESC"
         ).fetchall()]
 
 

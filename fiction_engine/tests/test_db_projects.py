@@ -132,8 +132,12 @@ class TestStateEngine:
         snapshot_state(project_id, reason="сохраняю")
         update_state(project_id, global_state="изменено")
 
+        # get_state_history отдаёт ORDER BY id DESC, то есть новые сверху.
+        # history[-1] — самый СТАРЫЙ снапшот (авто-снапшот с шаблоном по
+        # умолчанию, который делает первый update_state), а не тот, что
+        # только что сняли. Ищем свой по причине — это однозначно.
         history = get_state_history(project_id)
-        snap_id = history[-1]["id"]
+        snap_id = next(h["id"] for h in history if h["reason"] == "сохраняю")
         restore_state_snapshot(project_id, snap_id)
         state = get_state(project_id)
         assert state["global_state"] == "оригинал"

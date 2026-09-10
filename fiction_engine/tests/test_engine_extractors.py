@@ -41,7 +41,9 @@ class TestIsValuable:
     def test_h2_header_false(self):
         from engine.engine_extractors import _is_valuable
         # ## заголовки — SKIP_PATTERNS
-        assert _is_valuable("## ФИЛОСОФИЯ") is False
+        # Заголовки — это структура, движок намеренно тащит их в выжимку:
+        # r'^##' стоит в _VALUABLE_PATTERNS. Тест раньше утверждал обратное.
+        assert _is_valuable("## ФИЛОСОФИЯ") is True
 
     def test_version_line_false(self):
         from engine.engine_extractors import _is_valuable
@@ -197,13 +199,22 @@ class TestExtractModuleEssence:
         from engine.engine_extractors import _extract_module_essence
         assert _extract_module_essence("Версия 2.0\nСтатус: READY\n", max_lines=30) == ""
 
-    def test_architecture_text_excluded(self):
-        """Архитектурные заголовки в теле не попадают как контент."""
+    def test_mini_marker_not_leaked_into_content(self):
+        """
+        Строка-маркер «## ## MINI» служебная — в выжимку она попадать не должна.
+
+        Раньше содержимое собиралось так:
+            "## ФИЛОСОФИЯ\n" "## ## MINI\n" "Правило: показывай.\n" * 8
+        Соседние литералы склеиваются ДО умножения, поэтому повторялся весь
+        трёхстрочный блок вместе с заголовками — тест проверял не то, что
+        задумывал.
+        """
         from engine.engine_extractors import _extract_module_essence
         content = (
             "## ФИЛОСОФИЯ\n"
             "## ## MINI\n"
-            "Правило: показывай.\n" * 8
+            + "Правило: показывай.\n" * 8
         )
         result = _extract_module_essence(content, max_lines=30)
         assert "## ## MINI" not in result
+        assert "Правило: показывай." in result

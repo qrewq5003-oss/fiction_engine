@@ -43,30 +43,46 @@ class TestLoadModule:
 
 
 class TestFindModuleFile:
+    """
+    _find_module_file(engine_path, name) ищет в engine_path/03_ADVANCED_ENGINES.
+
+    Прежние тесты клали файлы в tmp_path/UNIFIED_ENGINE_MASTER/ и даже в
+    произвольный подкаталог, то есть проверяли раскладку, которой функция
+    никогда не поддерживала: engine_path — это и есть UNIFIED_ENGINE_MASTER,
+    а модули лежат в 03_ADVANCED_ENGINES, без обхода вложенных папок.
+    """
+
+    def _engines_dir(self, tmp_path):
+        d = tmp_path / "03_ADVANCED_ENGINES"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     def test_finds_exact_file(self, tmp_path):
         from engine.engine_loaders_core import _find_module_file
-        module_dir = tmp_path / "UNIFIED_ENGINE_MASTER"
-        module_dir.mkdir()
-        md = module_dir / "07_voice_consistency.md"
-        md.write_text("content")
+        md = self._engines_dir(tmp_path) / "07_voice_consistency.md"
+        md.write_text("content", encoding="utf-8")
 
         result = _find_module_file(tmp_path, "07_voice_consistency")
         assert result == md
 
     def test_returns_none_when_missing(self, tmp_path):
         from engine.engine_loaders_core import _find_module_file
+        self._engines_dir(tmp_path)
         result = _find_module_file(tmp_path, "99_not_there")
         assert result is None
 
-    def test_finds_in_subdirectory(self, tmp_path):
+    def test_returns_none_without_engines_dir(self, tmp_path):
         from engine.engine_loaders_core import _find_module_file
-        subdir = tmp_path / "UNIFIED_ENGINE_MASTER" / "subdir"
-        subdir.mkdir(parents=True)
-        md = subdir / "01_tension_curve.md"
-        md.write_text("content")
+        assert _find_module_file(tmp_path, "01_tension_curve") is None
 
-        result = _find_module_file(tmp_path, "01_tension_curve")
-        assert result is not None
+    def test_falls_back_to_numeric_prefix(self, tmp_path):
+        """Имя не совпало точно — ищем по числовому префиксу."""
+        from engine.engine_loaders_core import _find_module_file
+        md = self._engines_dir(tmp_path) / "01_tension_curve.md"
+        md.write_text("content", encoding="utf-8")
+
+        result = _find_module_file(tmp_path, "01_переименованный")
+        assert result == md
 
 
 class TestLoadHints:

@@ -117,7 +117,11 @@ class TestThresholdProperties:
             result = get_project_accept_threshold(pid, min_accepted=5)
 
         assert result is not None
-        assert min(scores) <= result["threshold"] <= max(scores), (
+        # threshold округляется до 0.1 (это значение уходит в подсказку судье),
+        # поэтому на границе диапазона допустима погрешность в половину шага:
+        # round(0.25, 1) = 0.2 формально ниже min(scores)=0.25.
+        eps = 0.05
+        assert min(scores) - eps <= result["threshold"] <= max(scores) + eps, (
             f"threshold={result['threshold']} вне диапазона "
             f"[{min(scores)}, {max(scores)}] для scores={sorted(scores)}"
         )
@@ -141,7 +145,9 @@ class TestThresholdProperties:
             from engine.db_chapters import get_project_accept_threshold
             result = get_project_accept_threshold(pid, min_accepted=5)
 
-        expected = _reference_median(scores)
+        # Сравниваем с эталоном, округлённым так же, как в коде:
+        # реализация возвращает round(median, 1) осознанно.
+        expected = round(_reference_median(scores), 1)
         assert result["threshold"] == pytest.approx(expected, abs=0.01), (
             f"threshold={result['threshold']} != expected={expected} "
             f"для sorted scores={sorted(scores)}"

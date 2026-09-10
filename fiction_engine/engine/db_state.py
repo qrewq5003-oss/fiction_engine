@@ -15,6 +15,11 @@ from .error_policy import handle_error, ErrorLevel
 
 # ─── CRUD ────────────────────────────────────────────────────────────────────
 
+# created_at имеет секундную точность: две записи, сделанные подряд,
+# получают одинаковую метку, и порядок между ними становится
+# произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
+# без него «последнее обновление» и «свежие правки» врали при любой
+# паре записей внутри одной секунды.
 def get_state(project_id: int) -> dict:
     with get_conn() as conn:
         row = conn.execute(
@@ -71,7 +76,8 @@ def mark_update_applied(update_id: int):
 def get_pending_updates(project_id: int) -> list[dict]:
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM state_updates WHERE project_id=? AND applied=0 ORDER BY created_at",
+            "SELECT * FROM state_updates WHERE project_id=? AND applied=0 "
+            "ORDER BY created_at, id",
             (project_id,)
         ).fetchall()]
 
@@ -79,7 +85,8 @@ def get_pending_updates(project_id: int) -> list[dict]:
 def get_last_update(project_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM state_updates WHERE project_id=? ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM state_updates WHERE project_id=? "
+            "ORDER BY created_at DESC, id DESC LIMIT 1",
             (project_id,)
         ).fetchone()
         return dict(row) if row else None

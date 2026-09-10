@@ -44,6 +44,14 @@ def _extract_mini_section(content: str) -> str:
                     continue
                 if in_code:
                     continue
+                # Граница секции: следующий заголовок того же уровня.
+                # Без этого MINI забирала всё до конца файла — в реальных
+                # модулях MINI стоит последней, поэтому дефект не проявлялся,
+                # но стоит добавить секцию после неё, и «суть модуля в 10-20
+                # строках» превращается в весь остаток файла, а max_lines
+                # для quick-режима перестаёт что-либо ограничивать.
+                if stripped.startswith("## ") and "MINI" not in stripped:
+                    break
                 if any(p.match(stripped) for p in _SKIP_PATTERNS):
                     continue
                 result.append(line)

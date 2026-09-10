@@ -21,6 +21,8 @@ test_pipeline_integration.py — интеграционные тесты пол�
 """
 
 import pytest
+
+from tests.llm_stubs import scripted_llm
 from unittest.mock import patch, MagicMock
 
 
@@ -68,19 +70,24 @@ def _llm_prevalidate_warn(prompt="") -> str:
     )
 
 
-def _make_llm_sequence(*responses):
+def _make_llm_sequence(generate=None, critique=None, judge=None, *extra,
+                       edit=None, other=""):
     """
-    Возвращает callable который отдаёт ответы по очереди.
-    Каждый вызов (model, system, user, ...) потребляет один ответ из списка.
+    Ответы по РОЛИ вызова, а не по порядку.
+
+    Раньше это была очередь: первый вызов — генератор, второй — критик,
+    третий — судья. Но шаг generate тянет за собой ещё и анализ главы,
+    поэтому очередь съезжала: судья получал ответ, предназначенный
+    анализатору, и вердикт приходил пустым. Позиционные аргументы
+    сохранены, чтобы не переписывать все вызовы.
     """
-    it = iter(responses)
-    def _caller(model, system, user, max_tokens=6000):
-        try:
-            resp = next(it)
-            return resp(user) if callable(resp) else resp
-        except StopIteration:
-            return ""
-    return _caller
+    return scripted_llm(
+        generate=generate if generate is not None else "",
+        critique=critique if critique is not None else "",
+        judge=judge if judge is not None else "",
+        edit=edit if edit is not None else (extra[0] if extra else ""),
+        other=other or "{}",
+    )
 
 
 # ─── Фикстуры ─────────────────────────────────────────────────────────────────
@@ -438,15 +445,18 @@ class TestPrevalidation:
         Если prevalidate возвращает warnings — pipeline продолжается.
         prevalidation_warnings попадают в results, но generated_text есть.
         """
-        from engine.pipeline_config import PIPELINE_WITH_PREVALIDATE, PipelineStep
+        # PipelineStep живёт в engine.pipeline; пресета
+        # PIPELINE_WITH_PREVALIDATE не существует — импорт был мёртвым,
+        # шаги тест и так собирает вручную
+        from engine.pipeline import PipelineStep
 
-        # Последовательность: prevalidate → generate → critique → judge
+        # prevalidate ходит к модели с SYS_VALIDATOR — для диспетчера ролей
+        # это служебный вызов, поэтому ответ задаётся через other
         llm = _make_llm_sequence(
-            _llm_prevalidate_warn,  # prevalidate
-            _llm_generate,          # generate
-            _llm_critique,          # critique
-            _llm_judge_accept,      # judge
-            lambda p: "",           # step_chapter_analysis
+            _llm_generate,
+            _llm_critique,
+            _llm_judge_accept,
+            other=_llm_prevalidate_warn,
         )
         steps = [
             PipelineStep("prevalidate"),
