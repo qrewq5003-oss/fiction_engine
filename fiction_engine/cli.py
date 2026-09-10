@@ -5,6 +5,7 @@ Fiction Engine — терминальный интерфейс.
 """
 
 import sys
+from typing import Callable
 import os
 from pathlib import Path
 
@@ -495,7 +496,7 @@ def cmd_cleanup():
     print(f"  ✓ Удалено {sum(removed.values())} строк из {len(removed)} таблиц.")
 
 
-COMMANDS: dict[str, callable] = {
+COMMANDS: dict[str, Callable[[], None]] = {
     "status":   cmd_status,
     "pipeline": cmd_pipeline,
     "analyze":  cmd_state_analyze,

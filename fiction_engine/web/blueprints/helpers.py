@@ -51,7 +51,9 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
 
     Возвращает dict с результатами (не кидает исключений).
     """
-    result = {}
+    # Аннотация обязательна: без неё тип выводится по первому
+    # присваиванию (bool), и последующая запись строки — ошибка типов
+    result: dict[str, object] = {}
     cheap  = get_cheap_model(model_value)
 
     # 1. L3

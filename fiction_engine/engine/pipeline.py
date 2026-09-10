@@ -244,10 +244,11 @@ def _execute_steps(
             step_generate(run_id, iteration, chapter_num, generation_prompt,
                           full_prompt, model_gen, sys_gen, _call, results,
                           prefill=prefill)
+            gen_text = str(results.get("generated_text", "") or "")
             step_drift_check(project_id, chapter_num,
-                             results.get("generated_text", ""), model_critic, _call, results)
+                             gen_text, model_critic, _call, results)
             step_chapter_analysis(project_id, chapter_num,
-                                  results.get("generated_text", ""), model_critic, _call, results)
+                                  gen_text, model_critic, _call, results)
 
         elif step.name == "edit":
             step_edit(run_id, iteration, generation_prompt,

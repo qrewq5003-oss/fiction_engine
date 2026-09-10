@@ -32,6 +32,7 @@ logger.py — централизованный структурированны�
 from __future__ import annotations
 
 import logging
+import traceback
 import logging.handlers
 import sys
 from contextlib import contextmanager
@@ -111,7 +112,15 @@ class DBHandler(logging.Handler):
             context = " | ".join(parts)
             error = record.getMessage()
             if record.exc_info:
-                error += " :: " + self.formatException(record.exc_info)
+                # formatException живёт на Formatter, а не на Handler.
+                # self.formatException(...) бросал AttributeError, его
+                # глотал except ниже — и запись НЕ попадала в таблицу
+                # именно тогда, когда логируется исключение, то есть в
+                # единственном случае, ради которого таблица и нужна.
+                # Отсюда пустой engine_error_log при полном файле лога.
+                error += " :: " + "".join(
+                    traceback.format_exception(*record.exc_info)
+                ).strip()
             with get_conn() as conn:
                 conn.execute(
                     "INSERT OR IGNORE INTO engine_error_log (context, error) VALUES (?,?)",

@@ -263,7 +263,7 @@ def _build_fixed_sections(
     Собирает фиксированные секции контекста (1-9).
     Возвращает [(name, content), ...].
     """
-    sections = []
+    sections: list[tuple[str, str]] = []
 
     if genre_key:
         _append_if(sections, "_catalog", _load_genre_catalog(genre_key))

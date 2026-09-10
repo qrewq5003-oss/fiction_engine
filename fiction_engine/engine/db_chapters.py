@@ -28,7 +28,7 @@ def save_chapter(project_id: int, number: int, content: str, title: str = "") ->
         return cur.lastrowid
 
 
-def get_chapter(project_id: int, number: int):
+def get_chapter(project_id: int, number: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM chapters WHERE project_id=? AND number=?",
@@ -37,7 +37,7 @@ def get_chapter(project_id: int, number: int):
         return dict(row) if row else None
 
 
-def get_chapters(project_id: int):
+def get_chapters(project_id: int) -> list[dict]:
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT id, number, title, word_count, created_at FROM chapters "
@@ -112,7 +112,7 @@ def get_generation_by_id(gen_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def init_generation_history(): pass  # таблица создаётся в db_core.init_db()
+def init_generation_history() -> None: pass  # таблица создаётся в db_core.init_db()
 
 
 # ─── Анализ глав ─────────────────────────────────────────────────────────────

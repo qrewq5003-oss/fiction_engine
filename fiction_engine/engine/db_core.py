@@ -8,6 +8,10 @@ db_core.py — инфраструктурный слой БД.
 """
 
 import sqlite3
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:                     # только для аннотаций
+    from .logger import EngineLogger
 from datetime import datetime
 from pathlib import Path
 
@@ -19,14 +23,14 @@ WAL_STATUS: str | None = None
 
 # Импорт логгера отложен чтобы избежать циклической зависимости
 # (logger импортирует db_core для DBHandler)
-def _get_log():
+def _get_log() -> "EngineLogger":
     from .logger import get_logger
     return get_logger(__name__)
 
 
 # ─── Соединение ───────────────────────────────────────────────────────────────
 
-def get_conn():
+def get_conn() -> sqlite3.Connection:
     """
     Соединение с БД.
 
@@ -59,7 +63,7 @@ def get_conn():
     return conn
 
 
-def project_scoped_tables(conn) -> list[str]:
+def project_scoped_tables(conn: sqlite3.Connection) -> list[str]:
     """
     Таблицы, у которых есть колонка project_id.
 
@@ -114,7 +118,7 @@ def cleanup_orphans() -> dict[str, int]:
 
 # ─── Схема ────────────────────────────────────────────────────────────────────
 
-def init_db():
+def init_db() -> None:
     """Единая инициализация всех таблиц + миграции для существующих БД."""
     with get_conn() as conn:
         conn.executescript("""
@@ -377,7 +381,7 @@ def init_db():
     _run_migrations()
 
 
-def _run_migrations():
+def _run_migrations() -> None:
     """Безопасные ALTER TABLE для существующих баз данных."""
     migrations = [
         ("generation_history", "score",         "ALTER TABLE generation_history ADD COLUMN score REAL"),
@@ -445,7 +449,7 @@ def get_error_log(limit: int = 50) -> list[dict]:
 
 # ─── Шаблоны State Engine ─────────────────────────────────────────────────────
 
-def _default_global():
+def _default_global() -> str:
     return """## ПЕРСОНАЖИ
 
 ### [Имя]
@@ -467,7 +471,7 @@ def _default_global():
 """
 
 
-def _default_plot():
+def _default_plot() -> str:
     return """## ОСНОВНАЯ ЛИНИЯ
 
 СТАТУС: [активна / приостановлена / завершена]
@@ -490,7 +494,7 @@ def _default_plot():
 """
 
 
-def _default_memory():
+def _default_memory() -> str:
     return """## КТО ЧТО ЗНАЕТ
 
 ### [Имя]

@@ -16,7 +16,7 @@ bp = Blueprint("generate", __name__)
 # ─── Фоновая генерация ────────────────────────────────────────────────────────
 import threading, uuid
 
-_jobs = {}       # job_id -> dict
+_jobs: dict[str, dict] = {}   # job_id -> dict
 _jobs_lock = threading.Lock()
 
 

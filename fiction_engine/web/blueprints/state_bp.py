@@ -90,7 +90,7 @@ def state_import():
 # ─── Фоновый анализ (polling) ────────────────────────────────────────────────
 import threading, uuid as _uuid
 
-_analyze_jobs = {}
+_analyze_jobs: dict[str, dict] = {}
 _analyze_lock = threading.Lock()
 _ANALYZE_JOBS_KEEP = 50
 

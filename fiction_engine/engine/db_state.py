@@ -730,7 +730,7 @@ def _merge_from_legacy_text(project_id: int, raw_analysis: str) -> dict:
     memory_text = state.get("memory_graph", "")
 
     fields_changed = []
-    new_chars = []
+    new_chars: list[str] = []
 
     def _record(field_name, before, after):
         if before != after and after and not after.startswith("["):

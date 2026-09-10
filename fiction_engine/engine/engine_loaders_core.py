@@ -37,7 +37,7 @@ def load_anticliche_replacements(engine_path: Path) -> str:
         return ""
     content = p.read_text(encoding="utf-8")
     lines = content.split("\n")
-    result = []
+    result: list[str] = []
     in_code = False
     for line in lines:
         if line.strip().startswith("```"):
@@ -76,7 +76,7 @@ def load_symbolism_hint(engine_path: Path) -> str:
         return ""
     content = p.read_text(encoding="utf-8")
     lines = content.split("\n")
-    result = []
+    result: list[str] = []
     in_section = False
     for line in lines:
         if "ЧТО ТАКОЕ РАБОЧИЙ СИМВОЛ" in line or "ЧТО РАБОТАЕТ КАК СИМВОЛ" in line:
