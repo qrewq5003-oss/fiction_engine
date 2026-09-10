@@ -68,8 +68,9 @@ def test_format_limits_gaps_to_three():
         conflict_score=0.4,
     )
     result = format_analysis_for_prompt(a)
-    # Должно быть не более 3 разрывов
-    count = result.count("разрыв")
+    # Считаем именно пункты списка: строка-заголовок «Возможные разрывы:»
+    # тоже содержит слово «разрыв» и раньше учитывалась как четвёртый пункт
+    count = sum(1 for ln in result.splitlines() if ln.strip().startswith("- разрыв"))
     assert count <= 3, f"Ожидалось ≤3 разрывов, нашлось {count}"
 
 def test_format_limits_arcs_to_four():
@@ -106,13 +107,14 @@ def test_to_dict_is_serializable():
         pacing_note="быстрый",
     )
     d = a.to_dict()
-    # Не должно бросать
-    serialized = json.dumps(d)
+    # Не должно бросать. ensure_ascii=False обязателен: иначе кириллица
+    # уезжает в \uXXXX и проверка вхождения подстроки всегда ложна.
+    serialized = json.dumps(d, ensure_ascii=False)
     assert "обещание" in serialized
     assert "разрыв" in serialized
 
 
-# ─── Тест 5: ChapterAnalyzer._parse_llm_response ─────────────────────────────
+# ─── Тест 5: ChapterAnalyzer._parse_response ─────────────────────────────
 
 def test_parse_valid_json():
     """Парсер должен корректно обработать валидный JSON."""
@@ -120,7 +122,6 @@ def test_parse_valid_json():
     analyzer = ChapterAnalyzer(
         get_summaries_fn=MagicMock(return_value=[]),
         save_analysis_fn=MagicMock(),
-        save_gaps_fn=MagicMock(),
     )
     raw = """{
         "arc_progress": {"Иван": "узнал правду"},
@@ -135,7 +136,7 @@ def test_parse_valid_json():
         "closing_type": "dialogue",
         "plot_threads": {}
     }"""
-    result = analyzer._parse_llm_response(raw, project_id=1, chapter_num=3)
+    result = analyzer._parse_response(raw, project_id=1, chapter_num=3)
     assert result.analysis_quality == "ok"
     assert result.conflict_score == pytest.approx(0.7)
     assert "он вернётся" in result.opened_promises
@@ -146,9 +147,8 @@ def test_parse_invalid_json_returns_partial():
     analyzer = ChapterAnalyzer(
         get_summaries_fn=MagicMock(return_value=[]),
         save_analysis_fn=MagicMock(),
-        save_gaps_fn=MagicMock(),
     )
-    result = analyzer._parse_llm_response("{invalid json{{", project_id=1, chapter_num=1)
+    result = analyzer._parse_response("{invalid json{{", project_id=1, chapter_num=1)
     assert result.analysis_quality in ("partial", "failed"), (
         f"Ожидалось partial или failed, получено: {result.analysis_quality}"
     )
@@ -159,7 +159,6 @@ def test_parse_json_with_markdown_fence():
     analyzer = ChapterAnalyzer(
         get_summaries_fn=MagicMock(return_value=[]),
         save_analysis_fn=MagicMock(),
-        save_gaps_fn=MagicMock(),
     )
     raw = """```json
     {
@@ -176,7 +175,7 @@ def test_parse_json_with_markdown_fence():
         "plot_threads": {}
     }
     ```"""
-    result = analyzer._parse_llm_response(raw, project_id=1, chapter_num=2)
+    result = analyzer._parse_response(raw, project_id=1, chapter_num=2)
     assert result.analysis_quality in ("ok", "partial")
     assert "тест разрыв" in result.logical_gaps
 
@@ -186,7 +185,6 @@ def test_parse_clamps_conflict_score():
     analyzer = ChapterAnalyzer(
         get_summaries_fn=MagicMock(return_value=[]),
         save_analysis_fn=MagicMock(),
-        save_gaps_fn=MagicMock(),
     )
     raw = """{
         "arc_progress": {},
@@ -201,7 +199,7 @@ def test_parse_clamps_conflict_score():
         "closing_type": "",
         "plot_threads": {}
     }"""
-    result = analyzer._parse_llm_response(raw, project_id=1, chapter_num=1)
+    result = analyzer._parse_response(raw, project_id=1, chapter_num=1)
     assert 0.0 <= result.conflict_score <= 1.0, (
         f"conflict_score={result.conflict_score} выходит за границы [0, 1]"
     )

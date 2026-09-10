@@ -588,7 +588,10 @@ def describe_truncation(text: str, word_count: int) -> str:
 
 def run_generation(project: dict, chapter_num: int, mode: str,
                    model_value: str, task: str) -> dict:
-    from .db import get_prep_context
+    # get_prep_context уже импортирован на уровне модуля (строка 17).
+    # Повторный локальный импорт перекрывал его и делал функцию
+    # неподменяемой в тестах — патч engine.pipeline.get_prep_context
+    # не действовал, и проверка «Подготовка большая» никогда не срабатывала.
     from .state import build_prompt, strip_empty_placeholders
 
     project_id = project["id"]

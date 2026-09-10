@@ -285,13 +285,14 @@ class TestStepChapterAnalysis:
         from engine.chapter_analyzer import ChapterAnalysis
         results = {}
 
+        # Поля tension_level / mood / pacing / raw_json в ChapterAnalysis
+        # не существуют — остались от прежней версии структуры
         mock_analysis = ChapterAnalysis(
             project_id=project_id, chapter_num=1,
             analysis_quality="ok",
             opening_type="action", closing_type="cliffhanger",
             causal_chains=[], logical_gaps=[], opened_promises=[],
-            tension_level="high", mood="тревога", pacing="быстро",
-            raw_json={}
+            pacing_note="быстро",
         )
 
         with patch("engine.chapter_analyzer.analyze_chapter_deep",

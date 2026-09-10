@@ -4,8 +4,14 @@ import ast, sys
 from pathlib import Path
 
 ROOT = Path(sys.argv[1])
-files = [p for p in ROOT.rglob("*.py")
-         if "__pycache__" not in str(p) and ".mypy_cache" not in str(p)]
+_SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
+              ".mypy_cache", ".pytest_cache", ".hypothesis", ".git", "build", "dist")
+
+
+def _skip(path) -> bool:
+    return any(part in _SKIP_DIRS for part in Path(str(path)).parts)
+
+files = [p for p in ROOT.rglob("*.py") if not _skip(p)]
 
 def modname(p):
     rel = p.relative_to(ROOT).with_suffix("")
@@ -23,6 +29,36 @@ for p in files:
     trees[p] = t
     m = modname(p)
     for node in ast.walk(t):
+        # Классы: конструктор по __init__, а для dataclass — по полям.
+        # Без этого дрейф сигнатур в ClassName(...) проходил незамеченным:
+        # именно так проскочили ChapterAnalyzer(save_gaps_fn=...),
+        # NarrativeReport(...) и PromiseItem(chapter=...).
+        if isinstance(node, ast.ClassDef):
+            init = next((b for b in node.body
+                         if isinstance(b, ast.FunctionDef) and b.name == "__init__"), None)
+            is_dc = any(("dataclass" in ast.dump(d)) for d in node.decorator_list)
+            if init is not None:
+                a = init.args
+                pos = [x.arg for x in a.posonlyargs + a.args][1:]   # без self
+                sigs.setdefault((m, node.name), dict(
+                    pos=pos, ndef=len(a.defaults),
+                    vararg=a.vararg is not None, kwarg=a.kwarg is not None,
+                    kwonly=[x.arg for x in a.kwonlyargs],
+                    kwonly_req=[x.arg for x, d in zip(a.kwonlyargs, a.kw_defaults) if d is None],
+                    line=node.lineno, module=m, decorated=False, is_class=True,
+                ))
+            elif is_dc:
+                fields, defaults = [], 0
+                for b in node.body:
+                    if isinstance(b, ast.AnnAssign) and isinstance(b.target, ast.Name):
+                        fields.append(b.target.id)
+                        if b.value is not None:
+                            defaults += 1
+                sigs.setdefault((m, node.name), dict(
+                    pos=fields, ndef=defaults, vararg=False, kwarg=False,
+                    kwonly=[], kwonly_req=[], line=node.lineno, module=m,
+                    decorated=False, is_class=True,
+                ))
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             a = node.args
             pos = [x.arg for x in a.posonlyargs + a.args]
@@ -32,6 +68,7 @@ for p in files:
                 kwonly=[x.arg for x in a.kwonlyargs],
                 kwonly_req=[x.arg for x, d in zip(a.kwonlyargs, a.kw_defaults) if d is None],
                 line=node.lineno, module=m, decorated=bool(node.decorator_list),
+                is_class=False,
             )
             sigs.setdefault((m, node.name), info)
 
@@ -68,8 +105,9 @@ for p, t in trees.items():
         has_dstar = any(k.arg is None for k in node.keywords)
         if has_star or has_dstar: continue
         pos = s["pos"]
-        # пропускаем методы (первый арг self/cls)
-        if pos and pos[0] in ("self", "cls"): continue
+        # пропускаем методы (первый арг self/cls) — но не конструкторы классов,
+        # у которых self уже отрезан при сборе
+        if not s.get("is_class") and pos and pos[0] in ("self", "cls"): continue
         minreq = len(pos) - s["ndef"]
         supplied = set(pos[:npos]) | set(kwnames)
         loc = f"{p.relative_to(ROOT)}:{node.lineno}"

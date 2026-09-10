@@ -31,6 +31,22 @@ passed = 0
 failed = 0
 errors = []
 
+# ─── Временные файлы ──────────────────────────────────────────────────────────
+# Раньше каждый тест звал _tmp_dir() и ничего не убирал: один прогон
+# оставлял под тысячу каталогов, а несколько прогонов подряд забивали /tmp
+# целиком (наблюдалось 38 872 каталога на 3.6 ГБ). Теперь всё живёт под одним
+# корнем, который удаляется при выходе.
+import atexit
+import shutil as _shutil
+
+_TMP_ROOT = tempfile.mkdtemp(prefix="fe_tests_")
+atexit.register(lambda: _shutil.rmtree(_TMP_ROOT, ignore_errors=True))
+
+
+def _tmp_dir() -> str:
+    """Временный каталог внутри корня прогона — удаляется автоматически."""
+    return tempfile.mkdtemp(dir=_TMP_ROOT)
+
 def ok(name):
     global passed
     passed += 1
@@ -54,7 +70,7 @@ def run(name, fn):
 def make_db():
     """Создаёт временную БД, перезагружает модули с новым путём, возвращает путь."""
     import importlib
-    tmp = tempfile.mkdtemp()
+    tmp = _tmp_dir()
     db_file = Path(tmp) / "test.db"
 
     for mod in ["engine.db_core", "engine.error_policy", "engine.logger",
@@ -4413,7 +4429,7 @@ def test_el_engine_available_false_when_missing(tmp_path=None):
     import tempfile, os
     from unittest.mock import patch
     from engine.engine_loaders import engine_available
-    fake_path = Path(tempfile.mkdtemp()) / "nonexistent_engine"
+    fake_path = Path(_tmp_dir()) / "nonexistent_engine"
     with patch("engine.engine_loaders.get_engine_path", return_value=fake_path):
         assert engine_available() is False
 run("engine_loaders: engine_available → False если путь не существует", test_el_engine_available_false_when_missing)
@@ -4422,7 +4438,7 @@ def test_el_validate_no_engine():
     from unittest.mock import patch
     from engine.engine_loaders import validate_engine_paths
     import tempfile
-    fake_path = Path(tempfile.mkdtemp()) / "nonexistent"
+    fake_path = Path(_tmp_dir()) / "nonexistent"
     with patch("engine.engine_loaders.get_engine_path", return_value=fake_path):
         result = validate_engine_paths()
     assert result["ok"] is False
@@ -4435,7 +4451,7 @@ def test_el_validate_partial_engine():
     import tempfile
     from unittest.mock import patch
     from engine.engine_loaders import validate_engine_paths
-    fake_engine = Path(tempfile.mkdtemp())
+    fake_engine = Path(_tmp_dir())
     with patch("engine.engine_loaders.get_engine_path", return_value=fake_engine):
         result = validate_engine_paths()
     assert result["ok"] is False
@@ -4460,7 +4476,7 @@ def test_el_get_module_dependencies_fallback():
     import tempfile
     from unittest.mock import patch
     from engine.engine_loaders import get_module_dependencies
-    fake_engine = Path(tempfile.mkdtemp())
+    fake_engine = Path(_tmp_dir())
     with patch("engine.engine_loaders.get_engine_path", return_value=fake_engine):
         deps = get_module_dependencies()
     assert isinstance(deps, dict) and len(deps) > 0
@@ -4632,7 +4648,7 @@ def test_pctx_build_context_returns_str():
     dbp.save_chapter(pid, 1, "А" * 300)
 
     with patch("engine.engine_loaders.get_engine_path") as mock_path:
-        mock_path.return_value = Path(tempfile.mkdtemp())  # нет движка — graceful
+        mock_path.return_value = Path(_tmp_dir())  # нет движка — graceful
         result = build_context(pid, 2, "Задача главы", model_value="anthropic_direct::claude-opus-4-6")
 
     assert isinstance(result, str) and len(result) > 0
@@ -5192,7 +5208,7 @@ import tempfile, pathlib
 from engine.pipeline import _execute_steps, PipelineStep, call_json, score_text
 
 def _make_tmp_db():
-    tmp = tempfile.mkdtemp()
+    tmp = _tmp_dir()
     return pathlib.Path(tmp) / "test.db"
 
 def test_exec_generate_only():
@@ -7681,7 +7697,7 @@ class TestEngineLoadersNoEngine:
 
     def _fake_path(self):
         import tempfile
-        return __import__("pathlib").Path(tempfile.mkdtemp()) / "nonexistent"
+        return __import__("pathlib").Path(_tmp_dir()) / "nonexistent"
 
     def test_load_module_dependencies_no_index(self):
         from engine.engine_loaders import load_module_dependencies_from_index
@@ -7696,7 +7712,7 @@ class TestEngineLoadersNoEngine:
         from engine.engine_loaders import load_module_dependencies_from_index
         from unittest.mock import patch
 
-        tmp = Path(tempfile.mkdtemp())
+        tmp = Path(_tmp_dir())
         index = {"module_dependencies": {"genre": ["base", "arc"]}}
         (tmp / "INDEX.json").write_text(json.dumps(index))
 
@@ -7710,7 +7726,7 @@ class TestEngineLoadersNoEngine:
         from engine.engine_loaders import load_module_dependencies_from_index
         from unittest.mock import patch
 
-        tmp = Path(tempfile.mkdtemp())
+        tmp = Path(_tmp_dir())
         (tmp / "INDEX.json").write_text(json.dumps({"files": []}))
 
         with patch("engine.engine_loaders.get_engine_path", return_value=tmp):
@@ -7808,7 +7824,7 @@ class TestEngineLoadersWithFakeEngine:
     def _make_engine(self, files: dict):
         import tempfile
         from pathlib import Path
-        base = Path(tempfile.mkdtemp())
+        base = Path(_tmp_dir())
         for rel_path, content in files.items():
             p = base / rel_path
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -7846,7 +7862,7 @@ class TestEngineLoadersWithFakeEngine:
         from engine.engine_loaders_core import load_validation_checklist
         from pathlib import Path
         import tempfile
-        engine = Path(tempfile.mkdtemp())
+        engine = Path(_tmp_dir())
         result = load_validation_checklist(engine, genre_key="fantasy")
         assert result == ""
 
@@ -7854,7 +7870,7 @@ class TestEngineLoadersWithFakeEngine:
         from engine.engine_loaders_core import _read_md_useful
         from pathlib import Path
         import tempfile
-        p = Path(tempfile.mkdtemp()) / "test.md"
+        p = Path(_tmp_dir()) / "test.md"
         # _read_md_useful пропускает код только внутри блоков, возвращает list[str]
         p.write_text("нормальная строка\n---\nещё строка")
         result = _read_md_useful(p, max_lines=10)
@@ -7881,7 +7897,7 @@ class TestEngineLoadersGenrePrivate:
     def _engine(self, files: dict):
         import tempfile
         from pathlib import Path
-        base = Path(tempfile.mkdtemp())
+        base = Path(_tmp_dir())
         for rel, content in files.items():
             p = base / rel
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -7908,7 +7924,7 @@ class TestEngineLoadersGenrePrivate:
         from engine.engine_loaders_genre import _load_arc_by_heading
         from pathlib import Path
         import tempfile
-        result = _load_arc_by_heading(Path(tempfile.mkdtemp()), "FANTASY")
+        result = _load_arc_by_heading(Path(_tmp_dir()), "FANTASY")
         assert result == ""
 
     def test_load_fantasy_arc_reads_file(self):
@@ -7924,7 +7940,7 @@ class TestEngineLoadersGenrePrivate:
         from engine.engine_loaders_genre import _load_fantasy_arc
         from pathlib import Path
         import tempfile
-        result = _load_fantasy_arc(Path(tempfile.mkdtemp()))
+        result = _load_fantasy_arc(Path(_tmp_dir()))
         assert result == ""
 
     def test_load_antagonist_section_exists(self):
@@ -7940,7 +7956,7 @@ class TestEngineLoadersGenrePrivate:
         from engine.engine_loaders_genre import _load_antagonist_section
         from pathlib import Path
         import tempfile
-        result = _load_antagonist_section(Path(tempfile.mkdtemp()), "fantasy", "urban")
+        result = _load_antagonist_section(Path(_tmp_dir()), "fantasy", "urban")
         assert result == ""
 
     def test_extract_subgenre_block_found(self):
@@ -7962,7 +7978,7 @@ class TestEngineLoadersGenrePrivate:
     def test_extract_quality_rules_fallback_found(self):
         from engine.engine_loaders_genre import _extract_quality_rules_fallback
         import tempfile
-        engine = __import__("pathlib").Path(tempfile.mkdtemp())
+        engine = __import__("pathlib").Path(_tmp_dir())
         # Сигнатура: (text, genre_key, family, engine_path)
         text = "некий текст\nКАЧЕСТВО:\nправило 1\nправило 2\n"
         result = _extract_quality_rules_fallback(text, "fantasy_urban", "fantasy", engine)
@@ -7971,7 +7987,7 @@ class TestEngineLoadersGenrePrivate:
     def test_extract_quality_rules_fallback_not_found(self):
         from engine.engine_loaders_genre import _extract_quality_rules_fallback
         import tempfile
-        engine = __import__("pathlib").Path(tempfile.mkdtemp())
+        engine = __import__("pathlib").Path(_tmp_dir())
         text = "текст без секции качества"
         result = _extract_quality_rules_fallback(text, "fantasy", "fantasy", engine)
         assert isinstance(result, str)
@@ -8751,7 +8767,7 @@ from pathlib import Path as _Path
 
 def _make_fake_engine():
     """Создаёт минимальный фиктивный UNIFIED_ENGINE_MASTER в temp-директории."""
-    base = _Path(_tempfile.mkdtemp())
+    base = _Path(_tmp_dir())
     def mkf(rel, content):
         p = base / rel; p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")

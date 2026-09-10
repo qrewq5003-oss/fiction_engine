@@ -16,6 +16,7 @@ fixture-вызова → данные из примера N накапливаю
      Аналогично для closings.
 """
 
+import itertools
 import pytest
 import sys
 from pathlib import Path
@@ -58,10 +59,19 @@ def use_temp_db(tmp_path):
         yield db_file
 
 
+_project_seq = itertools.count()
+
+
 def make_project():
-    """Создать новый проект для каждого hypothesis-примера."""
+    """
+    Создать новый проект для каждого hypothesis-примера.
+
+    Имя обязано быть уникальным: projects.name объявлен UNIQUE, а фикстура
+    БД живёт на весь тест, тогда как hypothesis прогоняет тело десятки раз.
+    С постоянным именем «test» второй же пример падал на UNIQUE constraint.
+    """
     from engine.db_projects import create_project
-    return create_project("test", "фэнтези")
+    return create_project(f"test-{next(_project_seq)}", "фэнтези")
 
 
 # ---- Helpers -----------------------------------------------------------------
@@ -488,10 +498,15 @@ class TestTrimBudgetProperties:
         budget_pct=st.floats(min_value=0.05, max_value=0.45, allow_nan=False),
     )
     @settings(max_examples=100)
-    def test_documents_budget_not_guaranteed_below_half(self, content_size, budget_pct):
+    def test_budget_is_respected(self, content_size, budget_pct):
         """
-        ДОКУМЕНТИРУЮЩИЙ ТЕСТ: при total > 2x budget бюджет НЕ выполняется.
-        Когда дефект исправят — изменить assert на: result_total <= budget.
+        Инвариант: результат обрезки укладывается в бюджет.
+
+        Раньше здесь стоял документирующий тест, утверждавший обратное —
+        «при total > 2x budget бюджет НЕ выполняется» — с пометкой «когда
+        дефект исправят, изменить assert на result_total <= budget».
+        Дефект не воспроизводится: бюджет соблюдается на всём диапазоне.
+        Утверждение переведено в положительное, как и предписывала пометка.
         """
         from engine.engine_loaders import _trim_modules_to_budget
         assume(budget_pct < 0.5)
@@ -499,8 +514,6 @@ class TestTrimBudgetProperties:
         budget = max(1, int(content_size * budget_pct))
         result = _trim_modules_to_budget(modules, budget)
         result_total = sum(len(c) for c in result)
-        half = content_size // 2
-        if half > budget:
-            assert result_total > budget
-        else:
-            assert result_total <= budget
+        assert result_total <= budget, (
+            f"обрезка не уложилась в бюджет: {result_total} > {budget}"
+        )

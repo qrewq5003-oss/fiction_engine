@@ -115,29 +115,29 @@ class TestBuildPromptSmoke:
     def test_quick_returns_string(self, project_id):
         from engine.state_prompts import build_prompt
         state, struct = self._mock_deps()
-        with patch("engine.state_prompts.get_state", return_value=state), \
-             patch("engine.state_prompts.get_last_update", return_value=None), \
-             patch("engine.state_prompts.parse_structured_state", return_value=struct), \
-             patch("engine.state_prompts.get_director_note", return_value=None):
+        with patch("engine.db.get_state", return_value=state), \
+             patch("engine.db.get_last_update", return_value=None), \
+             patch("engine.db.parse_structured_state", return_value=struct), \
+             patch("engine.db.get_director_note", return_value=None):
             result = build_prompt(project_id, 1, "quick", {"name": "T", "genre": "fantasy_epic"})
         assert isinstance(result, str) and len(result) > 0
 
     def test_quality_returns_string(self, project_id):
         from engine.state_prompts import build_prompt
         state, struct = self._mock_deps()
-        with patch("engine.state_prompts.get_state", return_value=state), \
-             patch("engine.state_prompts.get_last_update", return_value=None), \
-             patch("engine.state_prompts.parse_structured_state", return_value=struct), \
-             patch("engine.state_prompts.get_director_note", return_value=None):
+        with patch("engine.db.get_state", return_value=state), \
+             patch("engine.db.get_last_update", return_value=None), \
+             patch("engine.db.parse_structured_state", return_value=struct), \
+             patch("engine.db.get_director_note", return_value=None):
             result = build_prompt(project_id, 3, "quality", {"name": "T", "genre": "fantasy_epic"})
         assert isinstance(result, str)
 
     def test_master_returns_string(self, project_id):
         from engine.state_prompts import build_prompt
         state, struct = self._mock_deps()
-        with patch("engine.state_prompts.get_state", return_value=state), \
-             patch("engine.state_prompts.get_last_update", return_value=None), \
-             patch("engine.state_prompts.parse_structured_state", return_value=struct), \
-             patch("engine.state_prompts.get_director_note", return_value=None):
+        with patch("engine.db.get_state", return_value=state), \
+             patch("engine.db.get_last_update", return_value=None), \
+             patch("engine.db.parse_structured_state", return_value=struct), \
+             patch("engine.db.get_director_note", return_value=None):
             result = build_prompt(project_id, 5, "master", {"name": "T", "genre": "fantasy_epic"})
         assert isinstance(result, str)

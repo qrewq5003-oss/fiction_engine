@@ -18,6 +18,8 @@ test_pipeline_integration_full.py — интеграционный тест по
 import pytest
 from unittest.mock import patch
 
+from tests.llm_stubs import scripted_llm
+
 
 # ─── Фикстуры ────────────────────────────────────────────────────────────────
 
@@ -81,7 +83,8 @@ def _pipeline_kwargs(project_id, chapter_num=1):
 class TestStartPipelineAccept:
     def test_returns_verdict_prinyat(self, project_id):
         from engine.pipeline import start_pipeline
-        responses = [GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]
+        responses = scripted_llm(generate=GENERATE_RESPONSE,
+                                 critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)
         with patch("engine.pipeline._call", side_effect=responses):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["verdict"] == "ПРИНЯТЬ"
@@ -89,21 +92,21 @@ class TestStartPipelineAccept:
     def test_judge_score_correct(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["judge_score"] == pytest.approx(40.0)
 
     def test_generated_text_in_result(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["generated_text"] == GENERATE_RESPONSE
 
     def test_run_id_returned(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert isinstance(result["run_id"], int) and result["run_id"] > 0
 
@@ -111,7 +114,7 @@ class TestStartPipelineAccept:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_run
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         run = get_pipeline_run(result["run_id"])
         assert run is not None
@@ -125,21 +128,21 @@ class TestStartPipelineReject:
     def test_returns_verdict_na_dorabotku(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["verdict"] == "НА ДОРАБОТКУ"
 
     def test_low_judge_score(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["judge_score"] == pytest.approx(26.0)
 
     def test_critique_in_result(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result.get("critique"), "critique должна быть непустой"
 
@@ -150,14 +153,14 @@ class TestContinuePipeline:
     def _start_rejected(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             return start_pipeline(**_pipeline_kwargs(project_id))
 
     def test_continue_returns_verdict(self, project_id):
         from engine.pipeline import continue_pipeline
         first = self._start_rejected(project_id)
         with patch("engine.pipeline._call",
-                   side_effect=[EDIT_RESPONSE, CRITIQUE_ACCEPT, JUDGE_AFTER_EDIT]):
+                   side_effect=scripted_llm(edit=EDIT_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_AFTER_EDIT)):
             result = continue_pipeline(
                 run_id=first["run_id"],
                 project_id=project_id,
@@ -172,7 +175,7 @@ class TestContinuePipeline:
         from engine.pipeline import continue_pipeline
         first = self._start_rejected(project_id)
         with patch("engine.pipeline._call",
-                   side_effect=[EDIT_RESPONSE, CRITIQUE_ACCEPT, JUDGE_AFTER_EDIT]):
+                   side_effect=scripted_llm(edit=EDIT_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_AFTER_EDIT)):
             result = continue_pipeline(
                 run_id=first["run_id"],
                 project_id=project_id,
@@ -188,7 +191,7 @@ class TestContinuePipeline:
         from engine.db_narrative import get_pipeline_iterations
         first = self._start_rejected(project_id)
         with patch("engine.pipeline._call",
-                   side_effect=[EDIT_RESPONSE, CRITIQUE_ACCEPT, JUDGE_AFTER_EDIT]):
+                   side_effect=scripted_llm(edit=EDIT_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_AFTER_EDIT)):
             continue_pipeline(
                 run_id=first["run_id"],
                 project_id=project_id,
@@ -208,7 +211,7 @@ class TestAcceptPipeline:
     def _start_and_get_run_id(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         return result["run_id"]
 
@@ -234,7 +237,7 @@ class TestRejectPipeline:
     def _start_and_get_run_id(self, project_id):
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         return result["run_id"]
 
@@ -256,14 +259,13 @@ class TestAutoImprove:
 
         # Первый цикл: generate + critique(reject) + judge(reject)
         # Авто-retry: edit + critique(accept) + judge(accept) — score выше
-        responses = [
-            GENERATE_RESPONSE,   # generate iter 1
-            CRITIQUE_REJECT,     # critique iter 1
-            JUDGE_REJECT,        # judge iter 1  → НА ДОРАБОТКУ, score=26
-            EDIT_RESPONSE,       # edit auto-retry
-            CRITIQUE_ACCEPT,     # critique auto-retry
-            JUDGE_AFTER_EDIT,    # judge auto-retry → ПРИНЯТЬ, score=39
-        ]
+        # Сценарий по итерациям: критик и судья браковали, после правки приняли
+        responses = scripted_llm(
+            generate=GENERATE_RESPONSE,
+            critique=[CRITIQUE_REJECT, CRITIQUE_ACCEPT],
+            judge=[JUDGE_REJECT, JUDGE_AFTER_EDIT],
+            edit=EDIT_RESPONSE,
+        )
         with patch("engine.pipeline._call", side_effect=responses):
             result = start_pipeline(**_pipeline_kwargs(project_id), config=AUTO_IMPROVE)
 
@@ -274,15 +276,14 @@ class TestAutoImprove:
         from engine.pipeline import start_pipeline
         from engine.pipeline_config import AUTO_IMPROVE
 
-        # Оба цикла дают одинаковый низкий score → деградация → прерывается
-        responses = [
-            GENERATE_RESPONSE,   # generate iter 1
-            CRITIQUE_REJECT,     # critique iter 1
-            JUDGE_REJECT,        # judge iter 1  → НА ДОРАБОТКУ, score=26
-            EDIT_RESPONSE,       # edit auto-retry
-            CRITIQUE_REJECT,     # critique auto-retry
-            JUDGE_REJECT,        # judge auto-retry → НА ДОРАБОТКУ, score=26 (не растёт)
-        ]
+        # Судья держит один и тот же низкий балл на всех итерациях:
+        # улучшения нет → авто-повтор обязан прерваться, а не крутиться
+        responses = scripted_llm(
+            generate=GENERATE_RESPONSE,
+            critique=CRITIQUE_REJECT,
+            judge=JUDGE_REJECT,
+            edit=EDIT_RESPONSE,
+        )
         with patch("engine.pipeline._call", side_effect=responses):
             result = start_pipeline(**_pipeline_kwargs(project_id), config=AUTO_IMPROVE)
 
@@ -298,7 +299,7 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         stages = {i["stage"] for i in iters}
@@ -310,7 +311,7 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         gen = next(i for i in iters if i["stage"] == "generate")
@@ -320,7 +321,7 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         judge = next(i for i in iters if i["stage"] == "judge")
@@ -330,7 +331,7 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         judge = next(i for i in iters if i["stage"] == "judge")
@@ -340,7 +341,7 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         for i in iters:
@@ -350,11 +351,12 @@ class TestIterationsInDB:
         from engine.pipeline import start_pipeline
         from engine.db_narrative import get_pipeline_iterations
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         for i in iters:
-            assert i["model"] == MODEL
+            # колонка в схеме называется model_used
+            assert i["model_used"] == MODEL
 
 
 # ─── H. Сквозной: текст судьи → результат dict ───────────────────────────────
@@ -365,7 +367,7 @@ class TestEndToEndScoring:
         from engine.pipeline import start_pipeline
         custom_judge = "ИТОГ: 42.5\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: Отлично.\n"
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, custom_judge]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=custom_judge)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["judge_score"] == pytest.approx(42.5)
         assert result["verdict"] == "ПРИНЯТЬ"
@@ -374,7 +376,7 @@ class TestEndToEndScoring:
         custom_judge = "ИТОГ: 18\nВЕРДИКТ: НА ДОРАБОТКУ\nОБОСНОВАНИЕ: Слабо.\n"
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, custom_judge]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=custom_judge)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["judge_score"] == pytest.approx(18.0)
         assert result["verdict"] == "НА ДОРАБОТКУ"
@@ -387,7 +389,7 @@ class TestEndToEndScoring:
             "ВЕРДИКТ: ПРИНЯТЬ\n"
         )
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, judge_no_itog]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=judge_no_itog)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
         assert result["judge_score"] == pytest.approx(40.0)
 
@@ -395,11 +397,11 @@ class TestEndToEndScoring:
         """Два прогона для разных глав не мешают друг другу."""
         from engine.pipeline import start_pipeline
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_ACCEPT, JUDGE_ACCEPT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=JUDGE_ACCEPT)):
             r1 = start_pipeline(**_pipeline_kwargs(project_id, chapter_num=1))
 
         with patch("engine.pipeline._call",
-                   side_effect=[GENERATE_RESPONSE, CRITIQUE_REJECT, JUDGE_REJECT]):
+                   side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_REJECT, judge=JUDGE_REJECT)):
             r2 = start_pipeline(**_pipeline_kwargs(project_id, chapter_num=2))
 
         assert r1["verdict"] == "ПРИНЯТЬ"

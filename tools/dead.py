@@ -1,7 +1,14 @@
 import ast, sys
 from pathlib import Path
+_SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
+              ".mypy_cache", ".pytest_cache", ".hypothesis", ".git", "build", "dist")
+
+
+def _skip(path) -> bool:
+    return any(part in _SKIP_DIRS for part in Path(str(path)).parts)
+
 for p in sorted(Path(sys.argv[1]).rglob("*.py")):
-    if "__pycache__" in str(p): continue
+    if _skip(p): continue
     try: t = ast.parse(p.read_text(encoding="utf-8"), str(p))
     except SyntaxError: continue
     for n in ast.walk(t):

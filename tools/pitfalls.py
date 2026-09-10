@@ -7,9 +7,16 @@ SKIP_TESTS = "--skip-tests" in sys.argv
 found = {}
 def add(cat, loc, msg): found.setdefault(cat, []).append((loc, msg))
 
+_SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
+              ".mypy_cache", ".pytest_cache", ".hypothesis", ".git", "build", "dist")
+
+
+def _skip(path) -> bool:
+    return any(part in _SKIP_DIRS for part in Path(str(path)).parts)
+
 for p in sorted(ROOT.rglob("*.py")):
     sp = str(p)
-    if "__pycache__" in sp: continue
+    if _skip(p): continue
     if SKIP_TESTS and ("test" in p.name or "/tests/" in sp): continue
     src = p.read_text(encoding="utf-8")
     try: t = ast.parse(src, sp)

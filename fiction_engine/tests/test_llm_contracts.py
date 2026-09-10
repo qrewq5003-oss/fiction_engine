@@ -46,7 +46,7 @@ class TestCallJson:
     def test_raises_when_no_json(self):
         from engine.pipeline import call_json
         with patch("engine.pipeline._call", return_value="текст без JSON"):
-            with pytest.raises(ValueError, match="не вернула JSON"):
+            with pytest.raises(ValueError, match="не вернула корректный JSON"):
                 call_json(MODEL, "system", "prompt")
 
     def test_raises_when_empty_response(self):
@@ -69,60 +69,81 @@ class TestCallJson:
 # ─── B. score_text ────────────────────────────────────────────────────────────
 
 class TestScoreText:
-    def _fake_score(self, **overrides):
-        base = {"literary_quality": 7, "voice_genre": 8,
-                "commercial": 6, "scene_health": 7,
-                "total": 7.0, "verdict": "solid", "main_issue": "темп"}
-        base.update(overrides)
-        return base
+    """
+    score_text разбирает ТЕКСТОВЫЙ ответ SYS_CRITIC, а не JSON.
+
+    Прежние тесты патчили call_json и ждали ключи literary_quality /
+    voice_genre / commercial / scene_health — контракт двухлетней давности.
+    Патч не срабатывал, вызов уходил в настоящий API и падал на «Нет
+    Anthropic API ключа», маскируя расхождение под проблему окружения.
+    """
+
+    def _critic_reply(self, itog="36", **scores):
+        base = {"ГОЛОС": 7, "СТРУКТУРА": 8, "ПЕРСОНАЖИ": 6,
+                "СЦЕНЫ": 7, "ДИАЛОГ": 8}
+        base.update(scores)
+        lines = [f"{k}: {v}" for k, v in base.items()]
+        if itog is not None:
+            lines.append(f"ИТОГ: {itog}")
+        lines.append("ГЛАВНЫЕ ПРОБЛЕМЫ:\n- Темп проседает в середине")
+        return "\n".join(lines)
 
     def test_returns_dict_with_required_keys(self):
         from engine.pipeline import score_text
-        with patch("engine.pipeline.call_json", return_value=self._fake_score()):
+        with patch("engine.pipeline._call", return_value=self._critic_reply()):
             result = score_text(CHAPTER_TEXT, "фэнтези", MODEL)
-        for key in ("literary_quality", "voice_genre", "commercial",
-                    "scene_health", "total", "verdict", "main_issue"):
+        for key in ("voice", "structure", "characters", "scenes", "dialog",
+                    "total", "verdict", "main_issue", "rhythm"):
             assert key in result
 
     def test_total_from_response_used_directly(self):
         from engine.pipeline import score_text
-        with patch("engine.pipeline.call_json", return_value=self._fake_score(total=8.5)):
+        with patch("engine.pipeline._call", return_value=self._critic_reply(itog="42")):
             result = score_text(CHAPTER_TEXT, "фэнтези", MODEL)
-        assert result["total"] == pytest.approx(8.5)
+        assert result["total"] == pytest.approx(42.0)
 
     def test_total_computed_when_missing(self):
-        """Если модель не вернула total — вычисляем среднее критериев."""
+        """Нет строки ИТОГ — total считается суммой пяти критериев (0-50)."""
         from engine.pipeline import score_text
-        no_total = {"literary_quality": 8, "voice_genre": 8,
-                    "commercial": 8, "scene_health": 8,
-                    "verdict": "ok", "main_issue": ""}
-        with patch("engine.pipeline.call_json", return_value=no_total):
+        reply = self._critic_reply(itog=None, **{"ГОЛОС": 8, "СТРУКТУРА": 8,
+                                                 "ПЕРСОНАЖИ": 8, "СЦЕНЫ": 8,
+                                                 "ДИАЛОГ": 8})
+        with patch("engine.pipeline._call", return_value=reply):
             result = score_text(CHAPTER_TEXT, "фэнтези", MODEL)
-        assert result["total"] == pytest.approx(8.0)
+        assert result["total"] == pytest.approx(40.0)
 
-    def test_genre_in_prompt(self):
-        """Жанр передаётся в промпт."""
+    def test_main_issue_extracted(self):
+        from engine.pipeline import score_text
+        with patch("engine.pipeline._call", return_value=self._critic_reply()):
+            result = score_text(CHAPTER_TEXT, "фэнтези", MODEL)
+        assert result["main_issue"] == "Темп проседает в середине"
+
+    def test_genre_reaches_critic_prompt(self):
+        """Жанровая линза попадает в системный промпт критика."""
         from engine.pipeline import score_text
         captured = {}
-        def fake_call_json(model, sys, prompt, max_tokens=2000):
-            captured["prompt"] = prompt
-            return self._fake_score()
-        with patch("engine.pipeline.call_json", side_effect=fake_call_json):
-            score_text(CHAPTER_TEXT, "детектив", MODEL)
-        assert "детектив" in captured["prompt"]
 
-    def test_text_truncated_to_3000(self):
-        """Длинный текст обрезается до 3000 символов."""
+        def fake_call(model, system, user, max_tokens=6000, prefill=""):
+            captured["system"] = system
+            return self._critic_reply()
+
+        with patch("engine.pipeline._call", side_effect=fake_call):
+            score_text(CHAPTER_TEXT, "детектив", MODEL)
+        assert "ЖАНРОВЫЙ ФОКУС — ДЕТЕКТИВ" in captured["system"]
+
+    def test_text_truncated(self):
+        """Длинный текст обрезается перед отправкой."""
         from engine.pipeline import score_text
         long_text = "А" * 10_000
         captured = {}
-        def fake_call_json(model, sys, prompt, max_tokens=2000):
-            captured["prompt"] = prompt
-            return self._fake_score()
-        with patch("engine.pipeline.call_json", side_effect=fake_call_json):
+
+        def fake_call(model, system, user, max_tokens=6000, prefill=""):
+            captured["user"] = user
+            return self._critic_reply()
+
+        with patch("engine.pipeline._call", side_effect=fake_call):
             score_text(long_text, "фэнтези", MODEL)
-        # Промпт содержит не более 3000 символов из текста
-        assert long_text[3001:] not in captured["prompt"]
+        assert len(captured["user"]) < len(long_text)
 
 
 # ─── C. run_generation ────────────────────────────────────────────────────────

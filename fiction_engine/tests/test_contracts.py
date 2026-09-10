@@ -33,24 +33,25 @@ class TestProtocolImports:
 class TestNarrativeReport:
     def test_constructible_with_defaults(self):
         from engine.contracts import NarrativeReport
-        report = NarrativeReport()
+        report = NarrativeReport(project_id=1, through_chapter=5)
         assert hasattr(report, "ok")
         assert hasattr(report, "warnings")
-        assert hasattr(report, "arcs")
+        assert hasattr(report, "arc_health")
 
     def test_ok_default_true(self):
         from engine.contracts import NarrativeReport
-        report = NarrativeReport()
+        report = NarrativeReport(project_id=1, through_chapter=5)
         assert report.ok is True
 
     def test_warnings_default_empty(self):
         from engine.contracts import NarrativeReport
-        report = NarrativeReport()
+        report = NarrativeReport(project_id=1, through_chapter=5)
         assert report.warnings == []
 
     def test_custom_values(self):
         from engine.contracts import NarrativeReport
-        report = NarrativeReport(ok=False, warnings=["проблема"])
+        report = NarrativeReport(project_id=1, through_chapter=5,
+                                 ok=False, warnings=["проблема"])
         assert report.ok is False
         assert "проблема" in report.warnings
 
@@ -58,14 +59,16 @@ class TestNarrativeReport:
 class TestArcStatus:
     def test_constructible(self):
         from engine.contracts import ArcStatus
-        arc = ArcStatus(name="Арка1", status="active", introduced_chapter=1)
-        assert arc.name == "Арка1"
+        # поля: character / status / last_seen_chapter (см. __slots__)
+        arc = ArcStatus(character="Арка1", status="active", last_seen_chapter=1)
+        assert arc.character == "Арка1"
         assert arc.status == "active"
 
 
 class TestPromiseItem:
     def test_constructible(self):
         from engine.contracts import PromiseItem
-        p = PromiseItem(chapter=1, text="Герой вернётся", resolved=False)
-        assert p.chapter == 1
+        # поле называется introduced_chapter, а не chapter
+        p = PromiseItem(text="Герой вернётся", introduced_chapter=1, resolved=False)
+        assert p.introduced_chapter == 1
         assert p.resolved is False

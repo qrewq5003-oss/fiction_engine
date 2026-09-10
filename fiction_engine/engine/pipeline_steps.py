@@ -129,8 +129,21 @@ _GENRE_CRITIC_DEFAULT = """
 
 
 def _build_sys_critic(genre: str = "") -> str:
-    """Строит SYS_CRITIC с жанровой вставкой."""
-    genre_key  = (genre or "").lower().split("_")[0]  # 'fantasy_epic' → 'fantasy'
+    """
+    Строит SYS_CRITIC с жанровой вставкой.
+
+    Ключи _GENRE_CRITIC_LENS английские (detective, fantasy, horror…), а
+    жанр проекта хранится по-русски («городское фэнтези»). Простое
+    .lower().split("_") давало 'городское фэнтези' — промах по таблице и
+    молчаливый откат на нейтральную линзу, то есть жанровый фокус критика
+    не применялся ни к одному русскоязычному проекту.
+    Нормализуем тем же detect_genre, что и остальной движок:
+    'детектив' → 'detective_classic' → 'detective'.
+    """
+    from .unified_engine import detect_genre
+
+    raw = (genre or "").lower()
+    genre_key = (detect_genre(raw) or raw).split("_")[0]
     genre_lens = _GENRE_CRITIC_LENS.get(genre_key, _GENRE_CRITIC_DEFAULT)
 
     return f"""Ты — строгий литературный редактор. Анализируешь текст главы и выявляешь конкретные проблемы.
