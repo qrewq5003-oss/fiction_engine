@@ -28,7 +28,7 @@ jobs:
           pip install mypy hypothesis
 
       # Не требует зависимостей: моки openai/anthropic внутри самого раннера.
-      # Держит 792 теста, включая регрессии на стыках (движок, State, токены).
+      # Держит 795 тестов, включая регрессии на стыках (движок, State, токены).
       - name: Тесты — автономный раннер
         run: python run_tests.py
 
@@ -42,10 +42,10 @@ jobs:
       - name: Компиляция всех модулей
         run: python -m compileall -q engine web cli.py
 
-      # Пока не блокирует: типизация ужесточается постепенно (см. mypy.ini).
+      # Блокирующая проверка: на 2026-09-11 mypy даёт 0 ошибок.
+      # Дальнейшее ужесточение — по плану в mypy.ini.
       - name: mypy
-        run: mypy engine web || true
-        continue-on-error: true
+        run: mypy engine web cli.py
 
   audit:
     runs-on: ubuntu-latest
