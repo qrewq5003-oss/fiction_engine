@@ -12,7 +12,7 @@ def voice_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     from engine.db import get_voice_profiles, init_voice_tables
     from engine.voice_profiles import get_author_voices
     init_voice_tables()
@@ -128,7 +128,7 @@ def voice_import_author():
 def symbols_page():
     current = get_current_project()
     if not current:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     from engine.db import get_symbols
     symbols = get_symbols(current["id"])
     chapters = get_chapters(current["id"])

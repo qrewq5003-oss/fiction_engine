@@ -5,13 +5,19 @@ from .helpers import get_current_project, get_cheap_model, after_chapter_saved
 
 bp = Blueprint("chapters", __name__)
 
+# Главная страница объявлена прямо на app (web/app.py: @app.route("/")),
+# поэтому её endpoint — "index", без префикса блупринта. Раньше здесь
+# стояло url_for("main.index") — имя из планировщика, где такой блупринт
+# есть. В Fiction Engine его нет, и любой редирект «нет проекта → на
+# главную» падал с BuildError, то есть 500 вместо страницы выбора проекта.
+
 
 @bp.route("/chapter/upload", methods=["POST"])
 def chapter_upload():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     number = request.form.get("number", type=int)
     title  = request.form.get("title", "").strip()
     file   = request.files.get("file")
@@ -22,20 +28,20 @@ def chapter_upload():
         content = text
     else:
         flash("Нужен файл или текст", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     if not number:
         flash("Укажи номер главы", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     save_chapter(current["id"], number, content, title)
     flash(f"Глава {number} сохранена ({len(content.split())} слов)", "success")
-    return redirect(url_for("main.index"))
+    return redirect(url_for("index"))
 
 
 @bp.route("/chapter/<int:num>/view")
 def chapter_view(num):
     current = get_current_project()
     if not current:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     ch = get_chapter(current["id"], num)
     return render_template("chapter.html", chapter=ch, current=current)
 
@@ -44,7 +50,7 @@ def chapter_view(num):
 def export_txt():
     current = get_current_project()
     if not current:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     chapters = get_chapters(current["id"])
     lines = []
     for ch in chapters:
@@ -58,11 +64,11 @@ def export_txt():
 def export_chapter_txt(num):
     current = get_current_project()
     if not current:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     ch = get_chapter(current["id"], num)
     if not ch:
         flash("Глава не найдена", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     return Response(ch["content"], mimetype="text/plain",
                     headers={"Content-Disposition": f"attachment;filename=chapter_{num}.txt"})
 
@@ -74,11 +80,11 @@ def export_docx():
     """Экспорт всех глав в один DOCX файл."""
     current = get_current_project()
     if not current:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     chapters = get_chapters(current["id"])
     if not chapters:
         flash("Нет глав для экспорта", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
 
     try:
         from docx import Document
@@ -143,10 +149,10 @@ def export_docx():
         )
     except ImportError:
         flash("Установи python-docx: pip install python-docx", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     except Exception as e:
         flash(f"Ошибка экспорта: {e}", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
 
 
 @bp.route("/api/chapters/search")

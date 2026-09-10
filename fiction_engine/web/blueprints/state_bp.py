@@ -14,7 +14,7 @@ def state_view():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     state = get_state(current["id"])
     pending = get_pending_updates(current["id"])
     models = get_all_models_flat()

@@ -60,7 +60,7 @@ def generate_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     models = get_all_models_flat()
     chapters = get_chapters(current["id"])
     return render_template("generate.html", current=current, models=models, chapters=chapters)
@@ -235,7 +235,7 @@ def prompt_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     models = get_all_models_flat()
     chapters = get_chapters(current["id"])
     return render_template("prompt.html", current=current, models=models, chapters=chapters)
@@ -262,7 +262,7 @@ def prep_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     prep = get_prep(current["id"])
     return render_template("prep.html", current=current, prep=prep, sections=PREP_SECTIONS)
 
@@ -296,7 +296,7 @@ def edit_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     models = get_all_models_flat()
     chapters = get_chapters(current["id"])
     from engine.scene_editor import EDIT_MODES
@@ -446,7 +446,7 @@ def pipeline_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     from engine.db import get_pipeline_runs, init_pipeline_tables
     init_pipeline_tables()
     runs = get_pipeline_runs(current["id"])

@@ -11,7 +11,7 @@ def knowledge_page():
     current = get_current_project()
     if not current:
         flash("Сначала выбери проект", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("index"))
     articles = kb_get_all(current["id"])
     return render_template("knowledge.html", current=current, articles=articles)
 
