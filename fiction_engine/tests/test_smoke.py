@@ -188,7 +188,7 @@ class TestProjectLifecycle(SmokeBase):
     def test_switch_project(self):
         from engine.db_projects import create_project
         pid = create_project("Проект для переключения", "детектив")
-        r = self.client.get(f"/project/{pid}/switch", follow_redirects=False)
+        r = self.client.post(f"/project/{pid}/switch", follow_redirects=False)
         self.assertNotEqual(r.status_code, 500)
         # После переключения активный проект = pid
         from engine.db import get_active_project_id
@@ -207,7 +207,7 @@ class TestProjectLifecycle(SmokeBase):
         from engine.db_projects import create_project, save_chapter
         pid = create_project("Проект с главой", "романс")
         save_chapter(pid, 1, "Текст первой главы", "Задача")
-        self.client.get(f"/project/{pid}/switch")  # переключиться
+        self.client.post(f"/project/{pid}/switch")  # переключиться
 
         r = self.client.get("/api/chapters")
         self.assertEqual(r.status_code, 200)

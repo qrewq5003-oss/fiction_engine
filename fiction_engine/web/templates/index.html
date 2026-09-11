@@ -158,7 +158,9 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <span style="flex:1;font-size:13px;">{{ p.name }}</span>
         <span style="font-size:11px;color:var(--text2);">{{ p.genre }}</span>
-        <a href="/project/{{ p.id }}/switch" class="btn btn-secondary btn-sm">Открыть</a>
+        <form method="POST" action="/project/{{ p.id }}/switch" style="margin:0;">
+          <button type="submit" class="btn btn-secondary btn-sm">Открыть</button>
+        </form>
         <form method="POST" action="/project/{{ p.id }}/delete" style="margin:0;"
               onsubmit="return confirm('Удалить «{{ p.name }}»? Все главы и данные будут удалены.')">
           <button type="submit" class="btn btn-danger btn-sm">Удалить</button>

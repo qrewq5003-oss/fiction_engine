@@ -35,11 +35,17 @@
 
   /* Nav */
   .nav { display: flex; flex-direction: column; gap: 4px; }
-  .nav a { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  /* Кнопка переключения проекта выглядит как пункт меню, но отправляет
+     POST: активный проект — запись в БД, а GET браузер волен дёрнуть сам. */
+  .nav form { margin: 0; }
+  .nav button { background: none; border: 0; width: 100%; font: inherit;
+                color: inherit; cursor: pointer; text-align: left; }
+  .nav a, .nav button { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
             border-radius: 8px; color: var(--text2); text-decoration: none;
             transition: all 0.15s; font-size: 13px; }
-  .nav a:hover, .nav a.active { background: var(--surface2); color: var(--text); }
-  .nav a .icon { width: 16px; text-align: center; }
+  .nav a:hover, .nav a.active,
+  .nav button:hover, .nav button.active { background: var(--surface2); color: var(--text); }
+  .nav a .icon, .nav button .icon { width: 16px; text-align: center; }
 
   /* Section labels */
   .section-label { font-size: 10px; font-weight: 600; color: var(--text2);
@@ -229,14 +235,16 @@
 
       <div class="section-label" style="margin-top:16px">Проекты</div>
       {% for p in projects %}
-      <a href="/project/{{ p.id }}/switch" {% if current and p.id == current.id %}class="active"{% endif %}
-         style="font-size:12px;">
-        <span class="icon">📚</span>
-        {{ p.name }}
-        {% if p.last_chapter %}
-        <span style="color:var(--text2);margin-left:auto;font-size:10px;">гл.{{ p.last_chapter }}</span>
-        {% endif %}
-      </a>
+      <form method="POST" action="/project/{{ p.id }}/switch">
+        <button type="submit" {% if current and p.id == current.id %}class="active"{% endif %}
+                style="font-size:12px;">
+          <span class="icon">📚</span>
+          {{ p.name }}
+          {% if p.last_chapter %}
+          <span style="color:var(--text2);margin-left:auto;font-size:10px;">гл.{{ p.last_chapter }}</span>
+          {% endif %}
+        </button>
+      </form>
       {% endfor %}
 
       <div class="section-label" style="margin-top:16px">Система</div>

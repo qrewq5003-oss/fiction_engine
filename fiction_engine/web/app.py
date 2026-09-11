@@ -108,8 +108,14 @@ def project_new():
     return redirect(url_for("index"))
 
 
-@app.route("/project/<int:pid>/switch")
+@app.route("/project/<int:pid>/switch", methods=["POST"])
 def project_switch(pid):
+    # Только POST. Активный проект — глобальная строка в БД
+    # (settings.active_project), а не свойство вкладки, поэтому переход
+    # по этому адресу переключает проект во всех открытых окнах сразу.
+    # На GET его дёргал бы кто угодно, кроме пользователя: предзагрузка
+    # ссылки браузером, восстановление вкладок, переход по истории.
+    # Найдено tools/getcheck.py — единственная находка на всём коде.
     set_active_project(pid)
     p = get_project(pid)
     flash(f"Переключился на «{p['name']}»", "success")
