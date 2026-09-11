@@ -38,13 +38,47 @@ _SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
 
 _EMPTY_CONTAINERS = (ast.List, ast.Dict, ast.Set)
 
+# Заводские способы завести пустой накопитель
+_COLLECTOR_FACTORIES = ("list", "dict", "set", "Counter", "defaultdict", "deque")
+
 
 def _is_collector(node: ast.AST) -> bool:
-    """Пустой контейнер: x = [] / {} / set()."""
+    """
+    Накопитель — то, что заводят пустым, чтобы наполнить наблюдением.
+
+    Три вида:
+      контейнер-литерал   x = [] / {} / set()
+      фабрика             x = list() / Counter() / defaultdict(...) / deque()
+      флаг или счётчик    x = False / x = 0
+
+    Флаг добавлен по разбору: тот же дефект пишется не только списком —
+
+        touched = False
+        def spy(*a, **kw):
+            nonlocal touched; touched = True; return real(*a, **kw)
+        ...
+        assert get_scene(...) is not None      # touched не проверен
+
+    и узкое правило пропускало его целиком.
+
+    Обычные присваивания вроде `real = sqlite3.connect` накопителями не
+    считаются: это Attribute, а не пустой контейнер и не флаг.
+    """
     if isinstance(node, _EMPTY_CONTAINERS):
         return not getattr(node, "elts", None) and not getattr(node, "keys", None)
-    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-            and node.func.id in ("list", "dict", "set") and not node.args)
+    if isinstance(node, ast.Call):
+        name = (node.func.id if isinstance(node.func, ast.Name)
+                else node.func.attr if isinstance(node.func, ast.Attribute)
+                else "")
+        if name == "defaultdict":
+            return True          # аргумент — фабрика значений, сам он пуст
+        # Остальные фабрики считаются накопителем только без аргументов:
+        # `set(re.findall(...))` — это готовый результат, а не наблюдение,
+        # которое собираются наполнять.
+        return name in _COLLECTOR_FACTORIES and not node.args and not node.keywords
+    # Флаг наблюдения или счётчик, заведённый «пустым»
+    return isinstance(node, ast.Constant) and node.value in (False, 0) \
+        and not isinstance(node.value, str)
 
 
 def _names_in_asserts(fn: ast.AST) -> set[str]:
@@ -61,9 +95,20 @@ def check_file(path: Path) -> list[str]:
     for fn in ast.walk(tree):
         if not isinstance(fn, ast.FunctionDef) or not fn.name.startswith("_proof_"):
             continue
+        asserts = [n for n in ast.walk(fn) if isinstance(n, ast.Assert)]
         asserted = _names_in_asserts(fn)
+        if not asserts:
+            problems.append(
+                f"{path}:{fn.lineno}: {fn.name}() не содержит ни одного assert")
+            continue
         if not asserted:
-            problems.append(f"{path}:{fn.lineno}: {fn.name}() не содержит ни одного assert")
+            # Assert есть, но проверяет константы: `assert 2 + 2 == 4`.
+            # Прежнее сообщение утверждало, что assert отсутствует, —
+            # и уводило от причины. Инструмент как раз о том, что
+            # заявление обязано совпадать с проверкой.
+            problems.append(
+                f"{path}:{fn.lineno}: {fn.name}() — ни один assert "
+                "не проверяет переменных")
             continue
         for node in ast.walk(fn):
             if isinstance(node, ast.Assign) and _is_collector(node.value):
