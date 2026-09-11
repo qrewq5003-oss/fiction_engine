@@ -149,8 +149,7 @@ FE_HOST=0.0.0.0 .venv/bin/python web/app.py
 
 ```bash
 cd fiction_engine
-.venv/bin/python -m pytest tests/ -q     # основной набор
-.venv/bin/python run_tests.py            # автономный набор, без внешних зависимостей
+.venv/bin/python -m pytest tests/ -q --cov=engine --cov=web
 .venv/bin/python -m mypy engine web cli.py
 python3 check_architecture.py            # границы слоёв: web не лезет в приватное
 ```

@@ -50,7 +50,7 @@ def test_readme_mentions_only_existing_modules():
     """README не должен ссылаться на удалённые модули."""
     mentioned = set(re.findall(r"`(\w+)\.py`", APP_README))
     known = _engine_modules() | {
-        "cli", "run_tests", "check_architecture", "app",
+        "cli", "check_architecture", "app",
         "sigcheck", "pitfalls", "dead",
     }
     ghosts = sorted(mentioned - known)

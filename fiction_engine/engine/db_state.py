@@ -535,9 +535,10 @@ def _apply_global_block(gblock: str, global_text: str,
         if name in SKIP_NAMES:
             continue
 
-        char_exists = re.search(
-            rf"###\s*{re.escape(name)}\n", global_text, re.IGNORECASE
-        )
+        # Тот же терпимый поиск, что и в JSON-пути: заголовки бывают
+        # «### Имя», «[ИМЯ — РОЛЬ]» и «**Имя**». Раньше legacy-путь знал
+        # только первый вид и на остальных форматах дописывал дубль.
+        char_exists = _find_char_block(global_text, name)
         if char_exists:
             global_text = _apply_existing_char(name, section, global_text, record_fn)
         else:

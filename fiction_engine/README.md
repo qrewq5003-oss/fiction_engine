@@ -58,7 +58,6 @@
 ```
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
-run_tests.py           автономный раннер (без внешних зависимостей)
 
 engine/                движок — 35 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
@@ -163,8 +162,7 @@ tests/                 pytest-набор
 ## Разработка
 
 ```bash
-.venv/bin/python -m pytest tests/ -q     # основной набор
-.venv/bin/python run_tests.py            # автономный, только стандартная библиотека
+.venv/bin/python -m pytest tests/ -q --cov=engine --cov=web
 .venv/bin/python -m mypy engine web cli.py
 python3 check_architecture.py
 ```
@@ -173,6 +171,7 @@ python3 check_architecture.py
 импортировать приватные функции движка. Публичный API — в `engine/__init__.py`
 и в докстрингах `pipeline.py`.
 
-`run_tests.py` существует отдельно от pytest потому, что мокает `openai` и
-`anthropic` внутри себя и работает в голом окружении — им удобно проверять
-машину, где зависимости не поставлены.
+Набор один. Раньше их было три — run_tests.py, `tests/` и четыре
+неподключённых `tests_*.py` в корне, — одни и те же проверки в двух-трёх
+реализациях. При слиянии уникальные случаи перенесены в `tests/`, покрытие
+выросло с 71.4% до 77.8%. CI роняет сборку, если покрытие упадёт ниже 75%.

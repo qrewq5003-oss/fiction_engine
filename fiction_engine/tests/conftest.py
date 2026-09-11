@@ -56,3 +56,30 @@ def project_with_chapters(project_id):
     save_chapter(project_id, 2, "Глава вторая. Герой встретил дракона.", "Встреча")
     save_chapter(project_id, 3, "Глава третья. Герой победил.", "Победа")
     return project_id
+
+
+# ─── Временные каталоги ───────────────────────────────────────────────────────
+#
+# Несколько тестов зовут tempfile.mkdtemp() напрямую, минуя фикстуру tmp_path.
+# Каталоги при этом не удаляются: hypothesis прогоняет тело сотни раз, и один
+# прогон набора оставлял тысячи каталогов. Наблюдалось 19 590 штук — /tmp на
+# 7 ГБ забивался под завязку и ронял посторонние команды.
+#
+# Подменяем mkdtemp на версию, которая складывает всё под один корень,
+# удаляемый в конце сессии. Вызовы в тестах менять не нужно.
+
+import atexit
+import shutil
+import tempfile as _tempfile
+
+_TESTS_TMP_ROOT = _tempfile.mkdtemp(prefix="fe_pytest_")
+_real_mkdtemp = _tempfile.mkdtemp
+
+
+def _scoped_mkdtemp(suffix=None, prefix=None, dir=None):
+    return _real_mkdtemp(suffix=suffix, prefix=prefix,
+                         dir=dir if dir is not None else _TESTS_TMP_ROOT)
+
+
+_tempfile.mkdtemp = _scoped_mkdtemp
+atexit.register(lambda: shutil.rmtree(_TESTS_TMP_ROOT, ignore_errors=True))
