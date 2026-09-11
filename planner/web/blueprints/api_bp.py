@@ -1,10 +1,10 @@
-from flask import Blueprint, session, request, jsonify
+from flask import Blueprint, request, jsonify
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 
-def current_pid():
-    return session.get("project_id")
+from ..ownership import (owned_scene, owned_act, owned_link,  # noqa: E402
+                          current_pid, deny)
 
 
 # ─── Scenes ───────────────────────────────────────────────────────────────────
@@ -44,18 +44,17 @@ def scene_new():
 
 @bp.route("/scenes/move", methods=["POST"])
 def scene_move():
-    # Сцену можно двигать только внутри своего проекта: id приходит
-    # из запроса и раньше принимался как есть.
-    from engine.db import get_scene
-    data_ = request.json or {}
-    _scene = get_scene(data_.get("scene_id"))
-    if not _scene or _scene["project_id"] != current_pid():
-        return jsonify({"error": "Сцена не найдена в текущем проекте"}), 404
-    data = request.json or {}
+    data     = request.json or {}
     sid      = data.get("scene_id")
     act_id   = data.get("act_id")
     position = data.get("position", 0)
     if not sid: return jsonify({"error": "Нет scene_id"}), 400
+    # Двигать можно только свою сцену и только в свой акт:
+    # оба номера приходят из запроса и раньше принимались как есть.
+    if not owned_scene(sid):
+        return deny("Сцена")
+    if act_id is not None and not owned_act(act_id):
+        return deny("Акт")
     from engine.db import move_scene
     move_scene(sid, act_id, position)
     return jsonify({"ok": True})
@@ -67,6 +66,16 @@ def scene_reorder():
     data   = request.json or {}
     order  = data.get("order", [])  # [{scene_id, position}]
     act_id = data.get("act_id")
+
+    # Переставлять можно только свои сцены и только внутри своего акта.
+    # Раньше номера брались из запроса как есть, и порядок чужого проекта
+    # переписывался целиком.
+    if act_id is not None and not owned_act(act_id):
+        return deny("Акт")
+    for item in order:
+        if not owned_scene(item.get("scene_id")):
+            return deny("Сцена")
+
     from engine.db import get_conn
     with get_conn() as conn:
         for item in order:
@@ -92,6 +101,11 @@ def act_save():
     pid = current_pid()
     if not pid: return jsonify({"error": "Нет проекта"}), 400
     data  = request.json or {}
+    # Номер правимого акта приходит под ключом "id" (не "act_id").
+    # Без этой проверки чужой акт переписывался по одному лишь номеру.
+    existing = data.get("id") or data.get("act_id")
+    if existing and not owned_act(existing):
+        return deny("Акт")
     from engine.db import save_act
     aid = save_act(pid, data.get("id"), data.get("number", 1),
                    data.get("title", "Акт"), data.get("color", "#6b7280"))
@@ -100,6 +114,8 @@ def act_save():
 
 @bp.route("/acts/<int:act_id>/delete", methods=["POST"])
 def act_delete(act_id):
+    if not owned_act(act_id):
+        return deny("Акт")
     from engine.db import delete_act
     delete_act(act_id)
     return jsonify({"ok": True})
@@ -118,6 +134,11 @@ def links_list():
 @bp.route("/links/save", methods=["POST"])
 def link_save():
     data = request.json or {}
+    # Связь вписывалась между любыми сценами по номерам из запроса —
+    # в том числе в чужой проект.
+    for key in ("from_id", "to_id"):
+        if not owned_scene(data.get(key)):
+            return deny("Сцена")
     from engine.db import save_link
     lid = save_link(data["from_id"], data["to_id"],
                     data.get("link_type", "cause"), data.get("label", ""))
@@ -126,6 +147,8 @@ def link_save():
 
 @bp.route("/links/<int:link_id>/delete", methods=["POST"])
 def link_delete(link_id):
+    if not owned_link(link_id):
+        return deny("Связь")
     from engine.db import delete_link
     delete_link(link_id)
     return jsonify({"ok": True})
