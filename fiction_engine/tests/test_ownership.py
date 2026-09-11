@@ -34,13 +34,58 @@ for _mod in ("openai", "anthropic"):
 sys.modules["openai"].OpenAI = MagicMock()
 
 
-# ─── Маршруты со сквозным идентификатором, которым чужой объект не страшен ────
+# ─── Исключения, которые ДОКАЗЫВАЮТСЯ, а не объявляются ───────────────────────
+#
+# Раньше здесь был словарь «маршрут → почему он безопасен». В планировщике
+# такой же список подвёл: одна запись оказалась ложной, маршрут вышел
+# из-под проб и утекал содержимое чужой сцены при зелёном тесте. Проза
+# не проверяется ничем.
+#
+# Теперь каждое исключение — функция, которая выполняется и что-то
+# доказывает.
 
-SAFE_BY_DESIGN = {
-    "/pipeline/start":          "создаёт запуск в активном проекте",
-    "/pipeline/delete-history": "удаляет историю активного проекта, id не принимает",
-    "/pipeline/cleanup":        "чистит незавершённые запуски активного проекта",
-    "/api/generation/clear":    "очищает историю активного проекта целиком",
+def _proof_pipeline_start(client, f):
+    """Создаёт запуск в активном проекте; чужие запуски не трогает."""
+    from engine.db import get_pipeline_run
+    before = dict(get_pipeline_run(f["run_id"]))
+    client.post("/pipeline/start", json={"chapter_num": 1,
+                                         "generation_prompt": "задача",
+                                         "model_gen": "x::y", "model_critic": "x::y",
+                                         "model_editor": "x::y", "model_judge": "x::y"})
+    assert dict(get_pipeline_run(f["run_id"])) == before, "чужой запуск изменён"
+
+
+def _proof_pipeline_delete_history(client, f):
+    """Удаляет историю активного проекта; чужие запуски остаются."""
+    from engine.db import get_pipeline_run
+    client.post("/pipeline/delete-history", json={})
+    assert get_pipeline_run(f["run_id"]) is not None, "удалён чужой запуск"
+
+
+def _proof_pipeline_cleanup(client, f):
+    """Чистит незавершённые запуски активного проекта, не чужие."""
+    from engine.db import get_pipeline_run
+    before = dict(get_pipeline_run(f["run_id"]))
+    client.post("/pipeline/cleanup", json={})
+    assert dict(get_pipeline_run(f["run_id"])) == before, "изменён чужой запуск"
+
+
+def _proof_generation_clear(client, f):
+    """Очищает историю активного проекта; чужие генерации остаются."""
+    from engine.db import get_conn
+    client.post("/api/generation/clear", json={})
+    with get_conn() as conn:
+        left = conn.execute(
+            "SELECT count(*) FROM generation_history WHERE project_id=?",
+            (f["other"],)).fetchone()[0]
+    assert left == 1, "удалена чужая генерация"
+
+
+PROOFS = {
+    "/pipeline/start":          _proof_pipeline_start,
+    "/pipeline/delete-history": _proof_pipeline_delete_history,
+    "/pipeline/cleanup":        _proof_pipeline_cleanup,
+    "/api/generation/clear":    _proof_generation_clear,
 }
 
 
@@ -129,11 +174,11 @@ def test_every_global_id_route_is_accounted_for(client, foreign):
     списков — иначе проедет тихо, как проехали четыре прошлых.
     """
     from web.app import app
-    covered = set(_probes(foreign)) | set(SAFE_BY_DESIGN)
+    covered = set(_probes(foreign)) | set(PROOFS)
     unaccounted = sorted(_global_id_routes(app) - covered)
     assert not unaccounted, (
         "маршруты не описаны в проверке принадлежности: " + ", ".join(unaccounted)
-        + "\nДобавь пробу в _probes() или обоснование в SAFE_BY_DESIGN."
+        + "\nДобавь пробу в _probes() или доказательство в PROOFS."
     )
 
 
@@ -142,6 +187,19 @@ def test_probe_map_has_no_stale_entries(client, foreign):
     existing = {str(r) for r in app.url_map.iter_rules()}
     stale = sorted(set(_probes(foreign)) - existing)
     assert not stale, f"пробы ссылаются на несуществующие маршруты: {stale}"
+
+
+def test_every_exception_is_proven(client, foreign):
+    """Каждое исключение доказывает безопасность выполнением, а не текстом."""
+    for rule, proof in sorted(PROOFS.items()):
+        proof(client, foreign)
+
+
+def test_proofs_cover_only_real_routes(client, foreign):
+    from web.app import app
+    existing = {str(r) for r in app.url_map.iter_rules()}
+    stale = sorted(set(PROOFS) - existing)
+    assert not stale, f"доказательства для несуществующих маршрутов: {stale}"
 
 
 # ─── Отказ и сохранность ──────────────────────────────────────────────────────

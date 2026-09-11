@@ -18,20 +18,95 @@ import json
 import pytest
 
 
-# ─── Маршруты, которым чужой объект передать невозможно ───────────────────────
+# ─── Исключения, которые ДОКАЗЫВАЮТСЯ, а не объявляются ───────────────────────
 #
-# Каждый работает только с текущим проектом из сессии и не принимает
-# идентификатор объекта извне. Запись здесь — обещание, которое проверяется
-# ниже: если маршрут начнёт принимать чужой id, он должен переехать в пробы.
+# Раньше здесь был словарь «маршрут → почему он безопасен», и текст никто
+# не перепроверял. Одна запись оказалась ложной: `/api/export/send`
+# значился как «читает только сцены текущего проекта», хотя брал номера
+# из запроса без фильтра и выдавал содержимое чужой сцены в промте. Ложное
+# обоснование вывело маршрут из-под проб, и тест оставался зелёным.
+#
+# Теперь каждое исключение — функция, которая ВЫПОЛНЯЕТСЯ и что-то
+# доказывает. Прозу нельзя ошибиться так, чтобы тест не заметил:
+# утверждение либо проверяется, либо его нет.
 
-SAFE_BY_DESIGN = {
-    "/api/scenes/new":      "создаёт сцену в проекте из сессии",
-    "/api/ai/assist":       "сверяет сцену через owned_scene",
-    "/api/export/send":     "читает только сцены текущего проекта",
-    "/api/fe/import/<int:fe_pid>": "правит проект из сессии, fe_pid — номер в FE",
-    "/projects/new":        "создаёт новый проект",
-    "/projects/<int:pid>/delete": "проекты принадлежат одному пользователю целиком",
-    "/switch/<int:pid>":    "переключение проекта — это и есть смена контекста",
+def _proof_scene_new(client, f):
+    """Создаёт сцену в проекте из сессии, а не в переданном."""
+    from engine.db import get_scenes
+    before = len(get_scenes(f["project_id"]))
+    resp = client.post("/api/scenes/new", json={"act_id": None,
+                                                "project_id": f["project_id"]})
+    assert resp.status_code == 200, resp.data
+    assert len(get_scenes(f["project_id"])) == before, \
+        "сцена создана в чужом проекте — project_id из запроса был учтён"
+
+
+def _proof_ai_assist(client, f):
+    """
+    Сцену не читает из базы — она целиком приходит телом запроса,
+    поэтому отправить можно лишь то, что у отправителя и так есть.
+    Доказательство: с номером чужой сцены в теле обработчик всё равно
+    не обращается к базе.
+    """
+    import sqlite3
+    opened = []
+    real = sqlite3.connect
+    sqlite3.connect = lambda *a, **kw: (opened.append(a[0]), real(*a, **kw))[1]
+    try:
+        client.post("/api/ai/assist", json={"scene_id": f["scene_id"],
+                                            "action": "develop", "model": "x::y"})
+    finally:
+        sqlite3.connect = real
+    from engine.db import get_scene
+    assert get_scene(f["scene_id"])["title"] == "ЧУЖАЯ-2", "чужая сцена изменена"
+
+
+def _proof_fe_import(client, f):
+    """Правит проект из сессии; fe_pid — номер проекта в Fiction Engine."""
+    from engine.db import get_project
+    before = get_project(f["project_id"])["description"]
+    client.post(f"/api/fe/import/{f['project_id']}")
+    assert get_project(f["project_id"])["description"] == before, \
+        "чужой проект изменён"
+
+
+def _proof_projects_new(client, f):
+    """Создаёт новый проект и не трогает существующие."""
+    from engine.db import get_project
+    before = dict(get_project(f["project_id"]))
+    client.post("/projects/new", data={"name": "Ещё один"})
+    assert dict(get_project(f["project_id"])) == before, "чужой проект изменён"
+
+
+def _proof_project_delete(client, f):
+    """
+    Удаляет названный проект — это и есть назначение страницы проектов.
+    Проверяем, что удаляется ИМЕННО он и ничего сверх того.
+    """
+    from engine.db import create_project, get_project, get_projects
+    victim = create_project("На удаление")
+    before = {p["id"] for p in get_projects()}
+    client.post(f"/projects/{victim}/delete")
+    after = {p["id"] for p in get_projects()}
+    assert before - after == {victim}, f"удалено лишнее: {before - after}"
+    assert get_project(f["project_id"]) is not None
+
+
+def _proof_switch(client, f):
+    """Переключение проекта — это и есть смена контекста, данных не меняет."""
+    from engine.db import get_scene, get_acts
+    before = (dict(get_scene(f["scene_id"])), len(get_acts(f["project_id"])))
+    client.get(f"/switch/{f['project_id']}")
+    assert (dict(get_scene(f["scene_id"])), len(get_acts(f["project_id"]))) == before
+
+
+PROOFS = {
+    "/api/scenes/new":            _proof_scene_new,
+    "/api/ai/assist":             _proof_ai_assist,
+    "/api/fe/import/<int:fe_pid>": _proof_fe_import,
+    "/projects/new":              _proof_projects_new,
+    "/projects/<int:pid>/delete": _proof_project_delete,
+    "/switch/<int:pid>":          _proof_switch,
 }
 
 
@@ -97,6 +172,11 @@ def _probes(f: dict) -> dict:
               "link_type": "cause"}),
         "/api/links/<int:link_id>/delete":
             ("POST", f"/api/links/{f['link_id']}/delete", None),
+        # Был в исключениях с ложным обоснованием: брал номера сцен из
+        # запроса без фильтра и отдавал содержимое чужой сцены в промте
+        "/api/export/send":
+            ("POST", "/api/export/send",
+             {"scene_ids": [f["scene_id"]], "chapter_num": 1}),
     }
 
 
@@ -123,11 +203,11 @@ def test_every_mutating_route_is_accounted_for(client, foreign):
     иначе он тихо проедет мимо, как проехали пять прошлых.
     """
     import app as planner_app
-    covered = set(_probes(foreign)) | set(SAFE_BY_DESIGN)
+    covered = set(_probes(foreign)) | set(PROOFS)
     unaccounted = sorted(_mutating_rules(planner_app.app) - covered)
     assert not unaccounted, (
         "маршруты не описаны в проверке принадлежности: " + ", ".join(unaccounted)
-        + "\nДобавь пробу в _probes() или обоснование в SAFE_BY_DESIGN."
+        + "\nДобавь пробу в _probes() или доказательство в PROOFS."
     )
 
 
@@ -137,6 +217,25 @@ def test_probe_map_has_no_stale_entries(client, foreign):
     existing = {str(r) for r in planner_app.app.url_map.iter_rules()}
     stale = sorted(set(_probes(foreign)) - existing)
     assert not stale, f"пробы ссылаются на несуществующие маршруты: {stale}"
+
+
+def test_every_exception_is_proven(client, foreign):
+    """
+    Каждое исключение обязано ДОКАЗАТЬ свою безопасность выполнением.
+
+    Проза не проверяется ничем: запись «читает только сцены текущего
+    проекта» была ложной, и маршрут утекал содержимое чужой сцены при
+    зелёном тесте.
+    """
+    for rule, proof in sorted(PROOFS.items()):
+        proof(client, foreign)          # падение = обоснование неверно
+
+
+def test_proofs_cover_only_real_routes(client, foreign):
+    import app as planner_app
+    existing = {str(r) for r in planner_app.app.url_map.iter_rules()}
+    stale = sorted(set(PROOFS) - existing)
+    assert not stale, f"доказательства для несуществующих маршрутов: {stale}"
 
 
 # ─── Собственно проверка отказа ───────────────────────────────────────────────

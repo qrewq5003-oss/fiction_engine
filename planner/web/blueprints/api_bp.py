@@ -218,8 +218,13 @@ def export_send():
     scene_ids  = data.get("scene_ids", [])
     chapter_num = data.get("chapter_num", 1)
 
-    from engine.db import get_scene
-    scenes = [get_scene(sid) for sid in scene_ids if get_scene(sid)]
+    # Номера сцен приходят из запроса. Без фильтра по проекту содержимое
+    # чужой сцены уходило в промт — и дальше в Fiction Engine
+    # режиссёрской заметкой к главе. Маршрут был выведен из-под проверок
+    # ложным обоснованием «читает только сцены текущего проекта».
+    scenes = [sc for sc in (owned_scene(sid) for sid in scene_ids) if sc]
+    if scene_ids and not scenes:
+        return deny("Сцена")
 
     # Строим промт
     lines = [f"ПЛАН ГЛАВЫ {chapter_num}\n"]
