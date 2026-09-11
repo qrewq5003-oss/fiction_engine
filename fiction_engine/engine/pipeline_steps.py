@@ -437,11 +437,8 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
 
     critique  = call_fn(model_critic, sys_critic, critique_prompt, max_tokens=2000)
 
-    m = re.search(r'ИТОГ:\s*(\d+(?:\.\d+)?)', critique)
-    scores = re.findall(r'(?:ГОЛОС|СТРУКТУРА|ПЕРСОНАЖИ|СЦЕНЫ|ДИАЛОГ):\s*(\d+)', critique)
-    critic_score = (float(m.group(1)) if m
-                    else sum(float(s) for s in scores) if scores
-                    else 0.0)
+    from .pipeline_llm import parse_score
+    critic_score = parse_score(critique)
 
     save_pipeline_iteration(run_id, iteration, "critique", model_critic,
                              current_text, critique, score=critic_score)
@@ -551,14 +548,9 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
 
     judgment = call_fn(model_judge, sys_judge, judge_prompt, max_tokens=2000)
 
-    m_score   = re.search(r'ИТОГ:\s*(\d+(?:\.\d+)?)', judgment)
-    scores    = re.findall(r'(?:ГОЛОС|СТРУКТУРА|ПЕРСОНАЖИ|СЦЕНЫ|ДИАЛОГ):\s*(\d+)', judgment)
-    judge_score = (float(m_score.group(1)) if m_score
-                   else sum(float(s) for s in scores) if scores
-                   else 0.0)
-
-    m_verdict = re.search(r'ВЕРДИКТ:\s*(ПРИНЯТЬ|НА ДОРАБОТКУ)', judgment)
-    verdict   = m_verdict.group(1) if m_verdict else "НА ДОРАБОТКУ"
+    from .pipeline_llm import parse_score, parse_verdict
+    judge_score = parse_score(judgment)
+    verdict     = parse_verdict(judgment)
 
     save_pipeline_iteration(run_id, iteration, "judge", model_judge,
                              current_text, judgment,

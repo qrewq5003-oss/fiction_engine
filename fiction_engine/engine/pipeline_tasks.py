@@ -235,9 +235,10 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     raw = _call(model_value, sys_critic, prompt, max_tokens=1200)
 
     # Парсим структурированный ответ критика
+    from .pipeline_llm import parse_criterion
+
     def extract_score(label):
-        m = re.search(rf"{label}:\s*(\d+)", raw, re.IGNORECASE)
-        return int(m.group(1)) if m else 0
+        return parse_criterion(raw, label)
 
     voice      = extract_score("ГОЛОС")
     structure  = extract_score("СТРУКТУРА")
@@ -245,8 +246,8 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     scenes     = extract_score("СЦЕНЫ")
     dialog     = extract_score("ДИАЛОГ")
 
-    m_total = re.search(r"ИТОГ:\s*(\d+(?:\.\d+)?)", raw)
-    total   = float(m_total.group(1)) if m_total else float(sum([voice, structure, characters, scenes, dialog]))
+    from .pipeline_llm import parse_score
+    total = parse_score(raw) or float(sum([voice, structure, characters, scenes, dialog]))
 
     # Главная проблема — первый пункт из ГЛАВНЫЕ ПРОБЛЕМЫ
     main_issue = ""
@@ -268,11 +269,16 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     }
 
 
+def _l3_summary_budget() -> int:
+    from .l3_memory import SUMMARY_MAX_TOKENS
+    return SUMMARY_MAX_TOKENS
+
+
 def generate_l3(project_id: int, chapter_num: int,
                 text: str, model_value: str) -> object:
-    from .l3_memory import generate_l3_summary
+    from .l3_memory import generate_l3_summary, SUMMARY_MAX_TOKENS
     return generate_l3_summary(project_id, chapter_num, text,
-                                _make_model_caller(model_value))
+                                _make_model_caller(model_value, SUMMARY_MAX_TOKENS))
 
 
 def generate_director_note_for_chapter(project_id: int, chapter_num: int,
@@ -358,7 +364,8 @@ def run_batch_l3(project_id: int, model_value: str,
     from .l3_memory import batch_generate_l3
     return batch_generate_l3(
         project_id=project_id,
-        api_call_fn=_make_model_caller(model_value),
+        # Тот же бюджет, что и у одиночной генерации: пакет делает ровно то же.
+        api_call_fn=_make_model_caller(model_value, _l3_summary_budget()),
         chapter_nums=chapter_nums,
         progress_callback=progress_callback,
     )
