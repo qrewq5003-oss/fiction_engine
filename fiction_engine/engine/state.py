@@ -68,11 +68,11 @@ def _extract_next_context(analysis: str) -> str:
     Поддерживает JSON-формат (новый) и legacy text-формат (обратная совместимость).
     """
     import json, re
-    # Пробуем JSON
+    # Пробуем JSON — общим терпимым разбором, а не своей выемкой
     try:
-        match = re.search(r'\{.*\}', analysis, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
+        from .pipeline_llm import parse_json
+        data = parse_json(analysis)
+        if isinstance(data, dict):
             ctx = data.get("next_context", "")
             if ctx:
                 return ctx.strip()

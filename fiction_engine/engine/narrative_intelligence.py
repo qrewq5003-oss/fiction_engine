@@ -40,12 +40,19 @@ _PROMISE_RESOLUTION_SYS = """Ты — нарративный аналитик. �
 # ─── Вспомогательные ─────────────────────────────────────────────────────────
 
 def _parse_json(raw: str) -> dict:
-    """Парсит JSON из ответа LLM. Убирает markdown-обёртку."""
-    clean = re.sub(r"```json|```", "", raw).strip()
-    m = re.search(r"(\{.*\}|\[.*\])", clean, re.DOTALL)
-    if m:
-        return json.loads(m.group(1))
-    return json.loads(clean)
+    """
+    Парсит JSON из ответа LLM.
+
+    Разбор общий (pipeline_llm.parse_json), а не свой: жадная выемка
+    `{.*}|[.*]` жила здесь отдельной копией и потому не получала ни
+    снятия <think>-блоков, ни поиска по балансу скобок. Поведение при
+    неудаче прежнее — исключение, на нём держатся вызывающие.
+    """
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    if data is None:
+        raise ValueError(f"Модель не вернула корректный JSON: {(raw or '')[:200]}")
+    return data
 
 
 # ─── Вспомогательные для метрик (без LLM) ────────────────────────────────────

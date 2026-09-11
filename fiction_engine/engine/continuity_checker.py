@@ -216,15 +216,15 @@ def check_continuity(
 
     raw = api_call_fn(prompt)
 
-    # Парсим JSON
-    import re
-    match = re.search(r'\{.*\}', raw, re.DOTALL)
-    if not match:
+    # Парсим JSON общим терпимым разбором: своя выемка `{.*}` ломалась
+    # на обрамлении ```json и на ответе, обрезанном лимитом токенов.
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    if data is None:
         return []
 
     try:
-        data = json.loads(match.group())
-        violations = data.get("violations", [])
+        violations = data.get("violations", []) if isinstance(data, dict) else []
         # Фильтруем: только реальные нарушения со severity
         return [
             v for v in violations

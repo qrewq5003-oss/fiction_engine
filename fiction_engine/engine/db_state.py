@@ -715,11 +715,10 @@ def merge_analysis_into_state(
     Возвращает: {"changed": bool, "fields": [...], "new_chars": [...]}
     """
     # Пробуем JSON-формат
-    import json as _json
+    from .pipeline_llm import parse_json
     try:
-        match = re.search(r'\{.*\}', raw_analysis, re.DOTALL)
-        if match:
-            data = _json.loads(match.group())
+        data = parse_json(raw_analysis)
+        if isinstance(data, dict):
             # Базовая валидация: JSON-анализ должен иметь хотя бы один из ключевых полей
             if any(k in data for k in ("global_state_changes", "plot_changes",
                                        "memory_changes", "next_context",
@@ -824,12 +823,10 @@ def extract_freeform_with_llm(freeform_text: str, api_call_fn) -> dict | None:
         prompt = _PROMPT_FREEFORM_EXTRACT.format(text=freeform_text[:2000])
         raw = api_call_fn(prompt)
 
-        # Чистим markdown обёртку
-        clean = re.sub(r"```json|```", "", raw).strip()
-        m = re.search(r"(\{.*\})", clean, re.DOTALL)
-        if m:
-            clean = m.group(1)
-        data = json.loads(clean)
+        from .pipeline_llm import parse_json
+        data = parse_json(raw)
+        if not isinstance(data, dict):
+            raise ValueError("модель не вернула объект")
 
         # Конвертируем в формат parse_structured_state
         characters = {}

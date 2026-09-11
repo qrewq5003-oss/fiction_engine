@@ -22,6 +22,16 @@ from .logger import get_logger
 
 log = get_logger(__name__)
 
+# Сколько токенов нужно саммари, чтобы уместиться целиком.
+#
+# Раньше вызыватель давал всем вспомогательным задачам плоские 400. Замер
+# на живом прогоне 2026-09-12 (глава 3, 5 попыток подряд через /api/l3/N/
+# generate): при 400 ответ обрывался со stop_reason='max_tokens' посреди
+# строки, `{.*}` захватывал огрызок, json.loads падал — 5 отказов из 5.
+# При 1500 — stop_reason='end_turn' и целый JSON. Пять полей плюс массив
+# promises по-русски в 400 токенов физически не помещаются.
+SUMMARY_MAX_TOKENS = 1500
+
 
 SUMMARY_PROMPT = """Ты помогаешь писателю отслеживать длинную серию.
 Прочитай текст главы и создай структурированное саммари для памяти.
@@ -119,6 +129,34 @@ def mark_promise_resolved(
     return updated
 
 
+def _truncation_reason() -> str:
+    """Пояснение к отказу, если ответ упёрся в потолок токенов."""
+    try:
+        from .api import get_last_stop_reason
+        if get_last_stop_reason() in ("max_tokens", "length"):
+            return (f" — ответ модели оборван лимитом токенов "
+                    f"(бюджет {SUMMARY_MAX_TOKENS}); саммари не поместилось")
+    except Exception:
+        pass
+    return ""
+
+
+def _parse_summary_json(raw: str) -> dict | None:
+    """
+    Разбор JSON из ответа модели.
+
+    Своей регулярки здесь больше нет. `{.*}` жадно хватала от первой
+    скобки до последней и на обрезанном ответе отдавала огрызок, который
+    json.loads отвергал. Терпимый разбор — снятие ```json-обрамления,
+    <think>-блоков и поиск по балансу скобок — уже написан в
+    pipeline_llm.parse_json; вторая, более слабая копия рядом с ним
+    ровно тем и опасна, что чинят обычно одну.
+    """
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    return data if isinstance(data, dict) and data else None
+
+
 def generate_l3_summary(project_id: int, chapter_num: int,
                          chapter_text: str, api_call_fn) -> dict | None:
     """
@@ -143,11 +181,17 @@ def generate_l3_summary(project_id: int, chapter_num: int,
 
     try:
         raw = api_call_fn(prompt)
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if not match:
-            return None
 
-        summary = json.loads(match.group())
+        summary = _parse_summary_json(raw)
+        if summary is None:
+            # Обрыв по лимиту токенов и брак модели выглядят одинаково —
+            # оба дают нерабочий JSON. Причину система знает: stop_reason
+            # захватывается при вызове. Не сказать её — значит отправить
+            # автора искать несуществующую проблему в тексте главы.
+            reason = _truncation_reason()
+            log.error("generate_l3_summary: ответ не разобран" + reason,
+                      project_id=project_id, chapter_num=chapter_num)
+            return None
         # Проверяем наличие нужных полей
         for key in ("events", "characters", "conflicts", "promises", "mood"):
             if key not in summary:
