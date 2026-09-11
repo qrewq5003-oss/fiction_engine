@@ -59,8 +59,11 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 35 модулей
+engine/                движок — 37 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
+                       (маршруты generate разнесены по четырём файлам:
+                        generate_bp, generate_prompt, generate_pipeline,
+                        generate_narrative — блупринт общий)
 tests/                 pytest-набор
 ```
 
@@ -71,6 +74,8 @@ tests/                 pytest-набор
 | Модуль | Назначение |
 |---|---|
 | `pipeline.py` | Оркестратор: генерация → критик → редактор → судья |
+| `pipeline_llm.py` | Доступ к модели и сборка системных промптов |
+| `pipeline_tasks.py` | Самостоятельные операции: генерация, оценка, саммари, символы |
 | `pipeline_steps.py` | Исполнители отдельных шагов |
 | `pipeline_config.py` | Декларативные пресеты циклов и бюджеты токенов |
 | `pipeline_context.py` | Сборка контекста для генерации |
