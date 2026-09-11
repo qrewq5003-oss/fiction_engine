@@ -1,7 +1,7 @@
 """Blueprint: State Engine."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from engine.db import (get_state, update_state, get_api_key, get_pending_updates,
-                       save_state_update, mark_update_applied)
+ mark_update_applied)
 from engine.state import analyze_chapter
 from engine.api import get_all_models_flat
 from .helpers import get_current_project, log_web_error

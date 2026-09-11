@@ -1,7 +1,7 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
-from engine.db import get_chapter, get_chapters, save_chapter, get_api_key
-from .helpers import get_current_project, get_cheap_model, after_chapter_saved, log_web_error
+from engine.db import get_chapter, get_chapters, save_chapter
+from .helpers import get_current_project, get_cheap_model, log_web_error
 
 bp = Blueprint("chapters", __name__)
 
@@ -234,7 +234,6 @@ def continuity_check():
     try:
         from engine.continuity_checker import check_continuity
         from engine.pipeline import call_llm as llm_call
-        import functools
 
         def api_fn(prompt):
             return llm_call(model_value,

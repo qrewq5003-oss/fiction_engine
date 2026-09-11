@@ -199,10 +199,8 @@ def symbols_analyze():
         return jsonify({"error": "Глава не найдена"}), 404
     from engine.db import get_symbols
     existing_names = [s["name"] for s in get_symbols(current["id"])]
-    SYS = "Ты редактор-аналитик. Ищешь символы в тексте. Только JSON."
-    prompt = f"""Найди символы в главе. УЖЕ ИЗВЕСТНЫ: {', '.join(existing_names) or 'нет'}
-ТЕКСТ:\n{ch['content'][:3000]}
-{{"found":[{{"name":"...","type":"...","context":"...","potential_meaning":"...","is_new":true}}],"note":"..."}}"""
+    # Промпт строит сам find_symbols_in_chapter — локальные SYS и prompt
+    # остались от прежней версии и никуда не передавались
     try:
         from engine.pipeline import find_symbols_in_chapter
         result = find_symbols_in_chapter(ch["content"], existing_names, model_value)

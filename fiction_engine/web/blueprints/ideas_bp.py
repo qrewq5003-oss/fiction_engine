@@ -1,6 +1,6 @@
 """Blueprint: Ideas workspace + эталоны + оценка с подсветкой."""
 from flask import Blueprint, render_template, request, jsonify
-from engine.db import (create_project, set_active_project, update_state, get_api_key)
+from engine.db import (create_project, set_active_project, update_state)
 from engine.api import get_all_models_flat
 from .helpers import get_current_project
 
