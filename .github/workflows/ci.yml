@@ -21,11 +21,12 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Установка зависимостей
+      # Ставим сам проект: так проверяется и то, что пакет собирается,
+      # и что импорты работают без подмешивания путей.
+      - name: Установка
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install mypy hypothesis
+          pip install -e '.[dev]'
 
       # Единственный набор. До слияния их было три: run_tests.py (9118 строк),
       # tests/ и четыре мёртвых tests_*.py в корне — одни и те же проверки

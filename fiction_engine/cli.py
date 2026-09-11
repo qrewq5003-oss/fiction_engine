@@ -9,7 +9,8 @@ from typing import Callable
 import os
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+# Пакет ставится через `pip install -e .` (см. setup.sh), поэтому
+# engine и web импортируются штатно — подмешивать пути не нужно.
 
 from engine.db import (init_db, create_project, get_projects, get_project,
                         set_active_project, get_active_project_id,
@@ -73,6 +74,12 @@ def _require_project() -> int | None:
 
 
 # ─── Команды ─────────────────────────────────────────────────────────────────
+
+def cmd_version() -> None:
+    """Показать версию."""
+    from engine import __version__
+    print(f"  Fiction Engine {__version__}")
+
 
 def cmd_status():
     header("Статус проекта")
@@ -506,6 +513,7 @@ COMMANDS: dict[str, Callable[[], None]] = {
     "keys":     cmd_keys,
     "web":      cmd_web,
     "cleanup":  cmd_cleanup,
+    "version":  cmd_version,
 }
 
 # Пункты меню в нужном порядке
@@ -520,6 +528,7 @@ MENU = [
     ("keys",     "API ключи"),
     ("web",      "Открыть веб-интерфейс"),
     ("cleanup",  "Почистить данные удалённых проектов"),
+    ("version",  "Показать версию"),
     ("quit",     "Выход"),
 ]
 

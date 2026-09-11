@@ -41,9 +41,12 @@ bash fiction_engine/setup.sh
 ```bash
 cd fiction_engine
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -c "import sys;sys.path.insert(0,'.');from engine.db import init_db;init_db()"
+.venv/bin/pip install -e .
+.venv/bin/fiction-engine version
 ```
+
+Проект ставится пакетом, поэтому `engine` и `web` импортируются штатно —
+без подмешивания путей.
 
 ---
 
@@ -56,8 +59,8 @@ bash start_all.sh          # оба приложения сразу
 По отдельности:
 
 ```bash
-cd fiction_engine && .venv/bin/python web/app.py     # http://127.0.0.1:5000
-cd fiction_engine && .venv/bin/python cli.py         # терминальный интерфейс
+cd fiction_engine && .venv/bin/fiction-engine-web    # http://127.0.0.1:5000
+cd fiction_engine && .venv/bin/fiction-engine        # терминальный интерфейс
 cd planner        && python3 app.py                  # http://127.0.0.1:5001
 ```
 
@@ -163,7 +166,8 @@ python3 tools/dead.py    fiction_engine                       # недостиж
 ```
 
 Всё это гоняется в CI на каждый push. Состояние проекта и план развития:
-[PROJECT_REVIEW.md](PROJECT_REVIEW.md) и [ROADMAP.md](ROADMAP.md).
+[PROJECT_REVIEW.md](PROJECT_REVIEW.md) и [ROADMAP.md](ROADMAP.md),
+история изменений — [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

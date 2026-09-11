@@ -9,6 +9,9 @@ else
     PY="python3"
 fi
 
+# Проект ставится пакетом (setup.sh), поэтому web/app.py и planner/app.py
+# запускаются напрямую — импорты разрешаются штатно.
+
 echo "🚀 Запуск Fiction Engine на порту 5000..."
 cd "$SCRIPT_DIR/fiction_engine/web"
 "$PY" app.py &

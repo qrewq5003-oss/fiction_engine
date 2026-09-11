@@ -15,6 +15,20 @@ fiction_engine.engine — публичный API пакета.
     )
 """
 
+# ─── Версия ───────────────────────────────────────────────────────────────────
+#
+# Значение живёт в pyproject.toml. Дублировать его в коде значит однажды
+# разойтись, поэтому читаем метаданные установленного пакета. Если пакет
+# не установлен (запуск из исходников без `pip install -e .`), отдаём
+# "0.0.0+src" — это видно и не притворяется релизом.
+
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__ = _pkg_version("fiction-engine")
+except PackageNotFoundError:            # запуск из исходников
+    __version__ = "0.0.0+src"
+
 # ─── Инфраструктура ───────────────────────────────────────────────────────────
 from .db_core import init_db, get_conn
 from .logger import get_logger, log_error

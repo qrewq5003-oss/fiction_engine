@@ -29,16 +29,18 @@ else
     echo "  ⚠ Не удалось создать venv — пробую системный pip"
 fi
 
+# Ставим сам проект как пакет: тогда engine и web импортируются штатно,
+# без подмешивания путей, и появляются команды fiction-engine.
 if [ -x ".venv/bin/pip" ]; then
-    .venv/bin/pip install -q -r requirements.txt
+    .venv/bin/pip install -q -e .
     PY=".venv/bin/python"
-    echo "  ✓ Зависимости установлены в .venv (запуск: .venv/bin/python web/app.py)"
+    echo "  ✓ Установлено в .venv (запуск: .venv/bin/fiction-engine-web)"
 else
-    python3 -m pip install -q -r requirements.txt --break-system-packages 2>/dev/null || \
-    python3 -m pip install -q -r requirements.txt || {
-        echo "  ✗ Не удалось установить зависимости."
+    python3 -m pip install -q -e . --break-system-packages 2>/dev/null || \
+    python3 -m pip install -q -e . || {
+        echo "  ✗ Не удалось установить."
         echo "    Создайте окружение вручную:"
-        echo "      python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+        echo "      python3 -m venv .venv && .venv/bin/pip install -e ."
         exit 1
     }
     PY="python3"
@@ -88,11 +90,11 @@ echo "  ════════════════════════
 echo "  Готово! Следующие шаги:"
 echo ""
 echo "  1. Добавь API ключи:"
-echo "     python3 cli.py keys"
+echo "     fiction-engine keys"
 echo ""
 echo "  2. Запусти интерфейс:"
-echo "     python3 cli.py              ← терминал"
-echo "     python3 web/app.py          ← браузер (localhost:5000)"
+echo "     fiction-engine              ← терминал"
+echo "     fiction-engine-web          ← браузер (127.0.0.1:5000)"
 echo ""
 echo "  Или сразу всё:"
 echo "     bash run.sh"

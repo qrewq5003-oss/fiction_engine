@@ -151,6 +151,36 @@ def test_referenced_files_exist(readme, base):
     assert not missing, f"{readme} README ссылается на отсутствующие файлы: {missing}"
 
 
+def test_version_matches_pyproject():
+    """
+    Версия в коде берётся из метаданных пакета — значит обязана совпадать
+    с pyproject.toml. Дублирование версии в двух местах рано или поздно
+    расходится, и тогда приложение показывает не то, что выпущено.
+    """
+    import tomllib
+    import engine
+
+    pyproject = tomllib.loads((APP_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = pyproject["project"]["version"]
+
+    if engine.__version__.endswith("+src"):
+        pytest.skip("пакет не установлен, версия читается из исходников")
+    assert engine.__version__ == declared, (
+        f"код сообщает {engine.__version__}, в pyproject.toml {declared}"
+    )
+
+
+def test_changelog_mentions_current_version():
+    """Выпущенная версия должна быть описана в CHANGELOG."""
+    import tomllib
+    pyproject = tomllib.loads((APP_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    version = pyproject["project"]["version"]
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"[{version}]" in changelog, (
+        f"версия {version} не описана в CHANGELOG.md"
+    )
+
+
 def test_documented_env_vars_are_read_by_code():
     """Переменная из таблицы README должна реально читаться кодом."""
     sources = ""

@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fiction-engine"
+version = "0.4.0"
+description = "Инструментарий для написания длинных серий прозы с помощью языковых моделей"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "lolo" }]
+keywords = ["fiction", "writing", "llm", "state-engine"]
+
+dependencies = [
+    "anthropic>=0.25.0",
+    "openai>=1.0.0",
+    "flask>=3.0.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "mypy>=1.8.0",
+    "hypothesis>=6.0.0",
+    "pyflakes>=3.0.0",
+]
+
+[project.scripts]
+fiction-engine = "cli:main"
+fiction-engine-web = "web.app:main"
+
+[project.urls]
+Repository = "https://github.com/qrewq5003-oss/fiction_engine"
+
+# Пакеты перечислены явно. Автопоиск здесь не годится: каталог содержит
+# tests/ и служебные файлы, а раскладку src/ вводить не стали — она
+# потребовала бы переписать все импорты вида `from engine...`.
+[tool.setuptools]
+packages = ["engine", "web", "web.blueprints"]
+# cli.py лежит модулем в корне, а не внутри пакета — иначе
+# команда fiction-engine не нашла бы точку входа
+py-modules = ["cli"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+web = ["templates/*.html", "static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

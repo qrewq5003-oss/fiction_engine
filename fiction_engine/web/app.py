@@ -11,7 +11,8 @@ app.py регистрирует blueprints и держит только:
 import os
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Пакет ставится через `pip install -e .` (см. setup.sh), поэтому
+# engine и web импортируются штатно — подмешивать пути не нужно.
 
 # Загружаем .env если есть (python-dotenv опционален)
 try:
@@ -147,7 +148,8 @@ def stats_page():
 @app.route("/settings")
 def settings_page():
     models = get_all_models_flat()
-    return render_template("settings.html", models=models)
+    from engine import __version__
+    return render_template("settings.html", models=models, version=__version__)
 
 
 @app.route("/api/keys/status")
@@ -444,7 +446,13 @@ def _validate_engine_once() -> None:
 
 # ─── Запуск ──────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+def main() -> None:
+    """
+    Точка входа команды fiction-engine-web.
+
+    Вынесена из блока __main__, чтобы работать и через установленный
+    пакет, и при запуске файлом напрямую.
+    """
     init_db()
     # validate_engine_paths вызывается автоматически при первом запросе
     # через @before_request хук _validate_engine_once — работает при любом запуске.
@@ -457,3 +465,7 @@ if __name__ == "__main__":
         print("  ВНИМАНИЕ: слушаем все интерфейсы без аутентификации — "
               "в БД хранятся API-ключи.")
     app.run(debug=False, host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()
