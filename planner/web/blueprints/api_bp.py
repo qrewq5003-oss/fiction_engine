@@ -9,6 +9,20 @@ def current_pid():
 
 # ─── Scenes ───────────────────────────────────────────────────────────────────
 
+# ─── Адрес Fiction Engine ─────────────────────────────────────────────────────
+
+def _fe_base_url() -> str:
+    """
+    Адрес Fiction Engine. Настраивается через FE_URL.
+
+    Прибивать localhost:5000 в шести местах нельзя: хост и порт FE
+    задаются переменными FE_HOST/FE_PORT, и по умолчанию он слушает
+    127.0.0.1, а не localhost-как-придётся.
+    """
+    import os
+    return os.environ.get("FE_URL", "http://127.0.0.1:5000").rstrip("/")
+
+
 @bp.route("/scenes")
 def scenes_list():
     pid = current_pid()
@@ -30,6 +44,13 @@ def scene_new():
 
 @bp.route("/scenes/move", methods=["POST"])
 def scene_move():
+    # Сцену можно двигать только внутри своего проекта: id приходит
+    # из запроса и раньше принимался как есть.
+    from engine.db import get_scene
+    data_ = request.json or {}
+    _scene = get_scene(data_.get("scene_id"))
+    if not _scene or _scene["project_id"] != current_pid():
+        return jsonify({"error": "Сцена не найдена в текущем проекте"}), 404
     data = request.json or {}
     sid      = data.get("scene_id")
     act_id   = data.get("act_id")
@@ -148,13 +169,22 @@ def ai_assist():
         }, timeout=60)
         if resp.ok:
             return jsonify({"ok": True, "result": resp.json().get("result", "")})
-    except Exception:
-        pass
 
-    return jsonify({
-        "error": f"Fiction Engine недоступен ({_fe_base_url()}). "
-                 "Запусти его или задай FE_URL."
-    }), 503
+        # Осмысленный отказ FE (нет ключа, пустой ответ модели) раньше
+        # схлопывался в «FE недоступен» — автор видел не ту причину и не
+        # понимал, что делать. Передаём сообщение как есть.
+        try:
+            detail = resp.json().get("error") or resp.text[:200]
+        except Exception:
+            detail = resp.text[:200]
+        return jsonify({"error": f"Fiction Engine ответил отказом: {detail}"}), resp.status_code
+
+    except req.exceptions.RequestException as e:
+        # Сетевая ошибка — это действительно «FE недоступен»
+        return jsonify({
+            "error": f"Fiction Engine недоступен ({_fe_base_url()}): {e}. "
+                     "Запусти его или задай FE_URL."
+        }), 503
 
 
 # ─── Export to Fiction Engine ─────────────────────────────────────────────────

@@ -95,3 +95,56 @@ class TestStatus:
         monkeypatch.setattr(sqlite3, "connect", spy)
         client.get("/api/status")
         assert not any("fiction_engine" in p and "projects.db" in p for p in opened), opened
+
+
+class TestSceneOwnership:
+    """
+    Сцена чужого проекта не должна правиться по одному лишь номеру.
+
+    Обработчики брали id из запроса как есть. Для одного пользователя
+    это незаметно, но PLANNER_HOST=0.0.0.0 предусмотрен, а входа нет.
+    """
+
+    def _foreign_scene(self):
+        from engine.db import create_project, create_scene
+        other = create_project("Чужой проект")
+        return create_scene(other)
+
+    def test_save_rejects_foreign_scene(self, client, project_id):
+        sid = self._foreign_scene()
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        resp = client.post(f"/scene/{sid}/save", json={"title": "взлом"})
+        assert resp.status_code == 404
+
+        from engine.db import get_scene
+        assert get_scene(sid)["title"] != "взлом"
+
+    def test_delete_rejects_foreign_scene(self, client, project_id):
+        sid = self._foreign_scene()
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        assert client.post(f"/scene/{sid}/delete").status_code == 404
+
+        from engine.db import get_scene
+        assert get_scene(sid) is not None, "чужая сцена удалена"
+
+    def test_move_rejects_foreign_scene(self, client, project_id):
+        from engine.db import get_acts, get_scene
+        sid = self._foreign_scene()
+        before = get_scene(sid)["act_id"]
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        target = get_acts(project_id)[0]
+        resp = client.post("/api/scenes/move",
+                           json={"scene_id": sid, "act_id": target["id"], "position": 0})
+        assert resp.status_code == 404
+        assert get_scene(sid)["act_id"] == before
+
+    def test_own_scene_still_editable(self, client, project_id):
+        from engine.db import create_scene, get_scene
+        sid = create_scene(project_id)
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        assert client.post(f"/scene/{sid}/save", json={"title": "своя"}).status_code == 200
+        assert get_scene(sid)["title"] == "своя"

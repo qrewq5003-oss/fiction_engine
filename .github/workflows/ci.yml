@@ -76,3 +76,11 @@ jobs:
 
       - name: Ловушки Python
         run: python tools/pitfalls.py fiction_engine --skip-tests --fail-on-new
+
+      # Обращения к несуществующим именам. Ровно так шесть вызовов
+      # планировщика к Fiction Engine падали с NameError, маскируясь
+      # под «FE не запущен», при 55 зелёных тестах.
+      - name: Неопределённые имена
+        run: |
+          pip install pyflakes
+          python tools/undefined.py fiction_engine planner
