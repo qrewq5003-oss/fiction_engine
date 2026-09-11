@@ -243,16 +243,21 @@ def export_send():
     # в /api/director_note без номера главы — такого маршрута в FE нет,
     # запрос всегда падал, а ответ приходил с sent: false, будто FE просто
     # не запущен.
+    import requests as req
     try:
-        import requests as req
         resp = req.post(f"{_fe_base_url()}/api/director_note/{chapter_num}/save",
                         json={"note": prompt_text}, timeout=10)
         if resp.ok:
             return jsonify({"ok": True, "prompt": prompt_text, "sent": True})
-    except Exception:
+    except req.exceptions.RequestException:
+        # Ловим ТОЛЬКО сетевой отказ. Голый `except Exception` здесь означал,
+        # что ошибка нашего же кода — NameError, TypeError, опечатка в имени —
+        # возвращалась автору как «FE недоступен». Ровно так шесть вызовов
+        # планировщика падали на удалённом `_fe_base_url()`, а набор из 55
+        # тестов оставался зелёным: ответ выглядел штатным.
         pass
 
-    # FE недоступен — возвращаем промт для ручного копирования
+    # FE недоступен или ответил отказом — отдаём промт для ручного копирования
     return jsonify({"ok": True, "prompt": prompt_text, "sent": False})
 
 
