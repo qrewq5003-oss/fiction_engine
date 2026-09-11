@@ -56,7 +56,12 @@ def generation_tasks(chapter_num):
 
 @bp.route("/api/director_note/<int:chapter_num>")
 def director_note_get(chapter_num):
-    """Режиссёрская заметка для следующей главы (написана после chapter_num-1)."""
+    """
+    Заметка, которую получит генерация главы chapter_num.
+
+    Парная к /save: один и тот же номер в обоих направлениях. Хранится
+    под ключом «после главы chapter_num-1» — перевод делает слой БД.
+    """
     current = get_current_project()
     if not current:
         return jsonify({"note": None})
@@ -79,16 +84,41 @@ def chapter_text_get(chapter_num):
 
 @bp.route("/api/director_note/<int:chapter_num>/save", methods=["POST"])
 def director_note_save(chapter_num):
-    """Сохранить режиссёрскую заметку вручную (например, хвост предыдущей генерации)."""
+    """
+    Сохранить режиссёрскую заметку ДЛЯ главы chapter_num.
+
+    Номер в адресе значит то же, что в GET этого маршрута: «заметка,
+    которую получит генерация главы N». Хранится она под ключом
+    «после главы N-1» — так устроена таблица, и так её читает
+    state_prompts при сборке промпта.
+
+    Перевода здесь не было, и номер уходил в БД как есть. Запись
+    попадала на ярус ниже, чем чтение, поэтому пара save(N) → get(N)
+    не замыкалась никогда:
+
+        UI сохраняет хвост для главы N   → after_chapter = N
+        генерация главы N читает          → after_chapter = N-1
+
+    Заметка молча доставалась СЛЕДУЮЩЕЙ главе. Для «Продолжить главу»
+    это вдвойне плохо: инструкции критику и судье («это вторая часть,
+    не снижать за отсутствие завязки») до них не доходили, а в промпт
+    следующей главы попадало «КОНЕЦ ПЕРВОЙ ЧАСТИ… Продолжай отсюда» —
+    указание продолжать предыдущую главу вместо начала новой.
+
+    Найдено прогоном 2026-09-12; в рабочей базе лежала такая заметка
+    с 22 марта.
+    """
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
+    if chapter_num < 1:
+        return jsonify({"error": "Номер главы начинается с 1"}), 400
     data = request.json or {}
     note = (data.get("note") or "").strip()
     if not note:
         return jsonify({"error": "Пустая заметка"}), 400
     from engine.db import save_director_note
-    save_director_note(current["id"], chapter_num, note)
+    save_director_note(current["id"], chapter_num - 1, note)
     return jsonify({"ok": True})
 
 
