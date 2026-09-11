@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from engine.db import get_chapter, get_chapters, get_api_key
 from engine.api import get_all_models_flat
 from .helpers import get_current_project
+from ..ownership import deny
 
 bp = Blueprint("voice", __name__)
 
@@ -77,7 +78,8 @@ def voice_delete():
     if not profile_id:
         return jsonify({"error": "Нет id"}), 400
     from engine.db import delete_voice_profile
-    delete_voice_profile(profile_id)
+    if not delete_voice_profile(current["id"], profile_id):
+        return deny("Профиль голоса")
     return jsonify({"ok": True})
 
 
@@ -155,8 +157,10 @@ def symbols_appearance():
         return jsonify({"error": "Нет проекта"}), 400
     data = request.json or {}
     from engine.db import add_symbol_appearance
-    add_symbol_appearance(data.get("symbol_id"), data.get("chapter"),
-                          data.get("context",""), data.get("meaning",""))
+    if not add_symbol_appearance(current["id"], data.get("symbol_id"),
+                                 data.get("chapter"), data.get("context",""),
+                                 data.get("meaning","")):
+        return deny("Символ")
     return jsonify({"ok": True})
 
 
@@ -167,8 +171,10 @@ def symbols_planned():
         return jsonify({"error": "Нет проекта"}), 400
     data = request.json or {}
     from engine.db import add_symbol_planned
-    add_symbol_planned(data.get("symbol_id"), data.get("chapter",0),
-                       data.get("how",""), data.get("meaning",""))
+    if not add_symbol_planned(current["id"], data.get("symbol_id"),
+                              data.get("chapter",0), data.get("how",""),
+                              data.get("meaning","")):
+        return deny("Символ")
     return jsonify({"ok": True})
 
 
@@ -178,7 +184,8 @@ def symbols_delete():
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
     from engine.db import delete_symbol
-    delete_symbol((request.json or {}).get("id"))
+    if not delete_symbol(current["id"], (request.json or {}).get("id")):
+        return deny("Символ")
     return jsonify({"ok": True})
 
 

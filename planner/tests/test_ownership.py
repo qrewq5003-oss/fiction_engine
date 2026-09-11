@@ -189,15 +189,24 @@ def _probes(f: dict) -> dict:
 
 
 def _mutating_rules(app) -> set[str]:
-    """Маршруты, способные что-то изменить или показать чужое."""
+    """
+    Маршруты, которым можно подсунуть чужой объект.
+
+    Признак — НАЛИЧИЕ параметра, а не его имя. Прежняя версия искала
+    `scene_id`, `act_id`, `link_id`: тот же обработчик, назвав параметр
+    `sid`, выпадал из перебора целиком. Это был третий ярус той же
+    ошибки — «перечисляет» вместо «перебирает», просто про имена.
+
+    Берём всё, что принимает параметр пути (любой), и всё, что
+    отправляется методом POST: тело запроса тоже несёт идентификаторы.
+    """
     rules = set()
     for rule in app.url_map.iter_rules():
         path = str(rule)
         if path.startswith("/static"):
             continue
         methods = rule.methods or set()
-        # POST меняет; GET с идентификатором объекта — показывает
-        if "POST" in methods or (rule.arguments & {"scene_id", "act_id", "link_id"}):
+        if "POST" in methods or rule.arguments:
             rules.add(path)
     return rules
 

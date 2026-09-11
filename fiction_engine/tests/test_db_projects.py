@@ -278,7 +278,7 @@ class TestVoiceProfiles:
     def test_delete_voice_profile(self, project_id):
         from engine.db_projects import save_voice_profile, delete_voice_profile, get_voice_profiles
         vid = save_voice_profile(project_id, "Удаляемый", "профиль")
-        delete_voice_profile(vid)
+        assert delete_voice_profile(project_id, vid)
         assert get_voice_profiles(project_id) == []
 
 
@@ -295,7 +295,7 @@ class TestSymbols:
     def test_add_symbol_appearance(self, project_id):
         from engine.db_projects import save_symbol, add_symbol_appearance, get_symbols
         sid = save_symbol(project_id, "Роза", "образ", 1, "любовь")
-        add_symbol_appearance(sid, 3, "роза упала", "утрата")
+        assert add_symbol_appearance(project_id, sid, 3, "роза упала", "утрата")
         symbols = get_symbols(project_id)
         assert len(symbols[0]["appearances"]) == 1
         assert symbols[0]["appearances"][0]["meaning"] == "утрата"
@@ -303,14 +303,14 @@ class TestSymbols:
     def test_add_symbol_planned(self, project_id):
         from engine.db_projects import save_symbol, add_symbol_planned, get_symbols
         sid = save_symbol(project_id, "Зеркало", "образ", 1, "правда")
-        add_symbol_planned(sid, 10, "разбить зеркало", "конец иллюзий")
+        assert add_symbol_planned(project_id, sid, 10, "разбить зеркало", "конец иллюзий")
         symbols = get_symbols(project_id)
         assert len(symbols[0]["planned"]) == 1
 
     def test_delete_symbol(self, project_id):
         from engine.db_projects import save_symbol, delete_symbol, get_symbols
         sid = save_symbol(project_id, "Временный", "предмет", 1, "ничто")
-        delete_symbol(sid)
+        assert delete_symbol(project_id, sid)
         assert get_symbols(project_id) == []
 
     def test_get_symbols_context_empty(self, project_id):
@@ -383,7 +383,7 @@ class TestPipeline:
     def test_finish_pipeline_run(self, project_id):
         from engine.db_projects import create_pipeline_run, finish_pipeline_run, get_pipeline_run
         run_id = create_pipeline_run(project_id, 1, "m", "m", "m", "m")
-        finish_pipeline_run(run_id, status="accepted")
+        assert finish_pipeline_run(project_id, run_id, status="accepted")
         run = get_pipeline_run(run_id)
         assert run["status"] == "accepted"
 
@@ -437,7 +437,7 @@ class TestGenerationHistory:
     def test_save_generation_score(self, project_id):
         from engine.db_projects import save_generation_score, get_generation_by_id
         gen_id = self._insert_generation(project_id)
-        save_generation_score(gen_id, 0.85, {"style": 0.9, "plot": 0.8})
+        assert save_generation_score(project_id, gen_id, 0.85, {"style": 0.9, "plot": 0.8})
         gen = get_generation_by_id(gen_id)
         assert gen["score"] == pytest.approx(0.85)
 

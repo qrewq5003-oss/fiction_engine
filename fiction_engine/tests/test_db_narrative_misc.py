@@ -22,7 +22,7 @@ class TestExemplars:
     def test_delete_removes_entry(self, project_id):
         from engine.db_narrative import save_exemplar, get_exemplars, delete_exemplar
         eid = save_exemplar(project_id, 2, "Текст.", "test")
-        delete_exemplar(eid)
+        assert delete_exemplar(project_id, eid)
         assert all(e["id"] != eid for e in get_exemplars(project_id))
 
     def test_multiple_exemplars_ordered(self, project_id):

@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, jsonify
 from engine.db import (create_project, set_active_project, update_state)
 from engine.api import get_all_models_flat
 from .helpers import get_current_project
+from ..ownership import deny
 
 bp = Blueprint("ideas", __name__)
 
@@ -89,8 +90,12 @@ def exemplar_save():
 
 @bp.route("/api/exemplars/<int:eid>/delete", methods=["POST"])
 def exemplar_delete(eid):
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
     from engine.db import delete_exemplar
-    delete_exemplar(eid)
+    if not delete_exemplar(current["id"], eid):
+        return deny("Эталон")
     return jsonify({"ok": True})
 
 

@@ -103,7 +103,7 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                 res = merge_analysis_into_state(
                     project_id, raw, u.get("chapter_num", chapter_num)
                 )
-                mark_update_applied(auto_id)
+                mark_update_applied(project_id, auto_id)
                 return bool(res.get("changed"))
     except Exception as e:
         _log_state_update_failure(project_id, chapter_num, e)

@@ -222,7 +222,7 @@ def generation_score(gen_id):
         return jsonify({"error": f"Нет API ключа для {provider}"}), 400
     try:
         details = score_text(text, genre, scorer_model)
-        save_generation_score(gen_id, details["total"], details)
+        save_generation_score(current["id"], gen_id, details["total"], details)
         return jsonify({"ok": True, "score": details})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

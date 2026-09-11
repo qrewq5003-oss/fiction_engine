@@ -68,9 +68,19 @@ def save_state_update(project_id: int, chapter_num: int, raw_analysis: str) -> i
         return cur.lastrowid
 
 
-def mark_update_applied(update_id: int):
+def mark_update_applied(project_id: int, update_id: int) -> bool:
+    """Пометить обновление применённым. False — обновление чужого проекта.
+
+    Раньше брала один update_id, и /state/apply, /state/discard гасили
+    чужие ожидающие обновления: анализ соседнего проекта исчезал из
+    очереди, не будучи применённым ни к одному состоянию.
+    """
     with get_conn() as conn:
-        conn.execute("UPDATE state_updates SET applied=1 WHERE id=?", (update_id,))
+        cur = conn.execute(
+            "UPDATE state_updates SET applied=1 WHERE id=? AND project_id=?",
+            (update_id, project_id)
+        )
+        return cur.rowcount > 0
 
 
 def get_pending_updates(project_id: int) -> list[dict]:

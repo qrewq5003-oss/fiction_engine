@@ -76,9 +76,14 @@ def _is_collector(node: ast.AST) -> bool:
         # `set(re.findall(...))` — это готовый результат, а не наблюдение,
         # которое собираются наполнять.
         return name in _COLLECTOR_FACTORIES and not node.args and not node.keywords
-    # Флаг наблюдения или счётчик, заведённый «пустым»
-    return isinstance(node, ast.Constant) and node.value in (False, 0) \
-        and not isinstance(node.value, str)
+    # Флаг, счётчик или ячейка наблюдения, заведённые «пустыми».
+    # `None` и `""` здесь наравне с False и 0: `captured = None`, которое
+    # заполняет обработчик, и `seen = ""`, куда копится текст, — такие же
+    # наблюдения, и ровно так же могут остаться непроверенными.
+    # Проверка `isinstance(..., str)` тут когда-то стояла и была мёртвой:
+    # `"" in (False, 0)` и без неё ложно.
+    return isinstance(node, ast.Constant) and (
+        node.value is None or node.value == "" or node.value in (False, 0))
 
 
 def _names_in_asserts(fn: ast.AST) -> set[str]:

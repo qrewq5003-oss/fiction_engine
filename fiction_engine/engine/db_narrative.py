@@ -53,41 +53,61 @@ def save_symbol(project_id: int, name: str, symbol_type: str,
         return cur.lastrowid
 
 
-def add_symbol_appearance(symbol_id: int, chapter: int, context: str, meaning: str):
+def add_symbol_appearance(project_id: int, symbol_id: int, chapter: int,
+                          context: str, meaning: str) -> bool:
+    """Дописать появление символа. Символ чужого проекта не трогаем.
+
+    project_id обязателен и стоит первым намеренно: без него вызвать
+    нельзя, а значит нельзя и забыть про проект. Раньше функция брала
+    один symbol_id, и /symbols/appearance правил чужие символы.
+    """
     with get_conn() as conn:
-        row = conn.execute("SELECT appearances FROM symbols WHERE id=?", (symbol_id,)).fetchone()
+        row = conn.execute(
+            "SELECT appearances FROM symbols WHERE id=? AND project_id=?",
+            (symbol_id, project_id)
+        ).fetchone()
         if not row:
-            return
+            return False
         try:
             apps = json.loads(row["appearances"])
         except Exception:
             apps = []
         apps.append({"chapter": chapter, "context": context, "meaning": meaning})
         conn.execute(
-            "UPDATE symbols SET appearances=? WHERE id=?",
-            (json.dumps(apps, ensure_ascii=False), symbol_id)
+            "UPDATE symbols SET appearances=? WHERE id=? AND project_id=?",
+            (json.dumps(apps, ensure_ascii=False), symbol_id, project_id)
         )
+        return True
 
 
-def add_symbol_planned(symbol_id: int, chapter_approx: int, how: str, meaning: str):
+def add_symbol_planned(project_id: int, symbol_id: int, chapter_approx: int,
+                       how: str, meaning: str) -> bool:
+    """Запланировать появление символа. Символ чужого проекта не трогаем."""
     with get_conn() as conn:
-        row = conn.execute("SELECT planned FROM symbols WHERE id=?", (symbol_id,)).fetchone()
+        row = conn.execute(
+            "SELECT planned FROM symbols WHERE id=? AND project_id=?",
+            (symbol_id, project_id)
+        ).fetchone()
         if not row:
-            return
+            return False
         try:
             planned = json.loads(row["planned"])
         except Exception:
             planned = []
         planned.append({"chapter": chapter_approx, "how": how, "meaning": meaning})
         conn.execute(
-            "UPDATE symbols SET planned=? WHERE id=?",
-            (json.dumps(planned, ensure_ascii=False), symbol_id)
+            "UPDATE symbols SET planned=? WHERE id=? AND project_id=?",
+            (json.dumps(planned, ensure_ascii=False), symbol_id, project_id)
         )
+        return True
 
 
-def delete_symbol(symbol_id: int):
+def delete_symbol(project_id: int, symbol_id: int) -> bool:
+    """Удалить символ проекта. Возвращает False, если символ не его."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM symbols WHERE id=?", (symbol_id,))
+        cur = conn.execute("DELETE FROM symbols WHERE id=? AND project_id=?",
+                           (symbol_id, project_id))
+        return cur.rowcount > 0
 
 
 def get_symbols_context(project_id: int) -> str:
@@ -152,9 +172,12 @@ def get_active_voice(project_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def delete_voice_profile(profile_id: int):
+def delete_voice_profile(project_id: int, profile_id: int) -> bool:
+    """Удалить профиль голоса проекта. False — профиль принадлежит другому."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM voice_profiles WHERE id=?", (profile_id,))
+        cur = conn.execute("DELETE FROM voice_profiles WHERE id=? AND project_id=?",
+                           (profile_id, project_id))
+        return cur.rowcount > 0
 
 
 def init_voice_tables(): pass
@@ -351,12 +374,15 @@ def get_pipeline_iterations(run_id: int) -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def finish_pipeline_run(run_id: int, status: str = 'accepted'):
+def finish_pipeline_run(project_id: int, run_id: int, status: str = 'accepted') -> bool:
+    """Закрыть запуск pipeline. Запуск чужого проекта не трогаем."""
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE pipeline_runs SET status=?, finished_at=datetime('now') WHERE id=?",
-            (status, run_id)
+        cur = conn.execute(
+            "UPDATE pipeline_runs SET status=?, finished_at=datetime('now') "
+            "WHERE id=? AND project_id=?",
+            (status, run_id, project_id)
         )
+    return cur.rowcount > 0
 
 
 def get_pipeline_runs(project_id: int) -> list[dict]:
@@ -418,9 +444,12 @@ def get_exemplars(project_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def delete_exemplar(exemplar_id: int):
+def delete_exemplar(project_id: int, exemplar_id: int) -> bool:
+    """Удалить эталон проекта. False — эталон принадлежит другому проекту."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM exemplars WHERE id=?", (exemplar_id,))
+        cur = conn.execute("DELETE FROM exemplars WHERE id=? AND project_id=?",
+                           (exemplar_id, project_id))
+        return cur.rowcount > 0
 
 
 # ─── База знаний ──────────────────────────────────────────────────────────────

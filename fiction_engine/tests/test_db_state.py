@@ -51,7 +51,7 @@ class TestGetUpdateState:
         from engine.db_state import save_state_update, get_pending_updates, mark_update_applied
         uid = save_state_update(project_id, 1, "анализ")
         assert len(get_pending_updates(project_id)) == 1
-        mark_update_applied(uid)
+        assert mark_update_applied(project_id, uid)
         assert get_pending_updates(project_id) == []
 
     def test_get_last_update_none_when_empty(self, project_id):

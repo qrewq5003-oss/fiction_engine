@@ -57,13 +57,21 @@ def get_last_chapters_content(project_id: int, n: int = 2) -> list[dict]:
 # ─── История генераций ────────────────────────────────────────────────────────
 
 @error_boundary(level=ErrorLevel.RECOVERABLE, fallback=False)
-def save_generation_score(gen_id: int, score: float, details: dict) -> bool:
+def save_generation_score(project_id: int, gen_id: int, score: float,
+                          details: dict) -> bool:
+    """Записать оценку генерации. Генерацию чужого проекта не трогаем.
+
+    project_id обязателен и стоит первым: номер генерации уникален на
+    всю базу, и без проекта функция позволяла переписать оценку в
+    соседнем проекте, если id пришёл из запроса.
+    """
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE generation_history SET score=?, score_details=? WHERE id=?",
-            (score, json.dumps(details, ensure_ascii=False), gen_id)
+        cur = conn.execute(
+            "UPDATE generation_history SET score=?, score_details=? "
+            "WHERE id=? AND project_id=?",
+            (score, json.dumps(details, ensure_ascii=False), gen_id, project_id)
         )
-    return True
+    return cur.rowcount > 0
 
 
 def save_chapter_score(project_id: int, chapter_num: int, details: dict) -> bool:

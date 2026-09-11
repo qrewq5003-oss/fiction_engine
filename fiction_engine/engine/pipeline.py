@@ -313,7 +313,10 @@ def continue_pipeline(
 
 
 def accept_pipeline(run_id: int):
-    finish_pipeline_run(run_id, "accepted")
+    run = get_pipeline_run(run_id)
+    if not run:
+        return
+    finish_pipeline_run(run["project_id"], run_id, "accepted")
     # Записываем judge_score принятой главы для get_project_accept_threshold (IDEA 5).
     # Используется для вычисления проектного стандарта качества.
     try:
@@ -337,7 +340,10 @@ def accept_pipeline(run_id: int):
 
 
 def reject_pipeline(run_id: int):
-    finish_pipeline_run(run_id, "rejected")
+    run = get_pipeline_run(run_id)
+    if not run:
+        return
+    finish_pipeline_run(run["project_id"], run_id, "rejected")
 
 # ─── Реэкспорт: публичные имена остаются доступны как engine.pipeline.X ───────
 #

@@ -238,7 +238,7 @@ def cmd_state_analyze():
 
     print(f"\n  {yellow('Применить изменения к State Engine? (y/n):')} ", end="")
     if input().strip().lower() == "y":
-        mark_update_applied(result["update_id"])
+        mark_update_applied(pid, result["update_id"])
         success("Обновление помечено.")
         info("Открой браузер: http://localhost:5000/state")
     else:

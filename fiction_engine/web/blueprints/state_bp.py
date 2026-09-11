@@ -5,6 +5,7 @@ from engine.db import (get_state, update_state, get_api_key, get_pending_updates
 from engine.state import analyze_chapter
 from engine.api import get_all_models_flat
 from .helpers import get_current_project, log_web_error
+from ..ownership import deny
 
 bp = Blueprint("state", __name__)
 
@@ -190,7 +191,7 @@ def state_apply(update_id):
                 result = merge_analysis_into_state(
                     current["id"], u["raw_analysis"], u.get("chapter_num", 0)
                 )
-                mark_update_applied(update_id)
+                mark_update_applied(current["id"], update_id)
                 if result["changed"]:
                     return jsonify({"ok": True,
                                     "message": f"Применено {len(result['fields'])} изменений",
@@ -204,13 +205,18 @@ def state_apply(update_id):
         # сорвалось, об этом обязан остаться след, иначе анализ пропадёт молча
         log_web_error("state/apply: слияние анализа сорвалось", e,
                       project_id=current["id"])
-    mark_update_applied(update_id)
+    if not mark_update_applied(current["id"], update_id):
+        return deny("Обновление состояния")
     return jsonify({"ok": True, "message": "State Engine обновлён", "merge": None})
 
 
 @bp.route("/state/discard/<int:update_id>", methods=["POST"])
 def state_discard(update_id):
-    mark_update_applied(update_id)
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    if not mark_update_applied(current["id"], update_id):
+        return deny("Обновление состояния")
     return jsonify({"ok": True})
 
 
