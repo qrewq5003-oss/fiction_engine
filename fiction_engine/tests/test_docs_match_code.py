@@ -181,6 +181,43 @@ def test_changelog_mentions_current_version():
     )
 
 
+def _env_vars_in_code() -> set[str]:
+    """Переменные окружения, которые код действительно читает."""
+    sources = ""
+    for pattern in ("engine/*.py", "web/*.py", "web/blueprints/*.py", "cli.py"):
+        for f in APP_ROOT.glob(pattern):
+            sources += f.read_text(encoding="utf-8")
+    for f in (REPO_ROOT / "planner").rglob("*.py"):
+        if "__pycache__" in str(f):
+            continue
+        sources += f.read_text(encoding="utf-8")
+    for f in (REPO_ROOT.glob("*.sh"), APP_ROOT.glob("*.sh")):
+        for sh in f:
+            sources += sh.read_text(encoding="utf-8")
+
+    names = set(re.findall(r'(?:environ\.get|getenv)\(\s*["\']([A-Z][A-Z0-9_]+)["\']', sources))
+    # Переменные, которые задаёт окружение исполнения, а не наш проект
+    return names - {"HOME", "PATH", "PYTHONPATH", "LANG", "TERM", "USER"}
+
+
+def test_every_env_var_in_code_is_documented():
+    """
+    Обратное направление: переменная, которую код читает, обязана быть
+    описана в README.
+
+    Прежняя проверка смотрела только README → код, то есть ловила
+    описанное-но-неиспользуемое. Новая переменная в коде проезжала мимо:
+    это «перечисляет» вместо «перебирает», ровно та же болезнь, из-за
+    которой пять эндпоинтов планировщика остались без защиты.
+    """
+    documented = set(re.findall(r"\|\s*`([A-Z][A-Z_]+)`", ROOT_README))
+    documented |= set(re.findall(r"`([A-Z][A-Z_]+)`", ROOT_README))
+    undocumented = sorted(_env_vars_in_code() - documented)
+    assert not undocumented, (
+        "код читает переменные, не описанные в README: " + ", ".join(undocumented)
+    )
+
+
 def test_documented_env_vars_are_read_by_code():
     """Переменная из таблицы README должна реально читаться кодом."""
     sources = ""

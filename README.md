@@ -142,7 +142,12 @@ FE_HOST=0.0.0.0 .venv/bin/python web/app.py
 | `PLANNER_HOST` / `PLANNER_PORT` | Адрес планировщика | `127.0.0.1` / `5001` |
 | `PLANNER_DB` | Путь к базе планировщика | `planner/planner.db` |
 | `FICTION_DEBUG` | Подробный лог в консоль | выключено |
-| `ANTHROPIC_API_KEY` и прочие `*_API_KEY` | Ключи, если не хранить в базе | — |
+| `FE_URL` | Адрес Fiction Engine для планировщика | `http://127.0.0.1:5000` |
+| `ANTHROPIC_API_KEY` | Ключ Anthropic, если не хранить в базе | — |
+| `OPENAI_API_KEY` | Ключ OpenAI | — |
+| `GEMINI_API_KEY` | Ключ Google Gemini | — |
+| `DEEPSEEK_API_KEY` | Ключ DeepSeek | — |
+| `NANO_GPT_API_KEY` | Ключ nano-gpt.com | — |
 
 Ключи можно держать в `.env` (файл в `.gitignore`) либо ввести в `/settings`.
 

@@ -4,6 +4,7 @@ from engine.db import (get_chapters, save_chapter, get_api_key,
                        get_generation_history, get_generation_by_id)
 from engine.api import get_all_models_flat
 from engine.pipeline import score_text  # публичный API скоринга
+from ..ownership import owned_generation, deny
 from .helpers import get_current_project, after_chapter_saved, log_web_error
 
 bp = Blueprint("generate", __name__)
@@ -187,14 +188,18 @@ def generation_history():
 
 @bp.route("/api/generation/<int:gen_id>")
 def generation_detail(gen_id):
-    gen = get_generation_by_id(gen_id)
+    # Номер генерации сквозной по всей базе: без проверки отдавался
+    # текст главы из другого проекта.
+    gen = owned_generation(gen_id)
     if not gen:
-        return jsonify({"error": "Не найдено"}), 404
+        return deny("Генерация")
     return jsonify(gen)
 
 
 @bp.route("/api/generation/<int:gen_id>/score", methods=["POST"])
 def generation_score(gen_id):
+    if not owned_generation(gen_id):
+        return deny("Генерация")
     from engine.db import get_generation_by_id, save_generation_score, get_conn
     rec = get_generation_by_id(gen_id)
     if not rec:

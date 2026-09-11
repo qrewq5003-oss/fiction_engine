@@ -10,11 +10,15 @@ from flask import render_template, request, jsonify
 
 
 from .generate_bp import bp
+from ..ownership import owned_generation, owned_run, deny
 from .helpers import (get_current_project, log_web_error)
 
 
 @bp.route("/api/generation/<int:gen_id>/delete", methods=["POST"])
 def generation_delete(gen_id):
+    # DELETE шёл по одному лишь номеру: удалялась чужая генерация.
+    if not owned_generation(gen_id):
+        return deny("Генерация")
     from engine.db import get_api_key, get_conn
     with get_conn() as conn:
         conn.execute("DELETE FROM generation_history WHERE id=?", (gen_id,))

@@ -12,6 +12,7 @@ from engine.api import get_all_models_flat
 
 
 from .generate_bp import bp
+from ..ownership import owned_run, deny
 from .helpers import (get_current_project, log_web_error)
 
 
@@ -56,6 +57,8 @@ def pipeline_continue():
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
     data = request.json or {}
+    if data.get("run_id") and not owned_run(data["run_id"]):
+        return deny("Запуск")
     if not data.get("run_id"):
         return jsonify({"error": "Нет run_id"}), 400
     try:
@@ -122,6 +125,8 @@ def _log_state_update_failure(project_id: int, chapter_num: int, exc: Exception)
 @bp.route("/pipeline/accept", methods=["POST"])
 def pipeline_accept():
     data        = request.json or {}
+    if data.get("run_id") and not owned_run(data["run_id"]):
+        return deny("Запуск")
     run_id      = data.get("run_id")
     chapter_num = data.get("chapter_num")
     final_text  = data.get("final_text", "")
@@ -173,6 +178,9 @@ def pipeline_reject():
     run_id = (request.json or {}).get("run_id")
     if not run_id:
         return jsonify({"error": "Нет run_id"}), 400
+    # Номер запуска сквозной: без проверки отклонялся чужой запуск.
+    if not owned_run(run_id):
+        return deny("Запуск")
     from engine.pipeline import reject_pipeline
     reject_pipeline(run_id)
 
@@ -248,6 +256,8 @@ def pipeline_cleanup():
 
 @bp.route("/pipeline/<int:run_id>/history")
 def pipeline_history(run_id):
+    if not owned_run(run_id):
+        return deny("Запуск")
     from engine.db import get_pipeline_run, get_pipeline_iterations
     run = get_pipeline_run(run_id)
     if not run:
@@ -258,6 +268,8 @@ def pipeline_history(run_id):
 
 @bp.route("/pipeline/<int:run_id>/compare")
 def pipeline_compare(run_id):
+    if not owned_run(run_id):
+        return deny("Запуск")
     current = get_current_project()
     from engine.db import get_pipeline_run, get_pipeline_iterations
     run = get_pipeline_run(run_id)
