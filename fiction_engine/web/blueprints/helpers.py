@@ -7,14 +7,14 @@
 from engine.db import get_project, get_active_project_id, get_conn
 
 
-def get_current_project():
+def get_current_project() -> dict | None:
     pid = get_active_project_id()
     if pid:
         return get_project(pid)
     return None
 
 
-def log_web_error(context: str, exc: Exception, **ctx) -> None:
+def log_web_error(context: str, exc: Exception, **ctx: object) -> None:
     """
     Записать ошибку web-слоя, не прерывая обработку запроса.
 
@@ -117,7 +117,7 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
 
 
 def _auto_score_chapter(project_id: int, chapter_num: int,
-                         text: str, scorer_model: str):
+                         text: str, scorer_model: str) -> float | None:
     """
     Оценить главу через pipeline.score_text и сохранить в chapter_scores.
     Возвращает итоговый балл или None при ошибке.

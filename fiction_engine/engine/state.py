@@ -3,6 +3,7 @@ state.py — State Engine: анализ глав и CRUD.
 
 Сборка промптов для генерации вынесена в state_prompts.py.
 """
+from typing import Callable
 
 from .db import get_l3_summaries
 from .l3_memory import normalize_promises, get_active_promises
@@ -183,7 +184,7 @@ def queue_state_update_from_analysis(
     project_id: int,
     chapter_num: int,
     chapter_text: str,
-    call_fn,                  # fn(prompt: str) -> str — дешёвая модель
+    call_fn: Callable[..., str],   # fn(prompt: str) -> str — дешёвая модель
 ) -> bool:
     """
     Запускает analyze_chapter() фоново и складывает результат в очередь

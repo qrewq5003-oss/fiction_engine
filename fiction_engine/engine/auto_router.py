@@ -16,6 +16,7 @@ AUTO_ROUTER — быстрая маршрутизация модулей по к
 """
 
 from __future__ import annotations
+from typing import Callable
 
 # ─── Базовые модули (всегда в master) ────────────────────────────────────────
 
@@ -265,7 +266,7 @@ def route_by_keywords(task_text: str, genre_key: str = "") -> tuple[list[str], i
 
 
 def auto_route(task_text: str, genre_key: str = "",
-               api_call_fn=None, confidence_threshold: int = 2) -> list[str]:
+               api_call_fn: Callable[..., str] | None = None, confidence_threshold: int = 2) -> list[str]:
     """
     Полный роутер: сначала ключевые слова, потом LLM если нужно.
 

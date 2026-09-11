@@ -6,6 +6,7 @@
 Не режим (это выбор пользователя).
 Установка на тон, темп, подход — то что редактор написал бы на полях.
 """
+from typing import Callable
 
 PROMPT = """Ты — редактор. Ты только что прочитал главу художественного текста.
 
@@ -36,7 +37,7 @@ def generate_director_note(
     chapter_num: int,
     chapter_text: str,
     state: dict,
-    api_call_fn,
+    api_call_fn: Callable[..., str],
 ) -> str | None:
     """
     Сгенерировать режиссёрскую заметку после сохранения главы.

@@ -13,6 +13,7 @@ narrative_intelligence.py — Narrative Intelligence Layer (NIL).
 """
 
 from __future__ import annotations
+from typing import Callable
 
 import json
 import re
@@ -284,7 +285,10 @@ class NarrativeIntelligence:
     Зависимости инъектируются через конструктор — тестируемо без БД.
     """
 
-    def __init__(self, get_summaries_fn=None, get_state_fn=None, get_chapters_fn=None):
+    def __init__(self,
+                 get_summaries_fn: Callable[..., list] | None = None,
+                 get_state_fn: Callable[..., dict] | None = None,
+                 get_chapters_fn: Callable[..., list] | None = None) -> None:
         if get_summaries_fn is None:
             from .db import get_l3_summaries
             get_summaries_fn = get_l3_summaries

@@ -54,7 +54,7 @@ class StepConfig:
     max_tokens: int   = 6000
     model_role: str | None = None   # явный override модели
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         valid = {"generate", "edit", "critique", "judge"}
         if self.name not in valid:
             raise ValueError(f"Неизвестный шаг: '{self.name}'. Допустимые: {valid}")
@@ -145,7 +145,7 @@ class PipelineConfig:
             description=d.get("description", ""),
         )
 
-    def to_pipeline_steps(self):
+    def to_pipeline_steps(self) -> list:
         """
         Конвертировать в список PipelineStep для _execute_steps().
         Совместимость с pipeline.py.

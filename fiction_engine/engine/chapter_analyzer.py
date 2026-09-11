@@ -212,9 +212,9 @@ class ChapterAnalyzer:
 
     def __init__(
         self,
-        get_summaries_fn=None,
-        save_analysis_fn=None,
-    ):
+        get_summaries_fn: Callable[..., list] | None = None,
+        save_analysis_fn: Callable[..., object] | None = None,
+    ) -> None:
         if get_summaries_fn is None:
             from .db import get_l3_summaries
             get_summaries_fn = get_l3_summaries

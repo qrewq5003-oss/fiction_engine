@@ -4,6 +4,7 @@ pipeline_drift.py — обнаружение дрейфа голоса.
 Ответственность: проверить соответствие новой главы
 голосовому эталону и сохранить результат.
 """
+from typing import Callable
 
 import re
 from .db import get_active_voice, save_drift_check, should_run_drift_check
@@ -89,7 +90,7 @@ def should_check_drift(project_id: int, chapter_num: int) -> bool:
 
 def check_voice_drift(project_id: int, chapter_num: int,
                       chapter_text: str, model_value: str,
-                      call_fn=None) -> dict:
+                      call_fn: Callable[..., str] | None = None) -> dict:
     """
     Проверить дрейф голоса новой главы.
 
