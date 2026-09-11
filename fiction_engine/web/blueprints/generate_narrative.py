@@ -15,7 +15,7 @@ from .helpers import (get_current_project, log_web_error)
 
 @bp.route("/api/generation/<int:gen_id>/delete", methods=["POST"])
 def generation_delete(gen_id):
-    from engine.db import get_conn
+    from engine.db import get_api_key, get_conn
     with get_conn() as conn:
         conn.execute("DELETE FROM generation_history WHERE id=?", (gen_id,))
     return jsonify({"ok": True})
@@ -186,10 +186,24 @@ def narrative_page():
 
 @bp.route("/api/project/context")
 def project_context():
-    """Экспорт контекста проекта для планировщика."""
-    current = get_current_project()
-    if not current:
-        return jsonify({"error": "Нет проекта"}), 400
+    """
+    Экспорт контекста проекта для планировщика.
+
+    Параметр ?pid=N выбирает конкретный проект. Раньше он молча
+    игнорировался: планировщик запрашивал `/api/project/context?pid=5`,
+    а получал активный проект Fiction Engine — то есть импортировал не то,
+    что просил, и заметить это было невозможно.
+    """
+    requested = request.args.get("pid", type=int)
+    if requested:
+        from engine.db import get_project
+        current = get_project(requested)
+        if not current:
+            return jsonify({"error": f"Проект {requested} не найден"}), 404
+    else:
+        current = get_current_project()
+        if not current:
+            return jsonify({"error": "Нет проекта"}), 400
     pid = current["id"]
 
     try:
@@ -219,6 +233,50 @@ def project_context():
         "plot_matrix":  state.get("plot_matrix", ""),
         "active_promises": promises,
     })
+
+
+@bp.route("/api/inline_call", methods=["POST"])
+def inline_call():
+    """
+    Одиночный вызов модели для внешних инструментов — прежде всего для
+    планировщика.
+
+    Смысл в том, чтобы ключи оставались в одном месте. Планировщик раньше
+    читал projects.db Fiction Engine напрямую и держал собственные клиенты
+    пяти провайдеров; теперь он просто просит FE сделать вызов.
+
+    Тело запроса: {"model": "...", "system": "...", "prompt": "...",
+                   "max_tokens": 600}
+    Ответ: {"ok": true, "result": "..."}
+    """
+    data   = request.json or {}
+    model  = (data.get("model") or "").strip()
+    prompt = (data.get("prompt") or "").strip()
+    system = data.get("system") or "Ты помощник писателя. Отвечаешь конкретно."
+    try:
+        max_tokens = int(data.get("max_tokens") or 600)
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_tokens должен быть числом"}), 400
+
+    if not model or not prompt:
+        return jsonify({"error": "Нужны model и prompt"}), 400
+
+    from engine.db import get_api_key
+
+    provider = model.split("::")[0]
+    if not get_api_key(provider):
+        return jsonify({"error": f"Нет API ключа для {provider}"}), 400
+
+    try:
+        from engine.pipeline import call_llm
+        result = call_llm(model, system, prompt, max_tokens=max_tokens)
+    except Exception as e:
+        log_web_error("inline_call", e)
+        return jsonify({"error": str(e)}), 502
+
+    if not result or not result.strip():
+        return jsonify({"error": "Модель вернула пустой ответ"}), 502
+    return jsonify({"ok": True, "result": result.strip()})
 
 
 @bp.route("/api/projects/list")

@@ -30,8 +30,10 @@ MIGRATIONS = {
         "CREATE INDEX IF NOT EXISTS idx_links_from ON scene_links(from_id)",
         "CREATE INDEX IF NOT EXISTS idx_links_to ON scene_links(to_id)",
         "CREATE INDEX IF NOT EXISTS idx_snapshots_scene ON scene_snapshots(scene_id)",
-        "CREATE INDEX IF NOT EXISTS idx_tags_scene ON scene_tags(scene_id)",
-        "CREATE INDEX IF NOT EXISTS idx_beats_scene ON scene_beats(scene_id)",
+        # Индексы на scene_tags и scene_beats убраны: таких таблиц нет ни в
+        # init_db(), ни в других миграциях — это следы незаконченной задумки.
+        # CREATE INDEX по отсутствующей таблице падает, и на чистой базе вся
+        # первая миграция обрывалась на них.
     ],
     2: [
         # Шаблоны сцен

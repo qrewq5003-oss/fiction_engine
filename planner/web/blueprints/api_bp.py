@@ -137,11 +137,10 @@ def ai_assist():
         f"Заметки: {scene.get('notes','')}"
     )
 
-    # Пробуем Fiction Engine API
-    FE_URL = "http://localhost:5000"
+    # Вызов модели делает Fiction Engine: ключи живут там
     try:
         import requests as req
-        resp = req.post(f"{FE_URL}/api/inline_call", json={
+        resp = req.post(f"{_fe_base_url()}/api/inline_call", json={
             "model": model,
             "system": "Ты помощник сценариста и писателя. Отвечаешь конкретно и по делу.",
             "prompt": f"{instruction}\n\n{scene_text}",
@@ -152,7 +151,10 @@ def ai_assist():
     except Exception:
         pass
 
-    return jsonify({"error": "Fiction Engine недоступен. Запусти FE на порту 5000."}), 503
+    return jsonify({
+        "error": f"Fiction Engine недоступен ({_fe_base_url()}). "
+                 "Запусти его или задай FE_URL."
+    }), 503
 
 
 # ─── Export to Fiction Engine ─────────────────────────────────────────────────
@@ -178,14 +180,15 @@ def export_send():
 
     prompt_text = "\n".join(lines)
 
-    # Отправляем в FE как director_note для главы
-    FE_URL = "http://localhost:5000"
+    # Отправляем в FE как режиссёрскую заметку к главе.
+    # Путь именно такой: /api/director_note/<N>/save. Прежний вариант бил
+    # в /api/director_note без номера главы — такого маршрута в FE нет,
+    # запрос всегда падал, а ответ приходил с sent: false, будто FE просто
+    # не запущен.
     try:
         import requests as req
-        resp = req.post(f"{FE_URL}/api/director_note", json={
-            "chapter_num": chapter_num,
-            "note": prompt_text
-        }, timeout=10)
+        resp = req.post(f"{_fe_base_url()}/api/director_note/{chapter_num}/save",
+                        json={"note": prompt_text}, timeout=10)
         if resp.ok:
             return jsonify({"ok": True, "prompt": prompt_text, "sent": True})
     except Exception:
@@ -199,43 +202,48 @@ def export_send():
 
 @bp.route("/status")
 def system_status():
-    from engine.ai import _get_fe_key, FE_DB_PATH, get_available_models
+    """
+    Состояние связки планировщик ↔ Fiction Engine.
 
-    fe_db = FE_DB_PATH.exists()
+    Ключи спрашиваются у FE по HTTP, а не читаются из его projects.db.
+    Прежний вариант лез в чужую базу напрямую: планировщик знал её путь,
+    схему таблицы api_keys и держал собственных клиентов пяти провайдеров.
+    Любое изменение в FE ломало бы планировщик молча.
+    """
+    import json as _json
+    import urllib.request
 
-    keys = {
-        "deepseek":  bool(_get_fe_key("deepseek_direct")),
-        "anthropic": bool(_get_fe_key("anthropic_direct")),
-        "openai":    bool(_get_fe_key("openai_direct")),
-        "gemini":    bool(_get_fe_key("gemini_direct")),
-        "nano":      bool(_get_fe_key("nano_gpt")),
-    }
-    has_any_key = any(keys.values())
-
-    fe_server = False
+    fe_server, keys = False, {}
     try:
-        import urllib.request
-        urllib.request.urlopen("http://localhost:5000/api/keys/status", timeout=2)
+        with urllib.request.urlopen(f"{_fe_base_url()}/api/keys/status", timeout=2) as r:
+            raw = _json.loads(r.read())
         fe_server = True
+        # FE отдаёт {провайдер: маскированный ключ}; нам нужен сам факт наличия
+        keys = {
+            "anthropic": "anthropic_direct" in raw,
+            "openai":    "openai_direct" in raw,
+            "gemini":    "gemini_direct" in raw,
+            "deepseek":  "deepseek_direct" in raw,
+            "nano":      "nano_gpt" in raw,
+        }
     except Exception:
+        # FE не запущен — это штатное состояние, а не ошибка:
+        # планировщиком можно пользоваться и без него
         pass
 
     return jsonify({
-        "fe_db":     fe_db,
         "fe_server": fe_server,
         "keys":      keys,
-        "has_keys":  has_any_key,
+        "has_keys":  any(keys.values()),
     })
 
-
-# ─── Импорт из Fiction Engine ─────────────────────────────────────────────────
 
 @bp.route("/fe/projects")
 def fe_projects():
     """Список проектов FE."""
     try:
         import urllib.request, json as _json
-        with urllib.request.urlopen("http://localhost:5000/api/projects/list", timeout=3) as r:
+        with urllib.request.urlopen(f"{_fe_base_url()}/api/projects/list", timeout=3) as r:
             return jsonify(_json.loads(r.read()))
     except Exception as e:
         return jsonify({"error": str(e), "projects": []})
@@ -251,14 +259,17 @@ def fe_import(fe_pid):
     try:
         import urllib.request, json as _json
         with urllib.request.urlopen(
-            f"http://localhost:5000/api/project/context?pid={fe_pid}", timeout=10
+            f"{_fe_base_url()}/api/project/context?pid={fe_pid}", timeout=10
         ) as r:
             data = _json.loads(r.read())
     except Exception as e:
         return jsonify({"error": f"FE недоступен: {e}"}), 503
 
     # Обновляем описание проекта в планировщике
-    from engine.db import update_project, get_project, save_logline
+    # save_logline здесь не нужен — и его в engine.db нет: импорт
+    # валил весь обработчик с ImportError, то есть импорт из FE
+    # не работал вовсе
+    from engine.db import update_project, get_project
     project = get_project(pid)
     if not project:
         return jsonify({"error": "Проект не найден"}), 404

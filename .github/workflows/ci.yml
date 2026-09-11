@@ -45,6 +45,13 @@ jobs:
       - name: Архитектурные границы
         run: python check_architecture.py
 
+      # Планировщик — отдельное приложение со своими пакетами engine и web,
+      # поэтому запускается отдельным прогоном из своего каталога: иначе
+      # одноимённые пакеты перекрыли бы друг друга.
+      - name: Тесты планировщика
+        working-directory: planner
+        run: python -m pytest tests/ -q -p no:cacheprovider
+
       - name: Компиляция всех модулей
         run: python -m compileall -q engine web cli.py
 
