@@ -399,13 +399,21 @@ def _run_migrations() -> None:
         # Правки автора — фундамент DATA_DRIVEN_LEARNING (пункт 2)
         ("author_edits",       "id",             "CREATE TABLE IF NOT EXISTS author_edits (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, chapter_num INTEGER NOT NULL, run_id INTEGER, original_text TEXT NOT NULL, accepted_text TEXT NOT NULL, rejection_reason TEXT DEFAULT '', action TEXT DEFAULT 'accept', judge_score REAL, created_at TEXT DEFAULT (datetime('now')))"),
     ]
+    # «Уже существует» — штатный исход повторного прогона миграции.
+    # Всё остальное (опечатка в SQL, битая схема) молча глотать нельзя:
+    # миграция просто не применится, а узнается об этом через отказ
+    # где-то далеко и позже.
+    _EXPECTED = ("already exists", "duplicate column name")
+
     with get_conn() as conn:
         for table, col, sql in migrations:
             try:
                 conn.execute(sql)
-            except sqlite3.OperationalError:
-                # Колонка/таблица уже существует — штатная ситуация для миграций
-                pass
+            except sqlite3.OperationalError as e:
+                if any(mark in str(e).lower() for mark in _EXPECTED):
+                    continue
+                _get_log().error(
+                    f"миграция не применилась: {table}.{col}", exc=e)
 
 
 # ─── Логирование ошибок ───────────────────────────────────────────────────────

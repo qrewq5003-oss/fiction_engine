@@ -272,8 +272,14 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
                             ]
                             if extra:
                                 result = result + "\n" + "\n".join(extra)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        # Без QUICK-блока промпт беднее, но рабочий.
+                        # Молчать нельзя: отказ чтения файла базы знаний
+                        # иначе не проявится нигде.
+                        from .logger import get_logger
+                        get_logger(__name__).error(
+                            "жанровый блок QUICK не подклеен", e,
+                            reason=genre_key)
             # Всегда добавляем каталожную специфику поджанра
             catalog_addon = load_catalog_subgenre_hint(engine_path, genre_key)
             return (result + "\n" + catalog_addon) if catalog_addon else result

@@ -303,8 +303,9 @@ def _maybe_save_debug_prompt(project_id: int, chapter_num: int,
         try:
             from .db import get_setting
             debug_on = get_setting("debug_prompts") == "1"
-        except Exception:
-            pass
+        except Exception as e:
+            handle_error("не прочитать флаг debug_prompts", e,
+                         level=ErrorLevel.RECOVERABLE)
     if not debug_on:
         return
 

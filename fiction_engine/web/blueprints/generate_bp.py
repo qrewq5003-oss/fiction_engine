@@ -7,7 +7,7 @@ from engine.db import (get_chapter, get_chapters, save_chapter, get_api_key,
 from engine.api import get_all_models_flat
 from engine.state import build_prompt   # используется в /prompt/generate
 from engine.pipeline import score_text  # публичный API скоринга
-from .helpers import get_current_project, after_chapter_saved
+from .helpers import get_current_project, after_chapter_saved, log_web_error
 
 bp = Blueprint("generate", __name__)
 
@@ -213,8 +213,8 @@ def generation_score(gen_id):
             row = conn.execute("SELECT value FROM settings WHERE key='scorer_model'").fetchone()
         if row and row["value"]:
             scorer_model = row["value"]
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("не прочитать scorer_model из настроек", e)
     current = get_current_project()
     genre = current.get("genre", "") if current else ""
     provider = scorer_model.split("::")[0] if "::" in scorer_model else ""
@@ -422,8 +422,12 @@ def quality_graph():
         scores = []
         for r in rows:
             d = {}
-            try: d = _j.loads(r["details"] or "{}")
-            except Exception: pass
+            try:
+                d = _j.loads(r["details"] or "{}")
+            except _j.JSONDecodeError:
+                # Детали могли быть записаны прежним форматом — показываем
+                # оценку без разбора, это не ошибка
+                pass
             scores.append({
                 "chapter_num": r["chapter_num"],
                 "total": r["total"],
@@ -585,8 +589,11 @@ def pipeline_accept():
                 action=action,
                 judge_score=j_score,
             )
-        except Exception:
-            pass  # Некритично — не ломаем accept
+        except Exception as e:
+            # Некритично — не ломаем accept, но и не молчим:
+            # без этой записи DATA_DRIVEN_LEARNING останется без данных
+            log_web_error("accept: не записана правка автора", e,
+                          project_id=current["id"], chapter_num=chapter_num)
 
     return jsonify({"ok": True, "state_updated": state_updated})
 
@@ -622,8 +629,9 @@ def pipeline_reject():
                     rejection_reason=reason,
                     judge_score=j_score,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            log_web_error("reject: не записано отклонение", e,
+                          project_id=current["id"])
 
     return jsonify({"ok": True})
 
@@ -878,8 +886,10 @@ def project_context():
     try:
         from engine.pipeline import get_active_promises_for_project
         promises = get_active_promises_for_project(pid)
-    except Exception:
-        pass
+    except Exception as e:
+        # Именно здесь два битых вызова годами отдавали пустой список
+        log_web_error("project/context: не собрать активные обещания", e,
+                      project_id=pid)
 
     return jsonify({
         "project": {

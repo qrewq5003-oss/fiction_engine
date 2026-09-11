@@ -4,7 +4,7 @@ from engine.db import (get_state, update_state, get_api_key, get_pending_updates
                        save_state_update, mark_update_applied)
 from engine.state import analyze_chapter
 from engine.api import get_all_models_flat
-from .helpers import get_current_project
+from .helpers import get_current_project, log_web_error
 
 bp = Blueprint("state", __name__)
 
@@ -48,8 +48,8 @@ def state_import():
             with get_conn() as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
             model_value = row["value"] if row else ""
-        except Exception:
-            pass
+        except Exception as e:
+            log_web_error("не прочитать last_model из настроек", e)
     if not model_value:
         return jsonify({"error": "Не задана модель"}), 400
     raw_text = ""
@@ -145,8 +145,9 @@ def state_analyze():
                     if drift and drift.get("warning"):
                         response["drift_warning"] = drift["warning"]
                         response["drift_score"] = drift.get("score")
-            except Exception:
-                pass
+            except Exception as e:
+                log_web_error("анализ главы: проверка дрейфа голоса", e,
+                              project_id=project_id, chapter_num=chapter_num)
             with _analyze_lock:
                 _analyze_jobs[job_id]["status"] = "done"
                 _analyze_jobs[job_id]["result"] = response
@@ -198,8 +199,11 @@ def state_apply(update_id):
                     return jsonify({"ok": True,
                                     "message": "Изменений не обнаружено",
                                     "merge": {"changed": False, "fields": [], "new_chars": []}})
-    except Exception:
-        pass
+    except Exception as e:
+        # Обновление сейчас будет помечено применённым — если слияние
+        # сорвалось, об этом обязан остаться след, иначе анализ пропадёт молча
+        log_web_error("state/apply: слияние анализа сорвалось", e,
+                      project_id=current["id"])
     mark_update_applied(update_id)
     return jsonify({"ok": True, "message": "State Engine обновлён", "merge": None})
 

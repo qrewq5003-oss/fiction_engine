@@ -29,8 +29,12 @@ def get_engine_path() -> Path:
             p = Path(row["value"])
             if p.exists():
                 return p
-    except Exception:
-        pass
+    except Exception as e:
+        # Ниже сработает путь по умолчанию, но отказ БД должен быть виден:
+        # иначе настроенный пользователем путь к базе знаний молча
+        # игнорируется, и движок читает совсем другой каталог
+        from .logger import get_logger
+        get_logger(__name__).error("не прочитать путь движка из настроек", e)
     if _DEFAULT_ENGINE_PATH.exists():
         return _DEFAULT_ENGINE_PATH
     if _FALLBACK_ENGINE_PATH.exists():

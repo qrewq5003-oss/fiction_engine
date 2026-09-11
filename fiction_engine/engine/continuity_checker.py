@@ -175,8 +175,9 @@ def _has_enough_data(project_id: int, chapter_num: int) -> bool:
             a = get_chapter_analysis(project_id, n)
             if a and a.get("analysis_quality") != "failed":
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        handle_error("_has_enough_data: не прочитать анализ глав", e,
+                     level=ErrorLevel.RECOVERABLE)
     return False
 
 

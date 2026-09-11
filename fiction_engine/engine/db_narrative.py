@@ -198,7 +198,9 @@ def get_l3_summaries(project_id: int, before_chapter: int, n: int = 3) -> list[d
         if isinstance(raw_p, str) and raw_p.startswith("["):
             try:
                 d["promises"] = json.loads(raw_p)
-            except Exception:
+            except json.JSONDecodeError:
+                # Старый формат — оставляем строкой, её разберёт
+                # normalize_promises. Прочие ошибки не глотаем.
                 pass
         result.append(d)
     return result
@@ -219,8 +221,8 @@ def get_l3_summary(project_id: int, chapter_num: int) -> dict | None:
     if isinstance(raw_p, str) and raw_p.startswith("["):
         try:
             result["promises"] = json.loads(raw_p)
-        except Exception:
-            pass
+        except json.JSONDecodeError:
+            pass          # см. выше: legacy-формат остаётся строкой
     return result
 
 

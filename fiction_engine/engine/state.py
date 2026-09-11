@@ -75,7 +75,8 @@ def _extract_next_context(analysis: str) -> str:
             ctx = data.get("next_context", "")
             if ctx:
                 return ctx.strip()
-    except Exception:
+    except (json.JSONDecodeError, AttributeError):
+        # Ответ не в JSON — ниже пробуем текстовый разбор
         pass
     # Fallback: legacy формат
     marker = "=== КОНТЕКСТ ДЛЯ СЛЕДУЮЩЕЙ ГЛАВЫ ==="

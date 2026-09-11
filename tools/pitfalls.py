@@ -36,8 +36,20 @@ for p in sorted(ROOT.rglob("*.py")):
                 add("Голый except:", loc, "перехватывает KeyboardInterrupt/SystemExit")
             body = n.body
             if len(body) == 1 and isinstance(body[0], ast.Pass):
-                # размер try-блока
-                add("except → pass (тихое проглатывание)", loc, "")
+                # Широкий перехват с pass — опасный случай: ошибка любого
+                # рода превращается в пустой результат. Именно так прожили
+                # незамеченными все найденные аудитом функциональные баги.
+                #
+                # Узкий перехват (json.JSONDecodeError в цепочке разбора,
+                # EOFError на Ctrl+D, ImportError для необязательной
+                # зависимости) — нормальный приём: ловится ровно то, что
+                # ожидается, всё остальное летит дальше. Такие не считаем.
+                caught = ast.unparse(n.type) if n.type else "Exception"
+                broad = caught in ("Exception", "BaseException") or n.type is None
+                if broad:
+                    add("широкий except → pass (тихое проглатывание)", loc, caught)
+                else:
+                    add("узкий except → pass (ожидаемый случай)", loc, caught)
         # is / is not с литералом
         if isinstance(n, ast.Compare):
             for op, cmp in zip(n.ops, n.comparators):

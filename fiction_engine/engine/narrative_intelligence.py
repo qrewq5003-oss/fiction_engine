@@ -573,8 +573,11 @@ class NarrativeIntelligence:
                 from .db_chapters import get_analyses_range
                 for a in get_analyses_range(project_id, ch_min, ch_max):
                     analyses_by_ch[a["chapter_num"]] = a
-            except Exception:
-                pass
+            except Exception as e:
+                # Без анализов NIL отработает по одним саммари — беднее,
+                # но не сломается. Отказ БД должен быть виден.
+                log.error("NIL: не прочитать анализы глав", exc=e,
+                          project_id=project_id)
 
         scores: list[float] = []
         pacing_available = 0

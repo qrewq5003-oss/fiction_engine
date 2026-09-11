@@ -1,7 +1,7 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
 from engine.db import get_chapter, get_chapters, save_chapter, get_api_key
-from .helpers import get_current_project, get_cheap_model, after_chapter_saved
+from .helpers import get_current_project, get_cheap_model, after_chapter_saved, log_web_error
 
 bp = Blueprint("chapters", __name__)
 
@@ -226,8 +226,8 @@ def continuity_check():
             with get_conn() as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
             model_value = row["value"] if row else ""
-        except Exception:
-            pass
+        except Exception as e:
+            log_web_error("не прочитать last_model из настроек", e)
     if not model_value:
         return jsonify({"error": "Не задана модель"}), 400
 
@@ -281,8 +281,8 @@ def l3_generate(chapter_num):
             with get_conn() as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
             model_value = row["value"] if row else ""
-        except Exception:
-            pass
+        except Exception as e:
+            log_web_error("не прочитать last_model из настроек", e)
     if not model_value:
         return jsonify({"error": "Не задана модель"}), 400
     from engine.pipeline import generate_l3

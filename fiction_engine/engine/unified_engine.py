@@ -363,8 +363,12 @@ def get_all_genre_options() -> list[dict]:
                 "label": data.get("display_name", f.stem),
                 "description": data.get("description", ""),
             })
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            # Битый или нечитаемый файл каталога — пропускаем его, чтобы
+            # остальные жанры остались доступны, но отказ фиксируем
+            from .logger import get_logger
+            get_logger(__name__).error("каталог жанра не прочитан", e,
+                                       reason=str(f.name))
     return options
 
 

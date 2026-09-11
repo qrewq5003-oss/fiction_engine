@@ -14,6 +14,23 @@ def get_current_project():
     return None
 
 
+def log_web_error(context: str, exc: Exception, **ctx) -> None:
+    """
+    Записать ошибку web-слоя, не прерывая обработку запроса.
+
+    Нужен потому, что дополнительные шаги после сохранения главы (L3,
+    дрейф голоса, режиссёрская заметка, авто-оценка) некритичны: их отказ
+    не должен ронять запрос. Но и молчать нельзя — именно так три
+    функциональных бага прожили в проекте незамеченными.
+    """
+    try:
+        from engine.logger import get_logger
+        get_logger("web").error(context, exc, **ctx)
+    except Exception:
+        # Логирование — последнее, что может отказать; дальше некуда
+        pass
+
+
 def get_cheap_model(fallback_model: str) -> str:
     """Вернуть resolver_model из настроек или fallback."""
     try:
@@ -23,8 +40,8 @@ def get_cheap_model(fallback_model: str) -> str:
             ).fetchone()
         if row and row["value"]:
             return row["value"]
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("get_cheap_model: не прочитать resolver_model", e)
     return fallback_model
 
 
@@ -36,8 +53,8 @@ def _get_scorer_model(fallback: str) -> str:
             ).fetchone()
         if row and row["value"]:
             return row["value"]
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("_get_scorer_model: не прочитать scorer_model", e)
     return fallback
 
 
@@ -71,8 +88,9 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
         if drift and drift.get("warning"):
             result["drift_warning"] = drift["warning"]
             result["drift_score"]   = drift.get("score")
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("после сохранения: проверка дрейфа голоса", e,
+                      project_id=project_id, chapter_num=chapter_num)
 
     # 3. Режиссёрская заметка
     try:
@@ -80,8 +98,9 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
         note = generate_director_note_for_chapter(project_id, chapter_num, text, cheap)
         if note:
             result["director_note"] = note
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("после сохранения: режиссёрская заметка", e,
+                      project_id=project_id, chapter_num=chapter_num)
 
     # 4. Авто-оценка
     try:
@@ -90,8 +109,9 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
             score = _auto_score_chapter(project_id, chapter_num, text, scorer_model)
             if score is not None:
                 result["auto_score"] = score
-    except Exception:
-        pass
+    except Exception as e:
+        log_web_error("после сохранения: авто-оценка главы", e,
+                      project_id=project_id, chapter_num=chapter_num)
 
     return result
 

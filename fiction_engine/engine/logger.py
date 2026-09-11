@@ -127,7 +127,10 @@ class DBHandler(logging.Handler):
                     (context[:500], error[:2000])
                 )
         except Exception:
-            pass  # handler не должен ломать всё остальное
+            # Handler не имеет права ломать приложение. Жаловаться некуда:
+            # это и есть механизм жалоб. Файловый лог при этом уцелеет —
+            # в БД не пишет только этот обработчик.
+            pass
 
 
 # ─── Фабрика логгеров ─────────────────────────────────────────────────────────
@@ -159,6 +162,9 @@ def _ensure_initialized():
             fh.setFormatter(StructuredFormatter())
             root.addHandler(fh)
         except Exception:
+            # Файл лога недоступен (права, только для чтения, нет места).
+            # Останутся консоль и БД — приложение работать не перестанет,
+            # а сообщить о беде всё равно нечем: логгер ещё не собран.
             pass
 
         # ── Консоль: WARNING и выше ────────────────────────────────────────
@@ -225,6 +231,8 @@ class EngineLogger:
             else:
                 self._log.error(context, extra=extra)
         except Exception:
+            # Отказ самого логгера не должен превращаться в исключение
+            # у вызывающего: тот как раз сообщал о своей ошибке.
             pass
 
     # Алиас для совместимости с contracts.ErrorBoundary
@@ -276,7 +284,7 @@ class _BoundLogger:
             else:
                 self._log.error(msg, extra=extra)
         except Exception:
-            pass
+            pass          # см. выше: логгер не жалуется на себя
 
 
 # ─── Удобная функция для обратной совместимости с db_core.log_error ──────────
