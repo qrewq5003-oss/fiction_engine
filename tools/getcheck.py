@@ -40,8 +40,14 @@ import sys
 from collections import deque
 from pathlib import Path
 
+# build/dist — копия приложения, оставшаяся от сборки. Она не в git
+# (лежит в .gitignore), но есть на диске у любого, кто собирал пакет,
+# и устаревает молча: та же находка печаталась дважды, второй раз из
+# кода, которого в репозитории нет. Так же исключают её sigcheck,
+# undefined, pitfalls и dead.
 _SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
-              ".mypy_cache", ".pytest_cache", ".git", "tests")
+              ".mypy_cache", ".pytest_cache", ".git", "tests",
+              "build", "dist")
 
 # Запись данных. DDL (CREATE/DROP/ALTER) не входит намеренно — см. докстринг.
 _DML = re.compile(r"\b(INSERT\s+INTO|INSERT\s+OR\s+\w+\s+INTO|REPLACE\s+INTO"

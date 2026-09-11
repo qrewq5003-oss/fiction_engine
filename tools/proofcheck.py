@@ -33,8 +33,11 @@ import ast
 import sys
 from pathlib import Path
 
+# build/dist исключены наравне с остальным: сюда инструмент не доходил
+# только потому, что ищет test_*.py, а в сборке тестов нет. Уцелел
+# случайно — это не то же самое, что защищён.
 _SKIP_DIRS = ("__pycache__", ".venv", "venv", "site-packages",
-              ".mypy_cache", ".pytest_cache", ".git")
+              ".mypy_cache", ".pytest_cache", ".git", "build", "dist")
 
 _EMPTY_CONTAINERS = (ast.List, ast.Dict, ast.Set)
 
