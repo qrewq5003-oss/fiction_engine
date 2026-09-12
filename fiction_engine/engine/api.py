@@ -92,15 +92,17 @@ MODELS = {
                 {"id": "anthracite-org/magnum-v4-72b",   "name": "Magnum v4 72B ★ проза"},
                 {"id": "zai-org/glm-5",                  "name": "GLM 5 ★"},
                 {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★"},
+                # Объём главы замерен 2026-09-12 на промпте quick, по три
+                # прогона на разных главах. Требование промпта — 2500-3000
+                # слов; из проверенных моделей его берёт одна.
+                {"id": "glm-4.7:cloud",                  "name": "GLM 4.7 ★ ~3000 слов — берёт объём"},
+                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ ~2200 слов, быстрая"},
             ],
             "Claude": [
                 {"id": "anthropic/claude-opus-4.6",     "name": "Claude Opus 4.6"},
                 {"id": "anthropic/claude-sonnet-4.6",   "name": "Claude Sonnet 4.6"},
                 {"id": "claude-opus-4-20250514",         "name": "Claude Opus 4"},
                 {"id": "claude-sonnet-4-20250514",       "name": "Claude Sonnet 4"},
-                {"id": "claude-3-7-sonnet-20250219",     "name": "Claude 3.7 Sonnet"},
-                {"id": "claude-3-5-sonnet-20241022",     "name": "Claude 3.5 Sonnet"},
-                {"id": "claude-3-7-sonnet-thinking",     "name": "Claude 3.7 Thinking"},
             ],
             "OpenAI GPT": [
                 {"id": "openai/gpt-5.2",        "name": "GPT-5.2 — последний"},
@@ -119,10 +121,12 @@ MODELS = {
                 {"id": "gemini-2.5-flash",          "name": "Gemini 2.5 Flash — быстрый"},
                 {"id": "gemini-2.5-flash-lite",     "name": "Gemini 2.5 Flash Lite"},
                 {"id": "gemini-3-pro-preview",      "name": "Gemini 3 Pro (preview)"},
-                {"id": "gemini-2.0-flash-001",      "name": "Gemini 2.0 Flash"},
             ],
             "DeepSeek": [
-                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2 — лучший"},
+                {"id": "deepseek/deepseek-v4-pro-0813", "name": "DeepSeek V4 Pro 0813 — новейший"},
+                {"id": "deepseek/deepseek-v4-pro",      "name": "DeepSeek V4 Pro"},
+                {"id": "deepseek/deepseek-v4-flash",    "name": "DeepSeek V4 Flash — быстрый"},
+                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2"},
                 {"id": "deepseek-ai/DeepSeek-V3.1",     "name": "DeepSeek V3.1"},
                 {"id": "deepseek-chat",                  "name": "DeepSeek Chat"},
                 {"id": "deepseek-r1",                    "name": "DeepSeek R1 (reasoning)"},
@@ -133,13 +137,7 @@ MODELS = {
                 {"id": "mistralai/mistral-large",                     "name": "Mistral Large"},
                 {"id": "mistralai/mistral-large-3-675b-instruct-2512","name": "Mistral Large 3 675B"},
                 {"id": "mistralai/mistral-medium-3.1",                "name": "Mistral Medium 3.1"},
-                {"id": "mistralai/mistral-small-creative",            "name": "Mistral Small Creative"},
                 {"id": "Magistral-Small-2506",                        "name": "Magistral Small"},
-            ],
-            "Grok (xAI)": [
-                {"id": "grok-3-beta",          "name": "Grok 3 Beta"},
-                {"id": "grok-3-fast-beta",     "name": "Grok 3 Fast"},
-                {"id": "x-ai/grok-4-fast",     "name": "Grok 4 Fast"},
             ],
             "Kimi (Moonshot)": [
                 {"id": "moonshotai/kimi-k2-instruct",  "name": "Kimi K2 — нарратив"},
@@ -147,21 +145,22 @@ MODELS = {
                 {"id": "moonshotai/kimi-k2-thinking",  "name": "Kimi K2 Thinking"},
             ],
             "GLM (Zhipu)": [
-                {"id": "zai-org/glm-5",             "name": "GLM 5 — новейший"},
+                {"id": "z-ai/glm-5.3",              "name": "GLM 5.3 — новейший"},
+                {"id": "z-ai/glm-5.3:thinking",     "name": "GLM 5.3 Thinking"},
+                {"id": "z-ai/glm-5.2",              "name": "GLM 5.2"},
+                {"id": "z-ai/glm-5.1",              "name": "GLM 5.1"},
+                {"id": "zai-org/glm-5",             "name": "GLM 5"},
                 {"id": "zai-org/glm-5:thinking",    "name": "GLM 5 Thinking"},
                 {"id": "glm-4.7:cloud",             "name": "GLM 4.7"},
                 {"id": "glm-4.7:thinking",          "name": "GLM 4.7 Thinking"},
                 {"id": "glm-4.6:cloud",             "name": "GLM 4.6"},
-                {"id": "glm-4.5:cloud",             "name": "GLM 4.5"},
                 {"id": "glm-4.5:thinking",          "name": "GLM 4.5 Thinking"},
-                {"id": "glm-4.5-air:cloud",         "name": "GLM 4.5 Air — быстрый"},
             ],
             "Qwen (Alibaba)": [
                 {"id": "qwen/qwen3-235b-a22b",     "name": "Qwen3 235B"},
                 {"id": "qwen/qwen3-32b",           "name": "Qwen3 32B"},
                 {"id": "qwen/qwen3-30b-a3b",       "name": "Qwen3 30B MoE"},
                 {"id": "qwen/qwen2.5-72b-instruct","name": "Qwen2.5 72B"},
-                {"id": "qwen/qwq-32b",             "name": "QwQ 32B (reasoning)"},
                 {"id": "qwen/qwen3.5-397b-a17b",   "name": "Qwen3.5 397B"},
             ],
             "Llama (Meta)": [
@@ -177,9 +176,6 @@ MODELS = {
                 {"id": "LatitudeGames/Wayfarer-Large-70B-Llama-3.3", "name": "Wayfarer 70B"},
                 {"id": "anthracite-org/magnum-v4-72b",           "name": "Magnum v4 72B ★"},
                 {"id": "anthracite-org/magnum-v2-72b",           "name": "Magnum v2 72B"},
-                {"id": "MiniMaxAI/MiniMax-M2.5",                 "name": "MiniMax M2.5"},
-                {"id": "nvidia/llama-3.3-nemotron-super-49b-v1", "name": "Nemotron Super 49B"},
-                {"id": "nvidia/nemotron-ultra-253b-v1",          "name": "Nemotron Ultra 253B"},
                 {"id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B", "name": "DeepSeek R1 Llama 70B"},
             ],
         }
