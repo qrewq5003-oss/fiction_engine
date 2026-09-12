@@ -23,6 +23,38 @@ sys.path.insert(0, str(ROOT))
 # Если пакеты уже установлены — моки не перезаписывают их (setdefault).
 sys.modules.setdefault("openai", MagicMock())
 sys.modules.setdefault("anthropic", MagicMock())
+
+
+# ─── Hypothesis: свойства проверяем, скорость — нет ──────────────────────────
+#
+# У hypothesis по умолчанию стоит предельное время на ОДИН пример — 200 мс.
+# Первый вызов проверяемой функции тянет ленивые импорты и инициализацию и
+# занимает около 270 мс, повторные — около 13. Стоит машине притормозить,
+# и тест на свойстве падает с DeadlineExceeded, а при повторе проходит —
+# hypothesis называет это FlakyFailure.
+#
+# Поймано 2026-09-13 охотой на мигание: 1 падение на 12 прогонов набора,
+# tests/test_hypothesis_threshold.py::test_threshold_within_score_range.
+# Имя всплыло только потому, что вывод сохранялся целиком; до того
+# падение видели дважды и оба раза теряли.
+#
+# Это не измерение скорости: 200 мс на загруженной машине не говорят
+# ничего, а ложное срабатывание раз в дюжину прогонов подрывает ВЕСЬ
+# набор — на нём держатся и класс-тесты, и доказательства, и правила.
+# Эти 31 тест проверяют логические свойства, время в них не участвует.
+#
+# Профиль общий, а не декоратор на одном тесте: следующий тест на
+# свойствах получит то же поведение, ничего не дописывая.
+try:
+    from hypothesis import settings as _hyp_settings, HealthCheck as _HC
+    _hyp_settings.register_profile(
+        "fiction_engine",
+        deadline=None,
+        suppress_health_check=[_HC.too_slow],
+    )
+    _hyp_settings.load_profile("fiction_engine")
+except ImportError:          # hypothesis не установлен — тесты на свойствах пропустятся
+    pass
 # Некоторые модули делают from openai import OpenAI — мок должен поддерживать это
 if not hasattr(sys.modules["openai"], "OpenAI"):
     sys.modules["openai"].OpenAI = MagicMock()
