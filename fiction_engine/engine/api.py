@@ -92,11 +92,22 @@ MODELS = {
                 {"id": "anthracite-org/magnum-v4-72b",   "name": "Magnum v4 72B ★ проза"},
                 {"id": "zai-org/glm-5",                  "name": "GLM 5 ★"},
                 {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★"},
-                # Объём главы замерен 2026-09-12 на промпте quick, по три
-                # прогона на разных главах. Требование промпта — 2500-3000
-                # слов; из проверенных моделей его берёт одна.
-                {"id": "glm-4.7:cloud",                  "name": "GLM 4.7 ★ ~3000 слов — берёт объём"},
-                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ ~2200 слов, быстрая"},
+                # Замеры 2026-09-13: объём главы по трём режимам промпта и
+                # оценка текста через score_text одним судьёй (шкала 0-50).
+                #
+                #                       оценка   объём (master)   сек
+                #   GLM 5.3               33        1817-3036      80
+                #   DeepSeek V4 Pro       29        2131-2374      97
+                #   DeepSeek V3.2         25        2557-3733     260   диалог 3/10
+                #   Claude Haiku 4.5      25        1642          42
+                #   GLM 4.7               22        2063-2586      47   голос 3/10
+                #
+                # Объём и оценка разошлись: модель с наибольшим объёмом дала
+                # худший текст. Поэтому в подписях объёма больше нет — по
+                # нему выбирать оказалось неверно. По одному замеру оценки
+                # на модель: значима разница в разряд, а не в пару баллов.
+                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ лучшая оценка в замере"},
+                {"id": "deepseek/deepseek-v4-pro-0813",  "name": "DeepSeek V4 Pro ★ ровный, сильный диалог"},
             ],
             "Claude": [
                 {"id": "anthropic/claude-opus-4.6",     "name": "Claude Opus 4.6"},
@@ -123,10 +134,10 @@ MODELS = {
                 {"id": "gemini-3-pro-preview",      "name": "Gemini 3 Pro (preview)"},
             ],
             "DeepSeek": [
-                {"id": "deepseek/deepseek-v4-pro-0813", "name": "DeepSeek V4 Pro 0813 — новейший"},
+                {"id": "deepseek/deepseek-v4-pro-0813", "name": "DeepSeek V4 Pro 0813 — ровный объём, сильный диалог"},
                 {"id": "deepseek/deepseek-v4-pro",      "name": "DeepSeek V4 Pro"},
                 {"id": "deepseek/deepseek-v4-flash",    "name": "DeepSeek V4 Flash — быстрый"},
-                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2"},
+                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2 — много текста, медленная"},
                 {"id": "deepseek-ai/DeepSeek-V3.1",     "name": "DeepSeek V3.1"},
                 {"id": "deepseek-chat",                  "name": "DeepSeek Chat"},
                 {"id": "deepseek-r1",                    "name": "DeepSeek R1 (reasoning)"},
