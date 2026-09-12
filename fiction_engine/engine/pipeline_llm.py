@@ -132,6 +132,28 @@ def parse_criterion(text: str, label: str) -> int:
     return int(m.group(1)) if m else 0
 
 
+def parse_first_item(text: str, header: str) -> str:
+    """
+    Первый пункт списка под заголовком header. Пустая строка — не нашлось.
+
+    Прежняя выемка в score_text требовала дефис сразу на следующей строке
+    после «ГЛАВНЫЕ ПРОБЛЕМЫ:». Живой критик (замер 2026-09-12) пишет так:
+
+        ## ГЛАВНЫЕ ПРОБЛЕМЫ:
+
+        **1. Рубленый синтаксис убивает эмоциональный вес диалога**
+
+    — решётки, пустая строка, нумерация вместо дефиса. Не совпадало
+    никогда: во всех пяти сравнительных прогонах main_issue приходил
+    пустым, и автор не видел, что именно критику не понравилось.
+
+    Разметка снимается до сопоставления, маркер списка любой.
+    """
+    plain = _plain(text)
+    m = re.search(rf"{header}:?\s*\n+\s*(?:[-*•]|\d+[.)])?\s*(.+)", plain, re.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+
 def parse_verdict(text: str) -> str:
     m = re.search(r'ВЕРДИКТ:\s*(ПРИНЯТЬ|НА ДОРАБОТКУ)', _plain(text), re.IGNORECASE)
     return m.group(1).upper() if m else "НА ДОРАБОТКУ"

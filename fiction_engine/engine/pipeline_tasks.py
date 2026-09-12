@@ -249,11 +249,12 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     from .pipeline_llm import parse_score
     total = parse_score(raw) or float(sum([voice, structure, characters, scenes, dialog]))
 
-    # Главная проблема — первый пункт из ГЛАВНЫЕ ПРОБЛЕМЫ
-    main_issue = ""
-    m_problems = re.search(r"ГЛАВНЫЕ ПРОБЛЕМЫ:\s*\n-\s*(.+)", raw)
-    if m_problems:
-        main_issue = m_problems.group(1).strip()
+    # Главная проблема — первый пункт из ГЛАВНЫЕ ПРОБЛЕМЫ.
+    # Разбор общий: своя выемка требовала дефис сразу на следующей строке
+    # и не совпадала ни разу — критик пишет «## ГЛАВНЫЕ ПРОБЛЕМЫ:», пустую
+    # строку и «**1. ...**».
+    from .pipeline_llm import parse_first_item
+    main_issue = parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
 
     return {
         "voice":      voice,

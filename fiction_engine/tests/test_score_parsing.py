@@ -147,3 +147,48 @@ def test_no_module_parses_scores_with_its_own_regex():
                 offenders.append(f"{path.name}:{node.lineno}")
     assert not offenders, ("разбор оценки продублирован мимо parse_score/parse_verdict: "
                            + ", ".join(offenders))
+
+
+# ─── Главная претензия критика ────────────────────────────────────────────────
+#
+# Найдено при сравнении моделей 2026-09-12: во всех пяти прогонах score_text
+# возвращал main_issue пустым. Выемка требовала дефис сразу на следующей
+# строке после «ГЛАВНЫЕ ПРОБЛЕМЫ:», а живой критик пишет решётки, пустую
+# строку и нумерацию. Автор не видел, что именно критику не понравилось —
+# и понять это по одним баллам нельзя.
+
+def test_real_scorer_output_yields_a_main_issue():
+    from engine.pipeline_llm import parse_first_item
+    raw = _fixture("real_scorer_2026_09_12.txt")
+    assert "## ГЛАВНЫЕ ПРОБЛЕМЫ:" in raw, "образец потерял разметку — он больше не про то"
+    issue = parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
+    assert issue, "главная претензия критика не извлечена"
+    assert len(issue) > 20, f"извлечён огрызок: {issue!r}"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("ГЛАВНЫЕ ПРОБЛЕМЫ:\n- дефис сразу",          "дефис сразу"),
+    ("## ГЛАВНЫЕ ПРОБЛЕМЫ:\n\n**1. нумерация**",  "нумерация"),
+    ("ГЛАВНЫЕ ПРОБЛЕМЫ\n\n* звёздочка",           "звёздочка"),
+    ("ГЛАВНЫЕ ПРОБЛЕМЫ:\n\n• буллет",             "буллет"),
+    ("__ГЛАВНЫЕ ПРОБЛЕМЫ:__\n2) скобка",          "скобка"),
+])
+def test_any_list_marker_and_markup_is_accepted(raw, expected):
+    from engine.pipeline_llm import parse_first_item
+    assert parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ") == expected
+
+
+def test_missing_section_gives_empty_string():
+    from engine.pipeline_llm import parse_first_item
+    assert parse_first_item("критик ответил прозой", "ГЛАВНЫЕ ПРОБЛЕМЫ") == ""
+
+
+def test_score_text_no_longer_parses_the_section_itself():
+    """Третьей копии выемки быть не должно — разбор в pipeline_llm."""
+    import ast
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "engine" / "pipeline_tasks.py").read_text(encoding="utf-8")
+    for node in ast.walk(ast.parse(src)):
+        if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and "ГЛАВНЫЕ ПРОБЛЕМЫ" in node.value and "\\s*" in node.value):
+            pytest.fail(f"своя выемка осталась на строке {node.lineno}")
