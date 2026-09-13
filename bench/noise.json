@@ -1,0 +1,74 @@
+{
+ "date": "2026-09-13",
+ "git": "3f1a393",
+ "mode": "master",
+ "judge": "anthropic_direct::claude-haiku-4-5-20251001",
+ "runs_per_model": 5,
+ "prompt_hash": "f4baa4614180",
+ "prompt_chars": 3084,
+ "threshold": "total >= 40 и каждый критерий >= 7",
+ "models": {
+  "z-ai/glm-5.3": {
+   "runs": [
+    {
+     "words": 2291,
+     "seconds": 39,
+     "total": 37.0,
+     "voice": 6,
+     "structure": 6,
+     "characters": 6,
+     "scenes": 6,
+     "dialog": 7,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Избыток коротких предложений разб",
+     "pct_short": null,
+     "empty_retries": 0
+    },
+    {
+     "words": 2762,
+     "seconds": 302,
+     "total": 30.0,
+     "voice": 7,
+     "structure": 6,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 6,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "РИТМ ПРЕДЛОЖЕНИЙ (63% коротких вместо 30%)",
+     "pct_short": null,
+     "empty_retries": 1
+    },
+    {
+     "words": 2034,
+     "seconds": 727,
+     "total": 29.0,
+     "voice": 6,
+     "structure": 5,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 7,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Ритм убивает напряжение",
+     "pct_short": null,
+     "empty_retries": 0
+    },
+    {
+     "words": 2512,
+     "seconds": 60,
+     "total": 26.0,
+     "voice": 4,
+     "structure": 5,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 6,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Ритм предложений деструктивен для напряжения: \"Сегодня он впервые подумал, что состав дрожит не от вибрации рельсов. Что дрожь идёт снизу, из-под бетона, и рель",
+     "pct_short": null,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 30.5,
+   "total_spread": 11.0
+  }
+ }
+}

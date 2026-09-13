@@ -82,27 +82,28 @@ MODELS = {
     "nano_gpt": {
         "label": "nano-gpt.com",
         "groups": {
-            "★ Лучшие для прозы — по замеру": [
-                # Замер 2026-09-13: 19 моделей, режим master, один и тот же
-                # судья (score_text, шкала 0-50), один и тот же промпт главы.
-                # Здесь только те, что реально проверены и доступны по ключу.
+            "★ Проверенные — отвечают и пишут главу": [
+                # Замер 2026-09-13. ВАЖНАЯ ПОПРАВКА к первой редакции этого
+                # списка: пять прогонов одной модели на одном промпте с одним
+                # судьёй дали 37 · 30 · 29 · 26 (и один отказ). Вместе с
+                # прежними замерами: 26 · 26 · 29 · 30 · 32 · 33 · 37.
+                # Стандартное отклонение 4.0 балла, размах 11 на шкале 50.
                 #
-                # Прежний состав этой группы был списком репутаций, а не
-                # измерением, и держал наверху четыре модели, недоступные по
-                # тарифу, и двух «специалистов по прозе», занявших последние
-                # места: Euryale 11 баллов, Magnum 15 — оба написали по 400
-                # слов вместо трёх тысяч. Ярлык «★ проза» ничего не предсказал.
+                # Значит по ОДНОМУ прогону различим только сдвиг от ~8 баллов.
+                # Первая редакция ранжировала эту группу по одному прогону
+                # (33 против 32 против 29) — такой разницы измерение не
+                # различает, и порядок был выдуман. Оценок в подписях больше
+                # нет: между этими пятью выбор по баллам не обоснован.
                 #
-                # Убранные отсюда никуда не делись — каждая осталась в своей
-                # группе провайдера. Проверено перед удалением.
-                #
-                # По одному замеру на модель: значима разница в разряд, а не
-                # в один-два балла. 33 против 32 — шум, 33 против 15 — нет.
-                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ 33/50 — лучшая оценка, 80 с"},
-                {"id": "moonshotai/kimi-k2.5",           "name": "Kimi K2.5 ★ 32/50 и 3400 слов — берёт и то и то"},
-                {"id": "deepseek/deepseek-v4-pro-0813",  "name": "DeepSeek V4 Pro ★ 29/50, сильный диалог, 26 с"},
-                {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★ 28/50"},
-                {"id": "deepseek-ai/DeepSeek-V3.1",      "name": "DeepSeek V3.1 ★ 28/50"},
+                # Что замер ВЫДЕРЖАЛ и почему они здесь: все пятеро отвечают
+                # по ключу и пишут главу целиком. Модели, писавшие по 370-440
+                # слов вместо 2500-3000, отстают на 15-22 балла — это вдвое
+                # больше разброса, и такой разрыв измерению доступен.
+                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★"},
+                {"id": "moonshotai/kimi-k2.5",           "name": "Kimi K2.5 ★ самая многословная из проверенных"},
+                {"id": "deepseek/deepseek-v4-pro-0813",  "name": "DeepSeek V4 Pro ★ самая быстрая из проверенных"},
+                {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★"},
+                {"id": "deepseek-ai/DeepSeek-V3.1",      "name": "DeepSeek V3.1 ★"},
             ],
             "Claude": [
                 {"id": "anthropic/claude-opus-4.6",     "name": "Claude Opus 4.6"},
@@ -141,7 +142,7 @@ MODELS = {
             ],
             "Mistral": [
                 {"id": "mistralai/mistral-large",                     "name": "Mistral Large"},
-                {"id": "mistralai/mistral-large-3-675b-instruct-2512","name": "Mistral Large 3 675B — 23/50, 760 слов"},
+                {"id": "mistralai/mistral-large-3-675b-instruct-2512","name": "Mistral Large 3 675B — 760 слов в замере"},
                 {"id": "mistralai/mistral-medium-3.1",                "name": "Mistral Medium 3.1"},
                 {"id": "Magistral-Small-2506",                        "name": "Magistral Small"},
             ],
@@ -157,8 +158,8 @@ MODELS = {
                 {"id": "z-ai/glm-5.1",              "name": "GLM 5.1"},
                 {"id": "zai-org/glm-5",             "name": "GLM 5"},
                 {"id": "zai-org/glm-5:thinking",    "name": "GLM 5 Thinking"},
-                {"id": "glm-4.7:cloud",             "name": "GLM 4.7"},
-                {"id": "glm-4.7:thinking",          "name": "GLM 4.7 Thinking — 30/50, но 11 минут на главу"},
+                {"id": "glm-4.7:cloud",             "name": "GLM 4.7 — много текста, слабый голос"},
+                {"id": "glm-4.7:thinking",          "name": "GLM 4.7 Thinking — 11 минут на главу"},
                 {"id": "glm-4.6:cloud",             "name": "GLM 4.6"},
                 {"id": "glm-4.5:thinking",          "name": "GLM 4.5 Thinking"},
             ],
@@ -167,10 +168,10 @@ MODELS = {
                 {"id": "qwen/qwen3-32b",           "name": "Qwen3 32B"},
                 {"id": "qwen/qwen3-30b-a3b",       "name": "Qwen3 30B MoE"},
                 {"id": "qwen/qwen2.5-72b-instruct","name": "Qwen2.5 72B"},
-                {"id": "qwen/qwen3.5-397b-a17b",   "name": "Qwen3.5 397B — 29/50, но 16 минут на главу"},
+                {"id": "qwen/qwen3.5-397b-a17b",   "name": "Qwen3.5 397B — 16 минут на главу"},
             ],
             "Llama (Meta)": [
-                {"id": "meta-llama/llama-4-maverick",       "name": "Llama 4 Maverick — 15/50 в замере"},
+                {"id": "meta-llama/llama-4-maverick",       "name": "Llama 4 Maverick — заметно слабее проверенных"},
                 {"id": "meta-llama/llama-4-scout",          "name": "Llama 4 Scout"},
                 {"id": "meta-llama/llama-3.3-70b-instruct", "name": "Llama 3.3 70B"},
             ],
@@ -178,7 +179,7 @@ MODELS = {
                 {"id": "Sao10K/L3.3-70B-Euryale-v2.3",          "name": "Euryale 70B — 11/50 в замере, 440 слов"},
                 {"id": "TheDrummer/Cydonia-24B-v4.3",            "name": "Cydonia 24B"},
                 {"id": "TheDrummer/Anubis-70B-v1.1",             "name": "Anubis 70B — 21/50 в замере, 370 слов"},
-                {"id": "nousresearch/hermes-4-405b",             "name": "Hermes 4 405B — 22/50, без прямой речи"},
+                {"id": "nousresearch/hermes-4-405b",             "name": "Hermes 4 405B — без прямой речи в замере"},
                 {"id": "LatitudeGames/Wayfarer-Large-70B-Llama-3.3", "name": "Wayfarer 70B — не принимает промпт master"},
                 {"id": "anthracite-org/magnum-v4-72b",           "name": "Magnum v4 72B — в тарифе нет; v2 дала 15/50"},
                 {"id": "anthracite-org/magnum-v2-72b",           "name": "Magnum v2 72B — 15/50 в замере, 390 слов"},
