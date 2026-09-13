@@ -333,13 +333,29 @@ def _flag_truncation(text: str, results: dict, where: str) -> None:
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
               model_editor: str, call_fn, results: dict) -> None:
-    """Шаг редактуры по критике предыдущего раунда."""
-    if not (previous_text and previous_critique):
+    """
+    Шаг редактуры: правит текст по критике.
+
+    Берёт текст и критику ТЕКУЩЕЙ итерации, если они есть, и только иначе —
+    предыдущей. До 13.09.2026 он смотрел лишь на предыдущую, поэтому на
+    первом проходе не запускался никогда: критик называл конкретные
+    проблемы, и никто их не правил, пока автор не нажмёт «продолжить».
+    Штатным результатом движка был черновик с диагнозом, а не текст.
+
+    Порядок шагов в профиле DEEP уже был верным
+    (generate → critique → edit → judge) — не хватало только того, чтобы
+    редактор видел, что сделали два шага перед ним.
+    """
+    text     = results.get("generated_text") or previous_text
+    critique = results.get("critique") or previous_critique
+    if not (text and critique):
         return
+    rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
     edit_prompt = (
-        f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{previous_text}\n\n"
-        f"КРИТИКА РЕДАКТОРА:\n{previous_critique}\n\n"
-        "Перепиши текст, исправив все указанные проблемы. Сохрани сюжет и персонажей."
+        f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{text}\n\n"
+        f"КРИТИКА РЕДАКТОРА:\n{critique}\n\n"
+        + (f"ЗАМЕРЕНО: {rhythm_hint}\n\n" if rhythm_hint else "")
+        + "Перепиши текст, исправив все указанные проблемы. Сохрани сюжет и персонажей."
     )
     edited_text = call_fn(model_editor, SYS_EDITOR, edit_prompt)
     save_pipeline_iteration(run_id, iteration, "edit", model_editor,

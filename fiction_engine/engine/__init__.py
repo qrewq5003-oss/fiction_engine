@@ -58,6 +58,7 @@ from .pipeline import (
     PipelineStep,
     DEFAULT_PIPELINE,
     PIPELINE_WITH_EDIT,
+    PIPELINE_GENERATE_AND_EDIT,
     PIPELINE_WITH_PREVALIDATE,
 )
 from .pipeline_config import (

@@ -186,6 +186,88 @@ def _measure(model: str, prompt: str, genre: str, judge: str) -> dict:
     }
 
 
+# ─── Замер редакторов ────────────────────────────────────────────────────────
+#
+# Отдельный режим, потому что мерит другое: не «как пишет», а «станет ли
+# переписывать». Опыт 2026-09-13 показал, что это разные способности —
+# DeepSeek V4 Pro дважды вернул исходник дословно (схожесть 96.9% между
+# двумя своими же «редактурами»), а Kimi K2.5 переписала по-настоящему и
+# сдвинула долю коротких предложений с 59% до 14%.
+#
+# Вход фиксированный: bench/editor_input.txt. Так модели сравнимы между
+# собой, и хватает одного вызова на каждую вместо двух.
+#
+# Мерится арифметикой, а не судьёй: схожесть текстов, доля коротких, объём.
+# Шума в этих числах нет — в отличие от баллов, где он равен 11.
+
+EDITOR_INPUT = ROOT / "bench" / "editor_input.txt"
+
+EDIT_ASK = (
+    "Перепиши текст ниже, исправив ТОЛЬКО ритм предложений. Сюжет, события, "
+    "реплики и порядок сцен не менять. Объединяй рубленые фразы в средние и "
+    "длинные там, где это не ломает смысл."
+)
+
+
+def run_editors(models: list[str], out: Path | None) -> int:
+    import difflib
+    from engine.pipeline import _call
+    from engine.pipeline_steps import analyze_sentence_rhythm
+    from engine.pipeline_config import PROSE_MAX_TOKENS, RHYTHM_RANGE
+
+    _bootstrap("master")                       # ключи + временная БД
+    src = EDITOR_INPUT.read_text(encoding="utf-8")
+    before = analyze_sentence_rhythm(src)
+    lo, hi = RHYTHM_RANGE["short"]
+    print(f"  вход: {len(src.split())} слов, коротких {before['short']}% "
+          f"(допуск {lo}-{hi}%)\n")
+    print(f"  {'редактор':40} {'коротких':>9} {'схожесть':>9} {'объём':>8}  вывод")
+    print("  " + "─" * 82)
+
+    results = {}
+    for model in models:
+        name = model.split("::", 1)[1]
+        try:
+            edited = _call(model, "Ты редактор. Возвращаешь только переработанный текст.",
+                           f"{before['hint']}\n\n{EDIT_ASK}\n\nТЕКСТ:\n{src}",
+                           max_tokens=PROSE_MAX_TOKENS)
+        except Exception as e:
+            results[name] = {"error": str(e)[:70]}
+            print(f"  {name:40} {'—':>9} {'—':>9} {'—':>8}  {str(e)[:28]}", flush=True)
+            continue
+        after = analyze_sentence_rhythm(edited)
+        same  = difflib.SequenceMatcher(None, src, edited).ratio()
+        grow  = len(edited.split()) / max(len(src.split()), 1)
+        rewrote  = same < 0.95
+        in_range = lo <= after["short"] <= hi
+        kept     = grow <= 1.15
+        verdict = ("годится" if (rewrote and in_range and kept) else
+                   "вернул исходник" if not rewrote else
+                   "раздул текст" if not kept else
+                   "перелёт" if after["short"] < lo else "не дотянул")
+        results[name] = {"short_before": before["short"], "short_after": after["short"],
+                         "similarity": round(same, 3), "growth": round(grow, 2),
+                         "rewrote": rewrote, "in_range": in_range, "kept_length": kept,
+                         "verdict": verdict}
+        print(f"  {name:40} {before['short']:3}→{after['short']:3}% "
+              f"{same:8.0%} {grow:7.0%}  {verdict}", flush=True)
+
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({
+            "date": date.today().isoformat(), "git": _git_rev(),
+            "kind": "editors",
+            "input_hash": hashlib.sha256(src.encode()).hexdigest()[:12],
+            "input_words": len(src.split()),
+            "criteria": "переписал (схожесть <95%) И попал в допуск 20-40% И не раздул (<115%)",
+            "models": results,
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"\n  записано: {out}")
+    good = [n for n, v in results.items() if v.get("verdict") == "годится"]
+    print(f"\n  годятся в редакторы: {', '.join(good) if good else 'ни одна'}")
+    return 0
+
+
 def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -> int:
     prompt, genre = _bootstrap(mode)
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
@@ -333,6 +415,8 @@ def main() -> int:
     ap.add_argument("--out", type=Path)
     ap.add_argument("--compare", nargs=2, type=Path, metavar=("A", "B"))
     ap.add_argument("--list", action="store_true", help="показать состав по умолчанию")
+    ap.add_argument("--editors", action="store_true",
+                    help="мерить готовность переписывать, а не писать")
     args = ap.parse_args()
 
     if args.compare:
@@ -349,6 +433,8 @@ def main() -> int:
     if args.models:
         models = [m if "::" in m else "nano_gpt::" + m
                   for m in (x.strip() for x in args.models.split(",")) if m]
+    if args.editors:
+        return run_editors(models, args.out)
     return run(models, args.mode, args.judge, args.runs, args.out)
 
 
