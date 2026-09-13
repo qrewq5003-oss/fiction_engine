@@ -272,7 +272,8 @@ def call_model(model_value: str, system: str, user: str,
     fn, key = dispatch[provider]
 
     try:
-        return fn(model_id, system, user, key, max_tokens, prefill)
+        return _reject_empty(fn(model_id, system, user, key, max_tokens, prefill),
+                             model_value, prefill)
     except Exception as exc:
         # Часть моделей (особенно из каталога nano-gpt) отдаёт меньше токенов,
         # чем просит пайплайн под полную главу. Такой отказ виден только по
@@ -281,7 +282,38 @@ def call_model(model_value: str, system: str, user: str,
         retry = _reduced_max_tokens(exc, max_tokens)
         if retry is None:
             raise
-        return fn(model_id, system, user, key, retry, prefill)
+        return _reject_empty(fn(model_id, system, user, key, retry, prefill),
+                             model_value, prefill)
+
+
+def _reject_empty(text: str, model_value: str, prefill: str) -> str:
+    """
+    Пустой ответ модели — это отказ, а не текст.
+
+    Замер 2026-09-13: z-ai/glm-5.3 примерно в половине вызовов отдаёт
+    пустое содержимое с finish_reason='length' — бюджет израсходован, а
+    в ответе ничего. Проверено, что это поведение провайдера, а не наше:
+    сырой HTTP-запрос и вызов через SDK дают одну и ту же картину
+    (0 · 0 · 666 символов против 0 · 822 · 116).
+
+    Раньше такая пустота уходила наверх обычной строкой. run_generation
+    её ловил, а шаг генерации в пайплайне, score_text и замер — нет:
+    в историю сохранялась пустая итерация, а оценка выходила 0 из 50,
+    неотличимая от «модель написала плохо».
+
+    Проверка в диспетчере, а не в пяти функциях провайдеров: так её
+    нельзя забыть при добавлении шестого.
+    """
+    body = (text or "")
+    if prefill and body.startswith(prefill):
+        body = body[len(prefill):]          # своё ли модель что-то добавила
+    if body.strip():
+        return text
+    reason = get_last_stop_reason() or "причина не сообщена"
+    raise ValueError(
+        f"Модель {model_value} вернула пустой ответ (finish_reason={reason}). "
+        f"Это отказ провайдера, а не текст главы."
+    )
 
 
 # Формулировки, которыми провайдеры сообщают именно о завышенном ПОТОЛКЕ ВЫВОДА.

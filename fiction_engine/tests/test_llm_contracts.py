@@ -462,3 +462,65 @@ class TestRunBatchL3:
             run_batch_l3(project_id, MODEL,
                          progress_callback=lambda cur, tot, ch: calls.append(ch))
         assert len(calls) >= 1
+
+
+# ─── Пустой ответ модели ──────────────────────────────────────────────────────
+#
+# Найдено замером 2026-09-13: z-ai/glm-5.3 примерно в половине вызовов
+# отдаёт пустое содержимое с finish_reason='length'. Проверено, что это
+# поведение провайдера, а не наше: сырой HTTP и SDK дают одну картину.
+#
+# Раньше пустота уходила наверх обычной строкой. run_generation её ловил,
+# а шаг генерации пайплайна, score_text и замер — нет: в историю падала
+# пустая итерация, оценка выходила 0 из 50 и была неотличима от «модель
+# написала плохо».
+
+class TestEmptyModelResponse:
+    def _dispatch(self, monkeypatch, returns, reason="length"):
+        import engine.api as api
+        monkeypatch.setattr(api, "_call_anthropic",
+                            lambda *a, **k: returns)
+        monkeypatch.setattr(api, "_remember_stop_reason", lambda r: None)
+        monkeypatch.setattr(api, "get_last_stop_reason", lambda: reason)
+        return api
+
+    def test_empty_string_is_an_error_not_text(self, monkeypatch):
+        import pytest
+        api = self._dispatch(monkeypatch, "")
+        with pytest.raises(ValueError, match="пустой ответ"):
+            api.call_model("anthropic_direct::m", "sys", "usr", anthropic_key="k")
+
+    def test_whitespace_only_is_an_error(self, monkeypatch):
+        import pytest
+        api = self._dispatch(monkeypatch, "   \n\n  ")
+        with pytest.raises(ValueError, match="пустой ответ"):
+            api.call_model("anthropic_direct::m", "sys", "usr", anthropic_key="k")
+
+    def test_error_names_the_finish_reason(self, monkeypatch):
+        import pytest
+        api = self._dispatch(monkeypatch, "", reason="length")
+        with pytest.raises(ValueError, match="length"):
+            api.call_model("anthropic_direct::m", "sys", "usr", anthropic_key="k")
+
+    def test_real_text_passes_through(self, monkeypatch):
+        api = self._dispatch(monkeypatch, "Настоящий текст главы.")
+        assert api.call_model("anthropic_direct::m", "sys", "usr",
+                              anthropic_key="k") == "Настоящий текст главы."
+
+    def test_prefill_alone_counts_as_empty(self, monkeypatch):
+        """
+        При продолжении главы модель получает prefill и обязана что-то
+        дописать. Если она вернула ровно его — это тот же отказ, просто
+        замаскированный непустой строкой.
+        """
+        import pytest
+        api = self._dispatch(monkeypatch, "хвост предыдущей части")
+        with pytest.raises(ValueError, match="пустой ответ"):
+            api.call_model("anthropic_direct::m", "sys", "usr", anthropic_key="k",
+                           prefill="хвост предыдущей части")
+
+    def test_prefill_plus_new_text_passes(self, monkeypatch):
+        api = self._dispatch(monkeypatch, "хвост. И продолжение главы.")
+        got = api.call_model("anthropic_direct::m", "sys", "usr",
+                             anthropic_key="k", prefill="хвост.")
+        assert got.endswith("И продолжение главы.")
