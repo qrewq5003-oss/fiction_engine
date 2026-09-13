@@ -23,7 +23,10 @@ log = get_logger(__name__)
 def analyze_sentence_rhythm(text: str) -> dict:
     """
     R05: Программный подсчёт распределения длин предложений.
-    Цель: 30% коротких (<8 слов), 50% средних (8-20), 20% длинных (>20).
+    Норма и границы — в pipeline_config (RHYTHM_TARGET, RHYTHM_RANGE,
+    RHYTHM_SHORT_MAX, RHYTHM_LONG_MIN). Там же их берёт промпт генерации:
+    до 13.09.2026 норму знал только критик, и генератора судили по
+    правилу, которого он не видел.
     Возвращает статистику и строку-вывод для промпта критика.
     """
     import re
@@ -34,36 +37,38 @@ def analyze_sentence_rhythm(text: str) -> dict:
     lengths = [len(s.split()) for s in sentences]
     total = len(lengths)
 
-    short  = sum(1 for l in lengths if l < 8)
-    medium = sum(1 for l in lengths if 8 <= l <= 20)
-    long_  = sum(1 for l in lengths if l > 20)
+    from .pipeline_config import (RHYTHM_SHORT_MAX, RHYTHM_LONG_MIN,
+                                  RHYTHM_TARGET, RHYTHM_RANGE)
+    short  = sum(1 for l in lengths if l < RHYTHM_SHORT_MAX)
+    medium = sum(1 for l in lengths if RHYTHM_SHORT_MAX <= l <= RHYTHM_LONG_MIN)
+    long_  = sum(1 for l in lengths if l > RHYTHM_LONG_MIN)
 
     pct_short  = round(short  / total * 100)
     pct_medium = round(medium / total * 100)
     pct_long   = round(long_  / total * 100)
 
     # Целевые диапазоны
-    ok_short  = 20 <= pct_short  <= 40
-    ok_medium = 40 <= pct_medium <= 60
-    ok_long   = 10 <= pct_long   <= 30
+    ok_short  = RHYTHM_RANGE["short"][0]  <= pct_short  <= RHYTHM_RANGE["short"][1]
+    ok_medium = RHYTHM_RANGE["medium"][0] <= pct_medium <= RHYTHM_RANGE["medium"][1]
+    ok_long   = RHYTHM_RANGE["long"][0]   <= pct_long   <= RHYTHM_RANGE["long"][1]
 
     issues = []
     if not ok_short:
-        if pct_short < 20:
-            issues.append(f"мало коротких предложений ({pct_short}%, цель 30%) — текст монотонен")
+        if pct_short < RHYTHM_RANGE["short"][0]:
+            issues.append(f"мало коротких предложений ({pct_short}%, цель {RHYTHM_TARGET["short"]}%) — текст монотонен")
         else:
             issues.append(f"слишком много коротких предложений ({pct_short}%, цель 30%) — рубленый ритм")
     if not ok_long:
-        if pct_long < 10:
-            issues.append(f"мало длинных предложений ({pct_long}%, цель 20%) — нет дыхания")
+        if pct_long < RHYTHM_RANGE["long"][0]:
+            issues.append(f"мало длинных предложений ({pct_long}%, цель {RHYTHM_TARGET["long"]}%) — нет дыхания")
         else:
-            issues.append(f"слишком много длинных предложений ({pct_long}%, цель 20%) — тяжело читать")
+            issues.append(f"слишком много длинных предложений ({pct_long}%, цель {RHYTHM_TARGET["long"]}%) — тяжело читать")
 
     hint = ""
     if issues:
         hint = (
             f"РИТМ ПРЕДЛОЖЕНИЙ (R05): короткие {pct_short}% / средние {pct_medium}% / длинные {pct_long}% "
-            f"(цель 30/50/20). Проблемы: {'; '.join(issues)}."
+            f"(цель {RHYTHM_TARGET["short"]}/{RHYTHM_TARGET["medium"]}/{RHYTHM_TARGET["long"]}). Проблемы: {'; '.join(issues)}."
         )
     else:
         hint = (

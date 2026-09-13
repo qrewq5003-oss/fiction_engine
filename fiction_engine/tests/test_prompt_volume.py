@@ -94,3 +94,68 @@ def test_every_mode_asks_the_model_to_check_its_own_length(prompts):
         assert "проверь себя" in text, f"{mode}: нет самопроверки объёма"
         assert "2500" in text.split("проверь себя")[1][:160], \
             f"{mode}: самопроверка не называет число"
+
+
+# ─── Ритм: генератор судится по правилу, которого не видел ───────────────────
+#
+# Замер 19 моделей (2026-09-13): двенадцать главных претензий критика из
+# четырнадцати — про рубленый ритм, 61-91% коротких предложений при норме
+# 30%. Норму считает analyze_sentence_rhythm и передаёт КРИТИКУ. Генератору
+# её не показывали ни в одном режиме: в quick стояло противоположное
+# («Экшн/напряжение: короткие предложения 5-10 слов»), в quality не было
+# ни слова, в master одно упоминание.
+#
+# Модели разных семейств и размеров ошибались одинаково, потому что
+# выполняли инструкцию, а судили их по другой.
+
+def test_every_mode_states_the_rhythm_rule(prompts):
+    for mode, text in prompts.items():
+        assert "РИТМ ПРЕДЛОЖЕНИЙ" in text, f"{mode}: генератору не сказали про ритм"
+
+
+def test_the_contradicting_advice_is_gone(prompts):
+    """
+    «Короткие предложения (5-10 слов)» прямо толкало к тому, за что потом
+    снижают оценку. Если вернётся — набор обязан упасть.
+    """
+    for mode, text in prompts.items():
+        assert "5-10 слов" not in text, f"{mode}: вернулся совет рубить фразы"
+
+
+def test_prompt_numbers_come_from_the_same_place_as_the_check(prompts):
+    """
+    Главное здесь. Числа в промпте и числа, по которым считает критик, —
+    один экземпляр, а не две копии. Копии уже расходились: «15-20 абзацев»
+    против «25-35» на один и тот же объём.
+    """
+    from engine.pipeline_config import (RHYTHM_TARGET, RHYTHM_SHORT_MAX,
+                                        RHYTHM_LONG_MIN, RHYTHM_RANGE)
+    for mode, text in prompts.items():
+        assert f"меньше {RHYTHM_SHORT_MAX} слов" in text, f"{mode}: граница короткого разошлась"
+        assert f"больше {RHYTHM_LONG_MIN} слов" in text, f"{mode}: граница длинного разошлась"
+        for part in ("short", "medium", "long"):
+            assert f"около {RHYTHM_TARGET[part]}%" in text, f"{mode}: доля {part} разошлась"
+        assert f"Не больше {RHYTHM_RANGE['short'][1]}%" in text, f"{mode}: потолок коротких разошёлся"
+
+
+def test_analyzer_uses_the_same_constants():
+    """Вторая половина того же: анализатор не должен знать своих чисел."""
+    import ast
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "engine" / "pipeline_steps.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "analyze_sentence_rhythm")
+    literals = {n.value for n in ast.walk(fn)
+                if isinstance(n, ast.Constant) and isinstance(n.value, int)}
+    forbidden = {8, 20, 30, 40, 50, 60, 10} & literals
+    assert not forbidden, (
+        f"анализатор держит свои числа {sorted(forbidden)} вместо констант "
+        "из pipeline_config — они разойдутся с промптом")
+
+
+def test_rhythm_rule_reacts_to_the_constants(monkeypatch):
+    """Проверка проверки: если сдвинуть норму, промпт обязан сдвинуться."""
+    import engine.pipeline_config as cfg
+    monkeypatch.setitem(cfg.RHYTHM_TARGET, "short", 42)
+    assert "около 42%" in cfg.rhythm_rule_for_prompt()

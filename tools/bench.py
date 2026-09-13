@@ -181,7 +181,7 @@ def _measure(model: str, prompt: str, genre: str, judge: str) -> dict:
         **{c: sc[c] for c in CRITERIA},
         "verdict": sc["verdict"],
         "main_issue": (sc.get("main_issue") or "")[:160],
-        "pct_short": (sc.get("rhythm") or {}).get("pct_short"),
+        "pct_short": (sc.get("rhythm") or {}).get("short"),   # ключ именно short
         "empty_retries": empty_tries,
     }
 
