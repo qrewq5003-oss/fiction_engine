@@ -1,0 +1,94 @@
+{
+ "date": "2026-09-13",
+ "git": "c5e4a86",
+ "mode": "master",
+ "judge": "anthropic_direct::claude-haiku-4-5-20251001",
+ "runs_per_model": 3,
+ "prompt_hash": "9f0e3503945f",
+ "prompt_chars": 3460,
+ "threshold": "total >= 40 и каждый критерий >= 7",
+ "models": {
+  "z-ai/glm-5.3": {
+   "runs": [
+    {
+     "words": 2147,
+     "seconds": 39,
+     "total": 29.0,
+     "voice": 6,
+     "structure": 5,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 7,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Ритм убивает напряжение — \"Утро в Праге начиналось с трамваев. Лукаш слышал их через окно. Номер шесть и номер одиннадцать. Скрежет на повороте.\" Четыре коротки",
+     "pct_short": 60,
+     "empty_retries": 0
+    },
+    {
+     "words": 1862,
+     "seconds": 34,
+     "total": 32.0,
+     "voice": 7,
+     "structure": 5,
+     "characters": 7,
+     "scenes": 6,
+     "dialog": 7,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Избыток коротких предложений (66% vs 30% норма)",
+     "pct_short": 66,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 30.5,
+   "total_spread": 3.0
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "runs": [
+    {
+     "words": 2014,
+     "seconds": 38,
+     "total": 28.0,
+     "voice": 6,
+     "structure": 5,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 6,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Избыток коротких предложений создаёт синтаксическое монотонное (68% vs цель 30%)",
+     "pct_short": 68,
+     "empty_retries": 0
+    },
+    {
+     "words": 3447,
+     "seconds": 84,
+     "total": 23.0,
+     "voice": 4,
+     "structure": 5,
+     "characters": 5,
+     "scenes": 3,
+     "dialog": 6,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Ритм предложений — 73% коротких вместо целевых 30% — \"Лукаш не ответил. Он сел, поставил босые ноги на холодный пол и досчитал до десяти, прежде чем встать. Это",
+     "pct_short": 73,
+     "empty_retries": 0
+    },
+    {
+     "words": 2299,
+     "seconds": 55,
+     "total": 24.0,
+     "voice": 5,
+     "structure": 4,
+     "characters": 5,
+     "scenes": 4,
+     "dialog": 6,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Ритм предложений — критический дисбаланс (74% коротких)",
+     "pct_short": 74,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 25.0,
+   "total_spread": 5.0
+  }
+ }
+}
