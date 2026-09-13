@@ -268,6 +268,84 @@ def run_editors(models: list[str], out: Path | None) -> int:
     return 0
 
 
+def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
+                  mode: str, out: Path | None) -> int:
+    """
+    Окупается ли лишний вызов редактора — ПАРНЫМ сравнением.
+
+    Один и тот же текст оценивается до и после редактуры. Это важно:
+    разброс между независимыми прогонами равен 4 баллам (этап 0), и на
+    нём эффект в 2-3 балла утонет. В паре разброс генерации общий для
+    обеих оценок и сокращается, поэтому различимо куда меньшее.
+
+    Судья один и тот же на обе оценки — иначе сравниваются шкалы.
+    """
+    import difflib, statistics
+    from engine.pipeline import _call, score_text
+    from engine.pipeline_steps import analyze_sentence_rhythm
+    from engine.pipeline_config import PROSE_MAX_TOKENS
+
+    prompt, genre = _bootstrap(mode)
+    print(f"  генератор {gen_model.split('::')[1]}")
+    print(f"  редактор  {editor.split('::')[1]}")
+    print(f"  судья     {judge.split('::')[1]}, режим {mode}, пар {runs}\n")
+    print(f"  {'#':>2} {'до':>5} {'после':>6} {'Δ':>6}  {'коротких':>12}  {'слов':>13}  схожесть")
+    print("  " + "─" * 72)
+
+    pairs = []
+    for i in range(runs):
+        try:
+            draft = _call(gen_model, "Ты профессиональный писатель. Пишешь главу романа.",
+                          prompt, max_tokens=PROSE_MAX_TOKENS)
+            s_before = score_text(draft, genre, judge)
+            rh = analyze_sentence_rhythm(draft)
+            crit = s_before.get("raw", "")
+            edited = _call(editor, "Ты редактор. Возвращаешь только переработанный текст.",
+                           f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{draft}\n\nКРИТИКА РЕДАКТОРА:\n{crit}\n\n"
+                           f"ЗАМЕРЕНО: {rh['hint']}\n\n"
+                           "Перепиши текст, исправив все указанные проблемы. "
+                           "Сохрани сюжет и персонажей.",
+                           max_tokens=PROSE_MAX_TOKENS)
+            s_after = score_text(edited, genre, judge)
+            rh2 = analyze_sentence_rhythm(edited)
+        except Exception as e:
+            print(f"  {i+1:>2} ОШИБКА: {str(e)[:60]}", flush=True)
+            continue
+        d = s_after["total"] - s_before["total"]
+        same = difflib.SequenceMatcher(None, draft, edited).ratio()
+        pairs.append({"before": s_before["total"], "after": s_after["total"], "delta": d,
+                      "short_before": rh["short"], "short_after": rh2["short"],
+                      "words_before": len(draft.split()), "words_after": len(edited.split()),
+                      "similarity": round(same, 3)})
+        print(f"  {i+1:>2} {s_before['total']:5.0f} {s_after['total']:6.0f} {d:+6.0f}"
+              f"  {rh['short']:5}% →{rh2['short']:4}%  {len(draft.split()):6}→{len(edited.split()):6}"
+              f"  {same:8.0%}", flush=True)
+
+    if not pairs:
+        print("\n  ни одной пары не собрано"); return 1
+    deltas = [p["delta"] for p in pairs]
+    mean_d = statistics.mean(deltas)
+    print(f"\n  средний прирост от редактуры: {mean_d:+.1f} балла")
+    print(f"  пар с приростом: {sum(1 for d in deltas if d > 0)} из {len(deltas)}")
+    if len(deltas) > 1:
+        sd = statistics.stdev(deltas)
+        print(f"  разброс прироста: {sd:.1f}; различимо примерно от "
+              f"{2*sd/len(deltas)**0.5:.1f} балла при {len(deltas)} парах")
+    print(f"  доля коротких: {statistics.mean(p['short_before'] for p in pairs):.0f}% → "
+          f"{statistics.mean(p['short_after'] for p in pairs):.0f}%")
+    print(f"  объём: {statistics.mean(p['words_after']/p['words_before'] for p in pairs):.0%} от исходного")
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({
+            "date": date.today().isoformat(), "git": _git_rev(), "kind": "edit_gain",
+            "generator": gen_model, "editor": editor, "judge": judge, "mode": mode,
+            "note": "парное сравнение: один и тот же текст до и после редактуры",
+            "pairs": pairs, "mean_delta": round(mean_d, 2),
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"\n  записано: {out}")
+    return 0
+
+
 def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -> int:
     prompt, genre = _bootstrap(mode)
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
@@ -417,6 +495,10 @@ def main() -> int:
     ap.add_argument("--list", action="store_true", help="показать состав по умолчанию")
     ap.add_argument("--editors", action="store_true",
                     help="мерить готовность переписывать, а не писать")
+    ap.add_argument("--edit-gain", metavar="РЕДАКТОР",
+                    help="парно мерить, что даёт редактура: текст до и после")
+    ap.add_argument("--generator", default="nano_gpt::z-ai/glm-5.3",
+                    help="генератор для --edit-gain")
     args = ap.parse_args()
 
     if args.compare:
@@ -433,6 +515,9 @@ def main() -> int:
     if args.models:
         models = [m if "::" in m else "nano_gpt::" + m
                   for m in (x.strip() for x in args.models.split(",")) if m]
+    if args.edit_gain:
+        ed = args.edit_gain if "::" in args.edit_gain else "nano_gpt::" + args.edit_gain
+        return run_edit_gain(args.generator, ed, args.judge, args.runs, args.mode, args.out)
     if args.editors:
         return run_editors(models, args.out)
     return run(models, args.mode, args.judge, args.runs, args.out)

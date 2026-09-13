@@ -1,0 +1,60 @@
+{
+ "date": "2026-09-13",
+ "git": "87f63da",
+ "kind": "editors",
+ "input_hash": "c44fd58ae77f",
+ "input_words": 1578,
+ "criteria": "переписал (схожесть <95%) И попал в допуск 20-40% И не раздул (<115%)",
+ "models": {
+  "z-ai/glm-5.3": {
+   "short_before": 54,
+   "short_after": 44,
+   "similarity": 0.691,
+   "growth": 1.02,
+   "rewrote": true,
+   "in_range": false,
+   "kept_length": true,
+   "verdict": "не дотянул"
+  },
+  "moonshotai/kimi-k2.5": {
+   "short_before": 54,
+   "short_after": 40,
+   "similarity": 0.644,
+   "growth": 0.99,
+   "rewrote": true,
+   "in_range": true,
+   "kept_length": true,
+   "verdict": "годится"
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "short_before": 54,
+   "short_after": 46,
+   "similarity": 0.91,
+   "growth": 1.01,
+   "rewrote": true,
+   "in_range": false,
+   "kept_length": true,
+   "verdict": "не дотянул"
+  },
+  "glm-4.7:cloud": {
+   "short_before": 54,
+   "short_after": 28,
+   "similarity": 0.47,
+   "growth": 1.01,
+   "rewrote": true,
+   "in_range": true,
+   "kept_length": true,
+   "verdict": "годится"
+  },
+  "deepseek-ai/DeepSeek-V3.1": {
+   "short_before": 54,
+   "short_after": 30,
+   "similarity": 0.368,
+   "growth": 0.98,
+   "rewrote": true,
+   "in_range": true,
+   "kept_length": true,
+   "verdict": "годится"
+  }
+ }
+}
