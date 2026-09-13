@@ -1,0 +1,53 @@
+{
+ "date": "2026-09-13",
+ "git": "2e6733f",
+ "kind": "edit_gain",
+ "generator": "nano_gpt::moonshotai/kimi-k2.5",
+ "editor": "nano_gpt::glm-4.7:cloud",
+ "judge": "anthropic_direct::claude-haiku-4-5-20251001",
+ "mode": "master",
+ "note": "парное сравнение: один и тот же текст до и после редактуры",
+ "pairs": [
+  {
+   "before": 30.0,
+   "after": 18.0,
+   "delta": -12.0,
+   "short_before": 65,
+   "short_after": 58,
+   "words_before": 2629,
+   "words_after": 2259,
+   "similarity": 0.102
+  },
+  {
+   "before": 29.0,
+   "after": 31.0,
+   "delta": 2.0,
+   "short_before": 76,
+   "short_after": 63,
+   "words_before": 3427,
+   "words_after": 3493,
+   "similarity": 0.161
+  },
+  {
+   "before": 26.0,
+   "after": 26.0,
+   "delta": 0.0,
+   "short_before": 63,
+   "short_after": 53,
+   "words_before": 1964,
+   "words_after": 2089,
+   "similarity": 0.293
+  },
+  {
+   "before": 29.0,
+   "after": 32.0,
+   "delta": 3.0,
+   "short_before": 66,
+   "short_after": 31,
+   "words_before": 4150,
+   "words_after": 2695,
+   "similarity": 0.236
+  }
+ ],
+ "mean_delta": -1.75
+}

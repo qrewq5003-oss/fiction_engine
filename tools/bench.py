@@ -268,8 +268,27 @@ def run_editors(models: list[str], out: Path | None) -> int:
     return 0
 
 
+# Две формулировки задания редактору. Их разница — предмет замера, а не вкуса.
+#
+# ШИРОКАЯ отдаёт критику целиком. Замер 13.09: схожесть падает до 10-29%,
+# то есть редактор переписывает набело, а не правит; средний прирост -1.8
+# балла при разбросе 6.9 — то есть ничего.
+#
+# УЗКАЯ просит исправить только ритм. В отборе редакторов она дала
+# схожесть 47% и попадание в допуск. Проверяется, лучше ли она по баллам.
+# Ниже этого объёма текст не считается главой и в пары не берётся.
+MIN_PAIR_WORDS = 800
+
+EDIT_ASK_FULL = ("Перепиши текст, исправив все указанные проблемы. "
+                 "Сохрани сюжет и персонажей.")
+EDIT_ASK_NARROW = ("Исправь ТОЛЬКО ритм предложений: объединяй рубленые фразы "
+                   "в средние и длинные там, где это не ломает смысл. Сюжет, "
+                   "события, реплики и порядок сцен не менять. "
+                   "Остальные замечания критики не трогай.")
+
+
 def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
-                  mode: str, out: Path | None) -> int:
+                  mode: str, out: Path | None, narrow: bool = False) -> int:
     """
     Окупается ли лишний вызов редактора — ПАРНЫМ сравнением.
 
@@ -288,7 +307,8 @@ def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
     prompt, genre = _bootstrap(mode)
     print(f"  генератор {gen_model.split('::')[1]}")
     print(f"  редактор  {editor.split('::')[1]}")
-    print(f"  судья     {judge.split('::')[1]}, режим {mode}, пар {runs}\n")
+    print(f"  судья     {judge.split('::')[1]}, режим {mode}, пар {runs}")
+    print(f"  задание   {'узкое (только ритм)' if narrow else 'широкое (вся критика)'}\n")
     print(f"  {'#':>2} {'до':>5} {'после':>6} {'Δ':>6}  {'коротких':>12}  {'слов':>13}  схожесть")
     print("  " + "─" * 72)
 
@@ -297,14 +317,21 @@ def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
         try:
             draft = _call(gen_model, "Ты профессиональный писатель. Пишешь главу романа.",
                           prompt, max_tokens=PROSE_MAX_TOKENS)
+            # Вырожденный черновик — не данные. Замер 13.09 поймал прогон на
+            # 101 слово с оценкой 0: судья на такой обрубок отвечает чем
+            # угодно, а в среднее это входит наравне с настоящей главой.
+            # Пустой ответ уже отсекает call_model; здесь — слишком короткий.
+            if len(draft.split()) < MIN_PAIR_WORDS:
+                print(f"  {i+1:>2} пропуск: черновик {len(draft.split())} слов "
+                      f"(нужно от {MIN_PAIR_WORDS}) — не глава", flush=True)
+                continue
             s_before = score_text(draft, genre, judge)
             rh = analyze_sentence_rhythm(draft)
             crit = s_before.get("raw", "")
             edited = _call(editor, "Ты редактор. Возвращаешь только переработанный текст.",
                            f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{draft}\n\nКРИТИКА РЕДАКТОРА:\n{crit}\n\n"
                            f"ЗАМЕРЕНО: {rh['hint']}\n\n"
-                           "Перепиши текст, исправив все указанные проблемы. "
-                           "Сохрани сюжет и персонажей.",
+                           + (EDIT_ASK_NARROW if narrow else EDIT_ASK_FULL),
                            max_tokens=PROSE_MAX_TOKENS)
             s_after = score_text(edited, genre, judge)
             rh2 = analyze_sentence_rhythm(edited)
@@ -339,6 +366,7 @@ def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
         out.write_text(json.dumps({
             "date": date.today().isoformat(), "git": _git_rev(), "kind": "edit_gain",
             "generator": gen_model, "editor": editor, "judge": judge, "mode": mode,
+            "ask": "narrow" if narrow else "full",
             "note": "парное сравнение: один и тот же текст до и после редактуры",
             "pairs": pairs, "mean_delta": round(mean_d, 2),
         }, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -499,6 +527,8 @@ def main() -> int:
                     help="парно мерить, что даёт редактура: текст до и после")
     ap.add_argument("--generator", default="nano_gpt::z-ai/glm-5.3",
                     help="генератор для --edit-gain")
+    ap.add_argument("--narrow", action="store_true",
+                    help="просить редактора править только ритм, а не всю критику")
     args = ap.parse_args()
 
     if args.compare:
@@ -517,7 +547,8 @@ def main() -> int:
                   for m in (x.strip() for x in args.models.split(",")) if m]
     if args.edit_gain:
         ed = args.edit_gain if "::" in args.edit_gain else "nano_gpt::" + args.edit_gain
-        return run_edit_gain(args.generator, ed, args.judge, args.runs, args.mode, args.out)
+        return run_edit_gain(args.generator, ed, args.judge, args.runs, args.mode,
+                             args.out, narrow=args.narrow)
     if args.editors:
         return run_editors(models, args.out)
     return run(models, args.mode, args.judge, args.runs, args.out)
