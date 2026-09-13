@@ -1,0 +1,64 @@
+{
+ "date": "2026-09-13",
+ "git": "4358168",
+ "kind": "edit_gain",
+ "generator": "nano_gpt::moonshotai/kimi-k2.5",
+ "editor": "nano_gpt::glm-4.7:cloud",
+ "judge": "anthropic_direct::claude-haiku-4-5-20251001",
+ "mode": "master",
+ "ask": "narrow",
+ "note": "парное сравнение: один и тот же текст до и после редактуры",
+ "pairs": [
+  {
+   "before": 28.0,
+   "after": 29.0,
+   "delta": 1.0,
+   "short_before": 72,
+   "short_after": 64,
+   "words_before": 2707,
+   "words_after": 2753,
+   "similarity": 0.709
+  },
+  {
+   "before": 29.0,
+   "after": 33.0,
+   "delta": 4.0,
+   "short_before": 72,
+   "short_after": 36,
+   "words_before": 2496,
+   "words_after": 2651,
+   "similarity": 0.44
+  },
+  {
+   "before": 29.0,
+   "after": 27.0,
+   "delta": -2.0,
+   "short_before": 61,
+   "short_after": 49,
+   "words_before": 2889,
+   "words_after": 2874,
+   "similarity": 0.564
+  },
+  {
+   "before": 29.0,
+   "after": 31.0,
+   "delta": 2.0,
+   "short_before": 75,
+   "short_after": 73,
+   "words_before": 4563,
+   "words_after": 4632,
+   "similarity": 0.859
+  },
+  {
+   "before": 30.0,
+   "after": 28.0,
+   "delta": -2.0,
+   "short_before": 66,
+   "short_after": 54,
+   "words_before": 3513,
+   "words_after": 3595,
+   "similarity": 0.67
+  }
+ ],
+ "mean_delta": 0.6
+}
