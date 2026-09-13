@@ -82,32 +82,27 @@ MODELS = {
     "nano_gpt": {
         "label": "nano-gpt.com",
         "groups": {
-            "★ Лучшие для прозы": [
-                {"id": "anthropic/claude-opus-4.6",     "name": "Claude Opus 4.6 ★"},
-                {"id": "openai/gpt-5.2",                "name": "GPT-5.2 ★"},
-                {"id": "gemini-2.5-pro",                "name": "Gemini 2.5 Pro ★"},
-                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2 ★"},
-                {"id": "moonshotai/kimi-k2-instruct",   "name": "Kimi K2 ★"},
-                {"id": "Sao10K/L3.3-70B-Euryale-v2.3", "name": "Euryale 70B ★ проза/RP"},
-                {"id": "anthracite-org/magnum-v4-72b",   "name": "Magnum v4 72B ★ проза"},
-                {"id": "zai-org/glm-5",                  "name": "GLM 5 ★"},
-                {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★"},
-                # Замеры 2026-09-13: объём главы по трём режимам промпта и
-                # оценка текста через score_text одним судьёй (шкала 0-50).
+            "★ Лучшие для прозы — по замеру": [
+                # Замер 2026-09-13: 19 моделей, режим master, один и тот же
+                # судья (score_text, шкала 0-50), один и тот же промпт главы.
+                # Здесь только те, что реально проверены и доступны по ключу.
                 #
-                #                       оценка   объём (master)   сек
-                #   GLM 5.3               33        1817-3036      80
-                #   DeepSeek V4 Pro       29        2131-2374      97
-                #   DeepSeek V3.2         25        2557-3733     260   диалог 3/10
-                #   Claude Haiku 4.5      25        1642          42
-                #   GLM 4.7               22        2063-2586      47   голос 3/10
+                # Прежний состав этой группы был списком репутаций, а не
+                # измерением, и держал наверху четыре модели, недоступные по
+                # тарифу, и двух «специалистов по прозе», занявших последние
+                # места: Euryale 11 баллов, Magnum 15 — оба написали по 400
+                # слов вместо трёх тысяч. Ярлык «★ проза» ничего не предсказал.
                 #
-                # Объём и оценка разошлись: модель с наибольшим объёмом дала
-                # худший текст. Поэтому в подписях объёма больше нет — по
-                # нему выбирать оказалось неверно. По одному замеру оценки
-                # на модель: значима разница в разряд, а не в пару баллов.
-                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ лучшая оценка в замере"},
-                {"id": "deepseek/deepseek-v4-pro-0813",  "name": "DeepSeek V4 Pro ★ ровный, сильный диалог"},
+                # Убранные отсюда никуда не делись — каждая осталась в своей
+                # группе провайдера. Проверено перед удалением.
+                #
+                # По одному замеру на модель: значима разница в разряд, а не
+                # в один-два балла. 33 против 32 — шум, 33 против 15 — нет.
+                {"id": "z-ai/glm-5.3",                   "name": "GLM 5.3 ★ 33/50 — лучшая оценка, 80 с"},
+                {"id": "moonshotai/kimi-k2.5",           "name": "Kimi K2.5 ★ 32/50 и 3400 слов — берёт и то и то"},
+                {"id": "deepseek/deepseek-v4-pro-0813",  "name": "DeepSeek V4 Pro ★ 29/50, сильный диалог, 26 с"},
+                {"id": "moonshotai/kimi-k2-thinking",    "name": "Kimi K2 Thinking ★ 28/50"},
+                {"id": "deepseek-ai/DeepSeek-V3.1",      "name": "DeepSeek V3.1 ★ 28/50"},
             ],
             "Claude": [
                 {"id": "anthropic/claude-opus-4.6",     "name": "Claude Opus 4.6"},
@@ -137,7 +132,7 @@ MODELS = {
                 {"id": "deepseek/deepseek-v4-pro-0813", "name": "DeepSeek V4 Pro 0813 — ровный объём, сильный диалог"},
                 {"id": "deepseek/deepseek-v4-pro",      "name": "DeepSeek V4 Pro"},
                 {"id": "deepseek/deepseek-v4-flash",    "name": "DeepSeek V4 Flash — быстрый"},
-                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2 — много текста, медленная"},
+                {"id": "deepseek/deepseek-v3.2",        "name": "DeepSeek V3.2 — много текста, диалог 3/10"},
                 {"id": "deepseek-ai/DeepSeek-V3.1",     "name": "DeepSeek V3.1"},
                 {"id": "deepseek-chat",                  "name": "DeepSeek Chat"},
                 {"id": "deepseek-r1",                    "name": "DeepSeek R1 (reasoning)"},
@@ -146,7 +141,7 @@ MODELS = {
             ],
             "Mistral": [
                 {"id": "mistralai/mistral-large",                     "name": "Mistral Large"},
-                {"id": "mistralai/mistral-large-3-675b-instruct-2512","name": "Mistral Large 3 675B"},
+                {"id": "mistralai/mistral-large-3-675b-instruct-2512","name": "Mistral Large 3 675B — 23/50, 760 слов"},
                 {"id": "mistralai/mistral-medium-3.1",                "name": "Mistral Medium 3.1"},
                 {"id": "Magistral-Small-2506",                        "name": "Magistral Small"},
             ],
@@ -163,7 +158,7 @@ MODELS = {
                 {"id": "zai-org/glm-5",             "name": "GLM 5"},
                 {"id": "zai-org/glm-5:thinking",    "name": "GLM 5 Thinking"},
                 {"id": "glm-4.7:cloud",             "name": "GLM 4.7"},
-                {"id": "glm-4.7:thinking",          "name": "GLM 4.7 Thinking"},
+                {"id": "glm-4.7:thinking",          "name": "GLM 4.7 Thinking — 30/50, но 11 минут на главу"},
                 {"id": "glm-4.6:cloud",             "name": "GLM 4.6"},
                 {"id": "glm-4.5:thinking",          "name": "GLM 4.5 Thinking"},
             ],
@@ -172,21 +167,21 @@ MODELS = {
                 {"id": "qwen/qwen3-32b",           "name": "Qwen3 32B"},
                 {"id": "qwen/qwen3-30b-a3b",       "name": "Qwen3 30B MoE"},
                 {"id": "qwen/qwen2.5-72b-instruct","name": "Qwen2.5 72B"},
-                {"id": "qwen/qwen3.5-397b-a17b",   "name": "Qwen3.5 397B"},
+                {"id": "qwen/qwen3.5-397b-a17b",   "name": "Qwen3.5 397B — 29/50, но 16 минут на главу"},
             ],
             "Llama (Meta)": [
-                {"id": "meta-llama/llama-4-maverick",       "name": "Llama 4 Maverick"},
+                {"id": "meta-llama/llama-4-maverick",       "name": "Llama 4 Maverick — 15/50 в замере"},
                 {"id": "meta-llama/llama-4-scout",          "name": "Llama 4 Scout"},
                 {"id": "meta-llama/llama-3.3-70b-instruct", "name": "Llama 3.3 70B"},
             ],
             "Специальные для прозы/RP": [
-                {"id": "Sao10K/L3.3-70B-Euryale-v2.3",          "name": "Euryale 70B — проза/RP"},
+                {"id": "Sao10K/L3.3-70B-Euryale-v2.3",          "name": "Euryale 70B — 11/50 в замере, 440 слов"},
                 {"id": "TheDrummer/Cydonia-24B-v4.3",            "name": "Cydonia 24B"},
-                {"id": "TheDrummer/Anubis-70B-v1.1",             "name": "Anubis 70B — нарратив"},
-                {"id": "nousresearch/hermes-4-405b",             "name": "Hermes 4 405B"},
-                {"id": "LatitudeGames/Wayfarer-Large-70B-Llama-3.3", "name": "Wayfarer 70B"},
-                {"id": "anthracite-org/magnum-v4-72b",           "name": "Magnum v4 72B ★"},
-                {"id": "anthracite-org/magnum-v2-72b",           "name": "Magnum v2 72B"},
+                {"id": "TheDrummer/Anubis-70B-v1.1",             "name": "Anubis 70B — 21/50 в замере, 370 слов"},
+                {"id": "nousresearch/hermes-4-405b",             "name": "Hermes 4 405B — 22/50, без прямой речи"},
+                {"id": "LatitudeGames/Wayfarer-Large-70B-Llama-3.3", "name": "Wayfarer 70B — не принимает промпт master"},
+                {"id": "anthracite-org/magnum-v4-72b",           "name": "Magnum v4 72B — в тарифе нет; v2 дала 15/50"},
+                {"id": "anthracite-org/magnum-v2-72b",           "name": "Magnum v2 72B — 15/50 в замере, 390 слов"},
                 {"id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B", "name": "DeepSeek R1 Llama 70B"},
             ],
         }
