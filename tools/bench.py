@@ -140,6 +140,19 @@ def _bootstrap(mode: str):
     return prompt, SEED["genre"]
 
 
+def _critic_hash(genre: str = "городское фэнтези") -> str:
+    """
+    Хэш промпта КРИТИКА.
+
+    Промпт генерации хешировался с самого начала, а критика — нет. Между
+    тем правка промпта критика меняет ВСЕ оценки разом: сравнение двух
+    замеров показало бы разницу в баллах, а причиной была бы правка
+    измерителя, а не текста. Незаметная несравнимость хуже явной.
+    """
+    from engine.pipeline_steps import _build_sys_critic
+    return hashlib.sha256(_build_sys_critic(genre).encode("utf-8")).hexdigest()[:12]
+
+
 def _git_rev() -> str:
     try:
         return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
@@ -256,7 +269,7 @@ def run_editors(models: list[str], out: Path | None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps({
             "date": date.today().isoformat(), "git": _git_rev(),
-            "kind": "editors",
+            "kind": "editors", "critic_hash": _critic_hash(),
             "input_hash": hashlib.sha256(src.encode()).hexdigest()[:12],
             "input_words": len(src.split()),
             "criteria": "переписал (схожесть <95%) И попал в допуск 20-40% И не раздул (<115%)",
@@ -364,7 +377,7 @@ def run_edit_gain(gen_model: str, editor: str, judge: str, runs: int,
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps({
-            "date": date.today().isoformat(), "git": _git_rev(), "kind": "edit_gain",
+            "date": date.today().isoformat(), "git": _git_rev(), "kind": "edit_gain", "critic_hash": _critic_hash(genre),
             "generator": gen_model, "editor": editor, "judge": judge, "mode": mode,
             "ask": "narrow" if narrow else "full",
             "note": "парное сравнение: один и тот же текст до и после редактуры",
@@ -409,6 +422,7 @@ def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -
         "judge": judge,
         "runs_per_model": runs,
         "prompt_hash": prompt_hash,
+        "critic_hash": _critic_hash(genre),
         "prompt_chars": len(prompt),
         "threshold": "total >= 40 и каждый критерий >= 7",
         "models": results,
@@ -468,6 +482,13 @@ def compare(a: Path, b: Path) -> int:
         print("  ⚠ ПРОМПТЫ РАЗНЫЕ. Разница в баллах может быть следствием правки")
         print("    промпта, а не улучшения текста. Это не ошибка — но читать")
         print("    таблицу ниже как «стало лучше» уже нельзя.\n")
+    ca, cb = da.get("critic_hash"), db.get("critic_hash")
+    if ca and cb and ca != cb:
+        print("  ⚠ ПРОМПТ КРИТИКА РАЗНЫЙ. Изменился сам измеритель — разница в")
+        print("    баллах может быть его правкой, а не свойством текста.\n")
+    elif not ca or not cb:
+        print("  ⚠ у одного из файлов не записан хэш промпта критика: измеритель")
+        print("    мог меняться незаметно.\n")
     if da.get("judge") != db.get("judge"):
         print("  ⚠ СУДЬИ РАЗНЫЕ — шкалы несравнимы, таблица ниже бессмысленна.\n")
     if da.get("mode") != db.get("mode"):
