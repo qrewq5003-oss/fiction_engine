@@ -127,6 +127,12 @@ def detect_truncation(text: str, word_count: int) -> dict:
         import logging; logging.warning(msg)
         return {"truncated": True, "reason": "max_tokens", "message": msg}
 
+    if not _ends_finished(text):
+        msg = (f"Глава обрывается на полуслове: последняя фраза не закончена "
+               f"(«…{_tail_for_message(text)}»).")
+        import logging; logging.warning(msg)
+        return {"truncated": True, "reason": "mid_sentence", "message": msg}
+
     if word_count < MIN_ACCEPTABLE_WORDS:
         msg = (f"Глава короче требуемого: {word_count} слов "
                f"(промпт требует ~{TARGET_CHAPTER_WORDS}).")
@@ -134,6 +140,39 @@ def detect_truncation(text: str, word_count: int) -> dict:
         return {"truncated": True, "reason": "short", "message": msg}
 
     return {"truncated": False, "reason": "", "message": ""}
+
+
+# Чем может законно кончаться глава: знак конца фразы, закрывающая кавычка
+# или скобка. Разметку и пробелы снимаем перед проверкой.
+_TERMINAL_CHARS = ".!?…»\"'”’)]"
+_TRAILING_NOISE = " \t\r\n*_~`#-–—"
+
+
+def _ends_finished(text: str) -> bool:
+    """
+    Кончается ли текст законченной фразой.
+
+    Отдельная проверка, потому что ни один другой рубеж этого не ловит.
+    Провайдер сообщает stop — значит модель закончила сама. Объём в норме.
+    А судья к обрыву слеп: проверка 14.09 на пяти главах, срез в одной и
+    той же точке (75% текста), разная только граница —
+
+        оригинал              структура 6.4
+        обрыв на полуслове    структура 6.4  (+0.0)
+        обрыв в предложении   структура 6.2  (-0.2)
+
+    при разбросе 0.8. Глава, оборванная посреди слова, получает ту же
+    оценку, что целая; один текст даже вырос с 6 до 8.
+
+    Завершённость — свойство арифметическое, и проверять его надо
+    арифметикой, а не спрашивать у языковой модели.
+    """
+    tail = (text or "").rstrip(_TRAILING_NOISE)
+    return bool(tail) and tail[-1] in _TERMINAL_CHARS
+
+
+def _tail_for_message(text: str, n: int = 40) -> str:
+    return (text or "").rstrip()[-n:]
 
 
 def describe_truncation(text: str, word_count: int) -> str:
