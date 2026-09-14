@@ -246,7 +246,8 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     #
     # Сам замер никуда не делся: он возвращается в результате и доступен
     # автору. Он арифметический и в языковой модели не нуждается.
-    prompt = f"Глава:\n\n{text[:4000]}"
+    from .pipeline_config import CRITIC_TEXT_LIMIT
+    prompt = f"Глава:\n\n{text[:CRITIC_TEXT_LIMIT]}"
 
     raw = _call(model_value, sys_critic, prompt, max_tokens=1200)
 

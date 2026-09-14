@@ -131,10 +131,28 @@ class TestScoreText:
             score_text(CHAPTER_TEXT, "детектив", MODEL)
         assert "ЖАНРОВЫЙ ФОКУС — ДЕТЕКТИВ" in captured["system"]
 
-    def test_text_truncated(self):
-        """Длинный текст обрезается перед отправкой."""
+    def test_whole_chapter_reaches_the_critic(self):
+        """
+        Глава уходит критику ЦЕЛИКОМ.
+
+        Раньше здесь стояла обрезка до 4000 символов — в среднем 36% главы,
+        местами 18%. Критику при этом велено оценить «темп, крюк, ФИНАЛ,
+        движение»: финала он не видел вовсе.
+
+        Поймано на цитате: критик пожаловался «Обрыв на полуслове — "Ты
+        опозда"», а в тексте написано «Ты опоздал на три минуты», и стоит
+        это на символе 3991 — ровно на границе обрезки. Обрывался не текст,
+        а то, что видел критик; он же на это и жаловался.
+
+        На ОЦЕНКУ это не влияет — замер 14.09 на 12 текстах парно: структура
+        -0.4 при разбросе 0.8, итог -0.2 при разбросе 4.8. Исчезает только
+        ложная претензия на обрыв (1 из 12 → 0 из 12). Правка чинит дефект,
+        а не поднимает качество.
+        """
         from engine.pipeline import score_text
-        long_text = "А" * 10_000
+        from engine.pipeline_config import CRITIC_TEXT_LIMIT
+        chapter = "Он шёл по улице и думал о случившемся. " * 400   # ~15600 симв.
+        assert len(chapter) < CRITIC_TEXT_LIMIT, "проверка потеряла смысл: текст короче потолка"
         captured = {}
 
         def fake_call(model, system, user, max_tokens=6000, prefill=""):
@@ -142,8 +160,24 @@ class TestScoreText:
             return self._critic_reply()
 
         with patch("engine.pipeline._call", side_effect=fake_call):
-            score_text(long_text, "фэнтези", MODEL)
-        assert len(captured["user"]) < len(long_text)
+            score_text(chapter, "фэнтези", MODEL)
+        assert chapter in captured["user"], "критик снова видит только часть главы"
+
+    def test_pathological_length_is_still_capped(self):
+        """Потолок остаётся: вырожденный ответ не должен улететь в промпт целиком."""
+        from engine.pipeline import score_text
+        from engine.pipeline_config import CRITIC_TEXT_LIMIT
+        huge = "А" * (CRITIC_TEXT_LIMIT * 3)
+        captured = {}
+
+        def fake_call(model, system, user, max_tokens=6000, prefill=""):
+            captured["user"] = user
+            return self._critic_reply()
+
+        with patch("engine.pipeline._call", side_effect=fake_call):
+            score_text(huge, "фэнтези", MODEL)
+        assert len(captured["user"]) < len(huge)
+        assert len(captured["user"]) <= CRITIC_TEXT_LIMIT + 200
 
 
 # ─── C. run_generation ────────────────────────────────────────────────────────
