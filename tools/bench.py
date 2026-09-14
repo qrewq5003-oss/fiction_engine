@@ -140,6 +140,13 @@ def _bootstrap(mode: str):
     return prompt, SEED["genre"]
 
 
+def _threshold_text() -> str:
+    """Порог — из движка. Своя копия здесь уже разошлась: в выводе стояло 40,
+    когда движок принимал с 30."""
+    from engine.pipeline_config import ACCEPT_TOTAL, ACCEPT_MIN_CRITERION
+    return f"total >= {ACCEPT_TOTAL} и каждый критерий >= {ACCEPT_MIN_CRITERION}"
+
+
 def _critic_hash(genre: str = "городское фэнтези") -> str:
     """
     Хэш промпта КРИТИКА.
@@ -400,7 +407,16 @@ def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -
         got = []
         for i in range(runs):
             try:
-                got.append(_measure(model, prompt, genre, judge))
+                one = _measure(model, prompt, genre, judge)
+                if one["words"] < MIN_PAIR_WORDS:
+                    # Тот же отсев, что в парном режиме. Замер 14.09 поймал
+                    # прогон на 139 слов с оценкой 0: судья на обрубок
+                    # отвечает чем угодно, а в среднее это входило наравне
+                    # с настоящей главой и утянуло его на 6 баллов.
+                    print(f"  {name:42} #{i+1} пропуск: {one['words']} слов "
+                          f"(нужно от {MIN_PAIR_WORDS}) — не глава", flush=True)
+                    continue
+                got.append(one)
                 print(f"  {name:42} #{i+1} итог {got[-1]['total']:.0f}  "
                       f"{got[-1]['words']} слов  {got[-1]['seconds']} c", flush=True)
             except Exception as e:
@@ -424,7 +440,7 @@ def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -
         "prompt_hash": prompt_hash,
         "critic_hash": _critic_hash(genre),
         "prompt_chars": len(prompt),
-        "threshold": "total >= 40 и каждый критерий >= 7",
+        "threshold": _threshold_text(),
         "models": results,
     }
     if out:
@@ -436,8 +452,9 @@ def run(models: list[str], mode: str, judge: str, runs: int, out: Path | None) -
     if measured:
         means = [v["total_mean"] for v in measured]
         spreads = [v["total_spread"] for v in measured]
-        print(f"\n  средний итог: {statistics.mean(means):.1f} из 50 (порог 40)")
-        print(f"  взяли порог:  {sum(1 for m in means if m >= 40)} из {len(means)}")
+        from engine.pipeline_config import ACCEPT_TOTAL
+        print(f"\n  средний итог: {statistics.mean(means):.1f} из 50 (порог {ACCEPT_TOTAL})")
+        print(f"  взяли порог:  {sum(1 for m in means if m >= ACCEPT_TOTAL)} из {len(means)}")
         if runs > 1:
             worst = max(spreads)
             print(f"  разброс между прогонами одной модели: до {worst:.0f} баллов")

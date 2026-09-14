@@ -1,0 +1,115 @@
+{
+ "date": "2026-09-14",
+ "git": "6df784c",
+ "mode": "master",
+ "judge": "anthropic_direct::claude-haiku-4-5-20251001",
+ "runs_per_model": 2,
+ "prompt_hash": "215674ef3a62",
+ "critic_hash": "bcebec8b5864",
+ "prompt_chars": 3875,
+ "threshold": "total >= 40 и каждый критерий >= 7",
+ "models": {
+  "moonshotai/kimi-k2.5": {
+   "runs": [
+    {
+     "words": 139,
+     "seconds": 6,
+     "total": 0.0,
+     "voice": 0,
+     "structure": 0,
+     "characters": 0,
+     "scenes": 0,
+     "dialog": 0,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "",
+     "pct_short": 10,
+     "empty_retries": 0
+    },
+    {
+     "words": 3422,
+     "seconds": 164,
+     "total": 38.0,
+     "voice": 7,
+     "structure": 6,
+     "characters": 6,
+     "scenes": 6,
+     "dialog": 7,
+     "verdict": "ПРИНЯТЬ",
+     "main_issue": "Логика Павла взломана: \"Слышал, как директор говорил по телефону два года назад\" — как он помнит четырёхзначный код с такой точностью? Нужна лучше мотивировка: ",
+     "pct_short": 74,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 19.0,
+   "total_spread": 38.0
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "runs": [
+    {
+     "words": 2287,
+     "seconds": 61,
+     "total": 33.0,
+     "voice": 6,
+     "structure": 7,
+     "characters": 7,
+     "scenes": 6,
+     "dialog": 7,
+     "verdict": "ПРИНЯТЬ",
+     "main_issue": "Повтор видений без эволюции — \"три дня назад, когда обрушился переход\" это уже было, а здесь в трещине снова \"человек с не человеческими глазами\" и \"силуэты, вм",
+     "pct_short": 56,
+     "empty_retries": 0
+    },
+    {
+     "words": 2342,
+     "seconds": 69,
+     "total": 29.0,
+     "voice": 6,
+     "structure": 5,
+     "characters": 6,
+     "scenes": 5,
+     "dialog": 7,
+     "verdict": "НА ДОРАБОТКУ",
+     "main_issue": "Дефицит физического конфликта в сцене с вторым Лукашом",
+     "pct_short": 63,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 31.0,
+   "total_spread": 4.0
+  },
+  "z-ai/glm-5.3": {
+   "runs": [
+    {
+     "words": 2078,
+     "seconds": 330,
+     "total": 33.0,
+     "voice": 7,
+     "structure": 7,
+     "characters": 6,
+     "scenes": 6,
+     "dialog": 7,
+     "verdict": "ПРИНЯТЬ",
+     "main_issue": "Экспозиция маскируется под переживания — \"узел пуст\", \"русло ведёт к Влтаве\", \"девять узлов под городом\" — это информация, которую Лукаш выплёвывает в состоянии",
+     "pct_short": 55,
+     "empty_retries": 1
+    },
+    {
+     "words": 2554,
+     "seconds": 88,
+     "total": 38.0,
+     "voice": 7,
+     "structure": 8,
+     "characters": 8,
+     "scenes": 8,
+     "dialog": 7,
+     "verdict": "ПРИНЯТЬ",
+     "main_issue": "Недостаточная физика \"активации\" при касании пластины",
+     "pct_short": 62,
+     "empty_retries": 0
+    }
+   ],
+   "total_mean": 35.5,
+   "total_spread": 5.0
+  }
+ }
+}
