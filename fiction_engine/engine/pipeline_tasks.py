@@ -367,14 +367,26 @@ def analyze_voice_match(voice_profile: str, text: str, model_value: str) -> dict
 
 def find_symbols_in_chapter(chapter_text: str, existing_names: list[str],
                              model_value: str) -> dict:
+    from .pipeline_config import SYMBOLS_TEXT_LIMIT, SYMBOLS_MAX_TOKENS
     known  = ', '.join(existing_names) if existing_names else 'нет'
     SYS    = "Ты редактор-аналитик. Ищешь символы в тексте. Только JSON."
     prompt = (
         f"Найди символы в главе. УЖЕ ИЗВЕСТНЫ: {known}\n"
-        f"ТЕКСТ:\n{chapter_text[:3000]}\n"
+        f"ТЕКСТ:\n{chapter_text[:SYMBOLS_TEXT_LIMIT]}\n"
         '{"found":[{"name":"...","type":"...","context":"...","potential_meaning":"...","is_new":true}],"note":"..."}'
     )
-    return call_json(model_value, SYS, prompt, max_tokens=800)
+    result = call_json(model_value, SYS, prompt, max_tokens=SYMBOLS_MAX_TOKENS)
+
+    # Форма ответа не гарантирована: модель возвращает то объект с "found",
+    # то сразу список символов. Веб-слой делает `{"ok": True, **result}` —
+    # на списке это TypeError и пятисотка пользователю. Приводим к одной
+    # форме здесь, а не надеемся на дисциплину модели.
+    if isinstance(result, list):
+        return {"found": result, "note": ""}
+    if not isinstance(result, dict):
+        return {"found": [], "note": "модель вернула неожиданную форму ответа"}
+    result.setdefault("found", [])
+    return result
 
 
 def run_narrative_analysis(project_id: int, through_chapter: int,
