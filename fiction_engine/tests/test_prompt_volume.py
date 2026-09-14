@@ -201,3 +201,82 @@ def test_rule_reacts_to_its_source(monkeypatch):
     import engine.state_prompts as sp
     monkeypatch.setattr(cfg, "detail_rule_for_prompt", lambda: "ПРОВЕРОЧНАЯ СТРОКА")
     assert sp._detail_block() == "ПРОВЕРОЧНАЯ СТРОКА"
+
+
+# ─── Объём: одно число, а не девять копий ────────────────────────────────────
+#
+# «2500-3000 слов» было вписано в промпты девятью литералами, а код
+# проверял по TARGET_CHAPTER_WORDS и MIN_ACCEPTABLE_WORDS. Значения
+# совпадали, но сходство держалось на внимательности: у
+# TARGET_CHAPTER_WORDS так и стоял комментарий «верх требования ИЗ
+# ПРОМПТОВ» — зависимость признана и оставлена ручной.
+#
+# Ровно так уже разошлись числа абзацев (15-20 против 25-35 на один объём)
+# и норма ритма, которую знал только критик. Третий случай за проект.
+
+def test_volume_numbers_in_prompts_come_from_constants(prompts):
+    from engine.pipeline_config import MIN_CHAPTER_WORDS, TARGET_CHAPTER_WORDS
+    for mode, text in prompts.items():
+        assert f"{MIN_CHAPTER_WORDS}-{TARGET_CHAPTER_WORDS} слов" in text, \
+            f"{mode}: требование к объёму разошлось с константами"
+
+
+def test_self_check_uses_the_same_lower_bound(prompts):
+    from engine.pipeline_config import MIN_CHAPTER_WORDS
+    for mode, text in prompts.items():
+        if "проверь себя" in text:
+            assert f"написано ли уже {MIN_CHAPTER_WORDS} слов" in text, \
+                f"{mode}: самопроверка объёма считает от другого числа"
+
+
+def test_prompt_follows_the_constant_when_it_moves(monkeypatch):
+    """Проверка проверки: сдвинули константу — промпт обязан сдвинуться."""
+    import engine.pipeline_config as cfg
+    monkeypatch.setattr(cfg, "MIN_CHAPTER_WORDS", 1234)
+    assert "1234-" in cfg.volume_rule_for_prompt()
+    assert "1234 слов" in cfg.volume_check_for_prompt()
+
+
+def test_lower_bound_is_above_the_failure_threshold():
+    """
+    Нижняя граница требования должна быть выше порога, по которому
+    detect_truncation признаёт главу недописанной, — иначе движок просит
+    то, что сам засчитает как провал.
+    """
+    from engine.pipeline_config import MIN_CHAPTER_WORDS, MIN_ACCEPTABLE_WORDS
+    assert MIN_CHAPTER_WORDS > MIN_ACCEPTABLE_WORDS
+
+
+def test_built_prompt_moves_with_the_constant(monkeypatch):
+    """
+    Отличает подстановку от литерала с тем же значением.
+
+    Тест выше («в промпте есть 2500-3000») проходит и когда число вписано
+    руками — он проверяет совпадение, а не источник. Фальсификация это
+    показала: возврат литерала с прежним значением набор не уронил.
+    Здесь константа подменяется и промпт пересобирается: литерал за ней
+    не поедет.
+    """
+    import tempfile
+    from pathlib import Path
+    import engine.db_core as dbc
+    import engine.pipeline_config as cfg
+
+    monkeypatch.setattr(dbc, "DB_PATH", Path(tempfile.mkdtemp()) / "vol.db")
+    dbc.init_db()
+    monkeypatch.setattr(cfg, "MIN_CHAPTER_WORDS", 2777)
+
+    from engine.db import create_project, get_project
+    from engine.state_prompts import build_prompt
+    pid = create_project("Объём", "детектив")
+    for mode in ("quick", "quality", "master"):
+        text = build_prompt(pid, 2, mode, get_project(pid))
+        assert "2777" in text, f"{mode}: объём не взят из константы"
+        # Строгая половина проверки. Без неё тест удовлетворяется ОДНОЙ
+        # подстановкой: при живой самопроверке «написано ли уже N слов»
+        # число 2777 попадало в промпт, даже когда требование к объёму
+        # оставалось литералом. Прежнее значение после подмены исчезнуть
+        # обязано целиком.
+        assert "2500" not in text, (
+            f"{mode}: прежнее число осталось в промпте — часть требования "
+            "вписана литералом, а не подставлена")

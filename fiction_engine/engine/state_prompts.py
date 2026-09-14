@@ -293,6 +293,17 @@ def _director_block(note: str | None) -> str:
 # вызов, как ни проси, — поэтому 3000 берётся либо моделью посильнее,
 # либо вторым проходом через «Продолжить главу».
 
+def _volume_block(with_paragraphs: bool = True) -> str:
+    """Требование к объёму — из pipeline_config, не литералом."""
+    from .pipeline_config import volume_rule_for_prompt
+    return volume_rule_for_prompt(with_paragraphs)
+
+
+def _volume_check() -> str:
+    from .pipeline_config import volume_check_for_prompt
+    return volume_check_for_prompt()
+
+
 def _detail_block() -> str:
     """Правило о деталях — из pipeline_config, не копией (см. историю с ритмом)."""
     from .pipeline_config import detail_rule_for_prompt
@@ -330,9 +341,9 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 {_cliche_block()}
 
 {genre_rules}
-ОБЪЁМ: СТРОГО 2500-3000 слов. Короче — провал задания. Пиши полную главу.
+ОБЪЁМ: {_volume_block(False)}. Короче — провал задания. Пиши полную главу.
 
-СТРУКТУРА (2500-3000 слов):
+СТРУКТУРА ({_volume_block(False)}):
 - Первые 200-300 слов: крюк, без предисловий, сразу в действие
 - Середина 60%: каждый абзац двигает вперёд — ситуацию или персонажа
 - Последние 200-300 слов: поворот или клиффхэнгер
@@ -377,7 +388,7 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 
 {_rhythm_block()}
 
-Объём: СТРОГО 2500-3000 слов (25-35 абзацев). Прежде чем закончить — проверь себя: написано ли уже 2500 слов? Если меньше, глава не дописана: продолжай сцену, не сворачивай к финалу. Пиши главу целиком без комментариев и без объяснений.
+Объём: {_volume_block()}. {_volume_check()} Пиши главу целиком без комментариев и без объяснений.
 """
 
 
@@ -408,7 +419,7 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 - Первое предложение без вводных конструкций, сразу в действие
 - Последнее предложение несёт вес — читатель унесёт его с собой
 
-СТРУКТУРА (2500-3000 слов):
+СТРУКТУРА ({_volume_block(False)}):
 Крюк [150-200] → Нарастание [300-400] → Пик [200-300] → Спад/последствие [300-400] → Финал [150-200]
 
 ---
@@ -456,7 +467,7 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 
 {_rhythm_block()}
 
-Объём: СТРОГО 2500-3000 слов (25-35 абзацев). Прежде чем закончить — проверь себя: написано ли уже 2500 слов? Если меньше, глава не дописана: продолжай сцену, не сворачивай к финалу. Пиши целиком. Без комментариев.
+Объём: {_volume_block()}. {_volume_check()} Пиши целиком. Без комментариев.
 """
 
 
@@ -495,7 +506,7 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 - Физика момента: что ощущает тело, что слышит, что видит — конкретно
 - Если что-то "значит" — пусть читатель сам это поймёт
 
-СТРУКТУРА (2500-3000 слов):
+СТРУКТУРА ({_volume_block(False)}):
 Вход [100-150] → Нарастание [600-700] → Кульминация [300-400] → Последствие [400-500]
 
 ---
@@ -537,5 +548,5 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 
 {_rhythm_block()}
 
-Объём: СТРОГО 2500-3000 слов (25-35 абзацев). Прежде чем закончить — проверь себя: написано ли уже 2500 слов? Если меньше, глава не дописана: продолжай сцену, не сворачивай к финалу. Пиши целиком. Без предисловий.
+Объём: {_volume_block()}. {_volume_check()} Пиши целиком. Без предисловий.
 """
