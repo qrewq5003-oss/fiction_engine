@@ -438,9 +438,10 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
 
     # ── R05: программный анализ ритма предложений ──────────────────────────
     try:
+        # Критику замер НЕ показываем — см. пояснение в pipeline_tasks.score_text.
+        # Коротко: он вытеснял настоящие претензии (5 из 5 против 0 из 5).
+        # В results замер остаётся: его читает шаг редактуры и видит автор.
         rhythm = analyze_sentence_rhythm(current_text)
-        if rhythm.get("hint"):
-            context_blocks.append(rhythm["hint"])
         results["sentence_rhythm"] = rhythm
     except Exception as e:
         handle_error("step_critique r05_rhythm", e, level=ErrorLevel.RECOVERABLE)

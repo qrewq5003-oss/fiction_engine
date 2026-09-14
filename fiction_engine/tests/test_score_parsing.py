@@ -192,3 +192,54 @@ def test_score_text_no_longer_parses_the_section_itself():
         if (isinstance(node, ast.Constant) and isinstance(node.value, str)
                 and "ГЛАВНЫЕ ПРОБЛЕМЫ" in node.value and "\\s*" in node.value):
             pytest.fail(f"своя выемка осталась на строке {node.lineno}")
+
+
+# ─── Замер ритма не диктует критику ответ ─────────────────────────────────────
+#
+# Замер ритма передавался критику под заголовком «ДАННЫЕ АНАЛИЗА» прямо
+# перед текстом главы — и критик исправно называл ритм главной проблемой.
+# Проверено 14.09.2026 на шести текстах, один судья:
+#
+#     претензия про ритм С подсказкой:  5 из 5
+#     претензия про ритм БЕЗ подсказки: 0 из 5
+#
+# То есть все эти претензии были нашими собственными. Заслоняли они
+# настоящее: «Глава — это не сцена, а экспозиция, переодетая в сцену»,
+# «Отсутствие сценического момента», «Обрыв на полуслове» — то есть
+# структуру и сцены, два критерия, стоявшие ниже всех.
+#
+# Ритм с оценкой при этом не связан: по 17 текстам r = +0.42, то есть чем
+# БОЛЬШЕ коротких предложений, тем ВЫШЕ оценка.
+
+class TestRhythmNotFedToCritic:
+    def _capture(self, monkeypatch):
+        sent = {}
+        import engine.pipeline_tasks as pt
+        def fake(model, system, user, max_tokens=1200, **kw):
+            sent["system"], sent["user"] = system, user
+            return "ГОЛОС: 6/10\nИТОГ: 30/50"
+        monkeypatch.setattr(pt, "_call", fake)
+        return sent
+
+    def test_critic_prompt_has_no_rhythm_numbers(self, monkeypatch):
+        sent = self._capture(monkeypatch)
+        import engine.pipeline_tasks as pt
+        pt.score_text("Он встал. Пошёл. Тихо. " * 40, "детектив", "m::m")
+        assert "ДАННЫЕ АНАЛИЗА" not in sent["user"], "критику снова диктуют ответ"
+        assert "РИТМ ПРЕДЛОЖЕНИЙ" not in sent["user"]
+        assert "коротк" not in sent["user"].lower(), \
+            "в промпте критика осталось упоминание длины предложений"
+
+    def test_rhythm_is_still_measured_and_returned(self, monkeypatch):
+        """Замер не выбрасывается: он нужен автору и шагу редактуры."""
+        self._capture(monkeypatch)
+        import engine.pipeline_tasks as pt
+        res = pt.score_text("Он встал. Пошёл. Тихо. " * 40, "детектив", "m::m")
+        assert res["rhythm"]["short"] > 0, "замер ритма пропал из результата"
+        assert "hint" in res["rhythm"]
+
+    def test_chapter_text_still_reaches_the_critic(self, monkeypatch):
+        sent = self._capture(monkeypatch)
+        import engine.pipeline_tasks as pt
+        pt.score_text("УНИКАЛЬНАЯ МЕТКА ТЕКСТА. " * 40, "детектив", "m::m")
+        assert "УНИКАЛЬНАЯ МЕТКА" in sent["user"]
