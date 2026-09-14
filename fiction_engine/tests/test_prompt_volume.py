@@ -159,3 +159,45 @@ def test_rhythm_rule_reacts_to_the_constants(monkeypatch):
     import engine.pipeline_config as cfg
     monkeypatch.setitem(cfg.RHYTHM_TARGET, "short", 42)
     assert "около 42%" in cfg.rhythm_rule_for_prompt()
+
+
+# ─── Детали должны действовать, а не украшать ────────────────────────────────
+#
+# Замер 14.09: СЦЕНЫ — слабейший критерий (среднее 4.8, семёрку берёт 1
+# текст из 15, минимальным оказывается 7 раз из 15). Претензия критика
+# однородна в 15 случаях из 15, и она НЕ «мало деталей», а «детали не
+# действуют»: «описан декоративно, но не ощутимо», «остаётся декорацией»,
+# «музей как локация не дышит».
+#
+# Промпт при этом просил «Место: [конкретно, с одной АТМОСФЕРНОЙ деталью]» —
+# то есть буквально заказывал украшение, за которое снижают оценку. Третье
+# такое расхождение после ритма и числа абзацев.
+
+def test_every_mode_demands_acting_details(prompts):
+    for mode, text in prompts.items():
+        assert "ДЕТАЛИ ДОЛЖНЫ ДЕЙСТВОВАТЬ" in text, f"{mode}: правило о деталях потерялось"
+
+
+def test_decorative_detail_request_is_gone(prompts):
+    for mode, text in prompts.items():
+        assert "атмосферной деталью" not in text, f"{mode}: промпт снова заказывает украшение"
+
+
+def test_detail_rule_has_one_source(prompts):
+    """
+    Как с ритмом и абзацами: правило живёт в одном месте, а промпт его
+    подставляет. Копии в этом проекте расходились трижды.
+    """
+    from engine.pipeline_config import detail_rule_for_prompt
+    rule = detail_rule_for_prompt()
+    first_line = rule.splitlines()[0]
+    for mode, text in prompts.items():
+        assert first_line in text, f"{mode}: правило разошлось с источником"
+
+
+def test_rule_reacts_to_its_source(monkeypatch):
+    """Проверка проверки: подменили источник — промпт обязан измениться."""
+    import engine.pipeline_config as cfg
+    import engine.state_prompts as sp
+    monkeypatch.setattr(cfg, "detail_rule_for_prompt", lambda: "ПРОВЕРОЧНАЯ СТРОКА")
+    assert sp._detail_block() == "ПРОВЕРОЧНАЯ СТРОКА"

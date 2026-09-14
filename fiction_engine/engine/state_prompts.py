@@ -293,6 +293,12 @@ def _director_block(note: str | None) -> str:
 # вызов, как ни проси, — поэтому 3000 берётся либо моделью посильнее,
 # либо вторым проходом через «Продолжить главу».
 
+def _detail_block() -> str:
+    """Правило о деталях — из pipeline_config, не копией (см. историю с ритмом)."""
+    from .pipeline_config import detail_rule_for_prompt
+    return detail_rule_for_prompt()
+
+
 def _rhythm_block() -> str:
     """
     Правило ритма — то же, по которому текст потом оценивают.
@@ -331,6 +337,8 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 - Середина 60%: каждый абзац двигает вперёд — ситуацию или персонажа
 - Последние 200-300 слов: поворот или клиффхэнгер
 
+{_detail_block()}
+
 {_rhythm_block()}
 - Нет длинных описательных блоков в середине сцены действия
 
@@ -364,6 +372,8 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 
 ТОНАЛЬНОСТЬ: [напряжённая / тихая / экшн / эмоциональная]
 ЗАКАНЧИВАЕТСЯ НА: [клиффхэнгер / тихий финал / открытый вопрос]
+
+{_detail_block()}
 
 {_rhythm_block()}
 
@@ -442,6 +452,8 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 ТОНАЛЬНОСТЬ: []
 ДОМИНИРУЮЩЕЕ ОЩУЩЕНИЕ (одно слово): [предательство / одиночество / надежда которая рушится / ...]
 
+{_detail_block()}
+
 {_rhythm_block()}
 
 Объём: СТРОГО 2500-3000 слов (25-35 абзацев). Прежде чем закончить — проверь себя: написано ли уже 2500 слов? Если меньше, глава не дописана: продолжай сцену, не сворачивай к финалу. Пиши целиком. Без комментариев.
@@ -502,7 +514,7 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 {char_prefill}
 
 СЦЕНА 1 [~900 слов]:
-Место: [конкретно, с одной атмосферной деталью]
+Место: [конкретно, через деталь, которую персонаж задевает или ощущает]
 Кто: []
 Динамика: [кто контролирует ситуацию и как меняется]
 Финал сцены: []
@@ -520,6 +532,8 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 
 ПОСЛЕ ЭТОЙ ГЛАВЫ НЕВОЗМОЖНО:
 []
+
+{_detail_block()}
 
 {_rhythm_block()}
 
