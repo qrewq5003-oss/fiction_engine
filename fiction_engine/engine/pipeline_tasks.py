@@ -354,10 +354,11 @@ def generate_director_note_for_chapter(project_id: int, chapter_num: int,
 
 def analyze_voice_match(voice_profile: str, text: str, model_value: str) -> dict:
     import re
+    from .pipeline_config import VOICE_TEXT_LIMIT
     SYS = "Ты литературный редактор. Оцени соответствие текста голосовому профилю."
     prompt = (
         f"ПРОФИЛЬ:\n{voice_profile[:800]}\n\n"
-        f"ТЕКСТ:\n{text[:2000]}\n\n"
+        f"ТЕКСТ:\n{text[:VOICE_TEXT_LIMIT]}\n\n"
         "ОЦЕНКА: X/10\n\nСОВПАДАЕТ:\n-\n\nНЕ СОВПАДАЕТ:\n-\n\nИСПРАВИТЬ:\n-"
     )
     result      = _call(model_value, SYS, prompt, max_tokens=800)

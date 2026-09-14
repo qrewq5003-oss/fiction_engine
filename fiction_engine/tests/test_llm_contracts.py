@@ -289,16 +289,47 @@ class TestAnalyzeVoiceMatch:
             analyze_voice_match(self.PROFILE, CHAPTER_TEXT, MODEL)
         assert "Короткие предложения" in captured["prompt"]
 
-    def test_text_truncated_to_2000(self):
+    def test_whole_chapter_is_checked_for_voice(self):
+        """
+        Глава уходит на проверку голоса целиком.
+
+        Здесь стояла обрезка до 2000 символов — 18 % главы. Проверка 15.09
+        подсадкой слома стиля (абзац на сленге при профиле, который сленг
+        запрещает), три повтора на клетку:
+
+            чистый, обрезка 2000      [7, 7, 7]   среднее 7.0
+            со сломом, обрезка 2000   [2, 2, 3]   среднее 2.3
+            чистый, полный            [7, 7, 8]   среднее 7.3
+            со сломом, полный         [1, 1, 1]   среднее 1.0
+
+        Оценка работает отлично: слом, который она ВИДИТ, роняет её с 7 до
+        2. Но видела она пятую часть главы, а слом в остальных 82 %
+        проходил мимо — ровно то, ради чего проверка и нужна.
+        """
         from engine.pipeline import analyze_voice_match
-        long_text = "Б" * 5000
+        from engine.pipeline_config import VOICE_TEXT_LIMIT
+        chapter = "Он шёл по улице и думал о случившемся. " * 300
+        assert 2000 < len(chapter) < VOICE_TEXT_LIMIT, "проверка потеряла смысл"
+        tail = "КОРОЧЕ ГОВОРЯ, ЧУВАК, ВСЁ ЭТО БЫЛО ПРОСТО ЖЕСТЬ."
         captured = {}
         def fake_call(model, sys, user, max_tokens=800):
             captured["prompt"] = user
             return self.RESPONSE_WITH_SCORE
         with patch("engine.pipeline._call", side_effect=fake_call):
-            analyze_voice_match(self.PROFILE, long_text, MODEL)
-        assert long_text[2001:] not in captured["prompt"]
+            analyze_voice_match(self.PROFILE, chapter + tail, MODEL)
+        assert tail in captured["prompt"], "конец главы не дошёл до проверки голоса"
+
+    def test_voice_check_caps_pathological_length(self):
+        from engine.pipeline import analyze_voice_match
+        from engine.pipeline_config import VOICE_TEXT_LIMIT
+        huge = "Б" * (VOICE_TEXT_LIMIT * 3)
+        captured = {}
+        def fake_call(model, sys, user, max_tokens=800):
+            captured["prompt"] = user
+            return self.RESPONSE_WITH_SCORE
+        with patch("engine.pipeline._call", side_effect=fake_call):
+            analyze_voice_match(self.PROFILE, huge, MODEL)
+        assert len(captured["prompt"]) < len(huge)
 
 
 # ─── E. find_symbols_in_chapter ──────────────────────────────────────────────
