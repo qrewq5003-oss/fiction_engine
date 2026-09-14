@@ -243,3 +243,62 @@ class TestRhythmNotFedToCritic:
         import engine.pipeline_tasks as pt
         pt.score_text("УНИКАЛЬНАЯ МЕТКА ТЕКСТА. " * 40, "детектив", "m::m")
         assert "УНИКАЛЬНАЯ МЕТКА" in sent["user"]
+
+
+# ─── Претензия найдётся и когда критик перестроил ответ ──────────────────────
+#
+# Утром (коммит 2555cd1) разбор «ГЛАВНЫЕ ПРОБЛЕМЫ» не совпадал никогда:
+# критик пишет решётки, пустую строку и нумерацию вместо дефиса. После
+# починки осталась вторая форма — критик иногда вовсе не использует свой
+# заголовок, а перечисляет претензии в разделе чеклиста:
+#
+#     ## ЧЕКЛИСТ ЗДОРОВЬЯ СЦЕНЫ
+#     **Scene Health — критические нарушения:**
+#     - ✗ Глава не меняет состояние персонажа/мира
+#
+# Замер 14.09 на настоящих ответах: так выходит в 1 случае из 6, и там
+# автор не видел претензии вовсе.
+
+class TestMainIssueFallback:
+    def test_standard_header_still_wins(self):
+        from engine.pipeline_llm import parse_first_item
+        raw = ("## ГЛАВНЫЕ ПРОБЛЕМЫ:\n\n"
+               "**1. Рубленый синтаксис убивает вес диалога**\n"
+               "- что-то ещё\n")
+        assert "Рубленый синтаксис" in parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
+
+    def test_scene_health_block_is_used_when_header_absent(self):
+        from engine.pipeline_llm import parse_first_item
+        raw = ("# АНАЛИЗ ГЛАВЫ 5\n\n## ЧЕКЛИСТ ЗДОРОВЬЯ СЦЕНЫ\n\n"
+               "**Scene Health — критические нарушения:**\n"
+               "- ✗ Глава не меняет состояние персонажа\n")
+        got = parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
+        assert "не меняет состояние" in got, f"претензия потерялась: {got!r}"
+
+    def test_checkmark_bullet_is_recognised(self):
+        from engine.pipeline_llm import parse_first_item
+        raw = "ГЛАВНЫЕ ПРОБЛЕМЫ:\n✗ Финал оборван на полуслове\n"
+        assert "Финал оборван" in parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
+
+    def test_nothing_is_invented_when_there_are_no_problems(self):
+        """
+        Запасной путь не должен выдумывать претензию из любого текста —
+        иначе автор получит выдумку вместо честной пустоты.
+        """
+        from engine.pipeline_llm import parse_first_item
+        raw = "ГОЛОС: 8/10 — хорошо\nСТРУКТУРА: 8/10 — хорошо\nИТОГ: 40/50\n"
+        assert parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ") == ""
+
+    def test_real_responses_all_parse(self):
+        """
+        Шесть настоящих ответов критика, снятых 14.09. До починки один из
+        них разбирался в пустоту.
+        """
+        from engine.pipeline_llm import parse_first_item
+        samples = [
+            "## ГЛАВНЫЕ ПРОБЛЕМЫ:\n\n**Проблема 1: ИИ-клише в физике тела**\n",
+            "ГЛАВНЫЕ ПРОБЛЕМЫ:\n- Перегруженность метафоры «код/система»\n",
+            "# АНАЛИЗ\n\n**Scene Health — критические нарушения:**\n"
+            "- ✗ Глава не меняет состояние персонажа\n",
+        ]
+        assert all(parse_first_item(s, "ГЛАВНЫЕ ПРОБЛЕМЫ") for s in samples)
