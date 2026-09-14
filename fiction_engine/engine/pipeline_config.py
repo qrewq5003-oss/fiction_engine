@@ -20,7 +20,7 @@ pipeline_config.py — Декларативная конфигурация pipel
           StepConfig("critique", max_tokens=1500),
           StepConfig("judge", enabled=False),   # отключить судью
       ],
-      max_score_threshold=38,   # принять если судья даёт >= 38/50
+      max_score_threshold=30,   # принять если судья даёт >= 30/50
       max_iterations=2,
   )
   result = start_pipeline(..., config=cfg)
@@ -94,7 +94,7 @@ class PipelineConfig:
     """
     steps:              list[StepConfig]
     max_iterations:     int   = 3
-    score_threshold:    float = 38.0    # >= 38/50 → ПРИНЯТЬ автоматически
+    score_threshold:    float = 30.0    # >= ACCEPT_TOTAL → ПРИНЯТЬ автоматически
     accept_on_timeout:  bool  = True    # принять лучший вариант по истечении итераций
     max_auto_retries:   int   = 0       # авто-цикл: 0 = отключён (opt-in)
     description:        str   = ""
@@ -139,7 +139,7 @@ class PipelineConfig:
         return cls(
             steps=steps,
             max_iterations=d.get("max_iterations", 3),
-            score_threshold=d.get("score_threshold", 38.0),
+            score_threshold=d.get("score_threshold", 30.0),
             accept_on_timeout=d.get("accept_on_timeout", True),
             max_auto_retries=d.get("max_auto_retries", 0),
             description=d.get("description", ""),
@@ -212,6 +212,40 @@ MIN_ACCEPTABLE_WORDS = 2000
 CRITIC_TEXT_LIMIT = 32000
 
 
+# ─── Порог принятия главы ────────────────────────────────────────────────────
+#
+# Было: ИТОГ >= 40 и каждый критерий >= 7. Этого не брал никто — ни одна
+# глава ни разу, ни у одной из 19 моделей. Вердикт «НА ДОРАБОТКУ» выдавался
+# ВСЕГДА и потому не значил ничего.
+#
+# Новые числа не выдуманы и не подогнаны под медиану. Они выбраны так,
+# чтобы порог РАЗДЕЛЯЛ: принимал целую главу и отвергал испорченную.
+# Для этого взяты сегодняшние замеры на нарочно испорченных текстах
+# (перемешанные абзацы, перевёрнутый порядок, дублированный кусок):
+#
+#     порог   проходят настоящие   протекают испорченные
+#       25         11 из 15              10 из 15     ← бессмыслен
+#       28         10 из 15               2 из 15
+#       30          7 из 15               2 из 15     ← выбран
+#       32          2 из 15               2 из 15     ← режет живое
+#       40          0 из 15               0 из 15     ← прежний
+#
+# 30 стоит выше медианы настоящих текстов (29), поэтому «ПРИНЯТЬ» означает
+# «лучше обычного», а не «как обычно». Утечка на 28 и на 30 одинаковая, так
+# что мягкость ничего не покупает.
+#
+# Планка отдельного критерия опущена с 7 до 4 по той же причине: семёрку
+# берёт 1 текст из 15, четвёрку — 13. Её задача — не пускать главу, где
+# одно свойство провалено начисто (Llama с двойкой, Hermes с тройкой), а не
+# требовать ровного отличия по всем пяти.
+#
+# ЧЕГО ЭТОТ ПОРОГ НЕ ЛОВИТ: дублированный кусок в сильном тексте (32 и 34
+# балла в замере). Судья читает повтор как хороший текст. Повторы, как и
+# обрыв на полуслове, надо ловить арифметикой — см. detect_truncation.
+ACCEPT_TOTAL         = 30    # из 50
+ACCEPT_MIN_CRITERION = 4     # из 10, по каждому из пяти
+
+
 # ─── Ритм предложений ────────────────────────────────────────────────────────
 #
 # Норма, по которой критик оценивает текст (R05, analyze_sentence_rhythm).
@@ -281,7 +315,7 @@ QUICK = PipelineConfig(
 STANDARD = PipelineConfig(
     description="Стандарт: генерация → критика → судья, до 2 итераций",
     max_iterations=2,
-    score_threshold=38.0,
+    score_threshold=30.0,
     steps=[
         StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
@@ -292,7 +326,7 @@ STANDARD = PipelineConfig(
 DEEP = PipelineConfig(
     description="Глубокий: генерация → критика → редактура → судья, до 3 итераций",
     max_iterations=3,
-    score_threshold=42.0,
+    score_threshold=33.0,   # строгий профиль: выше обычного порога
     steps=[
         StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
@@ -316,7 +350,7 @@ CRITIQUE_ONLY = PipelineConfig(
 CONTINUE = PipelineConfig(
     description="Продолжение: редактура по критике → повторная критика → судья",
     max_iterations=1,
-    score_threshold=38.0,
+    score_threshold=30.0,
     steps=[
         StepConfig("edit",     max_tokens=PROSE_MAX_TOKENS),
         StepConfig("critique", max_tokens=2000),
@@ -331,7 +365,7 @@ CONTINUE = PipelineConfig(
 AUTO_IMPROVE = PipelineConfig(
     description="Авто-улучшение: до 2 авто-повторов edit→critique→judge при НА ДОРАБОТКУ",
     max_iterations=3,
-    score_threshold=38.0,
+    score_threshold=30.0,
     max_auto_retries=2,
     steps=[
         StepConfig("generate", max_tokens=PROSE_MAX_TOKENS),

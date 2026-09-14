@@ -285,7 +285,8 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     #
     # Сам замер никуда не делся: он возвращается в результате и доступен
     # автору. Он арифметический и в языковой модели не нуждается.
-    from .pipeline_config import CRITIC_TEXT_LIMIT
+    from .pipeline_config import (CRITIC_TEXT_LIMIT, ACCEPT_TOTAL,
+                                  ACCEPT_MIN_CRITERION)
     prompt = f"Глава:\n\n{text[:CRITIC_TEXT_LIMIT]}"
 
     raw = _call(model_value, sys_critic, prompt, max_tokens=1200)
@@ -319,7 +320,10 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
         "scenes":     scenes,
         "dialog":     dialog,
         "total":      total,
-        "verdict":    "ПРИНЯТЬ" if total >= 40 and min(voice, structure, characters, scenes, dialog) >= 7 else "НА ДОРАБОТКУ",
+        "verdict":    ("ПРИНЯТЬ"
+                       if total >= ACCEPT_TOTAL
+                       and min(voice, structure, characters, scenes, dialog) >= ACCEPT_MIN_CRITERION
+                       else "НА ДОРАБОТКУ"),
         "main_issue": main_issue,
         "rhythm":     rhythm,
         "raw":        raw,
