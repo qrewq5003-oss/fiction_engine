@@ -203,3 +203,44 @@ class TestJudgeRuleMatchesCode:
             assert code == by_rule == expected, (
                 f"оценки {scores}/{total}: код говорит {code}, "
                 f"правило судьи — {by_rule}")
+
+
+# ─── Пороги и судья идут вместе ──────────────────────────────────────────────
+#
+# Прежние 30/4 калиброваны на claude-haiku-4-5. 15.09 прямой ключ Anthropic
+# исчерпан, судья заменён на kimi-k2.5 и калибровка проведена заново: 15
+# настоящих глав против 15 нарочно испорченных.
+#
+#      итог  критерий   проходят      протекают
+#        28      4       7 из 15       3 из 15
+#        28      5       6 из 15       1 из 15
+#        30      5       4 из 15       0 из 15   ← выбрано
+#
+# Тридцать у одной модели и тридцать у другой — разные тридцать, поэтому
+# судья записан рядом с числами и меняться без перекалибровки не должен.
+
+class TestThresholdTravelsWithItsJudge:
+    def test_calibrated_judge_is_declared(self):
+        from engine.pipeline_config import CALIBRATED_JUDGE
+        assert "::" in CALIBRATED_JUDGE, "судья должен быть с провайдером"
+
+    def test_bench_uses_the_calibrated_judge(self):
+        """
+        Замер обязан судить тем же судьёй, на котором калиброван порог.
+        Своя копия в bench уже расходилась: в выводе стоял порог 40, когда
+        движок принимал с 30.
+        """
+        import sys
+        from pathlib import Path
+        tools = Path(__file__).resolve().parents[2] / "tools"
+        sys.path.insert(0, str(tools))
+        import importlib
+        bench = importlib.import_module("bench")
+        from engine.pipeline_config import CALIBRATED_JUDGE
+        assert bench.DEFAULT_JUDGE == CALIBRATED_JUDGE
+
+    def test_exhausted_judge_is_no_longer_the_default(self):
+        """Прямой ключ Anthropic исчерпан — судья по умолчанию не должен его звать."""
+        from engine.pipeline_config import CALIBRATED_JUDGE
+        assert not CALIBRATED_JUDGE.startswith("anthropic_direct::"), (
+            "судьёй по умолчанию снова стоит исчерпанный ключ")

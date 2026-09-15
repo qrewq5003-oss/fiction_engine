@@ -65,7 +65,22 @@ DEFAULT_MODELS = [
 ]
 
 # Судья один на все модели — иначе шкалы разные и сравнивать нечего.
-DEFAULT_JUDGE = "anthropic_direct::claude-haiku-4-5-20251001"
+#
+# Берётся из движка: там же лежат пороги, калиброванные на этом судье.
+# Своя копия здесь разошлась бы, как разошёлся порог (в выводе стояло 40,
+# когда движок принимал с 30).
+#
+# 15.09 судья сменён с claude-haiku-4-5 на kimi-k2.5: прямой ключ Anthropic
+# исчерпан. Замеры до этой даты сделаны прежним судьёй и с новыми
+# несравнимы — compare предупредит, он сверяет поле "judge".
+def _default_judge() -> str:
+    import sys as _s
+    _s.path.insert(0, str(APP))
+    from engine.pipeline_config import CALIBRATED_JUDGE
+    return CALIBRATED_JUDGE
+
+
+DEFAULT_JUDGE = _default_judge()
 
 CRITERIA = ("voice", "structure", "characters", "scenes", "dialog")
 
