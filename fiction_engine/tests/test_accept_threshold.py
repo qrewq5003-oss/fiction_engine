@@ -110,3 +110,96 @@ class TestThresholdHasOneSource:
                 assert preset.score_threshold >= ACCEPT_TOTAL - 1, (
                     f"{preset.description[:30]}: планка {preset.score_threshold} "
                     f"ниже порога принятия {ACCEPT_TOTAL}")
+
+
+# ─── Правило вердикта: судья и код говорят одно ──────────────────────────────
+#
+# Числа свели к константам 14.09, а ТЕКСТ правила остался разным — и это
+# оказалось важнее чисел. У судьи стояло третье условие, которого в коде
+# нет: «и ни одного нарушения Scene Health чеклиста».
+#
+# Замер 15.09, шесть глав: судья сказал «НА ДОРАБОТКУ» во всех шести,
+# включая оценки 36, 32 и 31 при пороге 30. То есть починка порога (этап 4)
+# закрыла путь score_text и не тронула путь судьи.
+#
+# Цена выше неверной надписи: авто-цикл повторов слушает именно судью —
+# `verdict == "НА ДОРАБОТКУ"` крутит edit → critique → judge, по три вызова
+# модели за круг, на вердикте, который не может стать положительным.
+#
+# Scene Health при этом уже учтён: критику сказано «Нарушения чеклиста
+# фиксируй в СТРУКТУРЕ и СЦЕНАХ». Гейт считал их второй раз, да ещё
+# абсолютным вето.
+
+class TestJudgeRuleMatchesCode:
+    def test_judge_rule_states_the_same_conditions(self):
+        from engine.pipeline_steps import SYS_JUDGE
+        from engine.pipeline_config import ACCEPT_TOTAL, ACCEPT_MIN_CRITERION
+        assert f"ИТОГ ≥ {ACCEPT_TOTAL}" in SYS_JUDGE
+        assert f"критериев ≥ {ACCEPT_MIN_CRITERION}" in SYS_JUDGE
+
+    def test_judge_has_no_extra_gate(self):
+        """
+        Третьего условия быть не должно: оно делало вердикт недостижимым
+        и считало нарушения Scene Health второй раз.
+        """
+        from engine.pipeline_steps import SYS_JUDGE
+        rule = next(l for l in SYS_JUDGE.splitlines() if "ПРАВИЛО ВЕРДИКТА" in l)
+        assert "ни одного нарушения" not in rule, (
+            "у судьи снова абсолютное вето по Scene Health — "
+            "вердикт станет недостижимым, а авто-цикл будет крутиться впустую")
+
+    def test_rule_is_not_written_into_the_prompt_by_hand(self):
+        """
+        Отличает подстановку от литерала с теми же числами.
+
+        Тест ниже проверяет функцию `verdict_rule_for_prompt`, а не
+        собранный `SYS_JUDGE` — и потому проходит, даже когда правило
+        вписано в промпт руками. Фальсификация это показала: литерал с
+        теми же числами набор не уронил. Здесь проверяется исходник.
+        """
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / "engine" / "pipeline_steps.py").read_text(
+            encoding="utf-8")
+        for line in src.splitlines():
+            if "ПРАВИЛО ВЕРДИКТА" in line and "def " not in line and "#" not in line:
+                raise AssertionError(
+                    f"правило вердикта вписано в pipeline_steps.py литералом: {line.strip()[:90]}")
+
+    def test_rule_comes_from_the_same_source_as_the_code(self, monkeypatch):
+        """
+        Проверка проверки: сдвинули константу — правило судьи обязано
+        сдвинуться. Отличает подстановку от литерала с тем же значением.
+        """
+        import engine.pipeline_config as cfg
+        monkeypatch.setattr(cfg, "ACCEPT_TOTAL", 41)
+        rule = cfg.verdict_rule_for_prompt()
+        assert "ИТОГ ≥ 41" in rule
+        assert "30" not in rule, "прежнее число осталось — часть правила вписана литералом"
+
+    def test_rule_and_code_agree_on_the_same_scores(self, monkeypatch):
+        """
+        Главное. Прогоняем оба пути по одним и тем же оценкам: расчёт кода
+        и правило, которое читает судья. Они обязаны совпасть.
+        """
+        import re
+        import engine.pipeline_tasks as pt
+        from engine.pipeline_config import (ACCEPT_TOTAL, ACCEPT_MIN_CRITERION,
+                                            verdict_rule_for_prompt)
+        rule = verdict_rule_for_prompt()
+        total_in_rule = int(re.search(r"ИТОГ ≥ (\d+)", rule).group(1))
+        min_in_rule   = int(re.search(r"критериев ≥ (\d+)", rule).group(1))
+
+        cases = [
+            ((7, 6, 6, 5, 7), 31, "ПРИНЯТЬ"),
+            ((8, 7, 7, 7, 8), 36, "ПРИНЯТЬ"),
+            ((5, 5, 5, 5, 5), 25, "НА ДОРАБОТКУ"),
+            ((7, 7, 7, 2, 7), 30, "НА ДОРАБОТКУ"),
+        ]
+        for scores, total, expected in cases:
+            monkeypatch.setattr(pt, "_call", lambda *a, _s=scores, _t=total, **k: _reply(*_s, _t))
+            code = pt.score_text("Глава. " * 300, "детектив", MODEL)["verdict"]
+            by_rule = ("ПРИНЯТЬ" if total >= total_in_rule and min(scores) >= min_in_rule
+                       else "НА ДОРАБОТКУ")
+            assert code == by_rule == expected, (
+                f"оценки {scores}/{total}: код говорит {code}, "
+                f"правило судьи — {by_rule}")
