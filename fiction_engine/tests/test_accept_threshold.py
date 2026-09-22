@@ -239,8 +239,12 @@ class TestThresholdTravelsWithItsJudge:
         from engine.pipeline_config import CALIBRATED_JUDGE
         assert bench.DEFAULT_JUDGE == CALIBRATED_JUDGE
 
-    def test_exhausted_judge_is_no_longer_the_default(self):
-        """Прямой ключ Anthropic исчерпан — судья по умолчанию не должен его звать."""
-        from engine.pipeline_config import CALIBRATED_JUDGE
-        assert not CALIBRATED_JUDGE.startswith("anthropic_direct::"), (
-            "судьёй по умолчанию снова стоит исчерпанный ключ")
+    # Здесь стоял тест «судья не должен быть anthropic_direct» — он был
+    # написан 15.09, когда прямой ключ Anthropic был исчерпан, и закрепил
+    # ВРЕМЕННОЕ ОБСТОЯТЕЛЬСТВО как правило проекта. Ключ пополнили 22.09,
+    # судья вернулся на claude-sonnet-5 — и тест стал врать: он падал на
+    # штатной, обдуманной настройке.
+    #
+    # Правило, которое действительно нужно стеречь, уже проверено выше:
+    # судья объявлен и замер судит тем же судьёй, на котором калиброван
+    # порог. Кто именно это — решение владельца, а не инвариант кода.

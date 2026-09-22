@@ -397,6 +397,12 @@ def _run_migrations() -> None:
         ("chapter_analysis",   "opening_type",   "ALTER TABLE chapter_analysis ADD COLUMN opening_type TEXT DEFAULT ''"),
         ("chapter_analysis",   "closing_type",   "ALTER TABLE chapter_analysis ADD COLUMN closing_type TEXT DEFAULT ''"),
         # Правки автора — фундамент DATA_DRIVEN_LEARNING (пункт 2)
+        # Учёт расходов на вызовы моделей. Движок не знал, во что обходится
+        # глава: ни токенов, ни стоимости никуда не писалось, и на вопрос
+        # «сколько потрачено» приходилось считать вызовы по памяти.
+        # cost_usd пустой — значит тариф неизвестен (перепродавец не вернул
+        # цену, нашей таблицы на эту модель нет); токены при этом записаны.
+        ("api_usage",          "id",             "CREATE TABLE IF NOT EXISTS api_usage (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL, model TEXT NOT NULL, operation TEXT DEFAULT '', input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, cost_usd REAL, project_id INTEGER, chapter_num INTEGER, created_at TEXT DEFAULT (datetime('now')))"),
         ("author_edits",       "id",             "CREATE TABLE IF NOT EXISTS author_edits (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, chapter_num INTEGER NOT NULL, run_id INTEGER, original_text TEXT NOT NULL, accepted_text TEXT NOT NULL, rejection_reason TEXT DEFAULT '', action TEXT DEFAULT 'accept', judge_score REAL, created_at TEXT DEFAULT (datetime('now')))"),
     ]
     # «Уже существует» — штатный исход повторного прогона миграции.

@@ -211,3 +211,56 @@ def get_prep_context(project_id: int) -> str:
         if content and content != PREP_DEFAULTS[section].strip():
             parts.append(f"=== {label.upper()} ===\n{content}")
     return "\n\n".join(parts) if parts else ""
+
+
+# ─── Учёт расходов на вызовы моделей ─────────────────────────────────────────
+
+def record_api_usage(provider: str, model: str, input_tokens: int,
+                     output_tokens: int, cost_usd: float | None,
+                     operation: str = "", project_id: int | None = None,
+                     chapter_num: int | None = None) -> None:
+    """
+    Записать один вызов модели.
+
+    Ошибка записи не должна ронять генерацию: учёт — побочное дело, а
+    текст главы автору важнее. Поэтому исключение гасится, но в лог
+    попадает.
+    """
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO api_usage (provider, model, operation, input_tokens, "
+                "output_tokens, cost_usd, project_id, chapter_num) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (provider, model, operation, int(input_tokens or 0),
+                 int(output_tokens or 0), cost_usd, project_id, chapter_num),
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("record_api_usage failed: %s", e)
+
+
+def get_usage_totals(days: int | None = None) -> dict:
+    """
+    Сводка расходов: всего вызовов, токенов, долларов и разбивка по моделям.
+
+    Вызовы с неизвестным тарифом считаются отдельно (`calls_unpriced`) —
+    иначе сумма выглядела бы полной, хотя часть трат в неё не вошла.
+    """
+    where = "WHERE created_at >= datetime('now', ?)" if days else ""
+    args: tuple = (f"-{int(days)} days",) if days else ()
+    with get_conn() as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) n, COALESCE(SUM(input_tokens),0) tin, "
+            f"COALESCE(SUM(output_tokens),0) tout, COALESCE(SUM(cost_usd),0) cost, "
+            f"SUM(CASE WHEN cost_usd IS NULL THEN 1 ELSE 0 END) unpriced "
+            f"FROM api_usage {where}", args).fetchone()
+        by_model = conn.execute(
+            f"SELECT model, COUNT(*) n, COALESCE(SUM(cost_usd),0) cost "
+            f"FROM api_usage {where} GROUP BY model ORDER BY cost DESC", args).fetchall()
+    return {
+        "calls": row["n"], "input_tokens": row["tin"], "output_tokens": row["tout"],
+        "cost_usd": round(row["cost"], 4), "calls_unpriced": row["unpriced"] or 0,
+        "by_model": [{"model": r["model"], "calls": r["n"],
+                      "cost_usd": round(r["cost"], 4)} for r in by_model],
+    }

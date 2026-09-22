@@ -385,7 +385,7 @@ ACCEPT_MIN_CRITERION = 5     # из 10, по каждому из пяти
 # Следствие, которое надо помнить: этот судья ГОДИТСЯ для решения
 # «принять / на доработку» и ПЛОХО годится для сравнения моделей между
 # собой — разрыв средних 4.3 при разбросе замера около 4.
-CALIBRATED_JUDGE = "nano_gpt::moonshotai/kimi-k2.5"
+CALIBRATED_JUDGE = "anthropic_direct::claude-sonnet-5"
 
 
 def verdict_rule_for_prompt() -> str:

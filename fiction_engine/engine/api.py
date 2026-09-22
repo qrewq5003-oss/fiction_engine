@@ -254,7 +254,8 @@ def call_model(model_value: str, system: str, user: str,
                openai_key: str = None, gemini_key: str = None,
                deepseek_key: str = None,
                max_tokens: int = 4096,
-               prefill: str = "") -> str:
+               prefill: str = "",
+               operation: str = "") -> str:
     """prefill — начало ответа модели (assistant prefill).
     Модель продолжает генерацию с этого текста, не может начать заново.
     Идеально для продолжения главы: передаём последние 200-300 слов."""
@@ -272,9 +273,19 @@ def call_model(model_value: str, system: str, user: str,
         raise ValueError(f"Неизвестный провайдер: {provider}")
     fn, key = dispatch[provider]
 
+    _remember_usage(0, 0)          # чтобы не записать расход прошлого вызова
     try:
-        return _reject_empty(fn(model_id, system, user, key, max_tokens, prefill),
-                             model_value, prefill)
+        try:
+            text = _reject_empty(fn(model_id, system, user, key, max_tokens, prefill),
+                                 model_value, prefill)
+        finally:
+            # Запись в finally, а не после успеха: провайдер ответил —
+            # значит вызов уже оплачен, даже если дальше упал разбор или
+            # ответ оказался пустым. Поймано 22.09: пятнадцать вызовов
+            # Sonnet 5 разбились о блок размышления, все были оплачены, и
+            # в учёт не попал ни один — «потрачено $0» при непустом счёте.
+            _record_usage(provider, model_id, operation)
+        return text
     except Exception as exc:
         # Часть моделей (особенно из каталога nano-gpt) отдаёт меньше токенов,
         # чем просит пайплайн под полную главу. Такой отказ виден только по
@@ -283,8 +294,53 @@ def call_model(model_value: str, system: str, user: str,
         retry = _reduced_max_tokens(exc, max_tokens)
         if retry is None:
             raise
-        return _reject_empty(fn(model_id, system, user, key, retry, prefill),
-                             model_value, prefill)
+        try:
+            text = _reject_empty(fn(model_id, system, user, key, retry, prefill),
+                                 model_value, prefill)
+        finally:
+            _record_usage(provider, model_id, operation)
+        return text
+
+
+# Расход последнего вызова: (input_tokens, output_tokens, цена провайдера).
+# Тот же приём, что _remember_stop_reason — функции провайдеров возвращают
+# только текст, а учёт нужен диспетчеру.
+_LAST_USAGE: dict = {}
+
+
+def _remember_usage(input_tokens: int, output_tokens: int,
+                    reported_cost: float | None = None) -> None:
+    _LAST_USAGE.clear()
+    _LAST_USAGE.update({"input_tokens": int(input_tokens or 0),
+                        "output_tokens": int(output_tokens or 0),
+                        "reported_cost": reported_cost})
+
+
+def get_last_usage() -> dict:
+    """Расход последнего вызова. Пустой словарь — провайдер ничего не сообщил."""
+    return dict(_LAST_USAGE)
+
+
+def _record_usage(provider: str, model_id: str, operation: str = "") -> None:
+    """
+    Записать расход вызова в базу.
+
+    Учёт — побочное дело: ни отсутствие токенов в ответе, ни отказ базы не
+    должны ронять генерацию. Поэтому всё внутри try, а при пустом расходе
+    запись не делается вовсе — строка с нулями только засоряла бы сводку.
+    """
+    try:
+        u = get_last_usage()
+        if not u or (not u.get("input_tokens") and not u.get("output_tokens")):
+            return
+        from .pricing import estimate_cost
+        from .db_settings import record_api_usage
+        cost = estimate_cost(provider, model_id, u["input_tokens"],
+                             u["output_tokens"], u.get("reported_cost"))
+        record_api_usage(provider, model_id, u["input_tokens"],
+                         u["output_tokens"], cost, operation)
+    except Exception:
+        pass
 
 
 def _reject_empty(text: str, model_value: str, prefill: str) -> str:
@@ -350,6 +406,30 @@ def _reduced_max_tokens(exc: Exception, current: int) -> int | None:
 
 # ─── Клиенты ─────────────────────────────────────────────────────────────────
 
+def _first_text_block(content) -> str:
+    """
+    Текст ответа — из первого блока, у которого он есть.
+
+    Брали `content[0].text`. У думающих моделей (Sonnet 5, Opus 5 и далее)
+    первым идёт блок размышления, и обращение к `.text` падает с
+    AttributeError: 'ThinkingBlock' object has no attribute 'text'.
+    Поймано 22.09 при переводе судьи на claude-sonnet-5: пятнадцать
+    вызовов подряд отработали, были оплачены — и все разбились о разбор.
+
+    Блоков размышления может не быть вовсе (Haiku 4.5), может быть один
+    пустой (у Sonnet 5 их содержимое по умолчанию не возвращается), может
+    быть несколько. Поэтому ищем первый текстовый, а не считаем позиции.
+    """
+    for block in content or []:
+        text = getattr(block, "text", None)
+        if isinstance(text, str) and text:
+            return text
+    raise ValueError(
+        "В ответе модели нет текстового блока: "
+        f"{[getattr(b, 'type', type(b).__name__) for b in (content or [])]}"
+    )
+
+
 def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
     key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
@@ -364,7 +444,9 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
         messages=messages,
     )
     _remember_stop_reason(getattr(msg, "stop_reason", ""))
-    result = msg.content[0].text
+    u = getattr(msg, "usage", None)
+    _remember_usage(getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))
+    result = _first_text_block(msg.content)
     return (prefill + result) if prefill else result
 
 
@@ -385,6 +467,9 @@ def _call_openai_direct(model_id, system, user, api_key, max_tokens, prefill="")
         ),
     )
     _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
+    _u = getattr(resp, "usage", None)
+    _remember_usage(getattr(_u, "prompt_tokens", 0), getattr(_u, "completion_tokens", 0),
+                    getattr(_u, "cost", None))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -410,6 +495,9 @@ def _call_gemini_direct(model_id, system, user, api_key, max_tokens, prefill="")
         ),
     )
     _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
+    _u = getattr(resp, "usage", None)
+    _remember_usage(getattr(_u, "prompt_tokens", 0), getattr(_u, "completion_tokens", 0),
+                    getattr(_u, "cost", None))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -435,6 +523,9 @@ def _call_deepseek_direct(model_id, system, user, api_key, max_tokens, prefill="
         ),
     )
     _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
+    _u = getattr(resp, "usage", None)
+    _remember_usage(getattr(_u, "prompt_tokens", 0), getattr(_u, "completion_tokens", 0),
+                    getattr(_u, "cost", None))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
 
@@ -459,5 +550,8 @@ def _call_nanogpt(model_id, system, user, api_key, max_tokens, prefill=""):
         ),
     )
     _remember_stop_reason(getattr(resp.choices[0], "finish_reason", ""))
+    _u = getattr(resp, "usage", None)
+    _remember_usage(getattr(_u, "prompt_tokens", 0), getattr(_u, "completion_tokens", 0),
+                    getattr(_u, "cost", None))
     result = resp.choices[0].message.content
     return (prefill + result) if prefill else result
