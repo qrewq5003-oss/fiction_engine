@@ -27,8 +27,13 @@ def pipeline_page():
     runs = get_pipeline_runs(current["id"])
     chapters = get_chapters(current["id"])
     models = get_all_models_flat()
+    # Умолчания по ролям заданы в движке, а не «первая модель списка».
+    # Главное в них — судья отличается от генератора: модель завышает
+    # оценку собственному слогу (см. пояснение к DEFAULT_ROLE_MODELS).
+    from engine.pipeline_config import DEFAULT_ROLE_MODELS
     return render_template("pipeline.html", current=current, runs=runs,
-                           chapters=chapters, models=models)
+                           chapters=chapters, models=models,
+                           default_models=DEFAULT_ROLE_MODELS)
 
 
 @bp.route("/pipeline/start", methods=["POST"])

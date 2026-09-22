@@ -24,25 +24,25 @@
     <div class="form-group">
       <label>🖊 Генератор <span style="color:var(--text2);font-size:10px;">пишет главу</span></label>
       <select id="pl-model-gen" class="key-input" style="background:var(--surface2);">
-        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+        {% for m in models %}<option value="{{ m.value }}"{% if m.value == default_models.get("gen") %} selected{% endif %}>{{ m.label }}</option>{% endfor %}
       </select>
     </div>
     <div class="form-group">
       <label>🔍 Критик <span style="color:var(--text2);font-size:10px;">находит проблемы</span></label>
       <select id="pl-model-critic" class="key-input" style="background:var(--surface2);">
-        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+        {% for m in models %}<option value="{{ m.value }}"{% if m.value == default_models.get("critic") %} selected{% endif %}>{{ m.label }}</option>{% endfor %}
       </select>
     </div>
     <div class="form-group">
       <label>✏️ Редактор <span style="color:var(--text2);font-size:10px;">исправляет по критике</span></label>
       <select id="pl-model-editor" class="key-input" style="background:var(--surface2);">
-        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+        {% for m in models %}<option value="{{ m.value }}"{% if m.value == default_models.get("editor") %} selected{% endif %}>{{ m.label }}</option>{% endfor %}
       </select>
     </div>
     <div class="form-group">
       <label>⚖️ Судья <span style="color:var(--text2);font-size:10px;">финальная оценка</span></label>
       <select id="pl-model-judge" class="key-input" style="background:var(--surface2);">
-        {% for m in models %}<option value="{{ m.value }}">{{ m.label }}</option>{% endfor %}
+        {% for m in models %}<option value="{{ m.value }}"{% if m.value == default_models.get("judge") %} selected{% endif %}>{{ m.label }}</option>{% endfor %}
       </select>
     </div>
   </div>
