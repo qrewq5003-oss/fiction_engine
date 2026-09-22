@@ -25,6 +25,10 @@ log = get_logger(__name__)
 class PipelineStep:
     name: str
     enabled: bool = True
+    # Бюджет ответа. None — взять по имени шага из pipeline_config.
+    # Раньше поля не было вовсе, и объявленный в StepConfig бюджет
+    # терялся при конверсии: глава обрывалась на 6000 токенах.
+    max_tokens: int | None = None
 
 
 DEFAULT_PIPELINE: list[PipelineStep] = [
@@ -135,6 +139,24 @@ def _execute_steps(
         handle_error("_execute_steps get_project", e, level=ErrorLevel.RECOVERABLE)
 
     for step in enabled_steps:
+        # Бюджет ответа этого шага. Шаговые функции зовут call_fn без
+        # max_tokens, поэтому раньше действовало умолчание call_model
+        # (6000) — глава обрывалась на 2100 словах при требовании 2500.
+        from .pipeline_config import step_token_budget
+        _budget = step.max_tokens or step_token_budget(step.name)
+
+        def _budgeted(_b=_budget):
+            # Обёртка, а не замена: внутри зовётся модульный _call по имени,
+            # поэтому подмена в тестах (monkeypatch pipeline._call) работает
+            # как раньше. Шаговые функции вызывают call_fn без max_tokens —
+            # бюджет подставляется здесь.
+            def call(model_value, system, user, max_tokens=None, prefill=""):
+                return _call(model_value, system, user,
+                             max_tokens=max_tokens or _b, prefill=prefill)
+            return call
+
+        step_call = _budgeted()
+
         if step.name == "generate":
             from .state import strip_empty_placeholders
             clean_prompt = strip_empty_placeholders(generation_prompt)
@@ -142,22 +164,22 @@ def _execute_steps(
             sys_gen      = _build_sys_generator(_genre)
 
             step_generate(run_id, iteration, chapter_num, generation_prompt,
-                          full_prompt, model_gen, sys_gen, _call, results,
+                          full_prompt, model_gen, sys_gen, step_call, results,
                           prefill=prefill)
             gen_text = str(results.get("generated_text", "") or "")
             step_drift_check(project_id, chapter_num,
-                             gen_text, model_critic, _call, results)
+                             gen_text, model_critic, step_call, results)
             step_chapter_analysis(project_id, chapter_num,
-                                  gen_text, model_critic, _call, results)
+                                  gen_text, model_critic, step_call, results)
 
         elif step.name == "edit":
             step_edit(run_id, iteration, generation_prompt,
                       previous_text, previous_critique,
-                      model_editor, _call, results)
+                      model_editor, step_call, results)
 
         elif step.name == "critique":
             step_critique(run_id, iteration, chapter_num,
-                          model_critic, _call, results, previous_text or "",
+                          model_critic, step_call, results, previous_text or "",
                           project_id=project_id, genre=_genre)
 
         elif step.name == "prevalidate":
@@ -176,7 +198,7 @@ def _execute_steps(
 
         elif step.name == "judge":
             step_judge(run_id, iteration, chapter_num,
-                       model_judge, _call, results, previous_text or "",
+                       model_judge, step_call, results, previous_text or "",
                        project_id=project_id, genre_key=_genre)
 
     return results

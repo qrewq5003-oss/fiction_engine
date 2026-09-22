@@ -151,7 +151,9 @@ class PipelineConfig:
         Совместимость с pipeline.py.
         """
         from .pipeline import PipelineStep
-        return [PipelineStep(s.name, s.enabled) for s in self.steps]
+        return [PipelineStep(s.name, s.enabled,
+                            s.max_tokens or step_token_budget(s.name))
+                for s in self.steps]
 
 
 # ─── Бюджет вывода под объём главы ────────────────────────────────────────────
@@ -319,6 +321,30 @@ VOICE_TEXT_LIMIT = 32000   # как у критика: глава целиком
 # написали.
 SYMBOLS_TEXT_LIMIT  = 32000   # как у критика: глава целиком, предохранитель от вырожденного ответа
 SYMBOLS_MAX_TOKENS  = 2500    # проверено: 800 не хватает на главу целиком
+
+
+# Бюджет ответа по имени шага.
+#
+# Раньше его знал только StepConfig, а при конверсии в PipelineStep он
+# ТЕРЯЛСЯ: `PipelineStep(s.name, s.enabled)` переносил имя и флаг, но не
+# max_tokens. Шаг генерации уходил в модель с умолчанием call_model —
+# 6000 токенов.
+#
+# Поймано живым прогоном главы 22.09: Sonnet дважды выдал ровно 6000
+# токенов и оборвался на полуслове, 2213 слов вместо требуемых 2500-3000.
+# Движок просил объём, который структурно не мог получить: 6000 токенов
+# русского текста — это около 2100 слов.
+#
+# Числа берутся отсюда обоими путями, чтобы не разъехаться снова.
+def step_token_budget(step_name: str) -> int:
+    budgets = {
+        "generate":  PROSE_MAX_TOKENS,
+        "edit":      PROSE_MAX_TOKENS,
+        "critique":  2000,
+        "judge":     2000,
+        "prevalidate": 800,
+    }
+    return budgets.get(step_name, 4096)
 
 
 # ─── Модели по ролям, выставленные по умолчанию ──────────────────────────────
