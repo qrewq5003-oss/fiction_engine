@@ -406,6 +406,16 @@ def _reduced_max_tokens(exc: Exception, current: int) -> int | None:
 
 # ─── Клиенты ─────────────────────────────────────────────────────────────────
 
+# Модели, у которых есть параметр thinking. На более старых (Haiku 4.5 и
+# ранее) его передача — ошибка запроса, поэтому проверяем перед отправкой.
+_THINKING_MODELS = ("claude-sonnet-5", "claude-opus-5", "claude-opus-4-",
+                    "claude-fable-", "claude-mythos-", "claude-sonnet-4-6")
+
+
+def _supports_thinking(model_id: str) -> bool:
+    return any(model_id.startswith(p) for p in _THINKING_MODELS)
+
+
 def _first_text_block(content) -> str:
     """
     Текст ответа — из первого блока, у которого он есть.
@@ -438,11 +448,27 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
     messages = [{"role": "user", "content": user}]
     if prefill:
         messages.append({"role": "assistant", "content": prefill})
-    msg = client.messages.create(
-        model=model_id, max_tokens=max_tokens,
-        system=system,
-        messages=messages,
-    )
+    # Размышление выключено явно.
+    #
+    # На моделях 5-го поколения (Sonnet 5, Opus 5) оно включено ПО
+    # УМОЛЧАНИЮ, когда параметр не передан. Все бюджеты max_tokens в этом
+    # движке подобраны под модели без размышления: критику даётся 1200
+    # токенов, судье 2000. Размышление съедает тот же бюджет — и до ответа
+    # не доходит ничего.
+    #
+    # Поймано 22.09 при переводе судьи на claude-sonnet-5: из 15 вызовов 8
+    # вернули ответ вообще без текстового блока, остальные — обрубок, где
+    # оценки разбирались в нули. Средний выход упёрся в потолок: 1145 из
+    # 1200. Двадцать два вызова и $0.53 ушли на мусор.
+    #
+    # Задача критика и судьи — разметить текст по готовой рубрике, а не
+    # рассуждать. Если размышление понадобится, включать его надо вместе с
+    # поднятым бюджетом, иначе повторится то же самое.
+    kwargs = dict(model=model_id, max_tokens=max_tokens,
+                  system=system, messages=messages)
+    if _supports_thinking(model_id):
+        kwargs["thinking"] = {"type": "disabled"}
+    msg = client.messages.create(**kwargs)
     _remember_stop_reason(getattr(msg, "stop_reason", ""))
     u = getattr(msg, "usage", None)
     _remember_usage(getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))

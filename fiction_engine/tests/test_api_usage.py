@@ -222,3 +222,46 @@ def test_anthropic_caller_uses_the_first_text_block(monkeypatch):
 
     got = api._call_anthropic("claude-sonnet-5", "sys", "usr", "key", 100)
     assert got == "разбор главы", "вызов не использует первый текстовый блок"
+
+
+# ─── Размышление не должно съедать бюджет ответа ─────────────────────────────
+#
+# На моделях 5-го поколения (Sonnet 5, Opus 5) размышление включено ПО
+# УМОЛЧАНИЮ, когда параметр не передан. Все бюджеты max_tokens в движке
+# подобраны под модели без размышления: критику 1200 токенов, судье 2000.
+#
+# Поймано 22.09 при переводе судьи на claude-sonnet-5: из 15 вызовов 8
+# вернули ответ вообще БЕЗ текстового блока, остальные — обрубок, где
+# оценки разбирались в нули. Средний выход упёрся в потолок: 1145 из 1200.
+# Двадцать два вызова и $0.53 ушли на мусор.
+
+class TestThinkingIsDisabled:
+    def _capture(self, monkeypatch, model_id):
+        import engine.api as api
+        sent = {}
+        block = MagicMock(); block.type = "text"; block.text = "ОЦЕНКА: 7/10"
+        msg = MagicMock(content=[block], stop_reason="end_turn",
+                        usage=MagicMock(input_tokens=10, output_tokens=5))
+        client = MagicMock()
+        client.messages.create.side_effect = lambda **kw: (sent.update(kw), msg)[1]
+        monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+        api._call_anthropic(model_id, "sys", "usr", "key", 1200)
+        return sent
+
+    def test_thinking_off_on_fifth_generation(self, monkeypatch):
+        sent = self._capture(monkeypatch, "claude-sonnet-5")
+        assert sent.get("thinking") == {"type": "disabled"}, (
+            "размышление не выключено — оно съест бюджет ответа, "
+            "и критерии разберутся в нули")
+
+    def test_thinking_off_on_opus_5(self, monkeypatch):
+        assert self._capture(monkeypatch, "claude-opus-5").get("thinking") == {"type": "disabled"}
+
+    def test_parameter_not_sent_to_older_models(self, monkeypatch):
+        """На Haiku 4.5 и ранее передача thinking — ошибка запроса."""
+        sent = self._capture(monkeypatch, "claude-haiku-4-5-20251001")
+        assert "thinking" not in sent
+
+    def test_budget_reaches_the_model_unchanged(self, monkeypatch):
+        sent = self._capture(monkeypatch, "claude-sonnet-5")
+        assert sent["max_tokens"] == 1200
