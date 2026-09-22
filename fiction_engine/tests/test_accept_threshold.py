@@ -48,12 +48,29 @@ def _verdict(monkeypatch, scores, total):
 
 
 class TestThresholdIsReachable:
-    def test_typical_good_chapter_is_accepted(self, monkeypatch):
-        """Настоящая глава из замера: итог 31, минимальный критерий 5."""
-        assert _verdict(monkeypatch, (7, 6, 6, 5, 7), 31) == "ПРИНЯТЬ"
+    def test_middling_chapter_is_not_accepted(self, monkeypatch):
+        """
+        Глава из живого прогона 22.09: все критерии по 6, сумма 30 — ровно
+        медиана настоящих текстов. Середину принимать незачем: «ПРИНЯТЬ»
+        должно значить «заметно лучше обычного», а не «как обычно».
+        """
+        assert _verdict(monkeypatch, (6, 6, 6, 6, 6), 30) == "НА ДОРАБОТКУ"
 
-    def test_best_measured_chapter_is_accepted(self, monkeypatch):
+    def test_good_chapter_is_accepted(self, monkeypatch):
+        """Лучший текст замера: 37 из 50."""
         assert _verdict(monkeypatch, (8, 7, 7, 7, 8), 37) == "ПРИНЯТЬ"
+
+    def test_bar_stands_above_the_median(self):
+        """
+        Смысл планки. Медиана настоящих глав на калиброванном судье — 29.
+        Порог, стоящий на медиане, означает «не хуже обычного» и потому
+        ничего не значит.
+        """
+        from engine.pipeline_config import ACCEPT_TOTAL
+        MEASURED_MEDIAN = 29
+        assert ACCEPT_TOTAL > MEASURED_MEDIAN + 3, (
+            f"порог {ACCEPT_TOTAL} слишком близок к медиане {MEASURED_MEDIAN}: "
+            "«ПРИНЯТЬ» будет значить «как обычно»")
 
     def test_weak_chapter_is_rejected_by_total(self, monkeypatch):
         """glm-4.7 из замера: 25 баллов — ниже порога."""
@@ -107,7 +124,7 @@ class TestThresholdHasOneSource:
         from engine.pipeline_config import ACCEPT_TOTAL, QUICK, STANDARD, DEEP
         for preset in (QUICK, STANDARD, DEEP):
             if preset.score_threshold < 900:      # 999 = «никогда не принимать»
-                assert preset.score_threshold >= ACCEPT_TOTAL - 1, (
+                assert preset.score_threshold >= ACCEPT_TOTAL, (
                     f"{preset.description[:30]}: планка {preset.score_threshold} "
                     f"ниже порога принятия {ACCEPT_TOTAL}")
 
@@ -190,10 +207,11 @@ class TestJudgeRuleMatchesCode:
         min_in_rule   = int(re.search(r"критериев ≥ (\d+)", rule).group(1))
 
         cases = [
-            ((7, 6, 6, 5, 7), 31, "ПРИНЯТЬ"),
-            ((8, 7, 7, 7, 8), 36, "ПРИНЯТЬ"),
+            ((8, 7, 7, 7, 8), 37, "ПРИНЯТЬ"),
+            ((7, 8, 7, 7, 7), 36, "ПРИНЯТЬ"),
+            ((6, 6, 6, 6, 6), 30, "НА ДОРАБОТКУ"),   # середина
             ((5, 5, 5, 5, 5), 25, "НА ДОРАБОТКУ"),
-            ((7, 7, 7, 2, 7), 30, "НА ДОРАБОТКУ"),
+            ((9, 9, 9, 2, 9), 38, "НА ДОРАБОТКУ"),   # один провал начисто
         ]
         for scores, total, expected in cases:
             monkeypatch.setattr(pt, "_call", lambda *a, _s=scores, _t=total, **k: _reply(*_s, _t))
