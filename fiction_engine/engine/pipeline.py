@@ -145,14 +145,22 @@ def _execute_steps(
         from .pipeline_config import step_token_budget
         _budget = step.max_tokens or step_token_budget(step.name)
 
-        def _budgeted(_b=_budget):
+        def _budgeted(_b=_budget, _op=step.name):
             # Обёртка, а не замена: внутри зовётся модульный _call по имени,
             # поэтому подмена в тестах (monkeypatch pipeline._call) работает
             # как раньше. Шаговые функции вызывают call_fn без max_tokens —
             # бюджет подставляется здесь.
             def call(model_value, system, user, max_tokens=None, prefill=""):
-                return _call(model_value, system, user,
-                             max_tokens=max_tokens or _b, prefill=prefill)
+                # Метка шага ставится в контекст, а не передаётся аргументом:
+                # десятки тестов подменяют _call своими заглушками с прежней
+                # сигнатурой, и лишний параметр их ломает.
+                from .api import set_current_operation
+                set_current_operation(_op)
+                try:
+                    return _call(model_value, system, user,
+                                 max_tokens=max_tokens or _b, prefill=prefill)
+                finally:
+                    set_current_operation("")
             return call
 
         step_call = _budgeted()

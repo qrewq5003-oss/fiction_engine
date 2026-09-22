@@ -321,6 +321,20 @@ def get_last_usage() -> dict:
     return dict(_LAST_USAGE)
 
 
+# Метка текущего шага для учёта расходов. Через контекст, а не аргументом
+# call_model: шаговые функции зовут call_fn, который подменяется в тестах
+# заглушками с фиксированной сигнатурой — лишний параметр их ломает.
+_CURRENT_OPERATION = {"name": ""}
+
+
+def set_current_operation(name: str) -> None:
+    _CURRENT_OPERATION["name"] = name or ""
+
+
+def get_current_operation() -> str:
+    return _CURRENT_OPERATION["name"]
+
+
 def _record_usage(provider: str, model_id: str, operation: str = "") -> None:
     """
     Записать расход вызова в базу.
@@ -335,6 +349,7 @@ def _record_usage(provider: str, model_id: str, operation: str = "") -> None:
             return
         from .pricing import estimate_cost
         from .db_settings import record_api_usage
+        operation = operation or get_current_operation()
         cost = estimate_cost(provider, model_id, u["input_tokens"],
                              u["output_tokens"], u.get("reported_cost"))
         record_api_usage(provider, model_id, u["input_tokens"],

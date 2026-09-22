@@ -116,3 +116,55 @@ def test_step_config_budget_survives_conversion():
     from engine.pipeline_config import StepConfig, PipelineConfig, PROSE_MAX_TOKENS
     cfg = PipelineConfig(steps=[StepConfig("generate", max_tokens=PROSE_MAX_TOKENS)])
     assert cfg.to_pipeline_steps()[0].max_tokens == PROSE_MAX_TOKENS
+
+
+def test_usage_rows_name_their_step(monkeypatch):
+    """
+    Учёт должен говорить, на что ушли деньги.
+
+    Без метки строки расхода анонимны, и разбор прогона превращается в
+    гадание по числам: «вход 19956 — это редактура или генерация?». Я
+    потратил на такое гадание отдельный заход, прежде чем сообразил
+    прочитать pipeline_iterations.
+
+    Метка ставится в контекст, а не передаётся аргументом call_fn: десятки
+    тестов подменяют _call заглушками с фиксированной сигнатурой, и лишний
+    параметр их ломает.
+    """
+    import tempfile
+    from pathlib import Path
+    import engine.db_core as dbc
+    monkeypatch.setattr(dbc, "DB_PATH", Path(tempfile.mkdtemp()) / "op.db")
+    dbc.init_db()
+
+    import engine.api as api
+    import engine.pipeline as pipeline
+    from engine.db import create_project
+    from engine.db_narrative import create_pipeline_run
+
+    seen = []
+    monkeypatch.setattr(api, "_record_usage",
+                        lambda p, m, op="": seen.append(op or api.get_current_operation()))
+
+    def fake(model_value, system, user, max_tokens=6000, prefill=""):
+        api._record_usage("p", "m")
+        low = (system or "").lower()
+        if "строгий литературный" in low:
+            return ("ГОЛОС: 6/10 — ок\nСТРУКТУРА: 6/10 — ок\nПЕРСОНАЖИ: 6/10 — ок\n"
+                    "СЦЕНЫ: 6/10 — ок\nДИАЛОГ: 6/10 — ок\nИТОГ: 30/50")
+        if "главный редактор" in low:
+            return "ИТОГ: 30/50\nВЕРДИКТ: ПРИНЯТЬ"
+        return "Текст. " * 300
+
+    monkeypatch.setattr(pipeline, "_call", fake)
+    pid = create_project("Метки", "детектив")
+    run_id = create_pipeline_run(pid, 1, "m::m", "m::m", "m::m", "m::m")
+    pipeline.run_pipeline_step(
+        run_id=run_id, iteration=1, project_id=pid, chapter_num=1,
+        generation_prompt="з", model_gen="m::m", model_critic="m::m",
+        model_editor="m::m", model_judge="m::m",
+        steps=pipeline.PIPELINE_GENERATE_AND_EDIT)
+
+    assert "generate" in seen and "critique" in seen and "edit" in seen and "judge" in seen, \
+        f"строки расхода не названы по шагам: {seen}"
+    assert "" not in seen, "есть безымянные строки расхода"
