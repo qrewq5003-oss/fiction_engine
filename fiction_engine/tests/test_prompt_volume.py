@@ -280,3 +280,79 @@ def test_built_prompt_moves_with_the_constant(monkeypatch):
         assert "2500" not in text, (
             f"{mode}: прежнее число осталось в промпте — часть требования "
             "вписана литералом, а не подставлена")
+
+
+# ─── Разбивка по сценам должна складываться в требуемый объём ────────────────
+#
+# Промпт требовал «СТРОГО 2500-3000 слов», а расписывал по сценам меньше:
+#
+#     master:   900 + 700 + 700 = 2300
+#     quality:  1000 + 1000     = 2000
+#
+# Модель следует конкретным числам по сценам, а не общему требованию — и
+# выдаёт ровно то, что ей расписали. Живой прогон 22.09: 1660 слов при
+# расписанных 2300, при требовании 2500.
+#
+# Это тот же класс, что уже ловился трижды: промпт требует одно, а
+# специфицирует другое. Отличие в том, что здесь противоречие
+# АРИФМЕТИЧЕСКОЕ — его видно без единого вызова модели.
+
+def _scene_words(text):
+    import re
+    return [int(x) for x in re.findall(r"СЦЕНА[^\[\n]*\[~(\d+) слов\]", text)]
+
+
+def test_scene_allocations_reach_the_demanded_volume(prompts):
+    from engine.pipeline_config import MIN_CHAPTER_WORDS
+    for mode, text in prompts.items():
+        scenes = _scene_words(text)
+        if not scenes:
+            continue          # quick не расписывает сцены по словам
+        assert sum(scenes) >= MIN_CHAPTER_WORDS, (
+            f"{mode}: сцены расписаны на {sum(scenes)} слов "
+            f"при требовании от {MIN_CHAPTER_WORDS} — модель напишет по разбивке")
+
+
+def test_scene_allocations_do_not_overshoot(prompts):
+    """Перебор тоже плох: обрежется по бюджету токенов."""
+    from engine.pipeline_config import TARGET_CHAPTER_WORDS
+    for mode, text in prompts.items():
+        scenes = _scene_words(text)
+        if scenes:
+            assert sum(scenes) <= TARGET_CHAPTER_WORDS * 1.1, (
+                f"{mode}: сцены расписаны на {sum(scenes)} при цели {TARGET_CHAPTER_WORDS}")
+
+
+def test_scene_numbers_follow_the_constants(monkeypatch):
+    """
+    Проверка проверки: сдвинули требование — разбивка обязана поехать.
+    Отличает подстановку от чисел, вписанных руками.
+    """
+    import tempfile
+    from pathlib import Path
+    import engine.db_core as dbc
+    import engine.pipeline_config as cfg
+
+    monkeypatch.setattr(dbc, "DB_PATH", Path(tempfile.mkdtemp()) / "sc.db")
+    dbc.init_db()
+    monkeypatch.setattr(cfg, "TARGET_CHAPTER_WORDS", 6000)
+    monkeypatch.setattr(cfg, "MIN_CHAPTER_WORDS", 5000)
+
+    from engine.db import create_project, get_project
+    from engine.state_prompts import build_prompt
+    pid = create_project("Сцены", "детектив")
+
+    # ВСЕ режимы, а не только master. Первая версия проверяла один, и
+    # фальсификация это показала: числа, вписанные литералом в quality,
+    # тест проходили. Третий раз за сессию, когда проверка единственности
+    # источника накрывала лишь часть поверхности.
+    checked = 0
+    for mode in ("quick", "quality", "master"):
+        scenes = _scene_words(build_prompt(pid, 2, mode, get_project(pid)))
+        if not scenes:
+            continue
+        checked += 1
+        assert sum(scenes) >= 5000, (
+            f"{mode}: разбивка не поехала за константой: {scenes} — "
+            "числа вписаны руками")
+    assert checked >= 2, "режимов со сценами меньше двух — проверка обмельчала"
