@@ -305,3 +305,31 @@ class TestStepChapterAnalysis:
                                   lambda *a, **kw: "resp", results)
 
         assert results.get("chapter_analysis_block") == "БЛОК АНАЛИЗА"
+
+
+# ─── Редактуры на первом проходе нет ─────────────────────────────────────────
+#
+# Три замера не нашли от неё пользы: -0.1 балла на восьми парах (13.09),
+# минус четверть объёма на живом прогоне (22.09), и голая генерация 33-37
+# против 30 у полного прогона с редактурой (24.09). Стоит она примерно
+# половину цены прогона.
+#
+# Продукт её на первом проходе и не применяет — тест это закрепляет, чтобы
+# не включилась молча.
+
+def test_first_pass_has_no_edit_step():
+    from engine.pipeline import DEFAULT_PIPELINE
+    names = [s.name for s in DEFAULT_PIPELINE]
+    assert "edit" not in names, (
+        f"редактура вернулась в первый проход: {names} — она замерена "
+        "трижды и пользы не показала, а стоит половину прогона")
+    assert names == ["generate", "critique", "judge"]
+
+
+def test_continuation_still_edits():
+    """
+    При продолжении редактура и есть само действие: править существующий
+    черновик. Выключать её там нечего.
+    """
+    from engine.pipeline import PIPELINE_WITH_EDIT
+    assert [s.name for s in PIPELINE_WITH_EDIT][0] == "edit"
