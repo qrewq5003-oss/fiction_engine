@@ -189,7 +189,8 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     from .state import build_prompt, strip_empty_placeholders
 
     project_id = project["id"]
-    genre      = project.get("genre", "")
+    from .unified_engine import project_genre_key
+    genre      = project_genre_key(project) or ""
     sys_prompt = _build_sys_generator(genre)
 
     prep_chars = len(get_prep_context(project_id))

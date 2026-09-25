@@ -130,7 +130,8 @@ def _auto_score_chapter(project_id: int, chapter_num: int,
         return None
 
     project = get_project(project_id)
-    genre   = project.get("genre", "") if project else ""
+    from engine.unified_engine import project_genre_key
+    genre   = project_genre_key(project) or ""
 
     try:
         details = score_text(text, genre, scorer_model)

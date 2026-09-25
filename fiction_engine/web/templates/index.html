@@ -135,11 +135,47 @@
           <label>Жанр</label>
           <input type="text" name="genre" placeholder="тёмное фэнтези">
         </div>
+        <div class="form-group">
+          <label>Жанр для движка</label>
+          <select name="genre_key">
+            <option value="">Определить по описанию жанра</option>
+            {% for o in genre_options %}
+            <option value="{{ o.key }}">{{ o.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <button type="submit" class="btn btn-primary btn-full">Создать</button>
       </form>
     </div>
 
     {% if current %}
+    <!-- Жанр для движка: по нему выбираются каталог, контракт, профиль,
+         модули, линза критика и контракт судьи -->
+    <div class="card">
+      <div class="card-title">🎭 Жанр для движка</div>
+      {% if not current.genre_key %}
+      <div class="alert alert-warning">
+        Жанр не выбран. Сейчас он определяется по описанию «{{ current.genre or '—' }}»:
+        <b>{{ genre_labels.get(genre_suggested, 'не определён') if genre_suggested else 'не определён' }}</b>.
+        Подтверди или выбери другой.
+      </div>
+      {% endif %}
+      <form method="POST" action="/project/genre-key">
+        <div class="form-group">
+          <select name="genre_key">
+            <option value="">Определять по описанию жанра</option>
+            {% for o in genre_options %}
+            <option value="{{ o.key }}"
+              {% if o.key == (current.genre_key or genre_suggested) %}selected{% endif %}>{{ o.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-full">
+          {% if current.genre_key %}Сохранить{% else %}Подтвердить{% endif %}
+        </button>
+      </form>
+    </div>
+
     <!-- Быстрые действия -->
     <div class="card">
       <div class="card-title">⚡ Быстрые действия</div>

@@ -68,6 +68,9 @@ def detect_genre(genre_text: str) -> str | None:
     Нормализует ё→е.
     """
     g = _norm(genre_text)
+    if g in GENRE_KEYWORDS:
+        # Уже ключ: так его можно передавать туда же, куда раньше шёл текст
+        return g
     best_key = None
     best_len = 0
     for key, keywords in GENRE_KEYWORDS.items():
@@ -77,6 +80,24 @@ def detect_genre(genre_text: str) -> str | None:
                 best_key = key
                 best_len = len(kw_norm)
     return best_key
+
+
+def project_genre_key(project: dict | None) -> str | None:
+    """
+    Жанр проекта для движка: выбранный автором ключ, иначе — определённый
+    по свободному тексту жанра.
+
+    Все, кто решает по жанру (блок движка, критик, судья, калибровка
+    напряжения), берут его отсюда. Раньше им передавали сам текст
+    («городское фэнтези»), и места, делившие его по «_», промахивались:
+    судья не получал жанровый контракт ни в одном русскоязычном проекте.
+    """
+    if not project:
+        return None
+    key = project.get("genre_key")
+    if key in GENRE_KEYWORDS:
+        return key
+    return detect_genre(project.get("genre") or "")
 
 
 # ─── Граф зависимостей ────────────────────────────────────────────────────────

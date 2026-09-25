@@ -162,7 +162,8 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
         return ""
     try:
         from .auto_router import route_by_keywords
-        genre_key        = project.get("genre", "")
+        from .unified_engine import project_genre_key
+        genre_key        = project_genre_key(project) or ""
         pre_selected     = None
         resolver_fn      = api_call_fn
 

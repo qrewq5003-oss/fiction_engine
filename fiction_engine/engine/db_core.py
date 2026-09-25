@@ -127,6 +127,7 @@ def init_db() -> None:
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             name        TEXT NOT NULL UNIQUE,
             genre       TEXT,
+            genre_key   TEXT,
             created_at  TEXT DEFAULT (datetime('now')),
             config      TEXT DEFAULT '{}'
         );
@@ -389,6 +390,9 @@ def _run_migrations() -> None:
         ("generation_history", "task",           "ALTER TABLE generation_history ADD COLUMN task TEXT"),
         ("chapters",           "title",          "ALTER TABLE chapters ADD COLUMN title TEXT"),
         ("projects",           "config",         "ALTER TABLE projects ADD COLUMN config TEXT DEFAULT '{}'"),
+        # Ключ жанра, выбранный автором. NULL — не выбран: движок определяет
+        # жанр по свободному тексту projects.genre, а интерфейс просит выбрать
+        ("projects",           "genre_key",      "ALTER TABLE projects ADD COLUMN genre_key TEXT"),
         ("voice_profiles",     "source",         "ALTER TABLE voice_profiles ADD COLUMN source TEXT DEFAULT 'custom'"),
         ("knowledge_base",     "auto_inject",    "ALTER TABLE knowledge_base ADD COLUMN auto_inject INTEGER DEFAULT 0"),
         ("engine_error_log",   "context",        "CREATE TABLE IF NOT EXISTS engine_error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, context TEXT NOT NULL, error TEXT NOT NULL, logged_at TEXT DEFAULT (datetime('now')))"),

@@ -51,10 +51,12 @@ from .db_narrative import (
 # произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
 # без него «последнее обновление» и «свежие правки» врали при любой
 # паре записей внутри одной секунды.
-def create_project(name: str, genre: str = "") -> int:
+def create_project(name: str, genre: str = "", genre_key: str | None = None) -> int:
+    genre_key = _checked_genre_key(genre_key)
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO projects (name, genre) VALUES (?, ?)", (name, genre)
+            "INSERT INTO projects (name, genre, genre_key) VALUES (?, ?, ?)",
+            (name, genre, genre_key),
         )
         project_id = cur.lastrowid
         conn.execute(
@@ -62,6 +64,24 @@ def create_project(name: str, genre: str = "") -> int:
             (project_id, _default_global(), _default_plot(), _default_memory())
         )
         return project_id
+
+
+def _checked_genre_key(genre_key: str | None) -> str | None:
+    """Пустое — «не выбран»; неизвестный ключ — ошибка, а не тихая запись."""
+    if not genre_key:
+        return None
+    from .engine_config import GENRE_KEYWORDS
+    if genre_key not in GENRE_KEYWORDS:
+        raise ValueError(f"неизвестный ключ жанра: {genre_key!r}")
+    return genre_key
+
+
+def set_project_genre_key(project_id: int, genre_key: str | None) -> None:
+    """Сохранить жанр, выбранный автором. None или «» — вернуть автоопределение."""
+    genre_key = _checked_genre_key(genre_key)
+    with get_conn() as conn:
+        conn.execute("UPDATE projects SET genre_key=? WHERE id=?",
+                     (genre_key, project_id))
 
 
 def get_projects():

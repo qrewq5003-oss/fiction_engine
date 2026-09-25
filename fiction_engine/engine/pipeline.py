@@ -134,7 +134,8 @@ def _execute_steps(
     try:
         from .db import get_project
         _proj  = get_project(project_id)
-        _genre = _proj.get("genre", "") if _proj else ""
+        from .unified_engine import project_genre_key
+        _genre = project_genre_key(_proj) or ""
     except Exception as e:
         handle_error("_execute_steps get_project", e, level=ErrorLevel.RECOVERABLE)
 

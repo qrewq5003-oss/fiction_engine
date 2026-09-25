@@ -86,8 +86,16 @@ def index():
     current  = get_current_project()
     chapters = get_chapters(current["id"]) if current else []
     pending  = get_pending_updates(current["id"]) if current else []
+    from engine.unified_engine import get_all_genre_options, project_genre_key
+    genre_options = get_all_genre_options()
+    # Для неподтверждённого проекта — что движок определил по тексту жанра:
+    # это значение и предлагается автору подтвердить
+    genre_suggested = project_genre_key(current) if current else None
     return render_template("index.html", projects=projects, current=current,
-                           chapters=chapters, pending_updates=pending)
+                           chapters=chapters, pending_updates=pending,
+                           genre_options=genre_options,
+                           genre_labels={o["key"]: o["label"] for o in genre_options},
+                           genre_suggested=genre_suggested)
 
 
 # ─── Проекты ─────────────────────────────────────────────────────────────────
@@ -96,14 +104,34 @@ def index():
 def project_new():
     name  = request.form.get("name", "").strip()
     genre = request.form.get("genre", "").strip()
+    # Пусто — «определить по тексту жанра»: ключ остаётся не выбранным,
+    # и главная страница попросит его подтвердить
+    genre_key = request.form.get("genre_key", "").strip() or None
     if not name:
         flash("Название обязательно", "error")
         return redirect(url_for("index"))
     try:
-        pid = create_project(name, genre)
+        pid = create_project(name, genre, genre_key)
         set_active_project(pid)
         flash(f"Проект «{name}» создан", "success")
     except Exception as e:
+        flash(f"Ошибка: {e}", "error")
+    return redirect(url_for("index"))
+
+
+@app.route("/project/genre-key", methods=["POST"])
+def project_genre_key_set():
+    """Выбрать жанр движка для активного проекта. Пустое значение — автоопределение."""
+    from engine.db import set_project_genre_key
+    current = get_current_project()
+    if not current:
+        flash("Сначала выбери проект", "error")
+        return redirect(url_for("index"))
+    try:
+        set_project_genre_key(current["id"],
+                              request.form.get("genre_key", "").strip() or None)
+        flash("Жанр для движка сохранён", "success")
+    except ValueError as e:
         flash(f"Ошибка: {e}", "error")
     return redirect(url_for("index"))
 
@@ -292,7 +320,8 @@ def engine_modules():
                                         engine_available, get_token_budget)
     if not engine_available():
         return jsonify({"modules": [], "available": False})
-    genre = current.get("genre", "")
+    from engine.unified_engine import project_genre_key
+    genre = project_genre_key(current) or ""
     modules = get_active_modules(genre, mode)
     genre_key = detect_genre(genre)
     budget = get_token_budget(model)
