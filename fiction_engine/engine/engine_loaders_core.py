@@ -9,6 +9,14 @@ from pathlib import Path
 from .engine_extractors import _extract_module_essence
 
 
+# Заголовки блоков. По ним же блоки находят обрезка контекста
+# (pipeline_tasks) и отладочный дамп (pipeline_context): держать строку
+# в одном месте, иначе поиск молча промахивается — так и было с
+# «АНТИКЛИШЕ» и «ГОЛОС — ПРОВЕРКА», которых в промпте не существовало.
+ANTICLICHE_HEADER  = "КЛИШЕ → ЗАМЕНЫ (используй замены, не запреты):"
+VOICE_CHECK_HEADER = "ПРОВЕРКА ГОЛОСА:"
+
+
 def _find_module_file(engine_path: Path, module_name: str) -> Path | None:
     engines_path = engine_path / "03_ADVANCED_ENGINES"
     if not engines_path.exists():
@@ -47,7 +55,7 @@ def load_anticliche_replacements(engine_path: Path) -> str:
             result.append(line)
         if len(result) >= 50:
             break
-    return "КЛИШЕ → ЗАМЕНЫ (используй замены, не запреты):\n" + "\n".join(result)
+    return ANTICLICHE_HEADER + "\n" + "\n".join(result)
 
 
 def load_dialectics_hint(engine_path: Path) -> str:
@@ -112,7 +120,7 @@ def load_voice_check_hint(engine_path: Path) -> str:
             break
     if not result:
         return ""
-    return "ПРОВЕРКА ГОЛОСА:\n" + "\n".join(result)
+    return VOICE_CHECK_HEADER + "\n" + "\n".join(result)
 
 
 # ─── 01_WRITING_CORE loader ──────────────────────────────────────────────────

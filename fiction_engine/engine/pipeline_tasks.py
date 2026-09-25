@@ -6,7 +6,7 @@ pipeline_tasks.py — самостоятельные операции над г�
 отдельно от оркестратора. Выделено из pipeline.py — см. pipeline_llm.
 """
 
-from .error_policy import (handle_error, ErrorLevel)
+from .engine_loaders_core import ANTICLICHE_HEADER, VOICE_CHECK_HEADER
 from .error_policy import (handle_error, ErrorLevel)
 
 
@@ -54,8 +54,8 @@ def _truncate_context_by_blocks(context: str,
         (["[ТЕХНИКА:", "ТЕХНИКА ПИСЬМА"],           "writing_core"),
         (["ХУКИ И КОНЦОВКИ", "ПАТТЕРНЫ СИТУАЦИЙ"], "pattern_lib"),
         (["СИМВОЛИКА", "СИМВОЛЫ СЕРИИ"],            "symbolism"),
-        (["ГОЛОС — ПРОВЕРКА", "VOICE CHECK"],       "voice_check"),
-        (["АНТИКЛИШЕ", "ЗАПРЕЩЁННЫЕ ПАТТЕРНЫ"],    "anticliche"),
+        ([VOICE_CHECK_HEADER],                      "voice_check"),
+        ([ANTICLICHE_HEADER],                       "anticliche"),
         (["АНАЛИЗ ГЛАВЫ"],                          "prev_analysis"),
     ]
 

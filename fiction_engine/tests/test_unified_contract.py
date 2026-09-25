@@ -64,10 +64,6 @@ KNOWN_BROKEN: dict[str, dict[str, str]] = {
         "realism_social":        "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
         "realism_family_saga":   "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
     },
-    "trim_marker": {
-        "anticliche":  "блок пишется «КЛИШЕ → ЗАМЕНЫ», обрезка ищет «АНТИКЛИШЕ»",
-        "voice_check": "блок пишется «ПРОВЕРКА ГОЛОСА», обрезка ищет «ГОЛОС — ПРОВЕРКА»",
-    },
 }
 
 
