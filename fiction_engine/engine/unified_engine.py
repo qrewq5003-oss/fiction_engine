@@ -10,6 +10,7 @@ UNIFIED ENGINE ROUTER v3.0
 
 import json
 import re
+from functools import lru_cache
 
 from .engine_config import (
     GENRE_KEYWORDS,
@@ -39,19 +40,40 @@ from .engine_loaders import (
 
 # ─── Определение жанра ────────────────────────────────────────────────────────
 
+# Ключ длиной до стольких символов совпадает только целым словом.
+# Длинные ключи совпадают с начала слова, чтобы ловить формы:
+# «детектив» → «детективы», «детективный». Короткие так нельзя:
+# «нф» сидит внутри «конфликт», «опер» — в «опера», «страх» — в «страховой».
+_WHOLE_WORD_MAX_LEN = 5
+
+
+def _norm(text: str) -> str:
+    return text.lower().strip().replace("ё", "е")
+
+
+@lru_cache(maxsize=None)
+def _keyword_pattern(kw: str) -> re.Pattern:
+    """Ключ совпадает с начала слова; одиночный короткий — только целиком."""
+    tail = r"(?!\w)" if len(kw) <= _WHOLE_WORD_MAX_LEN and " " not in kw else ""
+    return re.compile(r"(?<!\w)" + re.escape(kw) + tail)
+
+
 def detect_genre(genre_text: str) -> str | None:
     """
     Определить жанровый ключ по тексту.
-    Выбирает наиболее специфичное совпадение (длиннейший keyword).
-    Нормализует ё→е для надёжного матчинга.
+
+    Выбирает наиболее специфичное совпадение (длиннейший ключ).
+    Ключ ищется с начала слова, а не где угодно в строке: раньше
+    «конфликт интересов» определялся как твёрдая НФ по «нф» внутри слова.
+    Нормализует ё→е.
     """
-    g = genre_text.lower().strip().replace("ё", "е")
+    g = _norm(genre_text)
     best_key = None
     best_len = 0
     for key, keywords in GENRE_KEYWORDS.items():
         for kw in keywords:
-            kw_norm = kw.replace("ё", "е")
-            if kw_norm in g and len(kw_norm) > best_len:
+            kw_norm = _norm(kw)
+            if len(kw_norm) > best_len and _keyword_pattern(kw_norm).search(g):
                 best_key = key
                 best_len = len(kw_norm)
     return best_key
