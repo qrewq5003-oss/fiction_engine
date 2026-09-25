@@ -47,15 +47,8 @@ MODES = ("quick", "quality", "master")
 
 KNOWN_BROKEN: dict[str, dict[str, str]] = {
     "contract": {
-        # Метка не совпадает с заголовком, раздел в файле есть
-        "romance_contemporary":   "метка СОВРЕМЕННЫЙ, в файле СОВРЕМЕННАЯ РОМАНТИКА",
-        "romance_historical":     "метка ИСТОРИЧЕСКИЙ, в файле ИСТОРИЧЕСКАЯ РОМАНТИКА",
-        "romance_paranormal":     "метка ПАРАНОРМАЛЬНЫЙ, в файле ПАРАНОРМАЛЬНАЯ РОМАНТИКА",
-        "thriller_survival":      "метка ВЫЖИВАНИЕ, в файле ТРИЛЛЕР ВЫЖИВАНИЯ",
-        "horror_survival":        "метка ВЫЖИВАНИЕ, в файле ХОРРОР ВЫЖИВАНИЯ",
-        "detective_cozy":         "метка УЮТНЫЙ, в файле КЛАССИЧЕСКИЙ / COZY",
-        "scifi_post_apocalyptic": "метка ПОСТАПОКАЛИПСИС, в файле ДИСТОПИЯ",
         # Раздела в файле нет
+        "scifi_post_apocalyptic":  "нет раздела; ближайший «ДИСТОПИЯ» — о системе, не о выживании",
         "horror_cosmic":           "нет раздела в horror_contracts.md",
         "horror_gothic":           "нет раздела в horror_contracts.md",
         "fantasy_romantic":        "нет раздела в fantasy_contracts.md",
