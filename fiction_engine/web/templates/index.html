@@ -43,8 +43,8 @@
             <input type="text" name="title" placeholder="Название главы">
           </div>
           <div class="upload-area" onclick="document.getElementById('file-input').click()">
-            <p>Нажми или перетащи .txt файл</p>
-            <input type="file" id="file-input" name="file" accept=".txt" style="display:none"
+            <p>Нажми или перетащи .txt или .docx файл</p>
+            <input type="file" id="file-input" name="file" accept=".txt,.docx" style="display:none"
                    onchange="document.querySelector('#upload-file .upload-area p').textContent=this.files[0]?.name||'файл выбран'">
           </div>
           <br>

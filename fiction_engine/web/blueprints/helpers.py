@@ -4,7 +4,12 @@
 Правило: этот файл не импортирует _call, _build_*, _make_* из pipeline.
 Только публичные функции engine-слоя.
 """
+from typing import TYPE_CHECKING
+
 from engine.db import get_project, get_active_project_id, get_conn
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
 
 
 def get_current_project() -> dict | None:
@@ -29,6 +34,48 @@ def log_web_error(context: str, exc: Exception, **ctx: object) -> None:
     except Exception:
         # Логирование — последнее, что может отказать; дальше некуда
         pass
+
+
+def attachment_header(filename: str) -> str:
+    """
+    Значение Content-Disposition для скачивания файла с любым именем.
+
+    Заголовки HTTP кодируются в latin-1. Имя проекта по-русски, вставленное
+    как есть, роняло ответ на реальном сервере (UnicodeEncodeError) —
+    тестовый клиент Flask заголовки не кодирует и этого не видел.
+    Поэтому имя идёт дважды (RFC 6266 / RFC 5987): ASCII-замена для старых
+    клиентов и точное имя в UTF-8 в filename*.
+    """
+    import re
+    from urllib.parse import quote
+    stem, dot, ext = filename.rpartition(".")
+    if not dot:
+        stem, ext = filename, ""
+    ascii_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("_") or "export"
+    fallback = f"{ascii_stem}.{ext}" if ext else ascii_stem
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
+UPLOAD_EXTENSIONS = (".txt", ".docx")
+
+
+def read_uploaded_text(file: "FileStorage") -> str:
+    """
+    Текст загруженного .txt или .docx.
+
+    Загрузка главы раньше декодировала любой файл как UTF-8: .docx — это
+    zip-архив, и в главу молча сохранялся мусор. Неподдерживаемый формат —
+    ValueError, а не догадка.
+    """
+    name = (file.filename or "").lower()
+    if name.endswith(".txt"):
+        return file.read().decode("utf-8", errors="replace")
+    if name.endswith(".docx"):
+        import io
+        import docx
+        document = docx.Document(io.BytesIO(file.read()))
+        return "\n".join(p.text for p in document.paragraphs if p.text.strip())
+    raise ValueError("Поддерживаются только .txt и .docx")
 
 
 def get_cheap_model(fallback_model: str) -> str:
