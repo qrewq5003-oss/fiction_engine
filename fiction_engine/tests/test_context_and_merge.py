@@ -69,6 +69,83 @@ class TestTruncateContextByBlocks:
         assert len(out) == 1000
 
 
+class TestHardCutKeepsState:
+    """
+    Аварийная обрезка резала хвост контекста, а там стоит State: глава
+    писалась без знания, где персонажи и что они знают (AUDIT_UNIFIED.md, F3).
+    """
+
+    def _ctx(self, head_size=5000, state="Аня в подвале, знает про ключ"):
+        from engine.pipeline_context import STATE_HEADER
+        return ("ЗАДАЧА ГЛАВЫ: побег\n" + "середина " * (head_size // 9)
+                + f"\n{STATE_HEADER}\n{state}\n")
+
+    def test_state_survives_hard_cut(self):
+        from engine.pipeline import _truncate_context_by_blocks
+        out, removed = _truncate_context_by_blocks(self._ctx(), max_chars=1000)
+        assert "hard_cut" in removed
+        assert len(out) <= 1000
+        assert out.startswith("ЗАДАЧА ГЛАВЫ: побег")
+        assert out.rstrip().endswith("Аня в подвале, знает про ключ")
+        assert "[контекст обрезан]" in out
+
+    def test_state_larger_than_budget_falls_back_to_plain_cut(self):
+        from engine.pipeline import _truncate_context_by_blocks
+        out, removed = _truncate_context_by_blocks(
+            self._ctx(state="x" * 3000), max_chars=1000)
+        assert removed == ["hard_cut"]
+        assert len(out) == 1000
+
+    def test_base_prompt_mention_is_not_taken_for_state_block(self):
+        """«ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:» из шаблона — не блок State."""
+        from engine.pipeline import _truncate_context_by_blocks
+        ctx = ("ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:\nиз шаблона\n"
+               + "середина " * 1000 + "\nКОНЕЦ")
+        out, _ = _truncate_context_by_blocks(ctx, max_chars=500)
+        assert len(out) == 500 and out.startswith("ТЕКУЩЕЕ СОСТОЯНИЕ")
+
+
+class TestContextBudget:
+    """Порог проверки и предел обрезки — одно число (AUDIT_UNIFIED.md, F3)."""
+
+    def test_budget_never_exceeds_cap(self):
+        from engine.pipeline_config import (CONTEXT_TOKEN_CAP, MIXED_CHARS_PER_TOKEN,
+                                            context_char_budget)
+        cap = int(CONTEXT_TOKEN_CAP * MIXED_CHARS_PER_TOKEN)
+        for model in ("", "anthropic::claude-x", "google::gemini-x",
+                      "deepseek::deepseek-chat", "openai::gpt-4o"):
+            assert context_char_budget(model) <= cap
+
+    def test_default_truncation_uses_same_budget(self):
+        from engine.pipeline import _truncate_context_by_blocks
+        from engine.pipeline_config import context_char_budget
+        ctx = "а" * (context_char_budget() + 1000)
+        out, removed = _truncate_context_by_blocks(ctx)
+        assert removed and len(out) <= context_char_budget()
+
+    def test_generation_context_is_cut_to_budget(self, project_id):
+        """
+        Контекст в 100 тыс. токенов проходил проверку «> 90 тыс.», но
+        обрезка по умолчанию начиналась только со 120 тыс. и не делала ничего.
+        """
+        from engine.pipeline import run_generation
+        from engine.pipeline_config import context_char_budget
+        model = "anthropic::claude-test"
+        huge = "контекст " * 34_000          # ~306 тыс. символов ≈ 102 тыс. токенов
+        sent = {}
+
+        def fake_call(model_value, system, user, max_tokens=6000, prefill=""):
+            sent["user"] = user
+            return "Слово " * 3000
+
+        with patch("engine.pipeline._build_context", return_value=huge), \
+             patch("engine.pipeline._call", side_effect=fake_call):
+            result = run_generation({"id": project_id, "genre": "детектив"},
+                                    1, "quick", model, "Задача.")
+        assert len(sent["user"]) <= context_char_budget(model)
+        assert "Контекст обрезан" in (result["warning"] or "")
+
+
 # ─── Сборка голоса и выборка состояния ────────────────────────────────────────
 
 class TestBuildConsolidatedVoice:

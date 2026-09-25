@@ -33,8 +33,11 @@ _make_model_caller   = _via_pipeline("_make_model_caller")
 _build_sys_generator = _via_pipeline("_build_sys_generator")
 
 
+_CUT_NOTE = "\n\n...[контекст обрезан]\n"
+
+
 def _truncate_context_by_blocks(context: str,
-                                 max_chars: int = 360_000) -> tuple[str, list[str]]:
+                                 max_chars: int | None = None) -> tuple[str, list[str]]:
     """
     Обрезает контекст до max_chars удаляя наименее важные блоки целиком.
     Порядок удаления: exemplars → kb → writing_core → pattern_lib → symbolism
@@ -42,7 +45,11 @@ def _truncate_context_by_blocks(context: str,
 
     Возвращает (обрезанный текст, список удалённых блоков).
     Всегда сохраняет: base_prompt, voice, state, engine_rules, prep.
+    max_chars по умолчанию — pipeline_config.context_char_budget().
     """
+    if max_chars is None:
+        from .pipeline_config import context_char_budget
+        max_chars = context_char_budget()
     if len(context) <= max_chars:
         return context, []
 
@@ -95,9 +102,18 @@ def _truncate_context_by_blocks(context: str,
                 result = result[:idx] + l3_block[:len(l3_block)//2] + "...[обрезано]\n" + result[l3_end:]
                 removed.append("l3_partial")
 
-    # Последний резерв — грубая обрезка
+    # Последний резерв — грубая обрезка. Режем середину, а не хвост:
+    # в хвосте стоит State, и срез по нему давал главу, написанную
+    # без знания о том, где персонажи и что они знают.
     if len(result) > max_chars:
-        result = result[:max_chars]
+        from .pipeline_context import STATE_HEADER
+        tail_at = result.rfind(f"\n{STATE_HEADER}\n")
+        tail = result[tail_at:] if tail_at >= 0 else ""
+        head_room = max_chars - len(tail) - len(_CUT_NOTE)
+        if tail and head_room > 0:
+            result = result[:head_room] + _CUT_NOTE + tail
+        else:
+            result = result[:max_chars]
         removed.append("hard_cut")
 
     return result, removed
@@ -209,11 +225,13 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     context_prompt = _build_context(project_id, chapter_num, full_prompt,
                                     mode, model_value, task_text=task)
 
-    from .pipeline_config import (PROSE_MAX_TOKENS, MIN_ACCEPTABLE_WORDS,
-                                  estimate_tokens, TARGET_CHAPTER_WORDS)
+    from .pipeline_config import PROSE_MAX_TOKENS, context_char_budget
 
-    if estimate_tokens(context_prompt) > 90_000:
-        context_prompt, truncated = _truncate_context_by_blocks(context_prompt)
+    # Один предел и для проверки, и для обрезки — от окна модели
+    max_context = context_char_budget(model_value)
+    if len(context_prompt) > max_context:
+        context_prompt, truncated = _truncate_context_by_blocks(
+            context_prompt, max_chars=max_context)
         if truncated:
             warning = (warning or "") + f" Контекст обрезан: удалены блоки {truncated}."
 

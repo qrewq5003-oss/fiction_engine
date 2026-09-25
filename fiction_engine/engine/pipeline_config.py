@@ -553,6 +553,21 @@ def estimate_tokens(text: str) -> int:
     return int(len(text) / MIXED_CHARS_PER_TOKEN)
 
 
+# Потолок контекста генерации в токенах, независимо от окна модели.
+# Раньше порог проверки (90 тыс. токенов) и предел обрезки (360 тыс.
+# символов = 120 тыс. токенов) задавались раздельно и не совпадали:
+# контекст в 100 тыс. токенов проходил проверку и уходил необрезанным.
+# Теперь оба берутся из context_char_budget().
+CONTEXT_TOKEN_CAP = 90_000
+
+
+def context_char_budget(model_value: str = "") -> int:
+    """Предел контекста генерации в символах: меньшее из окна модели и потолка."""
+    from .engine_loaders import get_token_budget
+    tokens = min(get_token_budget(model_value), CONTEXT_TOKEN_CAP)
+    return int(tokens * MIXED_CHARS_PER_TOKEN)
+
+
 # ─── Пресеты ──────────────────────────────────────────────────────────────────
 
 QUICK = PipelineConfig(
