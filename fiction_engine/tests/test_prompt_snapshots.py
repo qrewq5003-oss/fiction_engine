@@ -54,20 +54,75 @@ def _case_id(case: tuple[str, str]) -> str:
     return f"{case[0]}__{case[1]}"
 
 
-def _is_heading(line: str) -> bool:
+def _heading_level(line: str) -> int | None:
+    """Уровень заголовка: число «#»; жирная метка «**…:**» — ниже любого."""
     s = line.strip()
-    return s.startswith("#") or (s.startswith("**") and s.endswith(":**"))
+    if s.startswith("#"):
+        return len(s) - len(s.lstrip("#"))
+    if s.startswith("**") and s.endswith(":**"):
+        return 7
+    return None
 
 
 def orphan_headings(text: str) -> int:
-    """Заголовки, за которыми сразу идёт другой заголовок, разделитель или конец."""
+    """
+    Заголовки с пустым разделом: до следующего заголовка того же или
+    более высокого уровня нет ни одной строки текста.
+
+    «## Раздел» и сразу «### Подраздел» с текстом — не пустой раздел.
+    Считается независимо от кода движка, чтобы метрика не подгонялась
+    под то, что движок сам вырезает.
+    """
     lines = text.splitlines()
     count = 0
     for i, line in enumerate(lines):
-        if not _is_heading(line):
+        level = _heading_level(line)
+        if level is None:
             continue
-        nxt = next((l for l in lines[i + 1:] if l.strip()), None)
-        if nxt is None or _is_heading(nxt) or nxt.strip() in ("---", "=== / UNIFIED ENGINE ==="):
+        has_text = False
+        for nxt in lines[i + 1:]:
+            nxt_level = _heading_level(nxt)
+            if nxt_level is not None and nxt_level <= level:
+                break
+            s = nxt.strip()
+            if nxt_level is None and s and s not in ("---", "=== / UNIFIED ENGINE ==="):
+                has_text = True
+                break
+        if not has_text:
+            count += 1
+    return count
+
+
+# Служебные разделы модулей: описывают устройство «системы» для человека,
+# генератору прозы ничего не дают
+_META_WORDS = ("НАЗНАЧЕНИЕ", "ФИЛОСОФИЯ", "ИНТЕГРАЦИЯ", "INTEGRATION",
+               "АРХИТЕКТУРА", "КОМПОНЕНТЫ СИСТЕМЫ", "СТРУКТУРА СИСТЕМЫ")
+
+# Метки жанровых вариантов («**ХОРРОР:** …») по семействам жанров
+_FAMILY_LABELS = {
+    "detective": {"ДЕТЕКТИВ", "НУАР"}, "thriller": {"ТРИЛЛЕР"},
+    "horror": {"ХОРРОР"}, "romance": {"РОМАНТИКА"}, "fantasy": {"ФЭНТЕЗИ"},
+    "scifi": {"НФ"}, "realism": {"РЕАЛИЗМ"},
+}
+_ALL_LABELS = set().union(*_FAMILY_LABELS.values())
+
+
+def meta_sections(text: str) -> int:
+    return sum(1 for l in text.splitlines()
+               if l.startswith("#") and any(w in l.upper() for w in _META_WORDS))
+
+
+def foreign_genre_variants(text: str, genre_key: str) -> int:
+    """Строки «**ЖАНР:** …» чужих семейств — правила не того жанра."""
+    import re
+    own = _FAMILY_LABELS.get(genre_key.split("_")[0], set())
+    count = 0
+    for l in text.splitlines():
+        m = re.match(r"\*\*([^*]+):\*\*", l.strip())
+        if not m:
+            continue
+        parts = {p.strip() for p in m.group(1).split("/")}
+        if parts & _ALL_LABELS and not parts & own:
             count += 1
     return count
 
@@ -90,6 +145,8 @@ def render():
         summary = {
             "chars": len(text),
             "orphan_headings": orphan_headings(text),
+            "meta_sections": meta_sections(text),
+            "foreign_genre_variants": foreign_genre_variants(text, genre_key),
             "sections": {name: len(content) for name, content in sections},
         }
         return text, summary
@@ -149,5 +206,7 @@ def test_no_stale_snapshots():
 
 
 def test_orphan_heading_counter():
-    text = "## Раздел\n\n**Формула:**\n\n### Следующий\nтекст\n**Итог:**\n"
-    assert orphan_headings(text) == 3
+    text = ("## Раздел\n\n**Формула:**\n\n### Следующий\nтекст\n"
+            "**Итог:**\n\n## Пустой\n---\n")
+    # «## Раздел» не пуст: в его подразделе есть текст
+    assert orphan_headings(text) == 3   # «Формула», «Итог», «Пустой»

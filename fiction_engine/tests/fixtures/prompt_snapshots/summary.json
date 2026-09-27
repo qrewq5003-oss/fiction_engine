@@ -1,7 +1,9 @@
 {
   "detective_classic__quick": {
     "chars": 14319,
-    "orphan_headings": 6,
+    "orphan_headings": 0,
+    "meta_sections": 1,
+    "foreign_genre_variants": 16,
     "sections": {
       "_catalog": 175,
       "_genre_rules": 397,
@@ -19,7 +21,9 @@
   },
   "detective_classic__quality": {
     "chars": 38631,
-    "orphan_headings": 70,
+    "orphan_headings": 33,
+    "meta_sections": 14,
+    "foreign_genre_variants": 32,
     "sections": {
       "_catalog": 175,
       "_genre_rules": 992,
@@ -45,7 +49,9 @@
   },
   "detective_classic__master": {
     "chars": 55215,
-    "orphan_headings": 125,
+    "orphan_headings": 76,
+    "meta_sections": 17,
+    "foreign_genre_variants": 41,
     "sections": {
       "_catalog": 175,
       "_genre_rules": 874,
@@ -76,7 +82,9 @@
   },
   "horror_gothic__master": {
     "chars": 52425,
-    "orphan_headings": 109,
+    "orphan_headings": 61,
+    "meta_sections": 16,
+    "foreign_genre_variants": 41,
     "sections": {
       "_catalog": 315,
       "_genre_rules": 837,
@@ -106,7 +114,9 @@
   },
   "romance_historical__quality": {
     "chars": 34198,
-    "orphan_headings": 49,
+    "orphan_headings": 19,
+    "meta_sections": 11,
+    "foreign_genre_variants": 28,
     "sections": {
       "_catalog": 350,
       "_genre_rules": 1044,
@@ -130,7 +140,9 @@
   },
   "fantasy_urban__quality": {
     "chars": 33471,
-    "orphan_headings": 47,
+    "orphan_headings": 19,
+    "meta_sections": 11,
+    "foreign_genre_variants": 34,
     "sections": {
       "_catalog": 379,
       "_genre_rules": 1025,
@@ -153,7 +165,9 @@
   },
   "scifi_cyberpunk__quick": {
     "chars": 18797,
-    "orphan_headings": 6,
+    "orphan_headings": 0,
+    "meta_sections": 1,
+    "foreign_genre_variants": 31,
     "sections": {
       "_catalog": 299,
       "_genre_rules": 588,
@@ -172,7 +186,9 @@
   },
   "realism_family_saga__master": {
     "chars": 53700,
-    "orphan_headings": 110,
+    "orphan_headings": 64,
+    "meta_sections": 17,
+    "foreign_genre_variants": 43,
     "sections": {
       "_catalog": 275,
       "_genre_rules": 806,
