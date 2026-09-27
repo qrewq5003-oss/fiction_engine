@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 50243,
+    "chars": 50542,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -64,7 +64,7 @@
       "_pattern_lib": 4051,
       "_symbolism": 724,
       "_voice_check": 316,
-      "24_artistic_foundation": 2716,
+      "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
@@ -81,7 +81,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 48134,
+    "chars": 48433,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -97,7 +97,7 @@
       "_pattern_lib": 3887,
       "_symbolism": 724,
       "_voice_check": 316,
-      "24_artistic_foundation": 2716,
+      "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
@@ -164,7 +164,7 @@
     }
   },
   "scifi_cyberpunk__quick": {
-    "chars": 14069,
+    "chars": 13658,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -176,7 +176,7 @@
       "_writing_core": 537,
       "_pattern_lib": 1188,
       "15_dialogue_style": 2034,
-      "24_artistic_foundation": 1680,
+      "24_artistic_foundation": 1269,
       "19_hooks_closings": 2336,
       "12_pacing_engine": 1862,
       "07_voice_consistency": 1567,
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 48641,
+    "chars": 48940,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -201,7 +201,7 @@
       "_pattern_lib": 4072,
       "_symbolism": 724,
       "_voice_check": 316,
-      "24_artistic_foundation": 2716,
+      "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
