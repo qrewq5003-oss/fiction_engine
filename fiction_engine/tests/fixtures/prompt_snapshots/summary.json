@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 49340,
+    "chars": 49596,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -74,14 +74,14 @@
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
       "09_deep_character_psychology": 3555,
-      "22_sensory_immersion": 3007,
+      "22_sensory_immersion": 3303,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
       "04_reader_simulation": 1933
     }
   },
   "horror_gothic__master": {
-    "chars": 47315,
+    "chars": 47529,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -107,7 +107,7 @@
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
       "09_deep_character_psychology": 3555,
-      "22_sensory_immersion": 3007,
+      "22_sensory_immersion": 3303,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266
     }
@@ -164,7 +164,7 @@
     }
   },
   "scifi_cyberpunk__quick": {
-    "chars": 14031,
+    "chars": 13779,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -180,12 +180,12 @@
       "19_hooks_closings": 2336,
       "12_pacing_engine": 1862,
       "07_voice_consistency": 1567,
-      "22_sensory_immersion": 2308,
+      "22_sensory_immersion": 1878,
       "10_subtext_engine": 1719
     }
   },
   "realism_family_saga__master": {
-    "chars": 47762,
+    "chars": 48023,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -211,7 +211,7 @@
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
       "09_deep_character_psychology": 3555,
-      "22_sensory_immersion": 3007,
+      "22_sensory_immersion": 3303,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
       "06_multibook_causality": 1353
