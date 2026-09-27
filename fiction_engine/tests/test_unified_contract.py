@@ -212,13 +212,17 @@ def test_prompt_sections_adopted():
 
 @pytest.mark.parametrize("module", PROMPT_MODULES)
 def test_prompt_sections_well_formed(kb, module):
-    from engine.engine_extractors import PROMPT_FULL, PROMPT_QUICK, _section
+    from engine.engine_extractors import (PROMPT_FULL, PROMPT_QUICK, _section,
+                                          filter_genre_variants)
     text = (kb / "03_ADVANCED_ENGINES" / f"{module}.md").read_text(encoding="utf-8")
     quick, full = _section(text, PROMPT_QUICK), _section(text, PROMPT_FULL)
     assert quick, "PROMPT:QUICK пуст"
     for name, body, limit in (("QUICK", quick, QUICK_MAX_CHARS), ("FULL", full, FULL_MAX_CHARS)):
         assert "```" not in body, f"{name}: код-блок в секции для модели"
-        assert len(body) <= limit, f"{name}: {len(body)} символов > {limit}"
+        # Модель видит вариант только своего жанра: предел — для самого
+        # тяжёлого жанра, а не для суммы всех вариантов в файле
+        shipped = max(len(filter_genre_variants(body, g)) for g in GENRE_KEYS)
+        assert shipped <= limit, f"{name}: {shipped} символов > {limit}"
     # Две точки правды для одного и того же — источник расхождений
     assert "MINI" not in text, "модуль с PROMPT-секциями не должен держать MINI"
 
