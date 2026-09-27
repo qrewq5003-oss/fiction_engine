@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/11_micromoments_library.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5/5  
 **Тип:** Reference Library
 
 ---
@@ -1142,6 +1141,5 @@ That's the power of micromoments.
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~10 KB  
 **ENTRIES:** 300+ micro-moments  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **Use this library. Bookmark it. Return to it. Let these details make your prose LIVE.**

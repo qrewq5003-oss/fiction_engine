@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/15_dialogue_style.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5+/5  
 **Зависимости:** dialogues.md, subtext_engine.md
 
 ---
@@ -640,7 +639,5 @@ def analyze_dialogue_style(dialogue):
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~10 KB  
-**УРОВЕНЬ:** 5+/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Great dialogue sounds like eavesdropping on real people. But better."**

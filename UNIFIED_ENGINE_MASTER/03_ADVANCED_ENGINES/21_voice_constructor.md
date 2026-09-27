@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/21_voice_constructor.md  
 **Версия:** 2.0.0 ENHANCED  
-**Рейтинг:** 5+/5  
 **Заменяет:** 07_voice_consistency.md
 
 ---
@@ -117,4 +116,3 @@ def check_drift(baseline, current):
 
 **ВЕРСИЯ:** 2.0  
 **РАЗМЕР:** ~6 KB  
-**СТАТУС:** ✅ PRODUCTION READY

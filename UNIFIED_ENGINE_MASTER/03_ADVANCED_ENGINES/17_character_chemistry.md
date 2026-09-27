@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/17_character_chemistry.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5/5  
 **Зависимости:** characters.json, relationships.json
 
 ---
@@ -540,7 +539,5 @@ Arc: Codependence → destruction
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~9 KB  
-**УРОВЕНЬ:** 5/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Chemistry is that indefinable thing that makes readers ship it."**

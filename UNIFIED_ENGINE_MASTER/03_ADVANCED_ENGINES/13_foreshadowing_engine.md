@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/13_foreshadowing_engine.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5++/5  
 **Зависимости:** plot_points.json, character_resonance.md
 
 ---
@@ -589,7 +588,5 @@ Effect: Rewatch value
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~11 KB  
-**УРОВЕНЬ:** 5++/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"The best foreshadowing is invisible on first read, obvious on second."**

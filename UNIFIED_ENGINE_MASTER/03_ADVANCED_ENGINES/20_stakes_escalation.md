@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/20_stakes_escalation.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5+/5  
 **Зависимости:** tension_curve.md, plot_points.json
 
 ---
@@ -559,7 +558,5 @@ PATTERN:
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~9 KB  
-**УРОВЕНЬ:** 5+/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Stakes are why we care. Escalation is why we can't stop reading."**

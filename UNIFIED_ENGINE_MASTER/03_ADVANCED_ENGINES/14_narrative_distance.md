@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/14_narrative_distance.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5++/5  
 **Зависимости:** pov.md, emotions.md
 
 ---
@@ -663,7 +662,5 @@ ANALYSIS:
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~10 KB  
-**УРОВЕНЬ:** 5++/5 Master Level  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Distance is invisible but changes everything. Master it."**

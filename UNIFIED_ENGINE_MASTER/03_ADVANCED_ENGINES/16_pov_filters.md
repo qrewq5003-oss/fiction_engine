@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/16_pov_filters.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5+/5  
 **Зависимости:** pov.md, deep_character_psychology.md
 
 ---
@@ -541,7 +540,5 @@ TECHNIQUE:
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~10 KB  
-**УРОВЕНЬ:** 5+/5 Advanced  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"We don't see the world as it is. We see it as we are."**

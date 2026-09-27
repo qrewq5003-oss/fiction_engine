@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/18_beats_rhythm.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5++/5  
 **Зависимости:** pacing_engine.md, voice_consistency.md
 
 ---
@@ -556,7 +555,5 @@ Evidence leading nowhere. And still no arrest.
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~9 KB  
-**УРОВЕНЬ:** 5++/5 Master  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Good prose has rhythm. Great prose has music."**

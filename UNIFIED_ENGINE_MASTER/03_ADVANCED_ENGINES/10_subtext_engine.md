@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/10_subtext_engine.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5+/5  
 **Зависимости:** characters.json, relationships.json, dialogues.md
 
 ---
@@ -1041,7 +1040,5 @@ Noir = heavy irony, Literary = symbols, Thriller = hidden agendas
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~15 KB  
-**УРОВЕНЬ:** 5+/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"The most important things are the hardest to say, because words diminish them."** — Stephen King

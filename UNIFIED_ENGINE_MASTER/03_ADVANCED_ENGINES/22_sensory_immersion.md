@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/22_sensory_immersion.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5/5  
 **Зависимости:** descriptions.md
 
 ---
@@ -461,7 +460,5 @@ EFFECT: Vulnerability, intimacy, or terror
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~8 KB  
-**УРОВЕНЬ:** 5/5 Professional  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"Make them see it, hear it, feel it, smell it, taste it. Make it REAL."**

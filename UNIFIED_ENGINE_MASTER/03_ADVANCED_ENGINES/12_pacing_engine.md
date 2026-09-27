@@ -2,7 +2,6 @@
 
 **Модуль:** advanced_engines/12_pacing_engine.md  
 **Версия:** 1.0.0  
-**Рейтинг:** 5++/5  
 **Зависимости:** tension_curve.md, scene_structure.md
 
 ---
@@ -1241,7 +1240,5 @@ Monitor reader fatigue, adjust pacing accordingly
 
 **ВЕРСИЯ:** 1.0  
 **РАЗМЕР:** ~14 KB  
-**УРОВЕНЬ:** 5++/5  
-**СТАТУС:** ✅ PRODUCTION READY
 
 **"The right pacing is like a great song. It's not just tempo—it's rhythm, variation, crescendo, and rest. Master it, and readers can't put you down."**
