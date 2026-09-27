@@ -37,9 +37,12 @@ def _get_reference(project_id: int, chapter_num: int) -> tuple[str, str] | None:
     """
     active_voice = get_active_voice(project_id)
     if active_voice and active_voice.get("profile"):
+        from .pipeline_context import clip_profile
         return (
             f"Голосовой профиль «{active_voice['name']}»",
-            active_voice["profile"][:600],
+            # Тот же профиль, что уходит в генерацию: сверять дрейф с урезанным
+            # эталоном значит ловить отклонения от того, чего модель не видела
+            clip_profile(active_voice["profile"]),
         )
 
     # Fallback — ранняя глава как эталон

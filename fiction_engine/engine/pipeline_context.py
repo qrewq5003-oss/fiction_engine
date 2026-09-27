@@ -23,13 +23,28 @@ log = get_logger(__name__)
 
 # ─── Голос ────────────────────────────────────────────────────────────────────
 
+# Профиль голоса в промпте. Раньше резался до 500 символов посреди слова:
+# авторские голоса длиной 1000–1600 символов теряли «ЗАПРЕЩЕНО» и эталоны,
+# то есть самое конкретное. 1800 вмещает все пресеты целиком.
+VOICE_PROFILE_MAX_CHARS = 1800
+
+
+def clip_profile(text: str, limit: int = VOICE_PROFILE_MAX_CHARS) -> str:
+    """Обрезать профиль до limit по границе строки, а не посреди слова."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    cut = text.rfind("\n", 0, limit)
+    return text[:cut if cut > 0 else limit].rstrip()
+
+
 def build_consolidated_voice(active_voice: dict | None,
                               last_chapters: list,
                               mode: str) -> str:
     lines = []
 
     if active_voice and active_voice.get("profile") and mode in ("quality", "master"):
-        profile_short = active_voice["profile"][:500].strip()
+        profile_short = clip_profile(active_voice["profile"])
         lines.append(f"ГОЛОСОВОЙ ПРОФИЛЬ ({active_voice['name']}):\n{profile_short}")
 
     if last_chapters:
