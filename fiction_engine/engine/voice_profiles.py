@@ -463,3 +463,95 @@ def get_author_voice_by_source(source: str) -> dict | None:
         if v["source"] == source:
             return v
     return None
+
+
+# ─── Жанровые голоса из базы знаний ──────────────────────────────────────────
+#
+# 13_VOICE_LIBRARY/voice_profiles/*.md — по файлу на жанровый голос: характер,
+# параметры, эталонные отрывки, «что делает этот голос». В пресет идут
+# характер, параметры и принципы. Эталонные отрывки не берутся: профиль
+# уходит в промпт каждой главы, и готовые абзацы модель начинает
+# переписывать почти дословно (AUDIT_UNIFIED.md, рекомендации по справочнику).
+
+GENRE_VOICE_PREFIX = "genre:"
+
+# Жанровый ключ проекта → файл голоса, который стоит предложить первым
+GENRE_VOICE_FOR: dict[str, str] = {
+    "detective_classic":       "classic_detective_voice",
+    "detective_cozy":          "classic_detective_voice",
+    "detective_procedural":    "classic_detective_voice",
+    "detective_action":        "noir_detective_voice",
+    "detective_noir":          "noir_detective_voice",
+    "detective_psychological": "psychological_detective_voice",
+    "fantasy_dark":            "dark_fantasy_voice",
+    "fantasy_epic":            "epic_fantasy_voice",
+    "fantasy_sword_sorcery":   "epic_fantasy_voice",
+    "fantasy_romantic":        "romance_voice",
+    "fantasy_urban":           "urban_fantasy_voice",
+    "romance_contemporary":    "romance_voice",
+    "romance_historical":      "romance_voice",
+    "romance_paranormal":      "romance_voice",
+}
+_GENRE_VOICE_FOR_FAMILY: dict[str, str] = {
+    "thriller": "thriller_voice",
+    "horror":   "horror_voice",
+    "scifi":    "scifi_voice",
+    "realism":  "realism_voice",
+}
+
+# Разделы файла голоса, которые идут в пресет, — по порядку
+_PRESET_SECTIONS = ("ПАРАМЕТРЫ", "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС", "КАК ИСПОЛЬЗОВАТЬ")
+
+
+def _parse_genre_voice(stem: str, text: str) -> dict | None:
+    import re
+    title = re.search(r"^# Голос:\s*(.+)$", text, re.M)
+    if not title:
+        return None
+    name = title.group(1).strip()
+    parts = [f"ГОЛОС: {name} (жанровый пресет)"]
+    character = re.search(r"^\*\*Характер:\*\*\s*(.+)$", text, re.M)
+    if character:
+        parts.append(f"Характер: {character.group(1).strip()}")
+    sections = dict(re.findall(r"^## ([^\n]+)\n(.*?)(?=^## |\Z)", text, re.M | re.S))
+    for title_ in _PRESET_SECTIONS:
+        body = sections.get(title_, "").strip()
+        body = re.sub(r"\n?---\s*$", "", body).strip()
+        if body:
+            lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+            parts.append(title_ + ":\n" + "\n".join(f"— {ln}" for ln in lines))
+    return {
+        "name": f"{name} (жанр)",
+        "source": GENRE_VOICE_PREFIX + stem,
+        "profile": "\n\n".join(parts),
+        "samples": "Жанровый пресет из базы знаний · без эталонных отрывков",
+    }
+
+
+def get_genre_voices() -> list[dict]:
+    """Жанровые голоса из 13_VOICE_LIBRARY/voice_profiles/. Базы нет — пусто."""
+    from .engine_loaders import get_engine_path
+    folder = get_engine_path() / "13_VOICE_LIBRARY" / "voice_profiles"
+    if not folder.is_dir():
+        return []
+    voices = []
+    for p in sorted(folder.glob("*.md")):
+        voice = _parse_genre_voice(p.stem, p.read_text(encoding="utf-8"))
+        if voice:
+            voices.append(voice)
+    return voices
+
+
+def recommended_genre_voice(genre_key: str | None) -> str | None:
+    """source жанрового голоса, который стоит предложить проекту этого жанра."""
+    if not genre_key:
+        return None
+    stem = GENRE_VOICE_FOR.get(genre_key) or _GENRE_VOICE_FOR_FAMILY.get(genre_key.split("_")[0])
+    return GENRE_VOICE_PREFIX + stem if stem else None
+
+
+def get_voice_preset(source: str) -> dict | None:
+    """Пресет голоса по source: авторский или жанровый."""
+    if source.startswith(GENRE_VOICE_PREFIX):
+        return next((v for v in get_genre_voices() if v["source"] == source), None)
+    return get_author_voice_by_source(source)

@@ -29,6 +29,42 @@
       {% endif %}
     </div>
 
+    <!-- Жанровые голоса из базы знаний -->
+    {% if genre_voices %}
+    <div class="card">
+      <div class="card-title">🎭 Жанровые голоса</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+        Характер, параметры и принципы голоса жанра — без готовых отрывков.
+        Добавь и подправь под свою серию.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for v in genre_voices %}
+        <div style="background:var(--surface2);border:1px solid
+                    {% if v.source == recommended_voice %}var(--accent){% else %}var(--border){% endif %};
+                    border-radius:8px;padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div>
+              <div style="font-size:13px;font-weight:600;">{{ v.name }}
+                {% if v.source == recommended_voice %}
+                <span class="badge">для жанра проекта</span>
+                {% endif %}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-secondary btn-sm"
+                      onclick="previewAuthor('{{ v.source }}')">Превью</button>
+              <button class="btn btn-primary btn-sm"
+                      onclick="importAuthor('{{ v.source }}', '{{ v.name }}')">
+                + Добавить
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Авторские голоса -->
     <div class="card">
       <div class="card-title">📚 Авторские голоса</div>
@@ -166,7 +202,8 @@
 
 {% block scripts %}
 <script>
-const authorVoices = {{ author_voices | tojson }};
+// Авторские и жанровые пресеты: превью и добавление работают одинаково
+const authorVoices = {{ author_voices | tojson }}.concat({{ genre_voices | tojson }});
 let previewSource = null;
 
 function previewAuthor(source) {

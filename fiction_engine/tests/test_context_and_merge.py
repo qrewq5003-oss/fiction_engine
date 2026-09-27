@@ -258,3 +258,48 @@ class TestFieldStyle:
         from engine.db_state import _append_field
         out = _append_field("### Марк\nВозраст: 34\n", "Локация", "склад")
         assert "Локация: склад" in out and "\r" not in out
+
+
+class TestVoiceProfileInPrompt:
+    """
+    Профиль голоса резался до 500 символов посреди слова: авторские голоса
+    (1000–1600 символов) теряли «ЗАПРЕЩЕНО» и эталоны — самое конкретное.
+    """
+
+    def test_author_presets_reach_prompt_whole(self):
+        from engine.pipeline_context import VOICE_PROFILE_MAX_CHARS, build_consolidated_voice
+        from engine.voice_profiles import get_author_voices
+        for v in get_author_voices():
+            assert len(v["profile"]) <= VOICE_PROFILE_MAX_CHARS, v["source"]
+            out = build_consolidated_voice(v, [], "quality")
+            assert v["profile"].strip() in out, v["source"]
+
+    def test_long_profile_cut_on_line_boundary(self):
+        from engine.pipeline_context import clip_profile
+        text = "\n".join(f"строка номер {i}" for i in range(300))
+        out = clip_profile(text, limit=100)
+        assert len(out) <= 100
+        assert out.endswith(tuple(f"строка номер {i}" for i in range(300)))
+
+
+def test_genre_voice_presets(monkeypatch):
+    """Жанровые пресеты: все 30 жанров получают свой, эталонных отрывков нет."""
+    from pathlib import Path
+    import engine.engine_loaders as loaders
+    from engine.engine_config import GENRE_KEYWORDS
+    from engine.pipeline_context import VOICE_PROFILE_MAX_CHARS
+    from engine.voice_profiles import (get_genre_voices, get_voice_preset,
+                                       recommended_genre_voice)
+    kb = Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER"
+    monkeypatch.setattr(loaders, "get_engine_path", lambda: kb)
+    voices = get_genre_voices()
+    files = sorted((kb / "13_VOICE_LIBRARY" / "voice_profiles").glob("*.md"))
+    assert len(voices) == len(files) > 0
+    sources = {v["source"] for v in voices}
+    for key in GENRE_KEYWORDS:
+        assert recommended_genre_voice(key) in sources, key
+    for v in voices:
+        assert "ЭТАЛОН" not in v["profile"], v["source"]
+        assert "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС" in v["profile"] or "КАК ИСПОЛЬЗОВАТЬ" in v["profile"], v["source"]
+        assert len(v["profile"]) <= VOICE_PROFILE_MAX_CHARS, v["source"]
+        assert get_voice_preset(v["source"]) == v
