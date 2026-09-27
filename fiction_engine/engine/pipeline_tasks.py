@@ -191,6 +191,39 @@ def _tail_for_message(text: str, n: int = 40) -> str:
     return (text or "").rstrip()[-n:]
 
 
+def extend_short_chapter(text: str, model_value: str, sys_prompt: str,
+                         user_prompt: str, call_fn) -> tuple[str, str]:
+    """
+    Дописать главу, которую модель закончила сама, но короче требуемого.
+
+    Возвращает (текст, пояснение для интерфейса). Не трогает главу, если
+    объём в норме, если это обрыв (его чинит продолжение по кнопке — там
+    текст кончается на полуслове) и в режиме «Продолжение главы». Ошибка
+    вызова не роняет генерацию: остаётся то, что уже написано.
+    См. pipeline_config: дописывание короткой главы.
+    """
+    from .api import get_last_stop_reason
+    from .pipeline_config import (CONTINUATION_MARKER, EXTEND_BELOW_WORDS,
+                                  PROSE_MAX_TOKENS, extension_prompt)
+
+    have = len(text.split())
+    if (have >= EXTEND_BELOW_WORDS or CONTINUATION_MARKER in user_prompt
+            or get_last_stop_reason() in ("max_tokens", "length")
+            or not _ends_finished(text)):
+        return text, ""
+    try:
+        more = call_fn(model_value, sys_prompt, user_prompt + extension_prompt(text),
+                       max_tokens=PROSE_MAX_TOKENS)
+    except Exception as e:
+        handle_error("extend_short_chapter", e, level=ErrorLevel.RECOVERABLE)
+        return text, ""
+    more = (more or "").strip()
+    if not more:
+        return text, ""
+    merged = text.rstrip() + "\n\n" + more
+    return merged, f"Глава дописана вторым запросом: {have} → {len(merged.split())} слов."
+
+
 def describe_truncation(text: str, word_count: int) -> str:
     """Текстовая обёртка над detect_truncation — для мест, где нужна строка."""
     return detect_truncation(text, word_count)["message"]
@@ -238,6 +271,10 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     text = _call(model_value, sys_prompt, context_prompt, max_tokens=PROSE_MAX_TOKENS)
     if not text or not text.strip():
         raise RuntimeError("Модель вернула пустой ответ.")
+    text, extended = extend_short_chapter(text, model_value, sys_prompt,
+                                          context_prompt, _call)
+    if extended:
+        warning = (warning or "") + " " + extended
     word_count = len(text.split())
     if len(text.strip()) < 100:
         raise RuntimeError(f"Слишком короткий ответ: {text[:200]}")

@@ -338,6 +338,7 @@ class PipelineResultDict(TypedDict, total=False):
     iteration: int
     error: str                  # заполняется при stage="error"
     drift_warning: str
+    extended: str               # «Глава дописана вторым запросом: N → M слов»
 
 
 # ─── Error Boundary ───────────────────────────────────────────────────────────

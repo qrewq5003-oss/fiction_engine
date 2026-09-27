@@ -384,6 +384,8 @@ function showResults(data) {
   } else {
     cutBanner.style.display = 'none';
   }
+  // Короткую главу движок дописал сам вторым запросом — сказать об этом
+  if (data.extended) showToast('📏 ' + data.extended, 'info', 6000);
 
   // Дрейф голоса — показываем если пришло предупреждение
   const driftBanner = document.getElementById('drift-banner');

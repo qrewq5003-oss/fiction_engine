@@ -25,7 +25,9 @@ from tests.llm_stubs import scripted_llm
 
 MODEL = "anthropic_direct::claude-test"
 
-GENERATE_RESPONSE = "Текст главы. " * 200   # ~2600 символов, правдоподобный объём
+# Полная глава по объёму (2600 слов): короче MIN_CHAPTER_WORDS её дописывает
+# второй вызов (extend_short_chapter), и заглушка перестаёт совпадать с текстом.
+GENERATE_RESPONSE = "Текст главы. " * 1300
 
 CRITIQUE_ACCEPT = (
     "ГОЛОС: 8\n"
