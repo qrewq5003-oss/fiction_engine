@@ -1,6 +1,6 @@
 {
   "detective_classic__quick": {
-    "chars": 12776,
+    "chars": 12656,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -16,11 +16,11 @@
       "12_pacing_engine": 1862,
       "07_voice_consistency": 1567,
       "13_foreshadowing_engine": 1836,
-      "04_reader_simulation": 868
+      "04_reader_simulation": 748
     }
   },
   "detective_classic__quality": {
-    "chars": 39830,
+    "chars": 40671,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -44,11 +44,11 @@
       "01_tension_curve": 2937,
       "07_voice_consistency": 2266,
       "13_foreshadowing_engine": 3223,
-      "04_reader_simulation": 1623
+      "04_reader_simulation": 2137
     }
   },
   "detective_classic__master": {
-    "chars": 50706,
+    "chars": 51522,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -77,7 +77,7 @@
       "22_sensory_immersion": 3303,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
-      "04_reader_simulation": 1933
+      "04_reader_simulation": 2137
     }
   },
   "horror_gothic__master": {
