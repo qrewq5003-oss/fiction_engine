@@ -55,20 +55,20 @@ def analyze_sentence_rhythm(text: str) -> dict:
     issues = []
     if not ok_short:
         if pct_short < RHYTHM_RANGE["short"][0]:
-            issues.append(f"мало коротких предложений ({pct_short}%, цель {RHYTHM_TARGET["short"]}%) — текст монотонен")
+            issues.append(f"мало коротких предложений ({pct_short}%, цель {RHYTHM_TARGET['short']}%) — текст монотонен")
         else:
             issues.append(f"слишком много коротких предложений ({pct_short}%, цель 30%) — рубленый ритм")
     if not ok_long:
         if pct_long < RHYTHM_RANGE["long"][0]:
-            issues.append(f"мало длинных предложений ({pct_long}%, цель {RHYTHM_TARGET["long"]}%) — нет дыхания")
+            issues.append(f"мало длинных предложений ({pct_long}%, цель {RHYTHM_TARGET['long']}%) — нет дыхания")
         else:
-            issues.append(f"слишком много длинных предложений ({pct_long}%, цель {RHYTHM_TARGET["long"]}%) — тяжело читать")
+            issues.append(f"слишком много длинных предложений ({pct_long}%, цель {RHYTHM_TARGET['long']}%) — тяжело читать")
 
     hint = ""
     if issues:
         hint = (
             f"РИТМ ПРЕДЛОЖЕНИЙ (R05): короткие {pct_short}% / средние {pct_medium}% / длинные {pct_long}% "
-            f"(цель {RHYTHM_TARGET["short"]}/{RHYTHM_TARGET["medium"]}/{RHYTHM_TARGET["long"]}). Проблемы: {'; '.join(issues)}."
+            f"(цель {RHYTHM_TARGET['short']}/{RHYTHM_TARGET['medium']}/{RHYTHM_TARGET['long']}). Проблемы: {'; '.join(issues)}."
         )
     else:
         hint = (

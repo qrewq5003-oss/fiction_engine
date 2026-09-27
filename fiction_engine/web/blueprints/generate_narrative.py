@@ -180,11 +180,15 @@ def narrative_metrics(chapter_num):
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/narrative/report/<int:chapter_num>")
+@bp.route("/narrative/report/<int:chapter_num>", methods=["POST"])
 def narrative_report(chapter_num):
     """
     Полный нарративный анализ через LLM: арки, промисы, противоречия.
     Может занять 10-20 секунд (2-3 LLM-вызова).
+
+    Только POST: анализ вызывает модель и пишет расход в api_usage. На GET
+    его дёргали бы предзагрузка ссылки, восстановление вкладок и переход
+    по истории — каждый раз за деньги. Найдено tools/getcheck.py.
     """
     current = get_current_project()
     if not current:

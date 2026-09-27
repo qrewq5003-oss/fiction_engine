@@ -117,14 +117,9 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
 
 def _log_state_update_failure(project_id: int, chapter_num: int, exc: Exception) -> None:
     """Автообновление State — некритично, но должно быть видно в логах."""
-    try:
-        from engine.logger import get_logger
-        get_logger(__name__).error(
-            "auto state update failed", exc,
-            project_id=project_id, chapter_num=chapter_num,
-        )
-    except Exception:
-        pass
+    from .helpers import log_web_error
+    log_web_error("auto state update failed", exc,
+                  project_id=project_id, chapter_num=chapter_num)
 
 
 @bp.route("/pipeline/accept", methods=["POST"])

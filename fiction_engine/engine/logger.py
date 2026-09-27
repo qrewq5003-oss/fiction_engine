@@ -144,14 +144,17 @@ def _ensure_initialized():
         return
     _initialized = True
 
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-
     root = logging.getLogger("fiction_engine")
     root.setLevel(logging.DEBUG)
 
     if not root.handlers:
         # ── Файл: всё DEBUG и выше ─────────────────────────────────────────
         try:
+            # Каталог создаётся здесь, внутри защиты: вне её отказ mkdir
+            # (права, файловая система только для чтения) ронял первый же
+            # get_logger(), и вызывающие обкладывали логирование своими
+            # except Exception: pass
+            LOG_DIR.mkdir(parents=True, exist_ok=True)
             fh = logging.handlers.RotatingFileHandler(
                 LOG_FILE,
                 maxBytes=5 * 1024 * 1024,   # 5 MB
