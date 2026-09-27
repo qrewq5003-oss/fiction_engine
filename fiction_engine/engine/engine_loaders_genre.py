@@ -185,6 +185,8 @@ DIALECTICS_GENRE_LABELS: dict[str, str] = {
     "romance":   "РОМАНТИКА",
     "horror":    "ХОРРОР",
     "scifi":     "НФ",
+    "fantasy":   "ФЭНТЕЗИ",
+    "realism":   "РЕАЛИЗМ",
 }
 
 

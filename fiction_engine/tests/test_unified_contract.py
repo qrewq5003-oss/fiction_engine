@@ -254,10 +254,11 @@ def test_base_rules_found(kb):
 
 @pytest.mark.parametrize("genre_key", GENRE_KEYS)
 def test_dialectics_genre_section(kb, genre_key):
+    """У каждого семейства жанров — свой раздел жанровой диалектики."""
     from engine.engine_loaders_genre import (DIALECTICS_GENRE_LABELS,
                                              load_dialectics_genre_hint)
+    label = DIALECTICS_GENRE_LABELS.get(genre_key.split("_")[0])
+    assert label, f"{genre_key}: нет раздела диалектики для семейства"
     out = load_dialectics_genre_hint(kb, genre_key)
-    if genre_key.split("_")[0] in DIALECTICS_GENRE_LABELS:
-        assert out.strip() and "Пример заполненного" not in out
-    else:
-        assert out == "", "для семейства без раздела — пусто, а не чужой раздел"
+    assert out.startswith(f"ДИАЛЕКТИКА ЖАНРА ({label}):")
+    assert "Пример заполненного" not in out
