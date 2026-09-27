@@ -46,24 +46,11 @@ MODES = ("quick", "quality", "master")
 # Починили — удалите строку: иначе strict-xfail уронит набор.
 
 KNOWN_BROKEN: dict[str, dict[str, str]] = {
-    "contract": {
-        # Раздела в файле нет
-        "scifi_post_apocalyptic":  "нет раздела; ближайший «ДИСТОПИЯ» — о системе, не о выживании",
-        "horror_cosmic":           "нет раздела в horror_contracts.md",
-        "horror_gothic":           "нет раздела в horror_contracts.md",
-        "fantasy_romantic":        "нет раздела в fantasy_contracts.md",
-        "fantasy_sword_sorcery":   "нет раздела в fantasy_contracts.md",
-        "detective_psychological": "нет раздела в detective_contracts.md",
-        "detective_action":        "нет раздела в detective_contracts.md",
-        "scifi_cyberpunk":         "нет раздела в scifi_contracts.md",
-        "scifi_steampunk":         "нет раздела в scifi_contracts.md",
-    },
-    "antagonist": {
-        "detective_noir":        "ключа НУАР нет в antagonist_by_genre.md",
-        "realism_psychological": "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
-        "realism_social":        "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
-        "realism_family_saga":   "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
-    },
+    # Весь долг из аудита 2026-09-25 закрыт: 15 контрактов, 4 антагониста,
+    # 2 маркера. Новая поломка — сюда, с причиной; strict-xfail потребует
+    # убрать запись, как только её починят.
+    "contract": {},
+    "antagonist": {},
 }
 
 

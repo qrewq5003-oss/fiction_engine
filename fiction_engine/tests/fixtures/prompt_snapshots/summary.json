@@ -85,7 +85,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 49698,
+    "chars": 49291,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -93,7 +93,7 @@
       "_base_rules": 335,
       "_catalog": 315,
       "_genre_rules": 837,
-      "_contract": 1162,
+      "_contract": 756,
       "_anticliche": 3150,
       "_dialectics": 1466,
       "_dialectics_genre": 752,
@@ -194,7 +194,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 50587,
+    "chars": 51130,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -207,7 +207,7 @@
       "_dialectics": 1466,
       "_dialectics_genre": 1061,
       "_arc": 421,
-      "_char_profile": 2987,
+      "_char_profile": 3530,
       "_writing_core": 2124,
       "_pattern_lib": 4072,
       "_symbolism": 724,
