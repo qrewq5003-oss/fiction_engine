@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 49104,
+    "chars": 49177,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -214,7 +214,7 @@
       "22_sensory_immersion": 3303,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
-      "06_multibook_causality": 1353
+      "06_multibook_causality": 1350
     }
   }
 }
