@@ -214,3 +214,25 @@ class TestPrevalidation:
         assert isinstance(out, dict)
         for key in ("ok", "blocking", "warnings"):
             assert key in out
+
+
+def test_get_logger_survives_unwritable_log_dir(tmp_path, monkeypatch):
+    """
+    Недоступный каталог логов не роняет get_logger: раньше mkdir стоял вне
+    защиты, и вызывающие обкладывали логирование своими except: pass.
+    """
+    import engine.logger as lg
+    blocker = tmp_path / "файл"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(lg, "LOG_DIR", blocker / "logs")      # внутри файла — не создать
+    monkeypatch.setattr(lg, "LOG_FILE", blocker / "logs" / "fe.log")
+    monkeypatch.setattr(lg, "_initialized", False)
+    import logging
+    root = logging.getLogger("fiction_engine")
+    saved = root.handlers[:]
+    root.handlers.clear()
+    try:
+        log = lg.get_logger("тест")
+        log.error("проверка", ValueError("x"))
+    finally:
+        root.handlers[:] = saved

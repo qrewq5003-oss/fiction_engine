@@ -28,12 +28,10 @@ def log_web_error(context: str, exc: Exception, **ctx: object) -> None:
     не должен ронять запрос. Но и молчать нельзя — именно так три
     функциональных бага прожили в проекте незамеченными.
     """
-    try:
-        from engine.logger import get_logger
-        get_logger("web").error(context, exc, **ctx)
-    except Exception:
-        # Логирование — последнее, что может отказать; дальше некуда
-        pass
+    # Своя защита не нужна: get_logger и EngineLogger.error не бросают
+    # исключений, даже когда каталог логов недоступен
+    from engine.logger import get_logger
+    get_logger("web").error(context, exc, **ctx)
 
 
 def attachment_header(filename: str) -> str:
