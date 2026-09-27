@@ -1,6 +1,6 @@
 {
   "detective_classic__quick": {
-    "chars": 12802,
+    "chars": 12776,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -11,7 +11,7 @@
       "_char_profile": 818,
       "_writing_core": 537,
       "_pattern_lib": 1188,
-      "03_thematic_dna": 819,
+      "03_thematic_dna": 793,
       "19_hooks_closings": 2336,
       "12_pacing_engine": 1862,
       "07_voice_consistency": 1567,
@@ -20,7 +20,7 @@
     }
   },
   "detective_classic__quality": {
-    "chars": 39336,
+    "chars": 39830,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -34,7 +34,7 @@
       "_pattern_lib": 4051,
       "_symbolism": 724,
       "_voice_check": 316,
-      "03_thematic_dna": 1489,
+      "03_thematic_dna": 1891,
       "02_character_resonance": 2121,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 50542,
+    "chars": 50706,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -66,7 +66,7 @@
       "_voice_check": 316,
       "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
-      "03_thematic_dna": 1856,
+      "03_thematic_dna": 1891,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
@@ -81,7 +81,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 48433,
+    "chars": 48597,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -99,7 +99,7 @@
       "_voice_check": 316,
       "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
-      "03_thematic_dna": 1856,
+      "03_thematic_dna": 1891,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 48940,
+    "chars": 49104,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -203,7 +203,7 @@
       "_voice_check": 316,
       "24_artistic_foundation": 2991,
       "02_character_resonance": 2121,
-      "03_thematic_dna": 1856,
+      "03_thematic_dna": 1891,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
