@@ -73,7 +73,7 @@
       "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
-      "09_deep_character_psychology": 3785,
+      "09_deep_character_psychology": 3555,
       "22_sensory_immersion": 3007,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
@@ -81,7 +81,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 47313,
+    "chars": 47315,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -106,7 +106,7 @@
       "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
-      "09_deep_character_psychology": 3785,
+      "09_deep_character_psychology": 3555,
       "22_sensory_immersion": 3007,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 47764,
+    "chars": 47762,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -210,7 +210,7 @@
       "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 3223,
-      "09_deep_character_psychology": 3785,
+      "09_deep_character_psychology": 3555,
       "22_sensory_immersion": 3007,
       "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
