@@ -218,3 +218,58 @@ class TestExtractModuleEssence:
         result = _extract_module_essence(content, max_lines=30)
         assert "## ## MINI" not in result
         assert "Правило: показывай." in result
+
+
+# ─── Очистка от шума (улучшение 4а, AUDIT_UNIFIED.md U3) ─────────────────────
+
+class TestStripMetaSections:
+    def test_meta_section_removed_whole(self):
+        from engine.engine_extractors import _strip_meta_sections
+        src = ("# Модуль\n## 🎯 НАЗНАЧЕНИЕ\nсистема рекомендует\n### Подраздел\nещё\n"
+               "## ПРАВИЛА\nпиши коротко\n")
+        out = _strip_meta_sections(src)
+        assert "система рекомендует" not in out and "ещё" not in out
+        assert "## ПРАВИЛА\nпиши коротко" in out
+
+    def test_mini_is_not_meta(self):
+        from engine.engine_extractors import _strip_meta_sections
+        src = "## MINI (QUICK режим)\nсуть\n## ИНТЕГРАЦИЯ\nсвязи\n"
+        assert _strip_meta_sections(src).strip() == "## MINI (QUICK режим)\nсуть"
+
+
+class TestDropEmptyHeadings:
+    def test_heading_with_code_stripped_body_removed(self):
+        from engine.engine_extractors import drop_empty_headings
+        src = "**Формула усталости:**\n\n### Следующий\nтекст"
+        assert drop_empty_headings(src) == "### Следующий\nтекст"
+
+    def test_parent_with_filled_subsection_kept(self):
+        from engine.engine_extractors import drop_empty_headings
+        src = "## Раздел\n### Подраздел\nтекст"
+        assert drop_empty_headings(src) == src
+
+    def test_parent_emptied_by_children_removed(self):
+        from engine.engine_extractors import drop_empty_headings
+        src = "## Раздел\n### Пусто\n**Метка:**\n---\n## Другой\nтекст"
+        assert drop_empty_headings(src) == "---\n## Другой\nтекст"
+
+    def test_bold_label_with_inline_text_is_not_heading(self):
+        from engine.engine_extractors import drop_empty_headings
+        src = "**Правило:** пиши коротко"
+        assert drop_empty_headings(src) == src
+
+
+class TestFilterGenreVariants:
+    SRC = ("### Жанровые варианты\n"
+           "**ДЕТЕКТИВ/НУАР:** улики\n\n**ХОРРОР:** страх\n\n"
+           "**РОМАНТИКА:** химия\n**Правило:** общее")
+
+    def test_keeps_own_family_and_non_genre_labels(self):
+        from engine.engine_extractors import filter_genre_variants
+        out = filter_genre_variants(self.SRC, "detective_noir")
+        assert "улики" in out and "**Правило:** общее" in out
+        assert "страх" not in out and "химия" not in out
+
+    def test_unknown_genre_keeps_all(self):
+        from engine.engine_extractors import filter_genre_variants
+        assert filter_genre_variants(self.SRC, None) == self.SRC

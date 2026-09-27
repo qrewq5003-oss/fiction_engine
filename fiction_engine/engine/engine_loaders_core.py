@@ -6,7 +6,7 @@ engine_loaders_core.py — загрузчики универсальных бл�
 """
 
 from pathlib import Path
-from .engine_extractors import _extract_module_essence
+from .engine_extractors import _extract_module_essence, _strip_meta_sections
 
 
 # Заголовки блоков. По ним же блоки находят обрезка контекста
@@ -172,7 +172,8 @@ def load_writing_core_hint(engine_path: Path, task_text: str, mode: str) -> str:
         fpath = wc_path / f"{fname}.md"
         if not fpath.exists():
             continue
-        content = fpath.read_text(encoding="utf-8")
+        # Служебные разделы («## НАЗНАЧЕНИЕ») — тот же шум, что в модулях
+        content = _strip_meta_sections(fpath.read_text(encoding="utf-8"))
         lines   = content.split("\n")
         result  = []
         for line in lines:

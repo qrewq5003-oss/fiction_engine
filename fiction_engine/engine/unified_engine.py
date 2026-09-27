@@ -282,6 +282,11 @@ def build_engine_context(
         mode, genre_key, pre_selected_modules, task_text, api_call_fn
     )
 
+    # Шум вычищается до расчёта бюджета: правила чужих жанров и заголовки,
+    # под которыми после выброса код-блоков ничего не осталось
+    fixed_sections = _clean_sections(fixed_sections, genre_key)
+    module_sections = _clean_sections(module_sections, genre_key)
+
     fixed_chars = sum(len(c) for _, c in fixed_sections)
     module_budget = max(char_budget - fixed_chars, char_budget // 2)
     trimmed = _trim_modules_to_budget(module_sections, module_budget)
@@ -371,6 +376,18 @@ def _build_module_sections(
         label = module.split("_", 1)[-1].replace("_", " ").upper() if "_" in module else module.upper()
         result.append((module, f"[{label}]\n{content}"))
     return result
+
+
+def _clean_sections(sections: list[tuple[str, str]],
+                    genre_key: str | None) -> list[tuple[str, str]]:
+    """Убрать из разделов чужие жанровые варианты и пустые заголовки."""
+    from .engine_extractors import drop_empty_headings, filter_genre_variants
+    cleaned = []
+    for name, content in sections:
+        content = drop_empty_headings(filter_genre_variants(content, genre_key))
+        if content:
+            cleaned.append((name, content))
+    return cleaned
 
 
 def _append_if(sections: list, name: str, content: str) -> None:
