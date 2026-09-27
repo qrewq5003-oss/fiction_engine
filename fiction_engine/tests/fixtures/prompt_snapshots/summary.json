@@ -20,7 +20,7 @@
     }
   },
   "detective_classic__quality": {
-    "chars": 35519,
+    "chars": 36620,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -40,7 +40,7 @@
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
       "10_subtext_engine": 3570,
-      "17_character_chemistry": 2371,
+      "17_character_chemistry": 3417,
       "01_tension_curve": 2937,
       "07_voice_consistency": 2266,
       "13_foreshadowing_engine": 2368,
@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 46316,
+    "chars": 46911,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -75,13 +75,13 @@
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
       "22_sensory_immersion": 3007,
-      "17_character_chemistry": 2844,
+      "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
       "04_reader_simulation": 1933
     }
   },
   "horror_gothic__master": {
-    "chars": 44230,
+    "chars": 44856,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -108,12 +108,12 @@
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
       "22_sensory_immersion": 3007,
-      "17_character_chemistry": 2844,
+      "17_character_chemistry": 3417,
       "07_voice_consistency": 2266
     }
   },
   "romance_historical__quality": {
-    "chars": 32963,
+    "chars": 34063,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -132,14 +132,14 @@
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
       "10_subtext_engine": 3570,
-      "17_character_chemistry": 2371,
+      "17_character_chemistry": 3417,
       "01_tension_curve": 2937,
       "07_voice_consistency": 2266,
       "08_world_state_kernel": 2357
     }
   },
   "fantasy_urban__quality": {
-    "chars": 31383,
+    "chars": 32497,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -158,7 +158,7 @@
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
       "10_subtext_engine": 3570,
-      "17_character_chemistry": 2371,
+      "17_character_chemistry": 3417,
       "01_tension_curve": 2937,
       "07_voice_consistency": 2266
     }
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 44606,
+    "chars": 45251,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -212,7 +212,7 @@
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
       "22_sensory_immersion": 3007,
-      "17_character_chemistry": 2844,
+      "17_character_chemistry": 3417,
       "07_voice_consistency": 2266,
       "06_multibook_causality": 1353
     }
