@@ -719,3 +719,23 @@ else:
 if __name__ == "__main__":
     import sys
     sys.exit(0 if _failed == 0 else 1)
+
+
+def test_voice_page_offers_genre_presets_and_imports_them(project_id, monkeypatch):
+    """Страница голоса показывает жанровые пресеты; «Добавить» кладёт профиль в проект."""
+    from pathlib import Path
+    import engine.engine_loaders as loaders
+    from engine.db import get_voice_profiles, set_active_project, set_project_genre_key
+    from web.app import app
+    kb = Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER"
+    monkeypatch.setattr(loaders, "get_engine_path", lambda: kb)
+    set_active_project(project_id)
+    set_project_genre_key(project_id, "detective_noir")
+    client = app.test_client()
+    html = client.get("/voice").get_data(as_text=True)
+    assert "Жанровые голоса" in html and "для жанра проекта" in html
+    r = client.post("/voice/import_author", json={"source": "genre:noir_detective_voice"})
+    assert r.status_code == 200 and r.get_json()["ok"]
+    saved = get_voice_profiles(project_id)
+    assert saved and saved[0]["source"] == "genre:noir_detective_voice"
+    assert "ЭТАЛОН" not in saved[0]["profile"]

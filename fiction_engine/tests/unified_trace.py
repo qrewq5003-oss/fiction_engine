@@ -64,6 +64,8 @@ def traced_runtime_files(kb: pathlib.Path) -> set[str]:
                 build_engine_context("", mode, "claude", True, "",
                                      pre_selected_modules=all_modules)
             get_all_genre_options()
+            from engine.voice_profiles import get_genre_voices
+            get_genre_voices()      # пресеты голосов на странице /voice
     finally:
         loaders.get_engine_path = real_path
     return seen

@@ -15,13 +15,20 @@ def voice_page():
         flash("Сначала выбери проект", "error")
         return redirect(url_for("index"))
     from engine.db import get_voice_profiles, init_voice_tables
-    from engine.voice_profiles import get_author_voices
+    from engine.voice_profiles import (get_author_voices, get_genre_voices,
+                                       recommended_genre_voice)
+    from engine.unified_engine import project_genre_key
     init_voice_tables()
     profiles = get_voice_profiles(current["id"])
     author_voices = get_author_voices()
+    # Жанровые пресеты из базы знаний; голос жанра проекта — первым
+    recommended = recommended_genre_voice(project_genre_key(current))
+    genre_voices = sorted(get_genre_voices(), key=lambda v: v["source"] != recommended)
     models = get_all_models_flat()
     return render_template("voice.html", current=current,
-                           profiles=profiles, author_voices=author_voices, models=models)
+                           profiles=profiles, author_voices=author_voices,
+                           genre_voices=genre_voices, recommended_voice=recommended,
+                           models=models)
 
 
 @bp.route("/voice/analyze", methods=["POST"])
@@ -114,9 +121,10 @@ def voice_import_author():
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
     source = (request.json or {}).get("source", "")
-    from engine.voice_profiles import get_author_voice_by_source
+    from engine.voice_profiles import get_voice_preset
     from engine.db import save_voice_profile
-    voice = get_author_voice_by_source(source)
+    # Авторский или жанровый пресет — по source («genre:…» — из базы знаний)
+    voice = get_voice_preset(source)
     if not voice:
         return jsonify({"error": "Голос не найден"}), 404
     pid = save_voice_profile(current["id"], voice["name"], voice["profile"],
