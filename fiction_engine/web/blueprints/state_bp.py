@@ -4,7 +4,7 @@ from engine.db import (get_state, update_state, get_api_key, get_pending_updates
  mark_update_applied)
 from engine.state import analyze_chapter
 from engine.api import get_all_models_flat
-from .helpers import get_current_project, log_web_error
+from .helpers import get_current_project, log_web_error, read_uploaded_text
 from ..ownership import deny
 
 bp = Blueprint("state", __name__)
@@ -55,18 +55,10 @@ def state_import():
         return jsonify({"error": "Не задана модель"}), 400
     raw_text = ""
     if "file" in request.files:
-        f = request.files["file"]
-        if f.filename.lower().endswith(".txt"):
-            raw_text = f.read().decode("utf-8", errors="replace")
-        elif f.filename.lower().endswith(".docx"):
-            try:
-                import docx, io
-                doc = docx.Document(io.BytesIO(f.read()))
-                raw_text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-            except ImportError:
-                return jsonify({"error": "pip install python-docx"}), 500
-        else:
-            return jsonify({"error": "Только .txt и .docx"}), 400
+        try:
+            raw_text = read_uploaded_text(request.files["file"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
     else:
         raw_text = (request.form or {}).get("text", "").strip()
     if not raw_text:

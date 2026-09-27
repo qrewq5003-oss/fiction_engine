@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""
+Контракт между настройками движка и НАСТОЯЩЕЙ базой UNIFIED_ENGINE_MASTER.
+
+Зачем. Загрузчики находят секции базы по текстовым меткам из
+engine_config.py. Если метка не совпала с заголовком файла, загрузчик не
+падает: он берёт запасной вариант, например начало файла, то есть раздел
+ДРУГОГО поджанра. Модель получает чужой контракт как обязательный, а
+тесты на синтетических файлах остаются зелёными. Аудит 2026-09-25
+(AUDIT_UNIFIED.md, U1, U5, U7) нашёл так 15 контрактов из 30.
+
+Здесь для каждого из 30 жанровых ключей проверяется, что каждый загрузчик
+нашёл секцию именно этого поджанра в реальной базе.
+
+Известные поломки перечислены в KNOWN_BROKEN и помечены xfail(strict=True):
+набор остаётся зелёным, пока долг не закрыт, а после починки тест
+неожиданно проходит, strict превращает это в падение, и запись нужно
+удалить из списка. Так список не может устареть молча.
+
+Без базы тест ПАДАЕТ, а не пропускается: пропуск и есть тот зелёный
+набор при неработающем движке, от которого этот файл защищает.
+"""
+
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+for _mod in ("openai", "anthropic"):
+    sys.modules.setdefault(_mod, MagicMock())
+
+from engine.engine_config import (  # noqa: E402
+    CHAR_FULL_KEY_MAP,
+    GENRE_KEYWORDS,
+    SUBGENRE_CONTRACT_LABELS,
+)
+
+KB_PATH = Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER"
+
+GENRE_KEYS = sorted(GENRE_KEYWORDS)
+MODES = ("quick", "quality", "master")
+
+
+# ─── Известный долг (AUDIT_UNIFIED.md) ───────────────────────────────────────
+# Починили — удалите строку: иначе strict-xfail уронит набор.
+
+KNOWN_BROKEN: dict[str, dict[str, str]] = {
+    "contract": {
+        # Раздела в файле нет
+        "scifi_post_apocalyptic":  "нет раздела; ближайший «ДИСТОПИЯ» — о системе, не о выживании",
+        "horror_cosmic":           "нет раздела в horror_contracts.md",
+        "horror_gothic":           "нет раздела в horror_contracts.md",
+        "fantasy_romantic":        "нет раздела в fantasy_contracts.md",
+        "fantasy_sword_sorcery":   "нет раздела в fantasy_contracts.md",
+        "detective_psychological": "нет раздела в detective_contracts.md",
+        "detective_action":        "нет раздела в detective_contracts.md",
+        "scifi_cyberpunk":         "нет раздела в scifi_contracts.md",
+        "scifi_steampunk":         "нет раздела в scifi_contracts.md",
+    },
+    "antagonist": {
+        "detective_noir":        "ключа НУАР нет в antagonist_by_genre.md",
+        "realism_psychological": "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
+        "realism_social":        "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
+        "realism_family_saga":   "ключа РЕАЛИЗМ нет в antagonist_by_genre.md",
+    },
+}
+
+
+def _cases(check: str, values):
+    """Параметры с strict-xfail для записей из KNOWN_BROKEN[check]."""
+    broken = KNOWN_BROKEN.get(check, {})
+    return [
+        pytest.param(v, marks=pytest.mark.xfail(strict=True, reason=broken[v]))
+        if v in broken else v
+        for v in values
+    ]
+
+
+@pytest.fixture(scope="module")
+def kb() -> Path:
+    assert KB_PATH.is_dir(), (
+        f"UNIFIED_ENGINE_MASTER не найден: {KB_PATH}. "
+        "Контракт с базой не проверить — это ошибка, а не пропуск."
+    )
+    return KB_PATH
+
+
+def test_known_broken_refers_to_real_keys():
+    """Опечатка в KNOWN_BROKEN не должна молча выключать проверку."""
+    for check in ("contract", "antagonist"):
+        unknown = set(KNOWN_BROKEN[check]) - set(GENRE_KEYS)
+        assert not unknown, f"{check}: нет таких жанров {sorted(unknown)}"
+
+
+# ─── Файлы, на которые ссылается конфиг ──────────────────────────────────────
+
+@pytest.mark.parametrize("genre_key", GENRE_KEYS)
+def test_catalog_exists(kb, genre_key):
+    assert (kb / "04_GENRE_ENGINE" / "catalog" / f"{genre_key}.json").is_file()
+
+
+@pytest.mark.parametrize("genre_key", GENRE_KEYS)
+def test_character_profile_is_own_file(kb, genre_key):
+    """Профиль берётся из своего файла, а не из запасного файла семейства."""
+    from engine.engine_loaders_genre import load_character_profile
+    fname = CHAR_FULL_KEY_MAP.get(genre_key)
+    assert fname, f"{genre_key}: нет записи в CHAR_FULL_KEY_MAP"
+    assert (kb / "05_CHARACTER_ENGINE" / "profiles" / "GENRE" / fname).is_file()
+    assert load_character_profile(kb, genre_key).strip()
+
+
+# ─── Секции поджанра ─────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("genre_key", _cases("contract", GENRE_KEYS))
+def test_contract_is_own_subgenre(kb, genre_key):
+    """
+    Контракт начинается с раздела этого поджанра.
+
+    Запасной путь загрузчика отдаёт начало файла: первой строкой там идёт
+    «# Читательский контракт: …», а за ней раздел первого поджанра в файле.
+    """
+    from engine.engine_loaders_genre import load_genre_contract
+    label = SUBGENRE_CONTRACT_LABELS.get(genre_key)
+    assert label, f"{genre_key}: нет метки в SUBGENRE_CONTRACT_LABELS"
+    lines = load_genre_contract(kb, genre_key).splitlines()
+    assert len(lines) > 1, f"{genre_key}: контракт пуст"
+    first = lines[1]
+    assert first.startswith("## ") and label.upper() in first.upper(), (
+        f"{genre_key}: ожидался раздел «{label}», получено «{first}»"
+    )
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("genre_key", GENRE_KEYS)
+def test_genre_prompt_is_own_subgenre(kb, genre_key, mode):
+    """Жанровые правила найдены для поджанра, а не общие правила семейства."""
+    from engine.engine_loaders_genre import load_genre_prompt
+    out = load_genre_prompt(kb, genre_key, mode)
+    assert out.startswith(f"ПРАВИЛА ЖАНРА ({genre_key}):"), (
+        f"{genre_key}/{mode}: блок поджанра не найден, начало: {out[:60]!r}"
+    )
+
+
+@pytest.mark.parametrize("genre_key", GENRE_KEYS)
+def test_arc_found(kb, genre_key):
+    from engine.engine_loaders_genre import load_arc_hint
+    assert load_arc_hint(kb, genre_key).strip()
+
+
+@pytest.mark.parametrize("genre_key", _cases("antagonist", GENRE_KEYS))
+def test_antagonist_found(kb, genre_key):
+    from engine.engine_loaders_genre import _load_antagonist_section
+    family, sub = genre_key.split("_", 1)
+    assert _load_antagonist_section(kb, family, sub).strip()
+
+
+# ─── Маркеры блоков в собранном промпте ──────────────────────────────────────
+
+TRIM_BLOCKS = ["writing_core", "pattern_lib", "symbolism", "voice_check", "anticliche"]
+
+
+@pytest.fixture(scope="module")
+def removed_on_trim(kb):
+    """
+    Какие блоки обрезка контекста находит в реально собранном блоке движка.
+
+    Обрезка ищет блоки по маркерам. Если маркер разошёлся с заголовком,
+    блок нельзя удалить, и при нехватке места срез приходится на State.
+    """
+    import engine.engine_loaders as loaders
+    from engine.pipeline_tasks import _truncate_context_by_blocks
+    from engine.unified_engine import build_engine_context
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(loaders, "get_engine_path", lambda: kb)
+    try:
+        ctx = build_engine_context(
+            "классический детектив", "master", model_value="claude",
+            include_dialectics=True,
+            task_text="диалог на допросе, описание комнаты, финал главы",
+        )
+    finally:
+        mp.undo()
+    assert ctx, "блок движка пуст"
+    _, removed = _truncate_context_by_blocks(ctx, max_chars=1)
+    return set(removed)
+
+
+@pytest.mark.parametrize("block", _cases("trim_marker", TRIM_BLOCKS))
+def test_trim_finds_block(removed_on_trim, block):
+    assert block in removed_on_trim
+
+
+# ─── Явные секции для промпта (AUDIT_UNIFIED.md, 4б) ─────────────────────────
+
+def _modules(kb_path: Path = KB_PATH) -> list[Path]:
+    return sorted((kb_path / "03_ADVANCED_ENGINES").glob("*.md"))
+
+
+PROMPT_MODULES = [p.stem for p in _modules() if "## PROMPT:QUICK" in p.read_text(encoding="utf-8")]
+
+# Потолки размера: секции — не справочник, а то, что модель читает в каждой главе
+QUICK_MAX_CHARS = 2000
+FULL_MAX_CHARS = 3500
+
+
+def test_every_module_has_prompt_sections():
+    """
+    Все модули переведены на явные секции (4б). Новый модуль без них
+    вернул бы старый разбор MINI + тело с пустыми заголовками и шумом.
+    """
+    missing = sorted({p.stem for p in _modules()} - set(PROMPT_MODULES))
+    assert not missing, f"нет ## PROMPT:QUICK: {missing}"
+
+
+@pytest.mark.parametrize("module", PROMPT_MODULES)
+def test_prompt_sections_well_formed(kb, module):
+    from engine.engine_extractors import (PROMPT_FULL, PROMPT_QUICK, _section,
+                                          filter_genre_variants)
+    text = (kb / "03_ADVANCED_ENGINES" / f"{module}.md").read_text(encoding="utf-8")
+    quick, full = _section(text, PROMPT_QUICK), _section(text, PROMPT_FULL)
+    assert quick, "PROMPT:QUICK пуст"
+    for name, body, limit in (("QUICK", quick, QUICK_MAX_CHARS), ("FULL", full, FULL_MAX_CHARS)):
+        assert "```" not in body, f"{name}: код-блок в секции для модели"
+        # Модель видит вариант только своего жанра: предел — для самого
+        # тяжёлого жанра, а не для суммы всех вариантов в файле
+        shipped = max(len(filter_genre_variants(body, g)) for g in GENRE_KEYS)
+        assert shipped <= limit, f"{name}: {shipped} символов > {limit}"
+    # Две точки правды для одного и того же — источник расхождений
+    import re
+    assert not re.search(r"^#+ (?:## )?MINI\b", text, re.M), \
+        "модуль с PROMPT-секциями не должен держать секцию MINI"
+
+
+@pytest.mark.parametrize("module", PROMPT_MODULES)
+def test_prompt_sections_are_what_engine_sends(kb, module):
+    from engine.engine_extractors import extract_prompt_sections
+    from engine.engine_loaders_core import load_module
+    text = (kb / "03_ADVANCED_ENGINES" / f"{module}.md").read_text(encoding="utf-8")
+    assert load_module(kb, module, 30) == extract_prompt_sections(text, full=False)
+    assert load_module(kb, module, 70) == extract_prompt_sections(text, full=True)
+
+
+# ─── Базовые правила и жанровая диалектика ───────────────────────────────────
+
+def test_base_rules_found(kb):
+    """Все правила из BASE_RULE_IDS находятся в META_RULES.yaml."""
+    from engine.engine_loaders_core import BASE_RULE_IDS, load_base_rules
+    out = load_base_rules(kb)
+    assert out.count("\n- ") == len(BASE_RULE_IDS), out
+    assert "1500" not in out, "правило о длине главы противоречит объёму в приложении"
+
+
+@pytest.mark.parametrize("genre_key", GENRE_KEYS)
+def test_dialectics_genre_section(kb, genre_key):
+    """У каждого семейства жанров — свой раздел жанровой диалектики."""
+    from engine.engine_loaders_genre import (DIALECTICS_GENRE_LABELS,
+                                             load_dialectics_genre_hint)
+    label = DIALECTICS_GENRE_LABELS.get(genre_key.split("_")[0])
+    assert label, f"{genre_key}: нет раздела диалектики для семейства"
+    out = load_dialectics_genre_hint(kb, genre_key)
+    assert out.startswith(f"ДИАЛЕКТИКА ЖАНРА ({label}):")
+    assert "Пример заполненного" not in out

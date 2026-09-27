@@ -5,8 +5,24 @@ engine_loaders_core.py — загрузчики универсальных бл�
 символика, чеклист голоса — блоки не зависящие от жанра.
 """
 
+import re
 from pathlib import Path
-from .engine_extractors import _extract_module_essence
+from .engine_extractors import _extract_module_essence, _strip_meta_sections
+
+
+# Заголовки блоков. По ним же блоки находят обрезка контекста
+# (pipeline_tasks) и отладочный дамп (pipeline_context): держать строку
+# в одном месте, иначе поиск молча промахивается — так и было с
+# «АНТИКЛИШЕ» и «ГОЛОС — ПРОВЕРКА», которых в промпте не существовало.
+ANTICLICHE_HEADER  = "КЛИШЕ → ЗАМЕНЫ (используй замены, не запреты):"
+VOICE_CHECK_HEADER = "ПРОВЕРКА ГОЛОСА:"
+BASE_RULES_HEADER  = "БАЗОВЫЕ ПРАВИЛА:"
+
+# Правила из 00_CORE/META_RULES.yaml, которые идут в каждый промпт.
+# R02 (глава 1500–1700 слов) не берётся: противоречит объёму главы в
+# приложении (pipeline_config.TARGET_CHAPTER_WORDS). R05 и R07 уже
+# покрыты секциями PROMPT модуля 24 и блоком антиклише.
+BASE_RULE_IDS = ("R06", "R01", "R03", "R04")
 
 
 def _find_module_file(engine_path: Path, module_name: str) -> Path | None:
@@ -30,24 +46,151 @@ def load_module(engine_path: Path, module_name: str, max_lines: int = 40) -> str
     return _extract_module_essence(f.read_text(encoding="utf-8"), max_lines)
 
 
+_REPLACEMENT_RE = re.compile(r"^✅ Замен\w*(?: — (.+?))?:?$")
+
+
+def _compact_anticliche(content: str) -> list[str]:
+    """
+    Все статьи «### ❌ …» одной строкой: что передаёт клише и каким каналом
+    его заменить. Готовые фразы-примеры не берутся: вставленные в каждую
+    главу, они сами становятся клише серии. Один пример — только когда у
+    замены нет описания канала.
+    """
+    out: list[str] = []
+    entry: dict | None = None
+    expect_example = False
+
+    def flush() -> None:
+        if entry:
+            line = f"- ❌ {entry['title']}"
+            if entry["conveys"]:
+                line += f" — передаёт: {entry['conveys']}"
+            if entry["ways"]:
+                line += "; заменять: " + "; ".join(entry["ways"])
+            out.append(line)
+
+    for raw in content.split("\n"):
+        line = raw.strip()
+        if line.startswith("## "):
+            flush()
+            entry = None
+            if "ПРОМПТ" in line.upper():      # «КАК ДОБАВЛЯТЬ В ПРОМПТ» — инструкция человеку
+                break
+            continue
+        if line.startswith("### ❌"):
+            flush()
+            entry = {"title": line[len("### ❌"):].strip(), "conveys": "", "ways": []}
+            expect_example = False
+            continue
+        if entry is None:
+            continue
+        if line.startswith("Передаёт:"):
+            entry["conveys"] = line[len("Передаёт:"):].strip().rstrip(".")
+            continue
+        m = _REPLACEMENT_RE.match(line)
+        if m:
+            if m.group(1):
+                entry["ways"].append(m.group(1).strip())
+                expect_example = False
+            else:
+                expect_example = True
+            continue
+        if expect_example and line.startswith("- "):
+            entry["ways"].append(f"например «{line[2:].strip()}»")
+            expect_example = False
+    flush()
+    return out
+
+
+def _compact_ai_cliches(content: str) -> list[str]:
+    """
+    Список ИИ-штампов: запрещённые фразы по группам и названия приёмов.
+    Типографские паттерны пропускаются — они уже есть в антиклише.
+    """
+    out: list[str] = []
+    section = ""
+    group = ""
+    phrases: list[str] = []
+    patterns: list[str] = []
+
+    def flush_group() -> None:
+        if group and phrases:
+            out.append(f"- {group}: " + ", ".join(f"«{p}»" for p in phrases))
+
+    for raw in content.split("\n"):
+        line = raw.strip()
+        if line.startswith("## "):
+            flush_group()
+            group, phrases = "", []
+            section = line.upper()
+            continue
+        if line.startswith("### "):
+            flush_group()
+            group, phrases = line[4:].strip(), []
+            if ("ПРИЁМ" in section or "ПАТТЕРН" in section) and "ТИПОГРАФ" not in section:
+                patterns.append(line[4:].strip().strip('"').lower())
+            continue
+        if "ФРАЗЫ" in section and line.startswith('- "'):
+            phrases.append(line[2:].strip().strip('"'))
+    flush_group()
+    if patterns:
+        out.append("- приёмы-штампы: " + "; ".join(patterns))
+    return out
+
+
 def load_anticliche_replacements(engine_path: Path) -> str:
-    """Загрузить замены клише — самый ценный файл движка."""
+    """
+    Замены клише (00_CORE/anticliche_replacements.md) и список ИИ-штампов
+    (00_CORE/ai_cliches.md) — компактно, все статьи.
+
+    Раньше брались первые 50 непустых строк: 5 статей из 12, все про эмоции,
+    с ~20 готовыми фразами, которые шли в каждую главу и сами становились
+    клише серии. ai_cliches.md не читался вовсе (AUDIT_UNIFIED.md, U6).
+    """
     p = engine_path / "00_CORE" / "anticliche_replacements.md"
     if not p.exists():
         return ""
-    content = p.read_text(encoding="utf-8")
-    lines = content.split("\n")
-    result: list[str] = []
-    in_code = False
-    for line in lines:
-        if line.strip().startswith("```"):
-            in_code = not in_code
+    lines = _compact_anticliche(p.read_text(encoding="utf-8"))
+    ai = engine_path / "00_CORE" / "ai_cliches.md"
+    if ai.exists():
+        ai_lines = _compact_ai_cliches(ai.read_text(encoding="utf-8"))
+        if ai_lines:
+            lines += ["", "ИИ-ШТАМПЫ (не использовать):"] + ai_lines
+    lines += ["", "Примеры показывают приём — не переноси их в текст дословно. "
+              "Подбирай деталь под сцену и не повторяй одну и ту же физику "
+              "из главы в главу."]
+    return ANTICLICHE_HEADER + "\n" + "\n".join(lines)
+
+
+def load_base_rules(engine_path: Path) -> str:
+    """
+    Базовые правила текста из 00_CORE/META_RULES.yaml — компактно.
+
+    YAML разбирается построчно, без зависимости от PyYAML: берутся поля
+    rule и note у правил из BASE_RULE_IDS, в порядке этого списка.
+    """
+    p = engine_path / "00_CORE" / "META_RULES.yaml"
+    if not p.exists():
+        return ""
+    rules: dict[str, dict[str, str]] = {}
+    current = None
+    for line in p.read_text(encoding="utf-8").splitlines():
+        head = re.match(r"^\s{2}(R\d+)_\w+:\s*$", line)
+        if head:
+            current = rules.setdefault(head.group(1), {})
             continue
-        if not in_code and line.strip():
-            result.append(line)
-        if len(result) >= 50:
-            break
-    return "КЛИШЕ → ЗАМЕНЫ (используй замены, не запреты):\n" + "\n".join(result)
+        field = re.match(r'^\s{4}(rule|note):\s*"(.*)"\s*$', line)
+        if field and current is not None:
+            current[field.group(1)] = field.group(2)
+        elif line and not line.startswith(" "):
+            current = None
+    lines = []
+    for rid in BASE_RULE_IDS:
+        rule = rules.get(rid, {})
+        if rule.get("rule"):
+            note = f" {rule['note']}." if rule.get("note") else ""
+            lines.append(f"- {rule['rule']}.{note}")
+    return BASE_RULES_HEADER + "\n" + "\n".join(lines) if lines else ""
 
 
 def load_dialectics_hint(engine_path: Path) -> str:
@@ -112,7 +255,7 @@ def load_voice_check_hint(engine_path: Path) -> str:
             break
     if not result:
         return ""
-    return "ПРОВЕРКА ГОЛОСА:\n" + "\n".join(result)
+    return VOICE_CHECK_HEADER + "\n" + "\n".join(result)
 
 
 # ─── 01_WRITING_CORE loader ──────────────────────────────────────────────────
@@ -164,7 +307,8 @@ def load_writing_core_hint(engine_path: Path, task_text: str, mode: str) -> str:
         fpath = wc_path / f"{fname}.md"
         if not fpath.exists():
             continue
-        content = fpath.read_text(encoding="utf-8")
+        # Служебные разделы («## НАЗНАЧЕНИЕ») — тот же шум, что в модулях
+        content = _strip_meta_sections(fpath.read_text(encoding="utf-8"))
         lines   = content.split("\n")
         result  = []
         for line in lines:

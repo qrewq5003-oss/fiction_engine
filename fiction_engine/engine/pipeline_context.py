@@ -13,6 +13,11 @@ from .unified_engine import build_engine_context
 from .error_policy import handle_error, ErrorLevel
 from .logger import get_logger
 
+# Заголовок блока State. Блок стоит в конце контекста, и аварийная обрезка
+# (pipeline_tasks._truncate_context_by_blocks) находит его по этой строке,
+# чтобы резать середину, а не State.
+STATE_HEADER = "СОСТОЯНИЕ ПЕРСОНАЖЕЙ:"
+
 log = get_logger(__name__)
 
 
@@ -162,7 +167,8 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
         return ""
     try:
         from .auto_router import route_by_keywords
-        genre_key        = project.get("genre", "")
+        from .unified_engine import project_genre_key
+        genre_key        = project_genre_key(project) or ""
         pre_selected     = None
         resolver_fn      = api_call_fn
 
@@ -236,7 +242,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         state_block = ""
     else:
         smart_state = extract_relevant_state(state, base_prompt, api_call_fn)
-        state_block = f"\nСОСТОЯНИЕ ПЕРСОНАЖЕЙ:\n{smart_state}\n"
+        state_block = f"\n{STATE_HEADER}\n{smart_state}\n"
 
     # ── ChapterAnalysis предыдущей главы — замыкаем петлю ────────────────────
     # logical_gaps и opened_promises из анализа предыдущей главы
@@ -329,6 +335,7 @@ def _maybe_save_debug_prompt(project_id: int, chapter_num: int,
             "",
             "# ── БЛОКИ (наличие) ─────────────────────────────────────────────",
         ]
+        from .engine_loaders_core import ANTICLICHE_HEADER, VOICE_CHECK_HEADER
         blocks = {
             "ГОЛОСОВОЙ ПРОФИЛЬ":          "voice_profile",
             "ГОЛОС — ЭТАЛОН":             "voice_samples",
@@ -337,9 +344,10 @@ def _maybe_save_debug_prompt(project_id: int, chapter_num: int,
             "КОГНИТИВНАЯ ПАМЯТЬ":         "cognitive_memory",
             "ПОДГОТОВКА АВТОРА":          "prep",
             "ПРАВИЛА ЖАНРА":              "engine_genre_rules",
-            "ПОДЖАНР — обязательно":      "engine_subgenre_labels",
+            "СПЕЦИФИКА ПОДЖАНРА":         "engine_subgenre_labels",
             "ЧИТАТЕЛЬСКИЙ КОНТРАКТ":      "engine_contract",
-            "АНТИКЛИШЕ":                  "engine_anticliche",
+            ANTICLICHE_HEADER:            "engine_anticliche",
+            VOICE_CHECK_HEADER:           "engine_voice_check",
             "Обещания сюжета":            "cognitive_promises",
             "СИМВОЛИКА":                  "symbolism",
             "СОСТОЯНИЕ ПЕРСОНАЖЕЙ":       "state",

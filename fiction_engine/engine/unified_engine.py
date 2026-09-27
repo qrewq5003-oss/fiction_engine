@@ -10,6 +10,7 @@ UNIFIED ENGINE ROUTER v3.0
 
 import json
 import re
+from functools import lru_cache
 
 from .engine_config import (
     GENRE_KEYWORDS,
@@ -34,27 +35,71 @@ from .engine_loaders import (
     _load_genre_prompt,
     _load_writing_core_hint,
     _load_pattern_library,
+    _load_base_rules,
+    _load_dialectics_genre_hint,
 )
 
 
 # ─── Определение жанра ────────────────────────────────────────────────────────
 
+# Ключ длиной до стольких символов совпадает только целым словом.
+# Длинные ключи совпадают с начала слова, чтобы ловить формы:
+# «детектив» → «детективы», «детективный». Короткие так нельзя:
+# «нф» сидит внутри «конфликт», «опер» — в «опера», «страх» — в «страховой».
+_WHOLE_WORD_MAX_LEN = 5
+
+
+def _norm(text: str) -> str:
+    return text.lower().strip().replace("ё", "е")
+
+
+@lru_cache(maxsize=None)
+def _keyword_pattern(kw: str) -> re.Pattern:
+    """Ключ совпадает с начала слова; одиночный короткий — только целиком."""
+    tail = r"(?!\w)" if len(kw) <= _WHOLE_WORD_MAX_LEN and " " not in kw else ""
+    return re.compile(r"(?<!\w)" + re.escape(kw) + tail)
+
+
 def detect_genre(genre_text: str) -> str | None:
     """
     Определить жанровый ключ по тексту.
-    Выбирает наиболее специфичное совпадение (длиннейший keyword).
-    Нормализует ё→е для надёжного матчинга.
+
+    Выбирает наиболее специфичное совпадение (длиннейший ключ).
+    Ключ ищется с начала слова, а не где угодно в строке: раньше
+    «конфликт интересов» определялся как твёрдая НФ по «нф» внутри слова.
+    Нормализует ё→е.
     """
-    g = genre_text.lower().strip().replace("ё", "е")
+    g = _norm(genre_text)
+    if g in GENRE_KEYWORDS:
+        # Уже ключ: так его можно передавать туда же, куда раньше шёл текст
+        return g
     best_key = None
     best_len = 0
     for key, keywords in GENRE_KEYWORDS.items():
         for kw in keywords:
-            kw_norm = kw.replace("ё", "е")
-            if kw_norm in g and len(kw_norm) > best_len:
+            kw_norm = _norm(kw)
+            if len(kw_norm) > best_len and _keyword_pattern(kw_norm).search(g):
                 best_key = key
                 best_len = len(kw_norm)
     return best_key
+
+
+def project_genre_key(project: dict | None) -> str | None:
+    """
+    Жанр проекта для движка: выбранный автором ключ, иначе — определённый
+    по свободному тексту жанра.
+
+    Все, кто решает по жанру (блок движка, критик, судья, калибровка
+    напряжения), берут его отсюда. Раньше им передавали сам текст
+    («городское фэнтези»), и места, делившие его по «_», промахивались:
+    судья не получал жанровый контракт ни в одном русскоязычном проекте.
+    """
+    if not project:
+        return None
+    key = project.get("genre_key")
+    if key in GENRE_KEYWORDS:
+        return key
+    return detect_genre(project.get("genre") or "")
 
 
 # ─── Граф зависимостей ────────────────────────────────────────────────────────
@@ -239,6 +284,11 @@ def build_engine_context(
         mode, genre_key, pre_selected_modules, task_text, api_call_fn
     )
 
+    # Шум вычищается до расчёта бюджета: правила чужих жанров и заголовки,
+    # под которыми после выброса код-блоков ничего не осталось
+    fixed_sections = _clean_sections(fixed_sections, genre_key)
+    module_sections = _clean_sections(module_sections, genre_key)
+
     fixed_chars = sum(len(c) for _, c in fixed_sections)
     module_budget = max(char_budget - fixed_chars, char_budget // 2)
     trimmed = _trim_modules_to_budget(module_sections, module_budget)
@@ -265,6 +315,9 @@ def _build_fixed_sections(
     """
     sections: list[tuple[str, str]] = []
 
+    # Базовые правила — во всех режимах, первыми: короткие и общие для всех
+    _append_if(sections, "_base_rules", _load_base_rules())
+
     if genre_key:
         _append_if(sections, "_catalog", _load_genre_catalog(genre_key))
         _append_if(sections, "_genre_rules", _load_genre_prompt(genre_key, mode))
@@ -276,6 +329,7 @@ def _build_fixed_sections(
 
     if include_dialectics and mode == "master":
         _append_if(sections, "_dialectics", _load_dialectics_hint())
+        _append_if(sections, "_dialectics_genre", _load_dialectics_genre_hint(genre_key))
 
     if genre_key and mode == "master":
         _append_if(sections, "_arc", _load_arc_hint(genre_key))
@@ -328,6 +382,18 @@ def _build_module_sections(
         label = module.split("_", 1)[-1].replace("_", " ").upper() if "_" in module else module.upper()
         result.append((module, f"[{label}]\n{content}"))
     return result
+
+
+def _clean_sections(sections: list[tuple[str, str]],
+                    genre_key: str | None) -> list[tuple[str, str]]:
+    """Убрать из разделов чужие жанровые варианты и пустые заголовки."""
+    from .engine_extractors import drop_empty_headings, filter_genre_variants
+    cleaned = []
+    for name, content in sections:
+        content = drop_empty_headings(filter_genre_variants(content, genre_key))
+        if content:
+            cleaned.append((name, content))
+    return cleaned
 
 
 def _append_if(sections: list, name: str, content: str) -> None:

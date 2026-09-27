@@ -178,6 +178,37 @@ def _load_antagonist_section(engine_path: Path, genre_family: str, subgenre: str
     return "\n\nАНТАГОНИСТ ЖАНРА:\n" + "\n".join(lines)
 
 
+# Семейство жанра → раздел 14_CHARACTER_DIALECTICS/dialectics_by_genre.md
+DIALECTICS_GENRE_LABELS: dict[str, str] = {
+    "detective": "ДЕТЕКТИВ",
+    "thriller":  "ТРИЛЛЕР",
+    "romance":   "РОМАНТИКА",
+    "horror":    "ХОРРОР",
+    "scifi":     "НФ",
+    "fantasy":   "ФЭНТЕЗИ",
+    "realism":   "РЕАЛИЗМ",
+}
+
+
+def load_dialectics_genre_hint(engine_path: Path, genre_key: str | None) -> str:
+    """
+    Жанровый раздел диалектики: какие параметры персонажа критичны и
+    типичные конфликты. «Пример заполненного параметра» не берётся —
+    это готовая реплика, модель переносила бы её в текст.
+    """
+    label = DIALECTICS_GENRE_LABELS.get((genre_key or "").split("_")[0])
+    p = engine_path / "14_CHARACTER_DIALECTICS" / "dialectics_by_genre.md"
+    if not label or not p.exists():
+        return ""
+    m = re.search(rf"^## {label}\s*\n(.*?)(?=^## |\Z)", p.read_text(encoding="utf-8"),
+                  re.M | re.S)
+    if not m:
+        return ""
+    body = re.split(r"^### Пример", m.group(1), flags=re.M)[0]
+    body = re.sub(r"\n?---\s*$", "", body.strip()).strip()
+    return f"ДИАЛЕКТИКА ЖАНРА ({label}):\n{body}" if body else ""
+
+
 def load_catalog_subgenre_hint(engine_path: Path, genre_key: str) -> str:
     """Загрузить специфику поджанра из catalog/{genre_key}.json."""
     if not genre_key:

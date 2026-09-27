@@ -48,24 +48,36 @@ def engine_available() -> bool:
 
 # ─── Валидация путей при старте (IDEA 7) ─────────────────────────────────────
 
-# Критические пути — их отсутствие делает engine нефункциональным
+# Критические пути — без них из блока движка выпадает основа: модули,
+# каталог жанров, жанровые правила и контракты, антиклише. Раньше здесь
+# стояли CORE_FULL.md, CORE_MINI.md и META_RULES.yaml, которые не читает
+# ни один загрузчик, — проверка давала ложную уверенность (AUDIT_UNIFIED.md,
+# U4). Оба списка сверяются с манифестом runtime_files в INDEX.json тестом
+# tests/test_unified_manifest.py.
 _CRITICAL_PATHS = [
-    "00_CORE/CORE_FULL.md",
-    "00_CORE/CORE_MINI.md",
-    "00_CORE/META_RULES.yaml",
+    "00_CORE/anticliche_replacements.md",
     "03_ADVANCED_ENGINES",
     "04_GENRE_ENGINE/catalog",
+    "11_PROMPTS",
+    "16_GENRE_CONTRACT",
     "INDEX.json",
 ]
 
-# Некритические пути — предупреждение, engine продолжает работать
+# Некритические пути — без них пропадает отдельный раздел, движок работает
 _OPTIONAL_PATHS = [
-    "12_ARCS/arcs_by_genre.md",
-    "13_VOICE_LIBRARY/voice_check.md",
-    "15_SYMBOLISM/symbolism_core.md",
-    "14_CHARACTER_DIALECTICS/dialectics_core.md",
-    "16_GENRE_CONTRACT/contract_checker.md",
+    "00_CORE/META_RULES.yaml",
+    "00_CORE/ai_cliches.md",
+    "01_WRITING_CORE",
+    "05_CHARACTER_ENGINE/profiles/GENRE",
+    "05_CHARACTER_ENGINE/antagonists/antagonist_by_genre.md",
+    "06_PATTERN_LIBRARY",
     "10_VALIDATION/checklist_universal.md",
+    "12_ARCS/arcs_by_genre.md",
+    "12_ARCS/arc_fantasy_templates.md",
+    "13_VOICE_LIBRARY/voice_check.md",
+    "14_CHARACTER_DIALECTICS/dialectics_core.md",
+    "14_CHARACTER_DIALECTICS/dialectics_by_genre.md",
+    "15_SYMBOLISM/symbolism_core.md",
 ]
 
 
@@ -248,6 +260,7 @@ from .engine_loaders_core import (   # noqa: E402, F401
     load_writing_core_hint        as _load_writing_core_hint_fn,
     load_validation_checklist     as _load_validation_checklist_fn,
     load_pattern_library          as _load_pattern_library_fn,
+    load_base_rules               as _load_base_rules_fn,
 )
 
 from .engine_loaders_genre import (  # noqa: E402, F401
@@ -257,6 +270,7 @@ from .engine_loaders_genre import (  # noqa: E402, F401
     load_character_profile        as _load_character_profile_fn,
     load_arc_hint                 as _load_arc_hint_fn,
     load_catalog_subgenre_hint    as _load_catalog_subgenre_hint_fn,
+    load_dialectics_genre_hint    as _load_dialectics_genre_hint_fn,
 )
 
 
@@ -312,3 +326,9 @@ def _load_validation_checklist(genre_key: str | None, max_lines: int = 30) -> st
 
 def _load_pattern_library(genre_key: str | None, mode: str, task_text: str = "") -> str:
     return _load_pattern_library_fn(get_engine_path(), genre_key, mode, task_text)
+
+def _load_base_rules() -> str:
+    return _load_base_rules_fn(get_engine_path())
+
+def _load_dialectics_genre_hint(genre_key: str | None) -> str:
+    return _load_dialectics_genre_hint_fn(get_engine_path(), genre_key)

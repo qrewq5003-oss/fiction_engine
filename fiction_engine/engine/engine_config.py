@@ -28,7 +28,7 @@ GENRE_KEYWORDS = {
     "fantasy_urban":           ["городское фэнтези", "urban fantasy",
                                 "городская магия", "магический реализм",
                                 "современная магия", "магия в городе",
-                                "городская мистика", "городской"],
+                                "городская мистика"],
     "fantasy_romantic":        ["романтическое фэнтези", "любовное фэнтези",
                                 "фэнтези роман", "магическая любовь"],
     "fantasy_sword_sorcery":   ["меч и магия", "sword sorcery",
@@ -49,6 +49,7 @@ GENRE_KEYWORDS = {
                                 "детектив с разгадкой", "комнатный детектив",
                                 "agatha christie", "агата кристи",
                                 "детективная история", "детективная проза",
+                                "мистический детектив",
                                 "кто убийца", "whodunit"],
     "detective_psychological": ["психологический детектив",
                                 "детектив с психологией"],
@@ -131,7 +132,7 @@ GENRE_KEYWORDS = {
     "romance_historical":      ["исторический роман", "историческая романтика",
                                 "любовь в прошлом", "historical romance",
                                 "регентский роман", "regency romance",
-                                "исторический", "история любовь",
+                                "история любовь",
                                 "викторианская любовь", "средневековая любовь"],
     "romance_paranormal":      ["паранормальный роман", "паранормальная романтика",
                                 "любовь вампиры", "любовь оборотни",
@@ -297,7 +298,10 @@ CONTRACT_MAP: dict[str, str] = {
     "realism":   "realism_contracts.md",
 }
 
-# Поджанр → метка в файле контракта
+# Поджанр → метка в файле контракта.
+# Метка ищется подстрокой в заголовках «## » файла 16_GENRE_CONTRACT/<семейство>_contracts.md.
+# Не нашлась — загрузчик отдаёт начало файла, то есть контракт ДРУГОГО поджанра;
+# это ловит tests/test_unified_contract.py.
 SUBGENRE_CONTRACT_LABELS: dict[str, str] = {
     "fantasy_dark":            "ТЁМНОЕ ФЭНТЕЗИ",
     "fantasy_epic":            "ЭПИЧЕСКОЕ ФЭНТЕЗИ",
@@ -309,17 +313,17 @@ SUBGENRE_CONTRACT_LABELS: dict[str, str] = {
     "detective_procedural":    "ПРОЦЕДУРАЛ",
     "detective_psychological": "ПСИХОЛОГИЧЕСКИЙ",
     "detective_action":        "ЭКШЕН",
-    "detective_cozy":          "УЮТНЫЙ",
+    "detective_cozy":          "COZY",           # общий раздел «КЛАССИЧЕСКИЙ / COZY»
     "horror_cosmic":           "КОСМИЧЕСКИЙ",
     "horror_gothic":           "ГОТИЧЕСКИЙ",
     "horror_psychological":    "ПСИХОЛОГИЧЕСКИЙ",
-    "horror_survival":         "ВЫЖИВАНИЕ",
+    "horror_survival":         "ХОРРОР ВЫЖИВАНИЯ",
     "thriller_psychological":  "ПСИХОЛОГИЧЕСКИЙ",
     "thriller_spy":            "ШПИОНСКИЙ",
-    "thriller_survival":       "ВЫЖИВАНИЕ",
-    "romance_contemporary":    "СОВРЕМЕННЫЙ",
-    "romance_historical":      "ИСТОРИЧЕСКИЙ",
-    "romance_paranormal":      "ПАРАНОРМАЛЬНЫЙ",
+    "thriller_survival":       "ТРИЛЛЕР ВЫЖИВАНИЯ",
+    "romance_contemporary":    "СОВРЕМЕННАЯ РОМАНТИКА",
+    "romance_historical":      "ИСТОРИЧЕСКАЯ РОМАНТИКА",
+    "romance_paranormal":      "ПАРАНОРМАЛЬНАЯ РОМАНТИКА",
     "scifi_hard":              "ТВЁРДАЯ НФ",
     "scifi_cyberpunk":         "КИБЕРПАНК",
     "scifi_space_opera":       "КОСМИЧЕСКАЯ ОПЕРА",
@@ -426,3 +430,28 @@ _SKIP_PATTERNS = [
     re.compile(r'^\*\*Назначение:\*\*'),
     re.compile(r'^---$'),
 ]
+
+
+# ─── Шум модулей: что не должно попадать в промпт генерации ────────────────
+
+# Разделы «## …» модулей, описывающие устройство «системы» для человека:
+# назначение, философию, интеграцию. Генератору прозы они ничего не дают,
+# а в QUALITY/MASTER шли в промпт первыми — сразу после MINI.
+META_SECTION_WORDS: tuple[str, ...] = (
+    "НАЗНАЧЕНИЕ", "ФИЛОСОФИЯ", "ИНТЕГРАЦИЯ", "INTEGRATION",
+    "АРХИТЕКТУРА", "КОМПОНЕНТЫ СИСТЕМЫ", "СТРУКТУРА СИСТЕМЫ",
+    "СТРУКТУРА БИБЛИОТЕКИ", "РАБОЧИЕ ПРОЦЕССЫ", "ПРИМЕНЕНИЕ В МОДУЛЯХ",
+    "СОВЕТЫ ПО ИСПОЛЬЗОВАНИЮ", "PRACTICE EXERCISES",
+)
+
+# Метки жанровых вариантов в модулях («**ХОРРОР:** …») по семействам.
+# Промпту детектива правила хоррора и романтики не нужны.
+GENRE_VARIANT_LABELS: dict[str, frozenset[str]] = {
+    "detective": frozenset({"ДЕТЕКТИВ", "НУАР"}),
+    "thriller":  frozenset({"ТРИЛЛЕР"}),
+    "horror":    frozenset({"ХОРРОР"}),
+    "romance":   frozenset({"РОМАНТИКА"}),
+    "fantasy":   frozenset({"ФЭНТЕЗИ"}),
+    "scifi":     frozenset({"НФ"}),
+    "realism":   frozenset({"РЕАЛИЗМ"}),
+}

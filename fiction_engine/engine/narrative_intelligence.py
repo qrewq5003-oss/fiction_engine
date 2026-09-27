@@ -344,7 +344,8 @@ class NarrativeIntelligence:
         try:
             from .db import get_project
             _proj = get_project(project_id)
-            _genre_key = (_proj.get("genre", "") or "") if _proj else ""
+            from .unified_engine import project_genre_key
+            _genre_key = project_genre_key(_proj) or ""
             _genre_family = _genre_key.split("_")[0] if _genre_key else "default"
         except Exception:
             _genre_family = "default"

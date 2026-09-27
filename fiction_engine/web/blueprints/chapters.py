@@ -1,7 +1,8 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
 from engine.db import get_chapter, get_chapters, save_chapter
-from .helpers import get_current_project, get_cheap_model, log_web_error
+from .helpers import (attachment_header, get_current_project, get_cheap_model,
+                      log_web_error, read_uploaded_text)
 
 bp = Blueprint("chapters", __name__)
 
@@ -23,7 +24,11 @@ def chapter_upload():
     file   = request.files.get("file")
     text   = request.form.get("text", "").strip()
     if file and file.filename:
-        content = file.read().decode("utf-8", errors="replace")
+        try:
+            content = read_uploaded_text(file)
+        except ValueError as e:
+            flash(str(e), "error")
+            return redirect(url_for("index"))
     elif text:
         content = text
     else:
@@ -57,7 +62,7 @@ def export_txt():
         full = get_chapter(current["id"], ch["number"])
         lines.append(f"=== Глава {ch['number']} ===\n\n{full['content']}\n\n")
     return Response("\n".join(lines), mimetype="text/plain",
-                    headers={"Content-Disposition": f"attachment;filename={current['name']}.txt"})
+                    headers={"Content-Disposition": attachment_header(f"{current['name']}.txt")})
 
 
 @bp.route("/export/chapter/<int:num>/txt")
@@ -70,7 +75,7 @@ def export_chapter_txt(num):
         flash("Глава не найдена", "error")
         return redirect(url_for("index"))
     return Response(ch["content"], mimetype="text/plain",
-                    headers={"Content-Disposition": f"attachment;filename=chapter_{num}.txt"})
+                    headers={"Content-Disposition": attachment_header(f"chapter_{num}.txt")})
 
 
 
@@ -141,11 +146,10 @@ def export_docx():
         doc.save(buf)
         buf.seek(0)
 
-        safe_name = current["name"].replace(" ", "_")
         return Response(
             buf.read(),
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment;filename={safe_name}.docx"}
+            headers={"Content-Disposition": attachment_header(f"{current['name']}.docx")}
         )
     except ImportError:
         flash("Установи python-docx: pip install python-docx", "error")

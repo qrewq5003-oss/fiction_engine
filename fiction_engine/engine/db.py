@@ -46,6 +46,7 @@ from .db_projects import (
     get_projects,
     get_project,
     delete_project,
+    set_project_genre_key,
     # Главы
     save_chapter,
     get_chapter,

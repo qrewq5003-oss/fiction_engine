@@ -216,7 +216,8 @@ def generation_score(gen_id):
     except Exception as e:
         log_web_error("не прочитать scorer_model из настроек", e)
     current = get_current_project()
-    genre = current.get("genre", "") if current else ""
+    from engine.unified_engine import project_genre_key
+    genre = project_genre_key(current) or ""
     provider = scorer_model.split("::")[0] if "::" in scorer_model else ""
     if not get_api_key(provider):
         return jsonify({"error": f"Нет API ключа для {provider}"}), 400

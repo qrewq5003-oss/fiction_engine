@@ -181,7 +181,7 @@ class TestValidateEnginePaths:
     def test_partial_engine_lists_missing(self, tmp_path):
         from engine.engine_loaders import validate_engine_paths
         (tmp_path / "00_CORE").mkdir()
-        (tmp_path / "00_CORE" / "CORE_FULL.md").write_text("x", encoding="utf-8")
+        (tmp_path / "00_CORE" / "anticliche_replacements.md").write_text("x", encoding="utf-8")
         with patch("engine.engine_loaders.get_engine_path", return_value=tmp_path):
             res = validate_engine_paths()
         assert res["ok"] is False

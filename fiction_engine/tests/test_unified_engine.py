@@ -58,6 +58,55 @@ class TestDetectGenre:
         assert r1 is not None or r2 is None  # не краш
 
 
+class TestDetectGenreBoundaries:
+    """
+    Ключ ищется с начала слова, а не подстрокой. Раньше «нф» внутри
+    «конфликт» давал твёрдую НФ, и вся серия шла с чужим жанровым
+    блоком: каталогом, контрактом, профилем, аркой и модулями
+    (AUDIT_UNIFIED.md, U2).
+    """
+
+    @pytest.mark.parametrize("text, wrong", [
+        ("конфликт интересов",     "scifi_hard"),            # «нф» внутри слова
+        ("информационная война",   "scifi_hard"),
+        ("мыльная опера",          "detective_procedural"),  # «опер»
+        ("прозаик в кризисе",      "realism_psychological"), # «проза»
+        ("ужасно смешная комедия", "horror_psychological"),  # «ужас»
+        ("страховая компания",     "horror_psychological"),  # «страх»
+        ("драматург",              "realism_psychological"), # «драма»
+        ("городской роман",        "fantasy_urban"),         # «городской»
+        ("исторический детектив",  "romance_historical"),    # «исторический»
+        ("мистический детектив",   "horror_psychological"),  # «мистический»
+    ])
+    def test_no_match_inside_word_or_by_modifier(self, text, wrong):
+        from engine.unified_engine import detect_genre
+        assert detect_genre(text) != wrong
+
+    @pytest.mark.parametrize("text, expected", [
+        ("исторический детектив", "detective_classic"),
+        ("мистический детектив",  "detective_classic"),
+        ("детективы",             "detective_classic"),     # формы длинного ключа
+        ("детективный роман",     "detective_classic"),
+        ("ужасы",                 "horror_psychological"),  # короткий ключ целиком
+        ("твёрдая НФ",            "scifi_hard"),
+        ("НФ",                    "scifi_hard"),
+        ("космическая опера",     "scifi_space_opera"),
+        ("Фэнтези, магия",        "fantasy_epic"),
+    ])
+    def test_expected_genre(self, text, expected):
+        from engine.unified_engine import detect_genre
+        assert detect_genre(text) == expected
+
+    def test_every_keyword_maps_to_its_own_genre(self):
+        """Ни один ключ не перехвачен другим жанром — ни целиком, ни частью."""
+        from engine.engine_config import GENRE_KEYWORDS
+        from engine.unified_engine import detect_genre
+        wrong = [(key, kw, detect_genre(kw))
+                 for key, kws in GENRE_KEYWORDS.items() for kw in kws
+                 if detect_genre(kw) != key]
+        assert not wrong, wrong
+
+
 class TestResolveDependencies:
     def test_no_deps_unchanged(self):
         from engine.unified_engine import resolve_dependencies
