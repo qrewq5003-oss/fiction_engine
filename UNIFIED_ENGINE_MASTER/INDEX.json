@@ -337,6 +337,7 @@
     ]
   },
   "runtime_files": [
+    "00_CORE/META_RULES.yaml",
     "00_CORE/ai_cliches.md",
     "00_CORE/anticliche_replacements.md",
     "01_WRITING_CORE/01_dialogues.md",
@@ -459,6 +460,7 @@
     "12_ARCS/arc_fantasy_templates.md",
     "12_ARCS/arcs_by_genre.md",
     "13_VOICE_LIBRARY/voice_check.md",
+    "14_CHARACTER_DIALECTICS/dialectics_by_genre.md",
     "14_CHARACTER_DIALECTICS/dialectics_core.md",
     "15_SYMBOLISM/symbolism_core.md",
     "16_GENRE_CONTRACT/detective_contracts.md",

@@ -35,6 +35,8 @@ from .engine_loaders import (
     _load_genre_prompt,
     _load_writing_core_hint,
     _load_pattern_library,
+    _load_base_rules,
+    _load_dialectics_genre_hint,
 )
 
 
@@ -313,6 +315,9 @@ def _build_fixed_sections(
     """
     sections: list[tuple[str, str]] = []
 
+    # Базовые правила — во всех режимах, первыми: короткие и общие для всех
+    _append_if(sections, "_base_rules", _load_base_rules())
+
     if genre_key:
         _append_if(sections, "_catalog", _load_genre_catalog(genre_key))
         _append_if(sections, "_genre_rules", _load_genre_prompt(genre_key, mode))
@@ -324,6 +329,7 @@ def _build_fixed_sections(
 
     if include_dialectics and mode == "master":
         _append_if(sections, "_dialectics", _load_dialectics_hint())
+        _append_if(sections, "_dialectics_genre", _load_dialectics_genre_hint(genre_key))
 
     if genre_key and mode == "master":
         _append_if(sections, "_arc", _load_arc_hint(genre_key))

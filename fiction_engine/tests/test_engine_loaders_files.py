@@ -164,7 +164,7 @@ class TestReadMdUseful:
 
     def test_real_module_file(self, kb):
         from engine.engine_loaders_core import _read_md_useful
-        f = kb / "00_CORE" / "style_rules.md"
+        f = kb / "06_PATTERN_LIBRARY" / "transitions" / "scene_transitions.md"
         if not f.exists():
             pytest.skip("файл не найден")
         assert _read_md_useful(f, max_lines=20)

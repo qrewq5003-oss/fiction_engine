@@ -16,6 +16,13 @@ from .engine_extractors import _extract_module_essence, _strip_meta_sections
 # «АНТИКЛИШЕ» и «ГОЛОС — ПРОВЕРКА», которых в промпте не существовало.
 ANTICLICHE_HEADER  = "КЛИШЕ → ЗАМЕНЫ (используй замены, не запреты):"
 VOICE_CHECK_HEADER = "ПРОВЕРКА ГОЛОСА:"
+BASE_RULES_HEADER  = "БАЗОВЫЕ ПРАВИЛА:"
+
+# Правила из 00_CORE/META_RULES.yaml, которые идут в каждый промпт.
+# R02 (глава 1500–1700 слов) не берётся: противоречит объёму главы в
+# приложении (pipeline_config.TARGET_CHAPTER_WORDS). R05 и R07 уже
+# покрыты секциями PROMPT модуля 24 и блоком антиклише.
+BASE_RULE_IDS = ("R06", "R01", "R03", "R04")
 
 
 def _find_module_file(engine_path: Path, module_name: str) -> Path | None:
@@ -153,6 +160,37 @@ def load_anticliche_replacements(engine_path: Path) -> str:
               "Подбирай деталь под сцену и не повторяй одну и ту же физику "
               "из главы в главу."]
     return ANTICLICHE_HEADER + "\n" + "\n".join(lines)
+
+
+def load_base_rules(engine_path: Path) -> str:
+    """
+    Базовые правила текста из 00_CORE/META_RULES.yaml — компактно.
+
+    YAML разбирается построчно, без зависимости от PyYAML: берутся поля
+    rule и note у правил из BASE_RULE_IDS, в порядке этого списка.
+    """
+    p = engine_path / "00_CORE" / "META_RULES.yaml"
+    if not p.exists():
+        return ""
+    rules: dict[str, dict[str, str]] = {}
+    current = None
+    for line in p.read_text(encoding="utf-8").splitlines():
+        head = re.match(r"^\s{2}(R\d+)_\w+:\s*$", line)
+        if head:
+            current = rules.setdefault(head.group(1), {})
+            continue
+        field = re.match(r'^\s{4}(rule|note):\s*"(.*)"\s*$', line)
+        if field and current is not None:
+            current[field.group(1)] = field.group(2)
+        elif line and not line.startswith(" "):
+            current = None
+    lines = []
+    for rid in BASE_RULE_IDS:
+        rule = rules.get(rid, {})
+        if rule.get("rule"):
+            note = f" {rule['note']}." if rule.get("note") else ""
+            lines.append(f"- {rule['rule']}.{note}")
+    return BASE_RULES_HEADER + "\n" + "\n".join(lines) if lines else ""
 
 
 def load_dialectics_hint(engine_path: Path) -> str:
