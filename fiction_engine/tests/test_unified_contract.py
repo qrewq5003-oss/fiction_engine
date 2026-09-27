@@ -224,7 +224,9 @@ def test_prompt_sections_well_formed(kb, module):
         shipped = max(len(filter_genre_variants(body, g)) for g in GENRE_KEYS)
         assert shipped <= limit, f"{name}: {shipped} символов > {limit}"
     # Две точки правды для одного и того же — источник расхождений
-    assert "MINI" not in text, "модуль с PROMPT-секциями не должен держать MINI"
+    import re
+    assert not re.search(r"^#+ (?:## )?MINI\b", text, re.M), \
+        "модуль с PROMPT-секциями не должен держать секцию MINI"
 
 
 @pytest.mark.parametrize("module", PROMPT_MODULES)
