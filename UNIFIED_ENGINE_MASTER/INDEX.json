@@ -1,17 +1,13 @@
 {
   "engine": "UNIFIED_ENGINE_MASTER",
   "version": "2.0",
-  "total_files": 233,
+  "total_files": 234,
   "changelog": "v2.0: во всех 25 модулях 03_ADVANCED_ENGINES — секции PROMPT:QUICK/PROMPT:FULL (ровно то, что уходит модели), MINI убраны. Добавлен runtime_files — файлы, которые читает движок; остальные — справочник для автора. files и total_files собраны с диска. | v1.8: 11_PROMPTS QUALITY/MASTER переписаны под машинное извлечение. Оригинальные шаблоны в 11_PROMPTS/templates/. Лимит извлечения 8→20 строк.",
   "files": {
     "00_CORE": [
-      "CORE_FULL.md",
-      "CORE_MINI.md",
       "META_RULES.yaml",
       "ai_cliches.md",
-      "anticliche_replacements.md",
-      "cliches_list.txt",
-      "style_rules.md"
+      "anticliche_replacements.md"
     ],
     "01_WRITING_CORE": [
       "01_dialogues.md",
@@ -57,7 +53,6 @@
       "25_style_transformations.md"
     ],
     "04_GENRE_ENGINE": [
-      "AUTO_ROUTER.md",
       "GENRE_MERGER.md"
     ],
     "04_GENRE_ENGINE/catalog": [
@@ -171,21 +166,6 @@
     "06_PATTERN_LIBRARY/transitions": [
       "scene_transitions.md"
     ],
-    "07_SYSTEM_ENGINE": [
-      "AUTHOR_VOICE_ENGINE.md",
-      "DATA_DRIVEN_LEARNING.md",
-      "ENGINE_CONTROLLER.md",
-      "MEMORY_VALIDATOR.md"
-    ],
-    "08_STATE_ENGINE": [
-      "global_state.md",
-      "global_state_template.md",
-      "memory_graph.md",
-      "memory_graph_template.md",
-      "plot_matrix.md",
-      "plot_matrix_template.md",
-      "update_prompt.md"
-    ],
     "09_TEMPLATES": [
       "characters_extended_template.json",
       "locations_template.json",
@@ -291,8 +271,35 @@
       "thriller_contracts.md"
     ],
     ".": [
-      "IMPROVEMENTS_CRITIQUE.md",
       "INDEX.json",
+      "README.md"
+    ],
+    "_archive/00_CORE": [
+      "CORE_FULL.md",
+      "CORE_MINI.md",
+      "cliches_list.txt",
+      "style_rules.md"
+    ],
+    "_archive/04_GENRE_ENGINE": [
+      "AUTO_ROUTER.md"
+    ],
+    "_archive/07_SYSTEM_ENGINE": [
+      "AUTHOR_VOICE_ENGINE.md",
+      "DATA_DRIVEN_LEARNING.md",
+      "ENGINE_CONTROLLER.md",
+      "MEMORY_VALIDATOR.md"
+    ],
+    "_archive/08_STATE_ENGINE": [
+      "global_state.md",
+      "global_state_template.md",
+      "memory_graph.md",
+      "memory_graph_template.md",
+      "plot_matrix.md",
+      "plot_matrix_template.md",
+      "update_prompt.md"
+    ],
+    "_archive": [
+      "IMPROVEMENTS_CRITIQUE.md",
       "README.md"
     ]
   },
