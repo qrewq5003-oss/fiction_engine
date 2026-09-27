@@ -140,3 +140,38 @@ class TestLoadPatternLibrary:
         result = load_pattern_library(tmp_path, "detective", "quick")
         # Либо нашло файл и вернуло содержимое, либо вернуло пустую строку
         assert isinstance(result, str)
+
+
+# ─── Антиклише целиком и компактно (AUDIT_UNIFIED.md, U6) ────────────────────
+
+KB = __import__("pathlib").Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER"
+
+
+class TestAnticlicheCompact:
+    @pytest.fixture
+    def out(self):
+        from engine.engine_loaders_core import load_anticliche_replacements
+        assert KB.is_dir(), f"нет базы: {KB}"
+        return load_anticliche_replacements(KB)
+
+    def test_every_article_present(self, out):
+        """Раньше в промпт шли 5 статей из 12 — только эмоции."""
+        src = (KB / "00_CORE" / "anticliche_replacements.md").read_text(encoding="utf-8")
+        articles = [l for l in src.splitlines() if l.startswith("### ❌")]
+        assert len(articles) >= 12
+        assert out.count("\n- ❌ ") == len(articles)
+
+    def test_no_canned_phrase_lists(self, out):
+        """Готовые фразы-замены шли в каждую главу списком по 3–4 штуки."""
+        assert "Дыхание сбилось. Он не сразу понял почему." not in out
+        assert "Он кивнул. Потом кивнул ещё раз" not in out
+
+    def test_channel_kept(self, out):
+        assert "через физику" in out and "через действие" in out
+
+    def test_ai_cliches_included(self, out):
+        assert "ИИ-ШТАМПЫ" in out and "«ком в горле»" in out
+        assert "пробуждение в начале главы" in out
+
+    def test_compact(self, out):
+        assert len(out) < 4000
