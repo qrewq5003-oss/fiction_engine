@@ -20,7 +20,7 @@
     }
   },
   "detective_classic__quality": {
-    "chars": 38916,
+    "chars": 39336,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -35,7 +35,7 @@
       "_symbolism": 724,
       "_voice_check": 316,
       "03_thematic_dna": 1489,
-      "02_character_resonance": 1712,
+      "02_character_resonance": 2121,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 50220,
+    "chars": 50243,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -65,7 +65,7 @@
       "_symbolism": 724,
       "_voice_check": 316,
       "24_artistic_foundation": 2716,
-      "02_character_resonance": 2133,
+      "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
@@ -81,7 +81,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 48111,
+    "chars": 48134,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -98,7 +98,7 @@
       "_symbolism": 724,
       "_voice_check": 316,
       "24_artistic_foundation": 2716,
-      "02_character_resonance": 2133,
+      "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
@@ -113,7 +113,7 @@
     }
   },
   "romance_historical__quality": {
-    "chars": 35029,
+    "chars": 35449,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -127,7 +127,7 @@
       "_pattern_lib": 3899,
       "_symbolism": 724,
       "_voice_check": 316,
-      "02_character_resonance": 1712,
+      "02_character_resonance": 2121,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
@@ -139,7 +139,7 @@
     }
   },
   "fantasy_urban__quality": {
-    "chars": 33500,
+    "chars": 33920,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -153,7 +153,7 @@
       "_pattern_lib": 3892,
       "_symbolism": 724,
       "_voice_check": 316,
-      "02_character_resonance": 1712,
+      "02_character_resonance": 2121,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
       "12_pacing_engine": 3572,
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 48618,
+    "chars": 48641,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -202,7 +202,7 @@
       "_symbolism": 724,
       "_voice_check": 316,
       "24_artistic_foundation": 2716,
-      "02_character_resonance": 2133,
+      "02_character_resonance": 2121,
       "03_thematic_dna": 1856,
       "15_dialogue_style": 3141,
       "19_hooks_closings": 3111,
