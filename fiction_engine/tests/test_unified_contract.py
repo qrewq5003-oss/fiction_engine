@@ -205,9 +205,13 @@ QUICK_MAX_CHARS = 2000
 FULL_MAX_CHARS = 3500
 
 
-def test_prompt_sections_adopted():
-    """Список модулей с явными секциями растёт по одному; пустой — ошибка сборки."""
-    assert PROMPT_MODULES, "ни в одном модуле нет ## PROMPT:QUICK"
+def test_every_module_has_prompt_sections():
+    """
+    Все модули переведены на явные секции (4б). Новый модуль без них
+    вернул бы старый разбор MINI + тело с пустыми заголовками и шумом.
+    """
+    missing = sorted({p.stem for p in _modules()} - set(PROMPT_MODULES))
+    assert not missing, f"нет ## PROMPT:QUICK: {missing}"
 
 
 @pytest.mark.parametrize("module", PROMPT_MODULES)
