@@ -273,3 +273,25 @@ class TestFilterGenreVariants:
     def test_unknown_genre_keeps_all(self):
         from engine.engine_extractors import filter_genre_variants
         assert filter_genre_variants(self.SRC, None) == self.SRC
+
+
+class TestPromptSections:
+    SRC = ("# Модуль\n\n## PROMPT:QUICK\n<!-- для автора -->\nядро\n\n"
+           "## PROMPT:FULL\nдополнение\n\n---\n\n## НАЗНАЧЕНИЕ\nсистема\n")
+
+    def test_quick_only_core(self):
+        from engine.engine_extractors import extract_prompt_sections
+        assert extract_prompt_sections(self.SRC, full=False) == "ядро"
+
+    def test_full_is_core_plus_extra(self):
+        from engine.engine_extractors import extract_prompt_sections
+        assert extract_prompt_sections(self.SRC, full=True) == "ядро\n\nдополнение"
+
+    def test_absent_falls_back(self):
+        from engine.engine_extractors import extract_prompt_sections
+        assert extract_prompt_sections("## MINI\nсуть", full=True) is None
+
+    def test_essence_ignores_line_limit_for_explicit_sections(self):
+        from engine.engine_extractors import _extract_module_essence
+        src = "## PROMPT:QUICK\n" + "\n".join(f"строка {i}" for i in range(50))
+        assert _extract_module_essence(src, 30).count("строка") == 50

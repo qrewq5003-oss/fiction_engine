@@ -190,3 +190,43 @@ def removed_on_trim(kb):
 @pytest.mark.parametrize("block", _cases("trim_marker", TRIM_BLOCKS))
 def test_trim_finds_block(removed_on_trim, block):
     assert block in removed_on_trim
+
+
+# ─── Явные секции для промпта (AUDIT_UNIFIED.md, 4б) ─────────────────────────
+
+def _modules(kb_path: Path = KB_PATH) -> list[Path]:
+    return sorted((kb_path / "03_ADVANCED_ENGINES").glob("*.md"))
+
+
+PROMPT_MODULES = [p.stem for p in _modules() if "## PROMPT:QUICK" in p.read_text(encoding="utf-8")]
+
+# Потолки размера: секции — не справочник, а то, что модель читает в каждой главе
+QUICK_MAX_CHARS = 2000
+FULL_MAX_CHARS = 3500
+
+
+def test_prompt_sections_adopted():
+    """Список модулей с явными секциями растёт по одному; пустой — ошибка сборки."""
+    assert PROMPT_MODULES, "ни в одном модуле нет ## PROMPT:QUICK"
+
+
+@pytest.mark.parametrize("module", PROMPT_MODULES)
+def test_prompt_sections_well_formed(kb, module):
+    from engine.engine_extractors import PROMPT_FULL, PROMPT_QUICK, _section
+    text = (kb / "03_ADVANCED_ENGINES" / f"{module}.md").read_text(encoding="utf-8")
+    quick, full = _section(text, PROMPT_QUICK), _section(text, PROMPT_FULL)
+    assert quick, "PROMPT:QUICK пуст"
+    for name, body, limit in (("QUICK", quick, QUICK_MAX_CHARS), ("FULL", full, FULL_MAX_CHARS)):
+        assert "```" not in body, f"{name}: код-блок в секции для модели"
+        assert len(body) <= limit, f"{name}: {len(body)} символов > {limit}"
+    # Две точки правды для одного и того же — источник расхождений
+    assert "MINI" not in text, "модуль с PROMPT-секциями не должен держать MINI"
+
+
+@pytest.mark.parametrize("module", PROMPT_MODULES)
+def test_prompt_sections_are_what_engine_sends(kb, module):
+    from engine.engine_extractors import extract_prompt_sections
+    from engine.engine_loaders_core import load_module
+    text = (kb / "03_ADVANCED_ENGINES" / f"{module}.md").read_text(encoding="utf-8")
+    assert load_module(kb, module, 30) == extract_prompt_sections(text, full=False)
+    assert load_module(kb, module, 70) == extract_prompt_sections(text, full=True)
