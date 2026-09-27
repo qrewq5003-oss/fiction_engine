@@ -164,7 +164,7 @@ document.getElementById("btnReport").addEventListener("click", async () => {
   showStatus("Полный анализ — 2-3 LLM-вызова, подождите…");
   document.getElementById("reportSection").style.display = "none";
   try {
-    const r = await fetch(`/narrative/report/${ch}`);
+    const r = await fetch(`/narrative/report/${ch}`, {method: 'POST'});
     const d = await r.json();
     if (d.error) throw new Error(d.error);
     renderWarnings(d.warnings || []);
