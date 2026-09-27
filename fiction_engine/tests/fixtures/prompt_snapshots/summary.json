@@ -48,7 +48,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 46911,
+    "chars": 48256,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -70,7 +70,7 @@
       "15_dialogue_style": 2688,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
-      "20_stakes_escalation": 2624,
+      "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
@@ -81,7 +81,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 44856,
+    "chars": 46244,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -103,7 +103,7 @@
       "15_dialogue_style": 2688,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
-      "20_stakes_escalation": 2624,
+      "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
@@ -185,7 +185,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 45251,
+    "chars": 46603,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -207,7 +207,7 @@
       "15_dialogue_style": 2688,
       "19_hooks_closings": 3111,
       "01_tension_curve": 2937,
-      "20_stakes_escalation": 2624,
+      "20_stakes_escalation": 3216,
       "10_subtext_engine": 3570,
       "13_foreshadowing_engine": 2808,
       "09_deep_character_psychology": 3785,
