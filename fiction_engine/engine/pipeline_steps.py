@@ -252,6 +252,10 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
                                                   full_prompt, call_fn)
         if extended:
             results["extended"] = extended
+    from .pipeline import clean_foreign_words
+    gen_text, foreign = clean_foreign_words(gen_text, model_gen, full_prompt, call_fn)
+    if foreign:
+        results["foreign_words"] = foreign
     save_pipeline_iteration(run_id, iteration, "generate", model_gen,
                              generation_prompt, gen_text)
     results["generated_text"] = gen_text

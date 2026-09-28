@@ -224,6 +224,28 @@ def extend_short_chapter(text: str, model_value: str, sys_prompt: str,
     return merged, f"Глава дописана вторым запросом: {have} → {len(merged.split())} слов."
 
 
+def clean_foreign_words(text: str, model_value: str, user_prompt: str,
+                        call_fn) -> tuple[str, str]:
+    """
+    Английские вставки в русской главе — заменить по-русски.
+
+    Возвращает (текст, пояснение для интерфейса). Слова из промпта главы
+    вставками не считаются: их написал автор. См. foreign_words.py.
+    """
+    from .foreign_words import fix_foreign_words, foreign_words
+
+    if not foreign_words(text, user_prompt):
+        return text, ""
+    text, fixed = fix_foreign_words(text, model_value, call_fn, allowed=user_prompt)
+    left = foreign_words(text, user_prompt)
+    parts = []
+    if fixed:
+        parts.append(f"Исправлены английские вставки ({len(fixed)}): {', '.join(fixed[:8])}.")
+    if left:
+        parts.append(f"Остались английские вставки: {', '.join(left[:8])} — поправь вручную.")
+    return text, " ".join(parts)
+
+
 def describe_truncation(text: str, word_count: int) -> str:
     """Текстовая обёртка над detect_truncation — для мест, где нужна строка."""
     return detect_truncation(text, word_count)["message"]
@@ -275,6 +297,9 @@ def run_generation(project: dict, chapter_num: int, mode: str,
                                           context_prompt, _call)
     if extended:
         warning = (warning or "") + " " + extended
+    text, foreign = clean_foreign_words(text, model_value, context_prompt, _call)
+    if foreign:
+        warning = (warning or "") + " " + foreign
     word_count = len(text.split())
     if len(text.strip()) < 100:
         raise RuntimeError(f"Слишком короткий ответ: {text[:200]}")
