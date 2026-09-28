@@ -26,14 +26,14 @@ GENRE_KEYWORDS = {
                                 "магические существа", "магический народ",
                                 "янг эдалт фэнтези", "young adult fantasy"],
     "fantasy_urban":           ["городское фэнтези", "urban fantasy",
-                                "городская магия", "магический реализм",
+                                "городская магия",
                                 "современная магия", "магия в городе",
                                 "городская мистика"],
     "fantasy_romantic":        ["романтическое фэнтези", "любовное фэнтези",
                                 "фэнтези роман", "магическая любовь"],
     "fantasy_sword_sorcery":   ["меч и магия", "sword sorcery",
                                 "героическое фэнтези", "боевое фэнтези",
-                                "приключенческое фэнтези", "приключения",
+                                "приключенческое фэнтези",
                                 "рыцари магия", "рыцарский роман",
                                 "средневековье", "рыцари", "варвар"],
     # ─── Детектив ─────────────────────────────────────────────────────────────
@@ -73,6 +73,17 @@ GENRE_KEYWORDS = {
                                 "разведка", "контрразведка", "агент под прикрытием"],
     "thriller_survival":       ["триллер выживания", "survival thriller",
                                 "выживание", "survival", "борьба за жизнь"],
+    "thriller_legal":          ["юридический триллер", "legal thriller",
+                                "судебный триллер", "судебная драма",
+                                "юридическая драма", "courtroom drama", "courtroom",
+                                "адвокат", "судебный процесс", "зал суда"],
+    "thriller_medical":        ["медицинский триллер", "medical thriller",
+                                "биотриллер", "биотехнологический триллер",
+                                "эпидемический триллер", "эпидемия",
+                                "врачебная ошибка"],
+    "thriller_adventure":      ["приключения", "приключенческий роман",
+                                "приключенческий", "adventure", "экспедиция",
+                                "поиск сокровищ", "охота за сокровищами"],
     # ─── Хоррор ───────────────────────────────────────────────────────────────
     "horror_psychological":    ["психологический хоррор", "psychological horror",
                                 "хоррор", "horror", "ужасы", "ужас",
@@ -121,6 +132,10 @@ GENRE_KEYWORDS = {
     "scifi_social":            ["социальная нф", "social sci-fi", "social scifi",
                                 "социальная фантастика", "утопия",
                                 "общество будущего", "социальная антиутопия"],
+    "scifi_alt_history":       ["альтернативная история", "alternate history",
+                                "alternative history", "альтистория", "попаданцы",
+                                "попаданец", "спекулятивная фантастика",
+                                "speculative fiction"],
     # ─── Романтика ────────────────────────────────────────────────────────────
     "romance_contemporary":    ["современный роман", "современная романтика",
                                 "романтика", "романтический", "романс", "romance",
@@ -156,6 +171,9 @@ GENRE_KEYWORDS = {
                                 "несколько поколений", "dynasty", "dynastic",
                                 "семейная история", "история семьи",
                                 "поколения семья"],
+    "realism_magical":         ["магический реализм", "magical realism",
+                                "магреализм", "сказочная проза",
+                                "мифологическая проза"],
 }
 
 # ─── Граф зависимостей модулей ────────────────────────────────────────────────
@@ -232,6 +250,17 @@ GENRE_MODULES = {
     "realism_psychological":   ["09_deep_character_psychology", "10_subtext_engine"],
     "realism_social":          ["03_thematic_dna", "04_reader_simulation"],
     "realism_family_saga":     ["06_multibook_causality", "17_character_chemistry"],
+    "thriller_legal":          ["10_subtext_engine", "15_dialogue_style",
+                                "13_foreshadowing_engine", "04_reader_simulation"],
+    "thriller_medical":        ["20_stakes_escalation", "01_tension_curve",
+                                "09_deep_character_psychology",
+                                "22_sensory_immersion"],
+    "thriller_adventure":      ["12_pacing_engine", "18_beats_rhythm",
+                                "22_sensory_immersion", "17_character_chemistry"],
+    "realism_magical":         ["03_thematic_dna", "22_sensory_immersion",
+                                "14_narrative_distance"],
+    "scifi_alt_history":       ["08_world_state_kernel", "03_thematic_dna",
+                                "06_multibook_causality"],
 }
 
 # ─── Бюджет токенов по модели ─────────────────────────────────────────────────
@@ -333,6 +362,11 @@ SUBGENRE_CONTRACT_LABELS: dict[str, str] = {
     "realism_psychological":   "ПСИХОЛОГИЧЕСКИЙ",
     "realism_social":          "СОЦИАЛЬНЫЙ",
     "realism_family_saga":     "СЕМЕЙНАЯ САГА",
+    "thriller_legal":          "ЮРИДИЧЕСКИЙ ТРИЛЛЕР",
+    "thriller_medical":        "МЕДИЦИНСКИЙ ТРИЛЛЕР",
+    "thriller_adventure":      "ПРИКЛЮЧЕНИЯ",
+    "realism_magical":         "МАГИЧЕСКИЙ РЕАЛИЗМ",
+    "scifi_alt_history":       "АЛЬТЕРНАТИВНАЯ ИСТОРИЯ",
 }
 
 # Полный поджанр → файл профиля персонажа (05_CHARACTER_ENGINE/profiles/GENRE/)
@@ -367,6 +401,11 @@ CHAR_FULL_KEY_MAP: dict[str, str] = {
     "realism_psychological":   "psychological.md",
     "realism_social":          "psychological.md",
     "realism_family_saga":     "family_drama.md",
+    "thriller_legal":          "legal_thriller.md",
+    "thriller_medical":        "medical_thriller.md",
+    "thriller_adventure":      "adventure.md",
+    "realism_magical":         "magical_realism.md",
+    "scifi_alt_history":       "spec_fic.md",
 }
 
 # Жанровое семейство → файл профиля персонажа (fallback)
