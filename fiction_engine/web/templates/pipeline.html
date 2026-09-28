@@ -17,6 +17,7 @@
              value="{{ (chapters[-1].number + 1) if chapters else 1 }}"
              style="max-width:100px;">
     </div>
+    {% with chapter_input_id = 'pl-chapter' %}{% include '_chapter_tone.html' %}{% endwith %}
   </div>
 
   <!-- Выбор моделей -->

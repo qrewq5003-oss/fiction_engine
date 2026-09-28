@@ -259,6 +259,7 @@ def build_engine_context(
     pre_selected_modules: list | None = None,
     style_key: str | None = None,
     secondary_key: str | None = None,
+    chapter_tone: str | None = None,
 ) -> str:
     """
     Собирает контекст UNIFIED_ENGINE.
@@ -284,16 +285,22 @@ def build_engine_context(
     from .genre_mix import is_secondary_key
     if not is_secondary_key(secondary_key) or secondary_key == genre_key:
         secondary_key = None
+    from .genre_mix import is_chapter_tone
+    if not is_chapter_tone(chapter_tone) or chapter_tone == secondary_key:
+        chapter_tone = None
     fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text,
-                                           style_key, secondary_key)
+                                           style_key, secondary_key, chapter_tone)
     module_sections = _build_module_sections(
-        mode, genre_key, pre_selected_modules, task_text, api_call_fn, secondary_key
+        mode, genre_key, pre_selected_modules, task_text, api_call_fn, secondary_key,
+        chapter_tone
     )
 
     # Шум вычищается до расчёта бюджета: правила чужих жанров и заголовки,
     # под которыми после выброса код-блоков ничего не осталось
-    fixed_sections = _clean_sections(fixed_sections, genre_key, secondary_key)
-    module_sections = _clean_sections(module_sections, genre_key, secondary_key)
+    from .genre_mix import layer_variant_labels
+    extra = layer_variant_labels(secondary_key, chapter_tone)
+    fixed_sections = _clean_sections(fixed_sections, genre_key, secondary_key, extra)
+    module_sections = _clean_sections(module_sections, genre_key, secondary_key, extra)
 
     fixed_chars = sum(len(c) for _, c in fixed_sections)
     module_budget = max(char_budget - fixed_chars, char_budget // 2)
@@ -316,6 +323,7 @@ def _build_fixed_sections(
     task_text: str = "",
     style_key: str | None = None,
     secondary_key: str | None = None,
+    chapter_tone: str | None = None,
 ) -> list[tuple[str, str]]:
     """
     Собирает фиксированные секции контекста (1-9).
@@ -338,6 +346,10 @@ def _build_fixed_sections(
     # Второй жанр или модификатор — за стилем: основной жанр уже задан
     from .genre_mix import load_secondary_section
     _append_if(sections, "_secondary", load_secondary_section(genre_key, secondary_key))
+
+    # Тон главы — сверх второго слоя, только для этой главы
+    from .genre_mix import load_chapter_tone_section
+    _append_if(sections, "_chapter_tone", load_chapter_tone_section(chapter_tone, secondary_key))
 
     if genre_key and mode in ("quality", "master"):
         _append_if(sections, "_contract", _load_genre_contract(genre_key))
@@ -379,6 +391,7 @@ def _build_module_sections(
     task_text: str,
     api_call_fn,
     secondary_key: str | None = None,
+    chapter_tone: str | None = None,
 ) -> list[tuple[str, str]]:
     """
     Загружает и форматирует секции модулей движка.
@@ -392,9 +405,10 @@ def _build_module_sections(
         task_text=task_text,
         api_call_fn=api_call_fn,
     )
-    # Модули второго жанра — сверх выбранных, какой бы ни была стратегия
+    # Модули второго слоя и тона главы — сверх выбранных, какой бы ни была стратегия
     from .genre_mix import secondary_modules
-    extra = [m for m in secondary_modules(secondary_key) if m not in modules]
+    wanted = secondary_modules(secondary_key) + secondary_modules(chapter_tone)
+    extra = [m for m in dict.fromkeys(wanted) if m not in modules]
     if extra:
         modules = resolve_dependencies(modules + extra)
     result = []
@@ -409,12 +423,13 @@ def _build_module_sections(
 
 def _clean_sections(sections: list[tuple[str, str]],
                     genre_key: str | None,
-                    secondary_key: str | None = None) -> list[tuple[str, str]]:
+                    secondary_key: str | None = None,
+                    extra: frozenset = frozenset()) -> list[tuple[str, str]]:
     """Убрать из разделов чужие жанровые варианты и пустые заголовки."""
     from .engine_extractors import drop_empty_headings, filter_genre_variants
     cleaned = []
     for name, content in sections:
-        content = drop_empty_headings(filter_genre_variants(content, genre_key, secondary_key))
+        content = drop_empty_headings(filter_genre_variants(content, genre_key, secondary_key, extra))
         if content:
             cleaned.append((name, content))
     return cleaned

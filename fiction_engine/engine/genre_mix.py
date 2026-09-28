@@ -27,23 +27,55 @@ from .engine_config import GENRE_KEYWORDS, GENRE_MODULES
 
 SECONDARY_HEADER = "[ВТОРОЙ ЖАНР"
 
-# Модификатор: название, профиль в profiles/GENRE/, модули базы
+CHAPTER_TONE_HEADER = "[ТОН ГЛАВЫ"
+
+_PROFILES = "05_CHARACTER_ENGINE/profiles/GENRE"
+_TONES = "17_TONE_LAYERS"
+
+# Модификатор (тон или аудитория): название, файл в базе, модули, жанровые
+# варианты модулей, которые он открывает, и можно ли взять его на одну главу.
+#
+# variants — метки «**ХОРРОР:** …» в модулях: у жути они ближе всего к делу,
+# и глава с жутью в детективе получает хоррор-подсказки, как второй жанр.
+# young_adult — аудитория всей книги: подростком на одну главу не станешь.
 MODIFIERS: dict[str, dict] = {
-    "comedy": {
-        "label": "Комедия",
-        "profile": "comedic.md",
-        "modules": ["15_dialogue_style", "11_micromoments_library"],
-    },
-    "young_adult": {
-        "label": "Подростковая проза (YA)",
-        "profile": "young_adult.md",
-        "modules": ["09_deep_character_psychology", "16_pov_filters"],
-    },
+    "comedy": {"label": "Комедия", "path": f"{_PROFILES}/comedic.md",
+               "modules": ["15_dialogue_style", "11_micromoments_library"],
+               "variants": frozenset(), "chapter": True},
+    "young_adult": {"label": "Подростковая проза (YA)", "path": f"{_PROFILES}/young_adult.md",
+                    "modules": ["09_deep_character_psychology", "16_pov_filters"],
+                    "variants": frozenset(), "chapter": False},
+    "dread":    {"label": "Жуть", "path": f"{_TONES}/dread.md",
+                 "modules": ["22_sensory_immersion", "14_narrative_distance"],
+                 "variants": frozenset({"ХОРРОР"}), "chapter": True},
+    "action":   {"label": "Экшн", "path": f"{_TONES}/action.md",
+                 "modules": ["18_beats_rhythm", "12_pacing_engine"],
+                 "variants": frozenset({"ТРИЛЛЕР"}), "chapter": True},
+    "suspense": {"label": "Саспенс", "path": f"{_TONES}/suspense.md",
+                 "modules": ["01_tension_curve", "13_foreshadowing_engine"],
+                 "variants": frozenset({"ТРИЛЛЕР"}), "chapter": True},
+    "lyric":    {"label": "Лирика", "path": f"{_TONES}/lyric.md",
+                 "modules": ["11_micromoments_library", "22_sensory_immersion"],
+                 "variants": frozenset({"РЕАЛИЗМ"}), "chapter": True},
+    "romance":  {"label": "Романтика", "path": f"{_TONES}/romance.md",
+                 "modules": ["17_character_chemistry", "10_subtext_engine"],
+                 "variants": frozenset({"РОМАНТИКА"}), "chapter": True},
+    "noir":     {"label": "Нуар", "path": f"{_TONES}/noir.md",
+                 "modules": ["21_voice_constructor", "10_subtext_engine"],
+                 "variants": frozenset({"НУАР"}), "chapter": True},
+    "satire":   {"label": "Сатира", "path": f"{_TONES}/satire.md",
+                 "modules": ["03_thematic_dna", "15_dialogue_style"],
+                 "variants": frozenset(), "chapter": True},
+    "epic":     {"label": "Эпика", "path": f"{_TONES}/epic.md",
+                 "modules": ["20_stakes_escalation", "14_narrative_distance"],
+                 "variants": frozenset({"ФЭНТЕЗИ"}), "chapter": True},
 }
 
-# Разделы профиля модификатора, которые идут в промпт. Архетипы, динамика
+# Разделы файла модификатора, которые идут в промпт. Архетипы, динамика
 # и диалог с примером — нет: пример реплики модель переносит в текст.
-_MODIFIER_SECTIONS = ("СУТЬ", "ОБЯЗАТЕЛЬНЫЕ ХАРАКТЕРИСТИКИ", "ТИПИЧНЫЕ ОШИБКИ")
+_MODIFIER_SECTIONS = ("СУТЬ", "ОБЯЗАТЕЛЬНЫЕ ХАРАКТЕРИСТИКИ", "ТИПИЧНЫЕ ОШИБКИ",
+                      "ПРИЁМЫ", "ОШИБКИ")
+_MISTAKE_SECTIONS = ("ТИПИЧНЫЕ ОШИБКИ", "ОШИБКИ")
 
 # Сколько модулей второго жанра добавлять: больше — и он перетягивает книгу
 SECONDARY_GENRE_MODULES = 2
@@ -116,12 +148,16 @@ def _contract_promises(key: str) -> list[str]:
 
 
 def _modifier_body(key: str) -> list[str]:
-    p = _engine_path() / "05_CHARACTER_ENGINE" / "profiles" / "GENRE" / MODIFIERS[key]["profile"]
+    p = _engine_path() / MODIFIERS[key]["path"]
     try:
         text = p.read_text(encoding="utf-8")
     except OSError:
         return []
     out: list[str] = []
+    # Суть у тонов — строкой «**Суть:** …» под заголовком файла
+    core = re.search(r"^\*\*Суть:\*\*\s*(.+)$", text, re.M)
+    if core:
+        out.append(f"- {core.group(1).strip()}")
     for title, body in re.findall(r"^## ([^\n]+)\n(.*?)(?=^## |\Z)", text, re.M | re.S):
         if not any(title.upper().startswith(s) for s in _MODIFIER_SECTIONS):
             continue
@@ -129,7 +165,7 @@ def _modifier_body(key: str) -> list[str]:
             line = raw.strip().replace("**", "")
             if not line or line == "---" or line.startswith("#"):
                 continue
-            if title.upper().startswith("ТИПИЧНЫЕ ОШИБКИ"):
+            if title.upper().startswith(_MISTAKE_SECTIONS):
                 line = "Избегай: " + line.lstrip("- ")
             out.append(line if line.startswith("- ") else f"- {line}")
     return out
@@ -161,3 +197,38 @@ def load_secondary_section(primary_key: str | None, key: str | None) -> str:
     if elements and len(promises) < 2:
         parts.append("Что в нём должно быть: " + "; ".join(elements[:5]) + ".")
     return "\n".join(parts)
+
+
+# ─── Тон главы ───────────────────────────────────────────────────────────────
+#
+# Тот же модификатор, но на одну главу и сверх второго слоя проекта:
+# «детектив + романтика», а седьмая глава ещё и с жутью. Хранится за
+# номером главы (chapter_tones), выбирается на страницах генерации.
+
+def is_chapter_tone(key: str | None) -> bool:
+    return bool(key) and key in MODIFIERS and MODIFIERS[key or ""]["chapter"]
+
+
+def chapter_tone_options() -> list[dict]:
+    return [{"key": k, "label": v["label"]} for k, v in MODIFIERS.items() if v["chapter"]]
+
+
+def load_chapter_tone_section(key: str | None, project_secondary: str | None = None) -> str:
+    """Раздел «Тон главы». Пусто — тона нет или он уже стоит на весь проект."""
+    if not is_chapter_tone(key) or key == project_secondary:
+        return ""
+    body = _modifier_body(key or "")
+    if not body:
+        return ""
+    return (f"{CHAPTER_TONE_HEADER}: {MODIFIERS[key or '']['label']}]\n"
+            f"Только эта глава звучит так — поверх жанра и второго слоя книги. "
+            f"Сюжет, персонажи и голос серии остаются прежними.\n" + "\n".join(body))
+
+
+def layer_variant_labels(*keys: str | None) -> frozenset:
+    """Метки жанровых вариантов модулей, которые открывают модификаторы."""
+    out: frozenset = frozenset()
+    for k in keys:
+        if k in MODIFIERS:
+            out = out | MODIFIERS[k or ""]["variants"]
+    return out

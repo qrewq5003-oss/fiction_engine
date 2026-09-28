@@ -70,6 +70,33 @@ def director_note_get(chapter_num):
     return jsonify({"note": note})
 
 
+@bp.route("/api/chapter_tone/<int:chapter_num>")
+def chapter_tone_get(chapter_num):
+    """Тон главы, варианты выбора и второй слой проекта (чтобы не дублировать его)."""
+    from engine.genre_mix import chapter_tone_options, project_secondary_key
+    current = get_current_project()
+    tone = None
+    if current:
+        from engine.db import get_chapter_tone
+        tone = get_chapter_tone(current["id"], chapter_num)
+    return jsonify({"tone": tone, "options": chapter_tone_options(),
+                    "project_layer": project_secondary_key(current)})
+
+
+@bp.route("/api/chapter_tone/<int:chapter_num>/save", methods=["POST"])
+def chapter_tone_save(chapter_num):
+    """Сохранить тон главы chapter_num. Пустое значение — без тона."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    from engine.db import set_chapter_tone
+    try:
+        set_chapter_tone(current["id"], chapter_num, (request.json or {}).get("tone") or None)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/chapter/<int:chapter_num>/text")
 def chapter_text_get(chapter_num):
     """Вернуть текст сохранённой главы для склейки."""

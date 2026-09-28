@@ -104,6 +104,9 @@ from .db_projects import (
     # Режиссёрские заметки
     save_director_note,
     get_director_note,
+    # Тон главы
+    set_chapter_tone,
+    get_chapter_tone,
     # Эталоны
     save_exemplar,
     get_exemplars,

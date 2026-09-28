@@ -1,0 +1,46 @@
+{# Тон главы (engine/genre_mix.py): выбор на страницах генерации и пайплайна.
+   Параметр: chapter_input_id — id поля с номером главы. Тон хранится за
+   номером главы и действует сверх второго слоя проекта. #}
+<div class="form-group">
+  <label>Тон главы</label>
+  <select id="chapter-tone-select" style="max-width:260px;">
+    <option value="">Без тона — как вся книга</option>
+  </select>
+  <div id="chapter-tone-hint" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+</div>
+<script>
+(function () {
+  const input = document.getElementById('{{ chapter_input_id }}');
+  const sel = document.getElementById('chapter-tone-select');
+  const hint = document.getElementById('chapter-tone-hint');
+  let filled = false;
+
+  async function load() {
+    const num = parseInt(input.value);
+    if (!num) return;
+    const r = await fetch(`/api/chapter_tone/${num}`).then(x => x.json()).catch(() => null);
+    if (!r) return;
+    if (!filled) {
+      for (const o of r.options) sel.add(new Option(o.label, o.key));
+      filled = true;
+    }
+    // Тон, который уже стоит на весь проект, на главу не предлагаем
+    for (const opt of sel.options) opt.disabled = !!opt.value && opt.value === r.project_layer;
+    sel.value = r.tone || '';
+    hint.textContent = r.tone ? 'Сохранён для главы ' + num : '';
+  }
+
+  sel.addEventListener('change', async () => {
+    const num = parseInt(input.value);
+    if (!num) return;
+    const r = await fetch(`/api/chapter_tone/${num}/save`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tone: sel.value})
+    }).then(x => x.json()).catch(() => ({error: 'сеть'}));
+    hint.textContent = r.error ? 'Ошибка: ' + r.error
+                     : (sel.value ? 'Сохранён для главы ' + num : 'Тон главы снят');
+  });
+  input.addEventListener('change', load);
+  document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
