@@ -22,7 +22,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 MODEL = "anthropic_direct::claude-test"
-CHAPTER_TEXT = "Герой вышел из дома и увидел дракона. " * 80  # ~3000 символов
+# Полная глава по объёму: короче MIN_CHAPTER_WORDS её дописывает второй
+# вызов (extend_short_chapter), и текст перестаёт совпадать с ответом модели.
+CHAPTER_TEXT = "Герой вышел из дома и увидел дракона. " * 400  # 2800 слов
 
 
 # ─── A. call_json ─────────────────────────────────────────────────────────────

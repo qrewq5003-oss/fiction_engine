@@ -413,5 +413,6 @@ from .pipeline_tasks import (        # noqa: E402,F401
     find_symbols_in_chapter, run_narrative_analysis,
     get_active_promises_for_project, run_batch_l3,
     check_voice_drift, auto_drift_check_if_needed,
-    detect_truncation, describe_truncation, _truncate_context_by_blocks,
+    detect_truncation, describe_truncation, extend_short_chapter,
+    _truncate_context_by_blocks,
 )
