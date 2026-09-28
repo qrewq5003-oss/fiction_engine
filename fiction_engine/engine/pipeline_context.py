@@ -182,6 +182,7 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
         return ""
     try:
         from .auto_router import route_by_keywords
+        from .style_profiles import project_style_key
         from .unified_engine import project_genre_key
         genre_key        = project_genre_key(project) or ""
         pre_selected     = None
@@ -201,6 +202,7 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
             task_text=task_text,
             api_call_fn=resolver_fn,
             pre_selected_modules=pre_selected,
+            style_key=project_style_key(project),
         )
     except Exception as e:
         handle_error("_build_engine_block", e, level=ErrorLevel.RECOVERABLE)

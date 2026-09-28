@@ -257,6 +257,7 @@ def build_engine_context(
     task_text: str = "",
     api_call_fn=None,
     pre_selected_modules: list | None = None,
+    style_key: str | None = None,
 ) -> str:
     """
     Собирает контекст UNIFIED_ENGINE.
@@ -279,7 +280,8 @@ def build_engine_context(
     from .pipeline_config import MIXED_CHARS_PER_TOKEN
     char_budget = int(token_budget * MIXED_CHARS_PER_TOKEN * 0.35)
 
-    fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text)
+    fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text,
+                                           style_key)
     module_sections = _build_module_sections(
         mode, genre_key, pre_selected_modules, task_text, api_call_fn
     )
@@ -308,6 +310,7 @@ def _build_fixed_sections(
     mode: str,
     include_dialectics: bool,
     task_text: str = "",
+    style_key: str | None = None,
 ) -> list[tuple[str, str]]:
     """
     Собирает фиксированные секции контекста (1-9).
@@ -321,6 +324,11 @@ def _build_fixed_sections(
     if genre_key:
         _append_if(sections, "_catalog", _load_genre_catalog(genre_key))
         _append_if(sections, "_genre_rules", _load_genre_prompt(genre_key, mode))
+
+    # Стиль серии — сразу за жанром: жанр говорит что, стиль — как.
+    # Во всех режимах: это выбор автора, а не подсказка по ситуации.
+    from .style_profiles import load_style_profile
+    _append_if(sections, "_style", load_style_profile(style_key))
 
     if genre_key and mode in ("quality", "master"):
         _append_if(sections, "_contract", _load_genre_contract(genre_key))
