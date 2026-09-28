@@ -121,3 +121,44 @@ def test_auto_score_after_save_passes_layers(project_id):
          patch("engine.db.get_api_key", return_value="k"):
         _auto_score_chapter(project_id, 4, TEXT, "anthropic::claude-test")
     assert "Тон этой главы: Нуар" in seen["layers"]
+
+
+# ─── Контракт второго жанра у судьи ──────────────────────────────────────────
+
+def test_judge_gets_secondary_genre_contract(project_id):
+    from engine.pipeline_steps import step_judge
+    from engine.genre_mix import SECONDARY_CONTRACT_HEADER
+    _project(project_id, "romance_contemporary")
+    call = Capture()
+    with patch("engine.pipeline_steps.save_pipeline_iteration"):
+        step_judge(1, 1, 4, "m", call, {"generated_text": TEXT, "critique": CRITIC_REPLY},
+                   project_id=project_id, genre_key="thriller_psychological")
+    system = call.calls[0]["system"]
+    assert f"{SECONDARY_CONTRACT_HEADER} (Современная романтика)" in system
+    assert "Химия на странице" in system, "пункты контракта второго жанра не дошли"
+    assert "не требуй" in system, "нет оговорки про обещания всей книги"
+    # основной контракт на месте и идёт раньше
+    assert system.index("ЧИТАТЕЛЬСКИЙ КОНТРАКТ ЖАНРА") < system.index(SECONDARY_CONTRACT_HEADER)
+
+
+def test_modifier_or_no_secondary_gives_no_contract(project_id):
+    from engine.genre_mix import SECONDARY_CONTRACT_HEADER, secondary_contract_for_judge
+    assert secondary_contract_for_judge(_project(project_id, "comedy")) == ""
+    assert secondary_contract_for_judge(_project(project_id)) == ""
+    assert secondary_contract_for_judge(None) == ""
+    from engine.pipeline_steps import step_judge
+    call = Capture()
+    with patch("engine.pipeline_steps.save_pipeline_iteration"):
+        step_judge(1, 1, 4, "m", call, {"generated_text": TEXT, "critique": CRITIC_REPLY},
+                   project_id=project_id, genre_key="thriller_psychological")
+    assert SECONDARY_CONTRACT_HEADER not in call.calls[0]["system"]
+
+
+def test_every_genre_has_promises_for_judge():
+    """Для любого из 35 жанров вторым слоем у судьи есть что проверять."""
+    from engine.engine_config import GENRE_KEYWORDS
+    from engine.genre_mix import secondary_contract_for_judge
+    for key in GENRE_KEYWORDS:
+        primary = "detective_classic" if key != "detective_classic" else "fantasy_dark"
+        text = secondary_contract_for_judge({"genre_key": primary, "genre_secondary": key})
+        assert text.count("\n- ") >= 2, key

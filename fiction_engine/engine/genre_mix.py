@@ -277,3 +277,33 @@ def review_layers_note(project: dict | None, chapter_num: int | None = None) -> 
         return ""
     return (f"{REVIEW_LAYERS_HEADER} (выбраны автором намеренно — оценивай с их учётом):\n"
             + "\n".join(lines))
+
+
+# ─── Контракт второго жанра для судьи ────────────────────────────────────────
+#
+# Судья проверял контракт только основного жанра: «детектив + романтика»
+# принимался с проваленной любовной линией. Обещания второго жанра идут
+# ему отдельно и мягче: второй линии может не быть в конкретной главе.
+
+SECONDARY_CONTRACT_HEADER = "ОБЕЩАНИЯ ВТОРОГО ЖАНРА"
+
+
+def secondary_contract_for_judge(project: dict | None) -> str:
+    """Обязательные пункты контракта второго жанра. Пусто — второго жанра нет
+    или вторым слоем стоит модификатор (у тона нет контракта)."""
+    key = project_secondary_key(project)
+    if not key or key in MODIFIERS:
+        return ""
+    from .unified_engine import project_genre_key
+    if key == project_genre_key(project):
+        return ""
+    promises = _contract_promises(key)
+    if not promises:
+        return ""
+    return (f"{SECONDARY_CONTRACT_HEADER} ({secondary_label(key)}) — вторая линия книги:\n"
+            + "\n".join(f"- {p}" for p in promises)
+            + "\n\nЕсли линия второго жанра в главе есть — эти обещания должны "
+              "выполняться; невыполненное — замечание в вердикте. Если её в этой "
+              "главе нет — это не нарушение. Обещания всей книги (финал, развязка, "
+              "чёрный момент) в отдельной главе не требуй. Контракт основного "
+              "жанра важнее.")
