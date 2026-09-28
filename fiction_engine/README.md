@@ -61,7 +61,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 39 модулей
+engine/                движок — 40 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -131,6 +131,7 @@ tests/                 pytest-набор
 | `error_policy.py` | Три уровня ошибок: RECOVERABLE / DEGRADED / FATAL |
 | `logger.py` | Структурированный лог в файл и в БД |
 | `voice_profiles.py` | Библиотека авторских голосов |
+| `style_profiles.py` | Стиль серии: выбор в проекте и раздел блока движка |
 | `peak_finales.py` | Разборы пиковых финалов для голосовых профилей |
 | `director_note.py` | Короткая инструкция движка самому себе |
 | `scene_editor.py` | Точечная правка куска текста |

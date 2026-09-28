@@ -84,6 +84,17 @@ def set_project_genre_key(project_id: int, genre_key: str | None) -> None:
                      (genre_key, project_id))
 
 
+def set_project_style_key(project_id: int, style_key: str | None) -> None:
+    """Сохранить стиль серии. None или «» — без стиля. Неизвестный — ошибка."""
+    from .style_profiles import is_style_key
+    style_key = style_key or None
+    if style_key and not is_style_key(style_key):
+        raise ValueError(f"неизвестный стиль: {style_key!r}")
+    with get_conn() as conn:
+        conn.execute("UPDATE projects SET style_key=? WHERE id=?",
+                     (style_key, project_id))
+
+
 def get_projects():
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(

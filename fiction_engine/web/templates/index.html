@@ -176,6 +176,37 @@
       </form>
     </div>
 
+    <!-- Стиль серии: как рассказана история. Жанр — что, стиль — как.
+         Пусто — блок движка без раздела стиля. -->
+    <div class="card">
+      <div class="card-title">🖋 Стиль серии</div>
+      <form method="POST" action="/project/style-key">
+        <div class="form-group">
+          <select name="style_key" id="style-key-select">
+            <option value="" data-suits="">Без стиля — только жанр</option>
+            {% for o in style_options %}
+            <option value="{{ o.key }}" data-suits="{{ o.suits }}"
+              {% if o.key == current.style_key %}selected{% endif %}>{{ o.label }}</option>
+            {% endfor %}
+          </select>
+          <div id="style-suits" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-full">Сохранить</button>
+      </form>
+    </div>
+    <script>
+      (function () {
+        const sel = document.getElementById('style-key-select');
+        const hint = document.getElementById('style-suits');
+        function show() {
+          const s = sel.options[sel.selectedIndex].dataset.suits;
+          hint.textContent = s ? 'Подходит для: ' + s : '';
+        }
+        sel.addEventListener('change', show);
+        show();
+      })();
+    </script>
+
     <!-- Быстрые действия -->
     <div class="card">
       <div class="card-title">⚡ Быстрые действия</div>

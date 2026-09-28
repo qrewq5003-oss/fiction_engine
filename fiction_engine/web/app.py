@@ -91,7 +91,9 @@ def index():
     # Для неподтверждённого проекта — что движок определил по тексту жанра:
     # это значение и предлагается автору подтвердить
     genre_suggested = project_genre_key(current) if current else None
+    from engine.style_profiles import list_style_profiles
     return render_template("index.html", projects=projects, current=current,
+                           style_options=list_style_profiles(),
                            chapters=chapters, pending_updates=pending,
                            genre_options=genre_options,
                            genre_labels={o["key"]: o["label"] for o in genre_options},
@@ -131,6 +133,22 @@ def project_genre_key_set():
         set_project_genre_key(current["id"],
                               request.form.get("genre_key", "").strip() or None)
         flash("Жанр для движка сохранён", "success")
+    except ValueError as e:
+        flash(f"Ошибка: {e}", "error")
+    return redirect(url_for("index"))
+
+
+@app.route("/project/style-key", methods=["POST"])
+def project_style_key_set():
+    """Выбрать стиль серии для активного проекта. Пустое значение — без стиля."""
+    from engine.db import set_project_style_key
+    current = get_current_project()
+    if not current:
+        flash("Сначала выбери проект", "error")
+        return redirect(url_for("index"))
+    try:
+        set_project_style_key(current["id"], request.form.get("style_key", "").strip() or None)
+        flash("Стиль серии сохранён", "success")
     except ValueError as e:
         flash(f"Ошибка: {e}", "error")
     return redirect(url_for("index"))

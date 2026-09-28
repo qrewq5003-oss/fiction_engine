@@ -66,6 +66,10 @@ def traced_runtime_files(kb: pathlib.Path) -> set[str]:
             get_all_genre_options()
             from engine.voice_profiles import get_genre_voices
             get_genre_voices()      # пресеты голосов на странице /voice
+            from engine.style_profiles import STYLE_LABELS, list_style_profiles, load_style_profile
+            list_style_profiles()   # выбор стиля на главной
+            for style in STYLE_LABELS:
+                load_style_profile(style)
     finally:
         loaders.get_engine_path = real_path
     return seen
