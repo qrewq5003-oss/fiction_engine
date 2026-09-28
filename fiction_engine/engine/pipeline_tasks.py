@@ -328,7 +328,7 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     }
 
 
-def score_text(text: str, genre: str, model_value: str) -> dict:
+def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dict:
     """
     Оценка текста главы через тот же SYS_CRITIC что использует основной пайплайн.
     Возвращает dict с ключами: voice, structure, characters, scenes, dialog,
@@ -369,6 +369,9 @@ def score_text(text: str, genre: str, model_value: str) -> dict:
     from .pipeline_config import (CRITIC_TEXT_LIMIT, ACCEPT_TOTAL,
                                   ACCEPT_MIN_CRITERION)
     prompt = f"Глава:\n\n{text[:CRITIC_TEXT_LIMIT]}"
+    # layers — genre_mix.review_layers_note: второй слой книги и тон главы
+    if layers:
+        prompt = f"{layers}\n\n---\n\n{prompt}"
 
     raw = _call(model_value, sys_critic, prompt, max_tokens=1200)
 

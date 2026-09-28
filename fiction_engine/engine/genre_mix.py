@@ -232,3 +232,48 @@ def layer_variant_labels(*keys: str | None) -> frozenset:
         if k in MODIFIERS:
             out = out | MODIFIERS[k or ""]["variants"]
     return out
+
+
+# ─── Слои для критика и судьи ────────────────────────────────────────────────
+#
+# Генератор видит второй слой и тон главы, а критик и судья — только
+# основной жанр. Лирическая глава в триллере для них «провисает», глава с
+# жутью в детективе «уходит от жанра» — и оценка снижается за то, что автор
+# выбрал нарочно. Эта справка говорит им, что выбрано, и что проверять:
+# удался ли слой.
+
+REVIEW_LAYERS_HEADER = "СЛОИ ГЛАВЫ"
+
+
+def _core(key: str) -> str:
+    body = _modifier_body(key)
+    return body[0][2:].rstrip(".") if body else ""
+
+
+def review_layers_note(project: dict | None, chapter_num: int | None = None) -> str:
+    """Справка о втором слое книги и тоне главы. Пусто — слоёв нет."""
+    if not project:
+        return ""
+    secondary = project_secondary_key(project)
+    tone = None
+    if chapter_num and project.get("id"):
+        from .db import get_chapter_tone
+        tone = get_chapter_tone(project["id"], chapter_num)
+        if not is_chapter_tone(tone) or tone == secondary:
+            tone = None
+    lines = []
+    if secondary in MODIFIERS:
+        lines.append(f"- Тон всей книги: {secondary_label(secondary)} — {_core(secondary or '')}. "
+                     f"Оцени, удался ли он.")
+    elif secondary:
+        lines.append(f"- Второй жанр книги: {secondary_label(secondary)}. Его линия — законная "
+                     f"часть главы, его обещания читателю тоже оцениваются.")
+    if tone:
+        lines.append(f"- Тон этой главы: {secondary_label(tone)} — {_core(tone)}. Глава нарочно "
+                     f"звучит иначе, чем обычно звучит жанр. Отход от привычного темпа и тона "
+                     f"жанра, который работает на этот тон, не снижает оценку; снижает — если "
+                     f"тон не получился.")
+    if not lines:
+        return ""
+    return (f"{REVIEW_LAYERS_HEADER} (выбраны автором намеренно — оценивай с их учётом):\n"
+            + "\n".join(lines))

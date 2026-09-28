@@ -222,7 +222,9 @@ def generation_score(gen_id):
     if not get_api_key(provider):
         return jsonify({"error": f"Нет API ключа для {provider}"}), 400
     try:
-        details = score_text(text, genre, scorer_model)
+        from engine.genre_mix import review_layers_note
+        details = score_text(text, genre, scorer_model,
+                             review_layers_note(current, rec.get("chapter_num")))
         save_generation_score(current["id"], gen_id, details["total"], details)
         return jsonify({"ok": True, "score": details})
     except Exception as e:

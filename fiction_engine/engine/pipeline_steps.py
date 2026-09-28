@@ -415,6 +415,18 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
         promises_text = "; ".join(str(p) for p in opened_promises[:5])
         context_blocks.append(f"ОТКРЫТЫЕ ОБЕЩАНИЯ (висят незакрытыми):\n{promises_text}")
 
+    # Второй слой книги и тон главы: без них критик снижает оценку за то,
+    # что автор выбрал нарочно (лирическая глава в триллере «провисает»)
+    if project_id:
+        try:
+            from .db import get_project
+            from .genre_mix import review_layers_note
+            layers = review_layers_note(get_project(project_id), chapter_num)
+            if layers:
+                context_blocks.append(layers)
+        except Exception as e:
+            handle_error(f"step_critique layers ({project_id})", e, level=ErrorLevel.RECOVERABLE)
+
     # Дополнительно: загрузить накопленные gaps из прошлых глав (не только текущей)
     if project_id and chapter_num > 1:
         try:
@@ -560,6 +572,21 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         except Exception as e:
             handle_error(f"step_judge genre_contract ({genre_key})", e,
                          level=ErrorLevel.RECOVERABLE)
+
+    # ── Слои главы: второй жанр книги и тон этой главы ───────────────────
+    if project_id:
+        try:
+            from .db import get_project
+            from .genre_mix import review_layers_note
+            layers = review_layers_note(get_project(project_id), chapter_num)
+            if layers:
+                sys_judge += (
+                    f"\n\n{layers}"
+                    "\n\nОтход от темпа или тона жанра, который работает на выбранный "
+                    "тон, — не нарушение контракта. Невыполненный тон — замечание."
+                )
+        except Exception as e:
+            handle_error(f"step_judge layers ({project_id})", e, level=ErrorLevel.RECOVERABLE)
 
     # ── Calibration hint: «ты обычно завышаешь на +3.2» ─────────────────
     if project_id:
