@@ -95,6 +95,23 @@ def set_project_style_key(project_id: int, style_key: str | None) -> None:
                      (style_key, project_id))
 
 
+def set_project_genre_secondary(project_id: int, key: str | None) -> None:
+    """
+    Второй жанр или модификатор проекта. None или «» — только основной жанр.
+    Неизвестный ключ или совпадение с основным жанром — ошибка.
+    """
+    from .genre_mix import is_secondary_key
+    from .unified_engine import project_genre_key
+    key = key or None
+    if key:
+        if not is_secondary_key(key):
+            raise ValueError(f"неизвестный второй жанр: {key!r}")
+        if key == project_genre_key(get_project(project_id)):
+            raise ValueError("второй жанр совпадает с основным")
+    with get_conn() as conn:
+        conn.execute("UPDATE projects SET genre_secondary=? WHERE id=?", (key, project_id))
+
+
 def get_projects():
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(

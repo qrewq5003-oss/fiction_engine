@@ -129,6 +129,7 @@ def init_db() -> None:
             genre       TEXT,
             genre_key   TEXT,
             style_key   TEXT,
+            genre_secondary TEXT,
             created_at  TEXT DEFAULT (datetime('now')),
             config      TEXT DEFAULT '{}'
         );
@@ -396,6 +397,8 @@ def _run_migrations() -> None:
         ("projects",           "genre_key",      "ALTER TABLE projects ADD COLUMN genre_key TEXT"),
         # Стиль серии (profiles/STYLE). NULL — не выбран, блок движка без него
         ("projects",           "style_key",      "ALTER TABLE projects ADD COLUMN style_key TEXT"),
+        # Второй жанр или модификатор (genre_mix.py). NULL — только основной
+        ("projects",           "genre_secondary", "ALTER TABLE projects ADD COLUMN genre_secondary TEXT"),
         ("voice_profiles",     "source",         "ALTER TABLE voice_profiles ADD COLUMN source TEXT DEFAULT 'custom'"),
         ("knowledge_base",     "auto_inject",    "ALTER TABLE knowledge_base ADD COLUMN auto_inject INTEGER DEFAULT 0"),
         ("engine_error_log",   "context",        "CREATE TABLE IF NOT EXISTS engine_error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, context TEXT NOT NULL, error TEXT NOT NULL, logged_at TEXT DEFAULT (datetime('now')))"),

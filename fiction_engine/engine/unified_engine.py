@@ -258,6 +258,7 @@ def build_engine_context(
     api_call_fn=None,
     pre_selected_modules: list | None = None,
     style_key: str | None = None,
+    secondary_key: str | None = None,
 ) -> str:
     """
     Собирает контекст UNIFIED_ENGINE.
@@ -280,16 +281,19 @@ def build_engine_context(
     from .pipeline_config import MIXED_CHARS_PER_TOKEN
     char_budget = int(token_budget * MIXED_CHARS_PER_TOKEN * 0.35)
 
+    from .genre_mix import is_secondary_key
+    if not is_secondary_key(secondary_key) or secondary_key == genre_key:
+        secondary_key = None
     fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text,
-                                           style_key)
+                                           style_key, secondary_key)
     module_sections = _build_module_sections(
-        mode, genre_key, pre_selected_modules, task_text, api_call_fn
+        mode, genre_key, pre_selected_modules, task_text, api_call_fn, secondary_key
     )
 
     # Шум вычищается до расчёта бюджета: правила чужих жанров и заголовки,
     # под которыми после выброса код-блоков ничего не осталось
-    fixed_sections = _clean_sections(fixed_sections, genre_key)
-    module_sections = _clean_sections(module_sections, genre_key)
+    fixed_sections = _clean_sections(fixed_sections, genre_key, secondary_key)
+    module_sections = _clean_sections(module_sections, genre_key, secondary_key)
 
     fixed_chars = sum(len(c) for _, c in fixed_sections)
     module_budget = max(char_budget - fixed_chars, char_budget // 2)
@@ -311,6 +315,7 @@ def _build_fixed_sections(
     include_dialectics: bool,
     task_text: str = "",
     style_key: str | None = None,
+    secondary_key: str | None = None,
 ) -> list[tuple[str, str]]:
     """
     Собирает фиксированные секции контекста (1-9).
@@ -329,6 +334,10 @@ def _build_fixed_sections(
     # Во всех режимах: это выбор автора, а не подсказка по ситуации.
     from .style_profiles import load_style_profile
     _append_if(sections, "_style", load_style_profile(style_key))
+
+    # Второй жанр или модификатор — за стилем: основной жанр уже задан
+    from .genre_mix import load_secondary_section
+    _append_if(sections, "_secondary", load_secondary_section(genre_key, secondary_key))
 
     if genre_key and mode in ("quality", "master"):
         _append_if(sections, "_contract", _load_genre_contract(genre_key))
@@ -369,6 +378,7 @@ def _build_module_sections(
     pre_selected_modules: list | None,
     task_text: str,
     api_call_fn,
+    secondary_key: str | None = None,
 ) -> list[tuple[str, str]]:
     """
     Загружает и форматирует секции модулей движка.
@@ -382,6 +392,11 @@ def _build_module_sections(
         task_text=task_text,
         api_call_fn=api_call_fn,
     )
+    # Модули второго жанра — сверх выбранных, какой бы ни была стратегия
+    from .genre_mix import secondary_modules
+    extra = [m for m in secondary_modules(secondary_key) if m not in modules]
+    if extra:
+        modules = resolve_dependencies(modules + extra)
     result = []
     for module in modules:
         content = _load_module(module, line_limit)
@@ -393,12 +408,13 @@ def _build_module_sections(
 
 
 def _clean_sections(sections: list[tuple[str, str]],
-                    genre_key: str | None) -> list[tuple[str, str]]:
+                    genre_key: str | None,
+                    secondary_key: str | None = None) -> list[tuple[str, str]]:
     """Убрать из разделов чужие жанровые варианты и пустые заголовки."""
     from .engine_extractors import drop_empty_headings, filter_genre_variants
     cleaned = []
     for name, content in sections:
-        content = drop_empty_headings(filter_genre_variants(content, genre_key))
+        content = drop_empty_headings(filter_genre_variants(content, genre_key, secondary_key))
         if content:
             cleaned.append((name, content))
     return cleaned

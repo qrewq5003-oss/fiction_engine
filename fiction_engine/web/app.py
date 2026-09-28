@@ -92,8 +92,10 @@ def index():
     # это значение и предлагается автору подтвердить
     genre_suggested = project_genre_key(current) if current else None
     from engine.style_profiles import list_style_profiles
+    from engine.genre_mix import secondary_options
     return render_template("index.html", projects=projects, current=current,
                            style_options=list_style_profiles(),
+                           secondary_options=secondary_options(),
                            chapters=chapters, pending_updates=pending,
                            genre_options=genre_options,
                            genre_labels={o["key"]: o["label"] for o in genre_options},
@@ -149,6 +151,23 @@ def project_style_key_set():
     try:
         set_project_style_key(current["id"], request.form.get("style_key", "").strip() or None)
         flash("Стиль серии сохранён", "success")
+    except ValueError as e:
+        flash(f"Ошибка: {e}", "error")
+    return redirect(url_for("index"))
+
+
+@app.route("/project/genre-secondary", methods=["POST"])
+def project_genre_secondary_set():
+    """Второй жанр или модификатор активного проекта. Пустое — только основной."""
+    from engine.db import set_project_genre_secondary
+    current = get_current_project()
+    if not current:
+        flash("Сначала выбери проект", "error")
+        return redirect(url_for("index"))
+    try:
+        set_project_genre_secondary(current["id"],
+                                    request.form.get("genre_secondary", "").strip() or None)
+        flash("Второй жанр сохранён", "success")
     except ValueError as e:
         flash(f"Ошибка: {e}", "error")
     return redirect(url_for("index"))
