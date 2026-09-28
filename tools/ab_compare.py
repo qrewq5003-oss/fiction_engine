@@ -36,9 +36,11 @@ _build_context, блок движка включён) на двух ревизи
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import random
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -226,7 +228,10 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
     app = app.resolve()
     keys = _read_real_keys(app)
     import engine.db_core as dbc
+    # Временная база — своя на прогон и удаляется после: 310 забытых каталогов
+    # заполнили /tmp так, что SQLite перестал создавать базы тестов (29.09)
     dbc.DB_PATH = Path(tempfile.mkdtemp(prefix="ab_")) / "ab.db"
+    atexit.register(shutil.rmtree, dbc.DB_PATH.parent, True)
     dbc.init_db()
     with dbc.get_conn() as conn:
         for provider, key in keys:

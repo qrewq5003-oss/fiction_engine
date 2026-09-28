@@ -1,0 +1,590 @@
+{
+ "date": "2026-09-29",
+ "old": "8722786",
+ "new": "a65d633",
+ "model": "nano_gpt::z-ai/glm-5.3",
+ "judges": [
+  "nano_gpt::moonshotai/kimi-k2.5",
+  "nano_gpt::deepseek/deepseek-v4-pro-0813"
+ ],
+ "repeats": 2,
+ "summary": {
+  "old": {
+   "total": 7.34,
+   "prose": 7.43,
+   "voice": 7.43,
+   "rhythm": 7.14,
+   "scene": 7.71,
+   "genre": 8.07,
+   "clean": 6.29
+  },
+  "new": {
+   "total": 7.27,
+   "prose": 7.33,
+   "voice": 7.07,
+   "rhythm": 7.4,
+   "scene": 7.67,
+   "genre": 7.8,
+   "clean": 6.33
+  }
+ },
+ "by_judge": {
+  "moonshotai/kimi-k2.5": {
+   "old": 7.45,
+   "new": 7.24
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "old": 7.27,
+   "new": 7.29
+  }
+ },
+ "pair_diffs": [
+  {
+   "genre": "detective_classic",
+   "run": 0,
+   "diff": 0.01
+  },
+  {
+   "genre": "detective_classic",
+   "run": 1,
+   "diff": -0.59
+  },
+  {
+   "genre": "detective_classic",
+   "run": 2,
+   "diff": 0.2
+  },
+  {
+   "genre": "detective_classic",
+   "run": 3,
+   "diff": 0.02
+  }
+ ],
+ "repeat_noise": 0.62,
+ "failed": 3,
+ "ratings": [
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 9.0,
+    "scene": 9.0,
+    "genre": 8.0,
+    "clean": 8.0
+   },
+   "total": 8.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.17,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": null,
+   "total": null,
+   "raw": "ошибка: Error code: 429 - {'error': {'message': 'Too many requests. Please slow down and try again shortly.', 'type': 'rate_limi"
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 6.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 6.83,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 6.0,
+    "scene": 8.0,
+    "genre": 7.0,
+    "clean": 6.0
+   },
+   "total": 6.83,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": null,
+   "total": null,
+   "raw": "ошибка: Error code: 429 - {'error': {'message': 'Too many requests. Please slow down and try again shortly.', 'type': 'rate_limi"
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 9.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 8.0,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": null,
+   "total": null,
+   "raw": "ошибка: Error code: 429 - {'error': {'message': 'Too many requests. Please slow down and try again shortly.', 'type': 'rate_limi"
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 5.0
+   },
+   "total": 7.0,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.83,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 6.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 6.83,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 6.0,
+    "rhythm": 7.0,
+    "scene": 6.0,
+    "genre": 7.0,
+    "clean": 6.0
+   },
+   "total": 6.5,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 6.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 7.0,
+    "genre": 7.0,
+    "clean": 6.0
+   },
+   "total": 7.0,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 5.0
+   },
+   "total": 7.0,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "detective_classic",
+   "run": 3,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 6.0,
+    "voice": 6.0,
+    "rhythm": 5.0,
+    "scene": 6.0,
+    "genre": 7.0,
+    "clean": 5.0
+   },
+   "total": 5.83,
+   "raw": null
+  }
+ ]
+}

@@ -1,0 +1,1030 @@
+[
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 0.0,
+   "3": 2.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 5,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 2.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 5,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 4,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 5,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": null
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 4,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": null
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 5,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 2.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 4,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 5,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 4,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 5,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 5,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 4,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 5,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 3,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 4,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 0.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "без",
+  "run": 3,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "без",
+  "run": 4,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 0.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "romance",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "suspense",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "без",
+  "run": 4,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 0.0,
+   "3": 1.0,
+   "4": 1.0,
+   "5": 1.0
+  }
+ },
+ {
+  "kind": "noir",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "action",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 0.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ }
+]
