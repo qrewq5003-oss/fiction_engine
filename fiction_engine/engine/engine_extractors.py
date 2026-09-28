@@ -182,9 +182,14 @@ _VARIANT_RE = re.compile(r"^\*\*([^*]+):\*\*")
 _ALL_VARIANT_LABELS = frozenset().union(*GENRE_VARIANT_LABELS.values())
 
 
-def filter_genre_variants(text: str, genre_key: str | None) -> str:
+def filter_genre_variants(text: str, genre_key: str | None,
+                          also: str | None = None) -> str:
     """
     Оставить из жанровых вариантов («**ХОРРОР:** …») только свой жанр.
+
+    also — второй жанр проекта (genre_mix.py): его варианты тоже остаются,
+    у «детектива + романтики» в модулях есть и детективные, и романтические
+    подсказки. Модификатор (комедия, YA) вариантов не имеет и ничего не добавляет.
 
     Жанр не определён — оставить все: универсальный промпт вправе видеть
     каждый вариант.
@@ -194,6 +199,7 @@ def filter_genre_variants(text: str, genre_key: str | None) -> str:
     own = GENRE_VARIANT_LABELS.get(genre_key.split("_")[0])
     if own is None:
         return text
+    own = own | GENRE_VARIANT_LABELS.get((also or "").split("_")[0], frozenset())
     out = []
     for line in text.split("\n"):
         m = _VARIANT_RE.match(line.strip())

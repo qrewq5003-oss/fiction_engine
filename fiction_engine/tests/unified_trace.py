@@ -70,6 +70,10 @@ def traced_runtime_files(kb: pathlib.Path) -> set[str]:
             list_style_profiles()   # выбор стиля на главной
             for style in STYLE_LABELS:
                 load_style_profile(style)
+            from engine.genre_mix import MODIFIERS, load_secondary_section, secondary_options
+            secondary_options()     # выбор второго жанра на главной
+            for key in list(MODIFIERS) + sorted(GENRE_KEYWORDS):
+                load_secondary_section(None, key)
     finally:
         loaders.get_engine_path = real_path
     return seen

@@ -176,6 +176,33 @@
       </form>
     </div>
 
+    <!-- Второй жанр: вторая линия книги (жанр) или тон и аудитория
+         (модификатор: комедия, YA). Основной жанр остаётся главным. -->
+    <div class="card">
+      <div class="card-title">🧬 Второй жанр</div>
+      <form method="POST" action="/project/genre-secondary">
+        <div class="form-group">
+          <select name="genre_secondary">
+            <option value="">Нет — только основной жанр</option>
+            {% for group in secondary_options|groupby('group')|reverse %}
+            <optgroup label="{{ group.grouper }}">
+              {% for o in group.list %}
+              {% if o.key != (current.genre_key or genre_suggested) %}
+              <option value="{{ o.key }}"
+                {% if o.key == current.genre_secondary %}selected{% endif %}>{{ o.label }}</option>
+              {% endif %}
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+          <div style="font-size:12px;color:var(--text2);margin-top:6px;">
+            Основной жанр задаёт структуру и финал; второй добавляет свою линию и обещания.
+          </div>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-full">Сохранить</button>
+      </form>
+    </div>
+
     <!-- Стиль серии: как рассказана история. Жанр — что, стиль — как.
          Пусто — блок движка без раздела стиля. -->
     <div class="card">
