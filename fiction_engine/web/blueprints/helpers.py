@@ -179,7 +179,9 @@ def _auto_score_chapter(project_id: int, chapter_num: int,
     genre   = project_genre_key(project) or ""
 
     try:
-        details = score_text(text, genre, scorer_model)
+        from engine.genre_mix import review_layers_note
+        details = score_text(text, genre, scorer_model,
+                             review_layers_note(project, chapter_num))
         save_chapter_score(project_id, chapter_num, details)
         return details.get("total")
     except Exception:
