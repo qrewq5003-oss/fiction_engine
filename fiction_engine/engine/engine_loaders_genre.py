@@ -260,6 +260,11 @@ _SUBGENRE_PROMPT_LABELS: dict[str, list[str]] = {
     "historical":       ["ИСТОРИЧЕСКАЯ:", "HISTORICAL:"],
     "paranormal":       ["ПАРАНОРМАЛЬНАЯ:"],
     "family_saga":      ["СЕМЕЙНАЯ САГА:"],
+    "legal":            ["ЮРИДИЧЕСКИЙ:"],
+    "medical":          ["МЕДИЦИНСКИЙ:"],
+    "adventure":        ["ПРИКЛЮЧЕНИЯ:"],
+    "magical":          ["МАГИЧЕСКИЙ РЕАЛИЗМ:"],
+    "alt_history":      ["АЛЬТЕРНАТИВНАЯ ИСТОРИЯ:"],
 }
 
 

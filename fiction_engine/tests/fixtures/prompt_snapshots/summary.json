@@ -194,7 +194,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 51739,
+    "chars": 51744,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -202,7 +202,7 @@
       "_base_rules": 335,
       "_catalog": 275,
       "_genre_rules": 806,
-      "_contract": 673,
+      "_contract": 678,
       "_anticliche": 3334,
       "_dialectics": 1466,
       "_dialectics_genre": 1061,
