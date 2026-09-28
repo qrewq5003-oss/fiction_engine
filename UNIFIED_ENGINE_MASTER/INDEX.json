@@ -1,7 +1,7 @@
 {
   "engine": "UNIFIED_ENGINE_MASTER",
   "version": "2.0",
-  "total_files": 239,
+  "total_files": 248,
   "changelog": "v2.0: во всех 25 модулях 03_ADVANCED_ENGINES — секции PROMPT:QUICK/PROMPT:FULL (ровно то, что уходит модели), MINI убраны. Добавлен runtime_files — файлы, которые читает движок; остальные — справочник для автора. files и total_files собраны с диска. | v1.8: 11_PROMPTS QUALITY/MASTER переписаны под машинное извлечение. Оригинальные шаблоны в 11_PROMPTS/templates/. Лимит извлечения 8→20 строк.",
   "files": {
     "00_CORE": [
@@ -275,6 +275,17 @@
       "scifi_contracts.md",
       "thriller_contracts.md"
     ],
+    "17_TONE_LAYERS": [
+      "README.md",
+      "action.md",
+      "dread.md",
+      "epic.md",
+      "lyric.md",
+      "noir.md",
+      "romance.md",
+      "satire.md",
+      "suspense.md"
+    ],
     ".": [
       "INDEX.json",
       "README.md"
@@ -517,6 +528,14 @@
     "16_GENRE_CONTRACT/romance_contracts.md",
     "16_GENRE_CONTRACT/scifi_contracts.md",
     "16_GENRE_CONTRACT/thriller_contracts.md",
+    "17_TONE_LAYERS/action.md",
+    "17_TONE_LAYERS/dread.md",
+    "17_TONE_LAYERS/epic.md",
+    "17_TONE_LAYERS/lyric.md",
+    "17_TONE_LAYERS/noir.md",
+    "17_TONE_LAYERS/romance.md",
+    "17_TONE_LAYERS/satire.md",
+    "17_TONE_LAYERS/suspense.md",
     "INDEX.json"
   ]
 }

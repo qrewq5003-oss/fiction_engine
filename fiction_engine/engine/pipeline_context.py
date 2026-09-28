@@ -177,11 +177,13 @@ def _build_exemplar_block(project_id: int) -> str:
 # ─── Engine контекст ─────────────────────────────────────────────────────────
 
 def _build_engine_block(project: dict, mode: str, model_value: str,
-                         task_text: str, api_call_fn) -> str:
+                         task_text: str, api_call_fn,
+                         chapter_num: int | None = None) -> str:
     if not project:
         return ""
     try:
         from .auto_router import route_by_keywords
+        from .db import get_chapter_tone
         from .genre_mix import project_secondary_key
         from .style_profiles import project_style_key
         from .unified_engine import project_genre_key
@@ -205,6 +207,8 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
             pre_selected_modules=pre_selected,
             style_key=project_style_key(project),
             secondary_key=project_secondary_key(project),
+            chapter_tone=(get_chapter_tone(project["id"], chapter_num)
+                          if chapter_num else None),
         )
     except Exception as e:
         handle_error("_build_engine_block", e, level=ErrorLevel.RECOVERABLE)
@@ -235,7 +239,8 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     l3_ctx         = get_cognitive_context(project_id, before_chapter=chapter_num)
     l3_block       = f"\n{l3_ctx}\n" if l3_ctx else ""
     prep_block     = f"\nПОДГОТОВКА АВТОРА:\n{prep}\n" if prep else ""
-    engine_ctx     = _build_engine_block(project, mode, model_value, task_text, api_call_fn)
+    engine_ctx     = _build_engine_block(project, mode, model_value, task_text, api_call_fn,
+                                         chapter_num)
     engine_block   = f"\n{engine_ctx}\n" if engine_ctx else ""
     symbols_ctx    = get_symbols_context(project_id)
     symbols_block  = f"\n{symbols_ctx}\n" if symbols_ctx else ""

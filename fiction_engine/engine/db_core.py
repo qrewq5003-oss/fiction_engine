@@ -275,6 +275,14 @@ def init_db() -> None:
         );
 
         -- ─── Режиссёрские заметки ──────────────────────────────────────────────
+        -- Тон отдельной главы (genre_mix.py): жуть, экшн, лирика…
+        CREATE TABLE IF NOT EXISTS chapter_tones (
+            project_id    INTEGER NOT NULL REFERENCES projects(id),
+            chapter_num   INTEGER NOT NULL,
+            tone          TEXT NOT NULL,
+            PRIMARY KEY (project_id, chapter_num)
+        );
+
         CREATE TABLE IF NOT EXISTS director_notes (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id    INTEGER NOT NULL REFERENCES projects(id),

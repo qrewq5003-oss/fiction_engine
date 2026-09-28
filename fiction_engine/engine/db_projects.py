@@ -39,6 +39,7 @@ from .db_narrative import (
     get_pipeline_iterations, finish_pipeline_run, get_pipeline_runs,
     init_pipeline_tables,
     save_director_note, get_director_note,
+    set_chapter_tone, get_chapter_tone,
     save_exemplar, get_exemplars, delete_exemplar,
     kb_get_all, kb_get, kb_save, kb_delete, kb_search, kb_get_auto_inject,
 )

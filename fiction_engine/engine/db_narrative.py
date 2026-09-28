@@ -424,6 +424,33 @@ def get_director_note(project_id: int, for_chapter: int) -> str | None:
     return row["note"] if row else None
 
 
+# ─── Тон главы ────────────────────────────────────────────────────────────────
+
+def set_chapter_tone(project_id: int, chapter_num: int, tone: str | None) -> None:
+    """Тон главы (genre_mix.MODIFIERS с chapter=True). Пусто — без тона."""
+    from .genre_mix import is_chapter_tone
+    tone = tone or None
+    if tone and not is_chapter_tone(tone):
+        raise ValueError(f"неизвестный тон главы: {tone!r}")
+    with get_conn() as conn:
+        if tone:
+            conn.execute(
+                """INSERT INTO chapter_tones (project_id, chapter_num, tone) VALUES (?,?,?)
+                   ON CONFLICT(project_id, chapter_num) DO UPDATE SET tone=excluded.tone""",
+                (project_id, chapter_num, tone))
+        else:
+            conn.execute("DELETE FROM chapter_tones WHERE project_id=? AND chapter_num=?",
+                         (project_id, chapter_num))
+
+
+def get_chapter_tone(project_id: int, chapter_num: int) -> str | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT tone FROM chapter_tones WHERE project_id=? AND chapter_num=?",
+            (project_id, chapter_num)).fetchone()
+    return row["tone"] if row else None
+
+
 # ─── Эталонные фрагменты ──────────────────────────────────────────────────────
 
 def save_exemplar(project_id: int, chapter_num: int, text: str, label: str = "") -> int:
