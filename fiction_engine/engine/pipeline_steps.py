@@ -577,8 +577,12 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     if project_id:
         try:
             from .db import get_project
-            from .genre_mix import review_layers_note
-            layers = review_layers_note(get_project(project_id), chapter_num)
+            from .genre_mix import review_layers_note, secondary_contract_for_judge
+            project = get_project(project_id)
+            second = secondary_contract_for_judge(project)
+            if second:
+                sys_judge += f"\n\n{second}"
+            layers = review_layers_note(project, chapter_num)
             if layers:
                 sys_judge += (
                     f"\n\n{layers}"
