@@ -448,6 +448,119 @@ def rate(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: 
     return 0
 
 
+# ─── Слабые места ────────────────────────────────────────────────────────────
+#
+# Оценка по шкале говорит «чистота 6.8», но не говорит, ЧТО грязно. Здесь
+# судья выписывает слабые места цитатами, с типом из закрытого списка и
+# обобщённой формой приёма — чтобы их можно было сложить по многим главам
+# и увидеть, какие обороты модель повторяет из главы в главу. Цитата
+# проверяется по тексту: выдуманная судьёй в сводку не идёт.
+
+FLAW_TYPES = {
+    "штамп": "затёртый оборот, клише",
+    "ии_оборот": "типичная ИИ-конструкция: «не X, а Y», тройки, мудрость в конце абзаца",
+    "эмоция_названа": "чувство названо словами вместо показа",
+    "повтор": "повтор слова, образа или конструкции",
+    "вода": "лишнее, пересказ, затянутость",
+    "логика": "нестыковка, ошибка факта или физики",
+    "язык": "грамматика, калька, чужой язык, неверное слово",
+    "диалог": "неживая речь, экспозиция в репликах",
+    "ритм": "монотонность, однотипные фразы подряд",
+    "другое": "",
+}
+
+FLAW_PROMPT = """Жанр: {genre}
+
+Ты редактор. Найди в главе до 8 самых заметных слабых мест — те, что
+редактор вычеркнул бы в первую очередь. Хвалить не нужно.
+
+Для каждого:
+- quote: точная цитата из текста, до 15 слов, без изменений;
+- type: одно из {types};
+- pattern: обобщённая форма приёма, если он повторяемый («не X, а Y»,
+  «сердце пропустило удар», «X, и Y, и Z» и т. п.), иначе пусто;
+- why: в чём проблема, до 12 слов.
+
+Типы: {legend}
+
+=== ГЛАВА ===
+{text}
+
+Ответь JSON без пояснений вокруг:
+{{"flaws": [{{"quote": "…", "type": "…", "pattern": "…", "why": "…"}}]}}"""
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[«»\"„“”…]", "", s)).strip().lower()
+
+
+def flaws(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    chapters = [(p.name, ch) for p in paths
+                for ch in json.loads(p.read_text(encoding="utf-8"))["chapters"] if ch["text"]]
+    legend = "; ".join(f"{k} — {v}" for k, v in FLAW_TYPES.items() if v)
+    jobs = [(src, ch, jm) for src, ch in chapters for jm in judges]
+
+    def run(job):
+        src, ch, jm = job
+        prompt = FLAW_PROMPT.format(genre=SEEDS[ch["genre"]]["genre"], types=", ".join(FLAW_TYPES),
+                                    legend=legend, text=ch["text"])
+        found: list[dict] = []
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=4000)) or {}
+            except Exception as e:
+                got = {"error": str(e)[:120]}
+            found = got.get("flaws", []) if isinstance(got, dict) else []
+            if found:
+                break
+        text_n = _norm(ch["text"])
+        items = []
+        for f in found:
+            if not isinstance(f, dict) or not f.get("quote"):
+                continue
+            items.append({"quote": f["quote"], "type": f.get("type", "другое"),
+                          "pattern": (f.get("pattern") or "").strip(), "why": f.get("why", ""),
+                          # цитата, которой нет в тексте, — выдумка судьи
+                          "verified": _norm(f["quote"]) in text_n})
+        print(f"  {src[:22]:22} {ch['genre']:24} #{ch['run']}  {jm.split('::')[-1]:28} "
+              f"→ {len(items)} ({sum(i['verified'] for i in items)} подтв.)", flush=True)
+        return {"source": src, "genre": ch["genre"], "run": ch["run"],
+                "judge": jm.split("::")[-1], "flaws": items}
+
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    real = [dict(f, chapter=(r["source"], r["genre"], r["run"]), judge=r["judge"])
+            for r in rows for f in r["flaws"] if f["verified"]]
+    by_type = Counter(f["type"] for f in real)
+    # Приём считается повторяемым, если встречается в разных главах
+    pat_chapters: dict[str, set] = {}
+    for f in real:
+        if f["pattern"]:
+            pat_chapters.setdefault(_norm(f["pattern"]), set()).add(f["chapter"])
+    patterns = sorted(((p, len(c)) for p, c in pat_chapters.items()), key=lambda x: -x[1])
+    total = sum(len(r["flaws"]) for r in rows)
+    report = {"date": date.today().isoformat(), "sources": [p.name for p in paths],
+              "judges": judges, "chapters": len(chapters),
+              "flaws_total": total, "flaws_verified": len(real),
+              "by_type": dict(by_type.most_common()),
+              "patterns": [{"pattern": p, "chapters": n} for p, n in patterns],
+              "rows": rows}
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"\n  глав {len(chapters)}, находок {total}, подтверждено цитатой {len(real)}")
+    for t, n in by_type.most_common():
+        print(f"  {t:16} {n}")
+    print("\n  приёмы в 2+ главах:")
+    for p, n in patterns:
+        if n >= 2:
+            print(f"  {n:3}  {p}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -468,10 +581,17 @@ def main() -> int:
     r.add_argument("--out", type=Path, required=True)
     r.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     r.add_argument("--workers", type=int, default=4)
+    fl = sub.add_parser("flaws", help="слабые места глав цитатами, сводка по типам и приёмам")
+    fl.add_argument("chapters", type=Path, nargs="+")
+    fl.add_argument("--out", type=Path, required=True)
+    fl.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    fl.add_argument("--workers", type=int, default=4)
     a = ap.parse_args()
     if a.cmd == "generate":
         sys.path.insert(0, str(a.app.resolve()))
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","))
+    if a.cmd == "flaws":
+        return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
         return rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
     return judge(a.old, a.new, a.out, a.judges.split(","))

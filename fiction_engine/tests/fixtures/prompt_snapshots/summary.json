@@ -1,6 +1,6 @@
 {
   "detective_classic__quick": {
-    "chars": 12998,
+    "chars": 13182,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -8,7 +8,7 @@
       "_base_rules": 335,
       "_catalog": 175,
       "_genre_rules": 397,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_char_profile": 818,
       "_writing_core": 537,
       "_pattern_lib": 1188,
@@ -21,7 +21,7 @@
     }
   },
   "detective_classic__quality": {
-    "chars": 41013,
+    "chars": 41197,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -30,7 +30,7 @@
       "_catalog": 175,
       "_genre_rules": 992,
       "_contract": 882,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_char_profile": 2459,
       "_writing_core": 2124,
       "_pattern_lib": 4051,
@@ -50,7 +50,7 @@
     }
   },
   "detective_classic__master": {
-    "chars": 52638,
+    "chars": 52822,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -59,7 +59,7 @@
       "_catalog": 175,
       "_genre_rules": 874,
       "_contract": 882,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_dialectics": 1466,
       "_dialectics_genre": 767,
       "_arc": 1771,
@@ -85,7 +85,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 49291,
+    "chars": 49475,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -94,7 +94,7 @@
       "_catalog": 315,
       "_genre_rules": 837,
       "_contract": 756,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_dialectics": 1466,
       "_dialectics_genre": 752,
       "_arc": 1399,
@@ -119,7 +119,7 @@
     }
   },
   "romance_historical__quality": {
-    "chars": 35261,
+    "chars": 35445,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -128,7 +128,7 @@
       "_catalog": 350,
       "_genre_rules": 1044,
       "_contract": 437,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_char_profile": 1900,
       "_writing_core": 2124,
       "_pattern_lib": 3899,
@@ -146,7 +146,7 @@
     }
   },
   "fantasy_urban__quality": {
-    "chars": 35222,
+    "chars": 35406,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -155,7 +155,7 @@
       "_catalog": 379,
       "_genre_rules": 1025,
       "_contract": 814,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_char_profile": 3162,
       "_writing_core": 2124,
       "_pattern_lib": 3892,
@@ -172,7 +172,7 @@
     }
   },
   "scifi_cyberpunk__quick": {
-    "chars": 15319,
+    "chars": 15503,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -180,7 +180,7 @@
       "_base_rules": 335,
       "_catalog": 299,
       "_genre_rules": 588,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_char_profile": 838,
       "_writing_core": 537,
       "_pattern_lib": 1188,
@@ -194,7 +194,7 @@
     }
   },
   "realism_family_saga__master": {
-    "chars": 51555,
+    "chars": 51739,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -203,7 +203,7 @@
       "_catalog": 275,
       "_genre_rules": 806,
       "_contract": 673,
-      "_anticliche": 3150,
+      "_anticliche": 3334,
       "_dialectics": 1466,
       "_dialectics_genre": 1061,
       "_arc": 421,
