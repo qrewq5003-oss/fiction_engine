@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""
+ab_adherence.py — слепая проверка: выполнены ли обещания жанра или тона.
+
+Зачем. Шкала ab_compare.py rate говорит, хороша ли проза, но не говорит,
+сработал ли именно жанровый слой: комедия, поджанр, тон. Здесь судья
+отвечает на вопросы из контракта слоя (0 — нет, 1 — частично, 2 — да),
+сначала цитатой-доказательством, не зная, какая это версия.
+
+Запуск: в каталоге лежат {вид}-old.json и {вид}-new.json (формат
+ab_compare.py generate); вид — ключ из Q ниже.
+
+    python tools/ab_adherence.py <каталог> comedy,legal
+
+Замер 28.09: детектив + комедия — 5.25 → 8.42 из 10, выше в 6 парах из 6
+(bench/ab-adherence-comedy-legal-2026-09-28.json).
+"""
+import sys, json, random, tempfile
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from statistics import mean
+sys.path.insert(0, "tools"); sys.path.insert(0, "fiction_engine")
+import ab_compare as ab
+import engine.db_core as dbc
+keys = ab._read_real_keys(Path("fiction_engine"))
+dbc.DB_PATH = Path(tempfile.mkdtemp()) / "x.db"; dbc.init_db()
+with dbc.get_conn() as c:
+    for p, k in keys: c.execute("INSERT OR REPLACE INTO api_keys (provider, api_key) VALUES (?,?)", (p, k))
+from engine.pipeline import _call
+from engine.pipeline_llm import parse_json
+
+Q = {
+ "legal": ["Правила судебного процесса точны и влияют на ход сцены (что можно спросить, что суд примет)",
+           "Допустимость доказательства работает как отдельный вопрос, помимо самого факта",
+           "Противник (прокурор) компетентен и делает подготовленный ход",
+           "Видна цена профессии или расхождение закона и справедливости",
+           "Юридические детали правдоподобны, без очевидной выдумки"],
+ "medical": ["Медицинские детали точны: симптомы, процедуры, дозы, сроки",
+             "Таймер биологический: состояние пациента ухудшается по своим законам",
+             "Есть настоящий этический выбор: протокол против спасения, правда против паники",
+             "Больница или система действует по своим интересам",
+             "Пациенты — люди с именами и близкими, а не случаи"],
+ "adventure": ["Цель пути конкретна и понятна",
+               "Место действует как противник: рельеф, погода, вода меняют план",
+               "Препятствие решается смекалкой и умением и чего-то стоит",
+               "Есть открытие — находка, которой читатель не ждал",
+               "Пространство понятно: где верх, где выход, что под ногами"],
+ "magical": ["Чудесное подано буднично, без удивления и объяснений",
+             "Персонажи не исследуют и не объясняют чудо",
+             "Чудо связано с человеческим чувством: горем, памятью, любовью",
+             "Быт вокруг точный и узнаваемый",
+             "Конфликт решают люди, чудо его не разрешает"],
+ "althist": ["Мир последовательно вырос из одной точки расхождения",
+             "Изменение видно в быту: вещи, слова, деньги, страхи",
+             "Персонажи живут в своём мире как в единственном, без сравнений с нашим",
+             "История мира подана через детали, без лекции-справки",
+             "У героя дилемма, возможная только в этом мире"],
+ "comedy": ["В главе есть смешные моменты — не один, а несколько",
+            "Юмор растёт из характеров, а не из глупости персонажей",
+            "Детективная линия сохранена: улики, проверка алиби, движение расследования",
+            "Юмор не разрушает напряжение и вес происходящего",
+            "Ирония или смешное есть в голосе рассказчика, а не только в репликах"],
+}
+PROMPT = """Жанр книги: {genre}. Задача главы: {task}
+
+Ответь на вопросы о главе. Оценка каждого: 0 — нет, 1 — частично, 2 — да, явно.
+Сначала приведи короткую цитату-доказательство, потом оценку.
+
+{qs}
+
+=== ГЛАВА ===
+{text}
+
+Ответь JSON без пояснений вокруг: {{"answers": [{{"q": 1, "quote": "…", "score": 0}}, …]}}"""
+
+def run(job):
+    kind, side, ch, jm = job
+    seed = ab.SEEDS[ch["genre"]]
+    qs = "\n".join(f"{i}. {q}" for i, q in enumerate(Q[kind], 1))
+    for _ in range(2):
+        try:
+            got = parse_json(_call(jm, "Ты строгий редактор. Отвечаешь только JSON.",
+                                   PROMPT.format(genre=seed["genre"], task=seed["task"], qs=qs, text=ch["text"]),
+                                   max_tokens=4000)) or {}
+            ans = {int(a["q"]): float(a["score"]) for a in got.get("answers", [])}
+            if len(ans) == len(Q[kind]):
+                return {"kind": kind, "side": side, "run": ch["run"], "judge": jm.split("::")[-1], "scores": ans}
+        except Exception:
+            pass
+    return {"kind": kind, "side": side, "run": ch["run"], "judge": jm.split("::")[-1], "scores": None}
+
+P = sys.argv[1]
+jobs = []
+KINDS = sys.argv[2].split(",") if len(sys.argv) > 2 else list(Q)
+Q = {k: Q[k] for k in KINDS}
+for kind, old, new in ((k, f"{k}-old", f"{k}-new") for k in KINDS):
+    for side, f in (("без", old), ("с", new)):
+        for ch in json.load(open(f"{P}/{f}.json"))["chapters"]:
+            for jm in ab.DEFAULT_JUDGES:
+                jobs.append((kind, side, ch, jm))
+random.Random(1).shuffle(jobs)
+res = list(ThreadPoolExecutor(6).map(run, jobs))
+json.dump(res, open(f"{P}/adherence-{'_'.join(KINDS)}.json", "w"), ensure_ascii=False, indent=1)
+for kind in Q:
+    print(f"\n== {kind}")
+    for i, q in enumerate(Q[kind], 1):
+        row = []
+        for side in ("без", "с"):
+            v = [r["scores"][i] for r in res if r["kind"] == kind and r["side"] == side and r["scores"]]
+            row.append(f"{mean(v):.2f}" if v else "—")
+        print(f"  {row[0]:>5} → {row[1]:<5} {q}")
+    for side in ("без", "с"):
+        v = [sum(r["scores"].values()) for r in res if r["kind"] == kind and r["side"] == side and r["scores"]]
+        print(f"  итого {side}: {mean(v):.2f} из {2*len(Q[kind])}  (оценок {len(v)})")
+print("\nне разобрано:", sum(1 for r in res if not r["scores"]), "из", len(res))

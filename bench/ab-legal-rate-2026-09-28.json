@@ -1,0 +1,470 @@
+{
+ "date": "2026-09-28",
+ "old": "8722786",
+ "new": "8722786",
+ "model": "nano_gpt::z-ai/glm-5.3",
+ "judges": [
+  "nano_gpt::moonshotai/kimi-k2.5",
+  "nano_gpt::deepseek/deepseek-v4-pro-0813"
+ ],
+ "repeats": 2,
+ "summary": {
+  "old": {
+   "total": 7.75,
+   "prose": 7.58,
+   "voice": 7.75,
+   "rhythm": 7.58,
+   "scene": 8.42,
+   "genre": 8.42,
+   "clean": 6.75
+  },
+  "new": {
+   "total": 7.56,
+   "prose": 7.5,
+   "voice": 7.58,
+   "rhythm": 7.25,
+   "scene": 8.17,
+   "genre": 8.25,
+   "clean": 6.58
+  }
+ },
+ "by_judge": {
+  "moonshotai/kimi-k2.5": {
+   "old": 7.64,
+   "new": 7.55
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "old": 7.86,
+   "new": 7.56
+  }
+ },
+ "pair_diffs": [
+  {
+   "genre": "thriller_legal",
+   "run": 0,
+   "diff": 0.13
+  },
+  {
+   "genre": "thriller_legal",
+   "run": 1,
+   "diff": -0.08
+  },
+  {
+   "genre": "thriller_legal",
+   "run": 2,
+   "diff": -0.62
+  }
+ ],
+ "repeat_noise": 0.64,
+ "failed": 0,
+ "ratings": [
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 6.0
+   },
+   "total": 8.0,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 6.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.0,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 6.0,
+    "scene": 7.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 6.83,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 9.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 8.0
+   },
+   "total": 8.33,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 7.83,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 6.0,
+    "rhythm": 6.0,
+    "scene": 7.0,
+    "genre": 7.0,
+    "clean": 5.0
+   },
+   "total": 6.33,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.33,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 9.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.33,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 7.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.17,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 7.83,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.17,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.17,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.83,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 7.0,
+    "rhythm": 8.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 6.0
+   },
+   "total": 7.5,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 2,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 0,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 8.0,
+   "raw": null
+  },
+  {
+   "side": "new",
+   "genre": "thriller_legal",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 8.0,
+    "voice": 8.0,
+    "rhythm": 7.0,
+    "scene": 8.0,
+    "genre": 8.0,
+    "clean": 7.0
+   },
+   "total": 7.67,
+   "raw": null
+  },
+  {
+   "side": "old",
+   "genre": "thriller_legal",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "repeat": 1,
+   "scores": {
+    "prose": 7.0,
+    "voice": 8.0,
+    "rhythm": 8.0,
+    "scene": 9.0,
+    "genre": 9.0,
+    "clean": 7.0
+   },
+   "total": 8.0,
+   "raw": null
+  }
+ ]
+}
