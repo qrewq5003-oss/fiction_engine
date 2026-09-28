@@ -61,7 +61,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 38 модулей
+engine/                движок — 39 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -83,6 +83,7 @@ tests/                 pytest-набор
 | `pricing.py` | Цены моделей и расчёт стоимости вызова |
 | `pipeline_context.py` | Сборка контекста для генерации |
 | `pipeline_drift.py` | Обнаружение дрейфа авторского голоса |
+| `foreign_words.py` | Английские вставки в русской главе: поиск и замена по предложениям |
 
 **Данные**
 

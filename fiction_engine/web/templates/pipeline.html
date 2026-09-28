@@ -386,6 +386,7 @@ function showResults(data) {
   }
   // Короткую главу движок дописал сам вторым запросом — сказать об этом
   if (data.extended) showToast('📏 ' + data.extended, 'info', 6000);
+  if (data.foreign_words) showToast('🔤 ' + data.foreign_words, 'info', 6000);
 
   // Дрейф голоса — показываем если пришло предупреждение
   const driftBanner = document.getElementById('drift-banner');
