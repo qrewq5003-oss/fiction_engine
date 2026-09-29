@@ -300,6 +300,10 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     text, foreign = clean_foreign_words(text, model_value, context_prompt, _call)
     if foreign:
         warning = (warning or "") + " " + foreign
+    from .pipeline_steps import and_chains_note
+    chains = and_chains_note(text)
+    if chains:
+        warning = (warning or "") + " " + chains
     word_count = len(text.split())
     if len(text.strip()) < 100:
         raise RuntimeError(f"Слишком короткий ответ: {text[:200]}")

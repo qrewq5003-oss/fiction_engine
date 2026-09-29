@@ -18,6 +18,38 @@ from .logger import get_logger
 log = get_logger(__name__)
 
 
+# ─── Цепочки «…, и …, и …» ────────────────────────────────────────────────────
+#
+# Замер 28.09 (bench/ab-flaws, ab-tics): цепочки в 22 главах из 24, до 28 в
+# одной. Строка в антиклише их не сократила (3.25 → 3.38 на 1000 слов):
+# это привычка синтаксиса модели, а не отдельный штамп. Лечить автоправкой
+# нельзя — это стиль, и иногда он уместен. Поэтому только сигнал автору,
+# когда норма из ai_cliches.md («не больше одной на страницу») превышена.
+
+_AND_CHAIN = r"[^,.!?…\n]{1,60},\s+и\s+[^,.!?…\n]{1,60},\s+и\s+[^.!?…\n]{1,60}"
+WORDS_PER_PAGE = 300
+
+
+def find_and_chains(text: str) -> dict:
+    """Цепочки «…, и …, и …»: число, норма для объёма, первые примеры."""
+    import re
+    found = [m.group().strip() for m in re.finditer(_AND_CHAIN, text or "")]
+    words = len((text or "").split())
+    limit = max(1, words // WORDS_PER_PAGE)
+    return {"count": len(found), "limit": limit, "examples": found[:3],
+            "too_many": len(found) > limit}
+
+
+def and_chains_note(text: str) -> str:
+    """Предупреждение автору, если цепочек больше нормы. Иначе пусто."""
+    c = find_and_chains(text)
+    if not c["too_many"]:
+        return ""
+    ex = "; ".join(f"«…{e[-70:]}»" for e in c["examples"][:2])
+    return (f"Цепочек «…, и …, и …» — {c['count']} при норме до {c['limit']} "
+            f"(одна на страницу). Например: {ex}.")
+
+
 # ─── R05: Анализ ритма предложений ───────────────────────────────────────────
 
 def analyze_sentence_rhythm(text: str) -> dict:
@@ -256,6 +288,9 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     gen_text, foreign = clean_foreign_words(gen_text, model_gen, full_prompt, call_fn)
     if foreign:
         results["foreign_words"] = foreign
+    chains = and_chains_note(gen_text)
+    if chains:
+        results["and_chains"] = chains
     save_pipeline_iteration(run_id, iteration, "generate", model_gen,
                              generation_prompt, gen_text)
     results["generated_text"] = gen_text

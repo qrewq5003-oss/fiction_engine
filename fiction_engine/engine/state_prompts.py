@@ -38,11 +38,20 @@ def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) ->
     director_note = get_director_note(project_id, chapter_num)
 
     if mode == "quick":
-        return _quick_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
+        prompt = _quick_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
     elif mode == "quality":
-        return _quality_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
+        prompt = _quality_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
     else:
-        return _master_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
+        prompt = _master_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
+
+    # Тон главы со своим ритмом (лирика, эпика, экшн) заменяет общую норму:
+    # две нормы спорили, и тон проигрывал (genre_mix.tone_rhythm_note)
+    from .db import get_chapter_tone
+    from .genre_mix import tone_rhythm_note
+    note = tone_rhythm_note(get_chapter_tone(project_id, chapter_num))
+    if note:
+        prompt = prompt.replace(_rhythm_block(), note)
+    return prompt
 
 
 def _extract_next_context(last_update: dict | None) -> str:
