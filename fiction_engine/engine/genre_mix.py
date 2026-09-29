@@ -50,13 +50,13 @@ MODIFIERS: dict[str, dict] = {
                  "variants": frozenset({"ХОРРОР"}), "chapter": True},
     "action":   {"label": "Экшн", "path": f"{_TONES}/action.md",
                  "modules": ["18_beats_rhythm", "12_pacing_engine"],
-                 "variants": frozenset({"ТРИЛЛЕР"}), "chapter": True},
+                 "variants": frozenset({"ТРИЛЛЕР"}), "chapter": True, "rhythm": True},
     "suspense": {"label": "Саспенс", "path": f"{_TONES}/suspense.md",
                  "modules": ["01_tension_curve", "13_foreshadowing_engine"],
                  "variants": frozenset({"ТРИЛЛЕР"}), "chapter": True},
     "lyric":    {"label": "Лирика", "path": f"{_TONES}/lyric.md",
                  "modules": ["11_micromoments_library", "22_sensory_immersion"],
-                 "variants": frozenset({"РЕАЛИЗМ"}), "chapter": True},
+                 "variants": frozenset({"РЕАЛИЗМ"}), "chapter": True, "rhythm": True},
     "romance":  {"label": "Романтика", "path": f"{_TONES}/romance.md",
                  "modules": ["17_character_chemistry", "10_subtext_engine"],
                  "variants": frozenset({"РОМАНТИКА"}), "chapter": True},
@@ -68,7 +68,7 @@ MODIFIERS: dict[str, dict] = {
                  "variants": frozenset(), "chapter": True},
     "epic":     {"label": "Эпика", "path": f"{_TONES}/epic.md",
                  "modules": ["20_stakes_escalation", "14_narrative_distance"],
-                 "variants": frozenset({"ФЭНТЕЗИ"}), "chapter": True},
+                 "variants": frozenset({"ФЭНТЕЗИ"}), "chapter": True, "rhythm": True},
 }
 
 # Разделы файла модификатора, которые идут в промпт. Архетипы, динамика
@@ -307,3 +307,21 @@ def secondary_contract_for_judge(project: dict | None) -> str:
               "главе нет — это не нарушение. Обещания всей книги (финал, развязка, "
               "чёрный момент) в отдельной главе не требуй. Контракт основного "
               "жанра важнее.")
+
+
+# ─── Ритм тона вместо общей нормы ────────────────────────────────────────────
+#
+# В промпт каждой главы идёт общая норма ритма (около 30 % коротких фраз,
+# 20 % длинных — pipeline_config.RHYTHM_TARGET) с пометкой «по этому тебя
+# оценивают». У лирики, эпики и экшна свой ритм, и две нормы спорили:
+# замер 28.09 — лирика дала среднюю фразу 13.2 слова при ориентире 15–20,
+# эпика 11.9. Для главы с таким тоном общая норма заменяется отсылкой к
+# тону (rhythm: True в MODIFIERS).
+
+def tone_rhythm_note(tone: str | None) -> str:
+    """Замена общей нормы ритма для главы с тоном, у которого свой ритм."""
+    if not is_chapter_tone(tone) or not MODIFIERS[tone or ""].get("rhythm"):
+        return ""
+    return (f"РИТМ ПРЕДЛОЖЕНИЙ — в этой главе его задаёт тон «{MODIFIERS[tone or '']['label']}»: "
+            f"держи длину фраз и долю диалога, названные в разделе «ТОН ГЛАВЫ». "
+            f"Общая норма ритма на эту главу не действует.")

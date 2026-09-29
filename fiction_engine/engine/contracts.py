@@ -340,6 +340,7 @@ class PipelineResultDict(TypedDict, total=False):
     drift_warning: str
     extended: str               # «Глава дописана вторым запросом: N → M слов»
     foreign_words: str          # «Исправлены английские вставки (N): …»
+    and_chains: str             # «Цепочек «…, и …, и …» — N при норме до M»
 
 
 # ─── Error Boundary ───────────────────────────────────────────────────────────
