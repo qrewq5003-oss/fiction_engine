@@ -224,7 +224,7 @@ def _git_rev(path: Path) -> str:
 
 def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
              as_genre: str | None = None, secondary: str | None = None,
-             tone: str | None = None) -> int:
+             tone: str | None = None, style: str | None = None) -> int:
     app = app.resolve()
     keys = _read_real_keys(app)
     import engine.db_core as dbc
@@ -253,7 +253,7 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
     pipeline._call = recording_call
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
-              "model": model, "mode": MODE, "as_genre": as_genre, "secondary": secondary, "tone": tone,
+              "model": model, "mode": MODE, "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
               "chapters": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -269,6 +269,8 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
                 db.set_project_genre_secondary(pid, secondary)
             if tone:
                 db.set_chapter_tone(pid, CHAPTER, tone)
+            if style:
+                db.set_project_style_key(pid, style)
             db.set_active_project(pid)
             db.save_chapter(pid, CHAPTER - 1, seed["prev"], "Предыдущая глава")
             db.update_state(pid, seed["state"], "", "")
@@ -666,6 +668,7 @@ def main() -> int:
     g.add_argument("--as-genre", default=None, help="ключ жанра проекта вместо ключа задачи")
     g.add_argument("--secondary", default=None, help="второй жанр или модификатор (comedy, young_adult)")
     g.add_argument("--tone", default=None, help="тон генерируемой главы (dread, lyric, action…)")
+    g.add_argument("--style", default=None, help="стиль серии (literary, modern_minimal…)")
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -686,7 +689,7 @@ def main() -> int:
     if a.cmd == "generate":
         sys.path.insert(0, str(a.app.resolve()))
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","),
-                        a.as_genre, a.secondary, a.tone)
+                        a.as_genre, a.secondary, a.tone, a.style)
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
