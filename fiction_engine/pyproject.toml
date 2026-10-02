@@ -56,3 +56,8 @@ web = ["templates/*.html", "static/*"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
+# Временные каталоги тестов — только упавших и только последнего прогона:
+# по умолчанию pytest хранит три прогона целиком (~650 МБ в /tmp), и вместе
+# с забытыми базами замеров это заполняло tmpfs до «database or disk is full»
+tmp_path_retention_count = 1
+tmp_path_retention_policy = "failed"

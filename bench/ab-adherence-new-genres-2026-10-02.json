@@ -1,0 +1,626 @@
+[
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 1.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 1.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 2,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 1.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 1.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 1.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 1,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "magical",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 0,
+  "judge": "deepseek/deepseek-v4-pro-0813",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "adventure",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "без",
+  "run": 2,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "althist",
+  "side": "без",
+  "run": 0,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 1.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ },
+ {
+  "kind": "medical",
+  "side": "с",
+  "run": 1,
+  "judge": "moonshotai/kimi-k2.5",
+  "scores": {
+   "1": 2.0,
+   "2": 2.0,
+   "3": 2.0,
+   "4": 2.0,
+   "5": 2.0
+  }
+ }
+]
