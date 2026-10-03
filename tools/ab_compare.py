@@ -792,7 +792,7 @@ def rate(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: 
         total = round(mean(scores.values()), 2) if scores else None
         print(f"  {side:3} {ch['genre']:24} #{ch['run']}  {jm.split('::')[-1]:28} "
               f"повтор {rep} → {total}", flush=True)
-        return {"side": side, "genre": ch["genre"], "run": ch["run"],
+        return {"side": side, "genre": ch["genre"], "run": ch["run"], "voice": ch.get("voice"),
                 "judge": jm.split("::")[-1], "repeat": rep, "scores": scores,
                 "total": total, "raw": None if scores else raw[:300]}
 
