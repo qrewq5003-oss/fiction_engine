@@ -15,7 +15,7 @@
    "R04_per_chapter": 0.0
   }
  },
- "judged": false,
+ "judged": true,
  "chapters": {
   "norules": [
    {
@@ -197,5 +197,992 @@
     "system_chars": 580
    }
   ]
- }
+ },
+ "judges": [
+  "nano_gpt::moonshotai/kimi-k2.5",
+  "nano_gpt::deepseek/deepseek-v4-pro-0813"
+ ],
+ "rate_norules": {
+  "date": "2026-10-03",
+  "old": "quick",
+  "new": "norules",
+  "model": "nano_gpt::z-ai/glm-5.3",
+  "judges": [
+   "nano_gpt::moonshotai/kimi-k2.5",
+   "nano_gpt::deepseek/deepseek-v4-pro-0813"
+  ],
+  "repeats": 2,
+  "summary": {
+   "old": {
+    "total": 7.72,
+    "prose": 7.71,
+    "voice": 7.55,
+    "rhythm": 7.48,
+    "scene": 8.35,
+    "genre": 8.32,
+    "clean": 6.9
+   },
+   "new": {
+    "total": 7.57,
+    "prose": 7.62,
+    "voice": 7.53,
+    "rhythm": 7.16,
+    "scene": 8.16,
+    "genre": 8.22,
+    "clean": 6.72
+   }
+  },
+  "by_judge": {
+   "moonshotai/kimi-k2.5": {
+    "old": 7.66,
+    "new": 7.63
+   },
+   "deepseek/deepseek-v4-pro-0813": {
+    "old": 7.78,
+    "new": 7.51
+   }
+  },
+  "pair_diffs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "diff": -0.29
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "diff": 0.21
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "diff": 0.54
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "diff": -0.42
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "diff": -0.5
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "diff": -0.21
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "diff": -0.41
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "diff": -0.21
+   }
+  ],
+  "repeat_noise": 0.44,
+  "failed": 1
+ },
+ "adherence_norules": [
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 1.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 1.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 1.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": null
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": null
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": null
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 0.0,
+    "3": 1.0,
+    "4": 2.0,
+    "5": 0.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 1.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  }
+ ],
+ "rate_noengine": {
+  "date": "2026-10-03",
+  "old": "quick",
+  "new": "noengine",
+  "model": "nano_gpt::z-ai/glm-5.3",
+  "judges": [
+   "nano_gpt::moonshotai/kimi-k2.5",
+   "nano_gpt::deepseek/deepseek-v4-pro-0813"
+  ],
+  "repeats": 2,
+  "summary": {
+   "old": {
+    "total": 7.66,
+    "prose": 7.62,
+    "voice": 7.78,
+    "rhythm": 7.44,
+    "scene": 8.06,
+    "genre": 8.25,
+    "clean": 6.81
+   },
+   "new": {
+    "total": 7.38,
+    "prose": 7.41,
+    "voice": 7.44,
+    "rhythm": 7.03,
+    "scene": 7.97,
+    "genre": 7.97,
+    "clean": 6.44
+   }
+  },
+  "by_judge": {
+   "moonshotai/kimi-k2.5": {
+    "old": 7.6,
+    "new": 7.41
+   },
+   "deepseek/deepseek-v4-pro-0813": {
+    "old": 7.72,
+    "new": 7.34
+   }
+  },
+  "pair_diffs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "diff": -0.5
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "diff": -0.62
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "diff": -0.54
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "diff": 0.54
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "diff": 0.29
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "diff": -0.46
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "diff": -0.29
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "diff": -0.71
+   }
+  ],
+  "repeat_noise": 0.47,
+  "failed": 0
+ },
+ "adherence_noengine": [
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 1.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 1.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 1.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 1.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": null
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "с",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "detective",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 1.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psyrealism",
+   "side": "без",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "darkfantasy",
+   "side": "без",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 2.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  },
+  {
+   "kind": "psythriller",
+   "side": "без",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "scores": {
+    "1": 1.0,
+    "2": 2.0,
+    "3": 2.0,
+    "4": 2.0,
+    "5": 2.0
+   }
+  }
+ ],
+ "note": "в rate old — полный блок QUICK, new — без раздела; в adherence «без» — полный блок, «с» — без раздела (метки инструмента)"
 }
