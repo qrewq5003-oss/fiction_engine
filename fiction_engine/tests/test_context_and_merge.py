@@ -314,3 +314,11 @@ def test_genre_voice_presets_have_no_rhythm_params():
         for word in ("Длина предложений", "Абзацы:", "Темп:"):
             assert word not in v["profile"], (v["source"], word)
         assert "Диалог:" in v["profile"], v["source"]
+
+
+def test_genre_voice_presets_have_concrete_devices():
+    """Пресет без конкретных приёмов не слышен в тексте (замер 04.10)."""
+    from engine.voice_profiles import get_genre_voices
+    for v in get_genre_voices():
+        assert "ПРИЁМЫ:" in v["profile"], v["source"]
+        assert "Вставь" not in v["profile"], v["source"]      # инструкции человеку
