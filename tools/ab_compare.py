@@ -224,7 +224,8 @@ def _git_rev(path: Path) -> str:
 
 def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
              as_genre: str | None = None, secondary: str | None = None,
-             tone: str | None = None, style: str | None = None) -> int:
+             tone: str | None = None, style: str | None = None,
+             mode: str = MODE) -> int:
     app = app.resolve()
     keys = _read_real_keys(app)
     import engine.db_core as dbc
@@ -253,7 +254,7 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
     pipeline._call = recording_call
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
-              "model": model, "mode": MODE, "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
+              "model": model, "mode": mode, "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
               "chapters": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -278,7 +279,7 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
             text, error, empty_retries = "", None, 0
             for attempt in range(EMPTY_RETRIES):
                 try:
-                    res = pipeline.run_generation(db.get_project(pid), CHAPTER, MODE, model, seed["task"])
+                    res = pipeline.run_generation(db.get_project(pid), CHAPTER, mode, model, seed["task"])
                     text, error = res["text"], None
                     break
                 except Exception as e:
@@ -669,6 +670,8 @@ def main() -> int:
     g.add_argument("--secondary", default=None, help="второй жанр или модификатор (comedy, young_adult)")
     g.add_argument("--tone", default=None, help="тон генерируемой главы (dread, lyric, action…)")
     g.add_argument("--style", default=None, help="стиль серии (literary, modern_minimal…)")
+    g.add_argument("--mode", default=MODE, choices=("quick", "quality", "master"),
+                   help="режим блока движка")
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -689,7 +692,7 @@ def main() -> int:
     if a.cmd == "generate":
         sys.path.insert(0, str(a.app.resolve()))
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","),
-                        a.as_genre, a.secondary, a.tone, a.style)
+                        a.as_genre, a.secondary, a.tone, a.style, a.mode)
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
