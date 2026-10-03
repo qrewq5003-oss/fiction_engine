@@ -222,11 +222,8 @@ def _git_rev(path: Path) -> str:
                           capture_output=True, text=True).stdout.strip()
 
 
-def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
-             as_genre: str | None = None, secondary: str | None = None,
-             tone: str | None = None, style: str | None = None,
-             mode: str = MODE, without: list[str] | None = None) -> int:
-    app = app.resolve()
+def _temp_db(app: Path) -> None:
+    """Временная база с ключами API из рабочей; рабочая только читается."""
     keys = _read_real_keys(app)
     import engine.db_core as dbc
     # Временная база — своя на прогон и удаляется после: 310 забытых каталогов
@@ -238,6 +235,30 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
         for provider, key in keys:
             conn.execute("INSERT OR REPLACE INTO api_keys (provider, api_key) VALUES (?,?)",
                          (provider, key))
+
+
+def _ablate(without: list[str] | None) -> None:
+    """
+    Абляция: раздел блока движка или весь блок отключается подменой
+    загрузчика — так меряется вклад одного слоя при прочих равных.
+    """
+    for name in without or []:
+        if name == "engine":
+            import engine.pipeline_context as pc
+            pc.build_engine_context = lambda *a, **k: ""
+        else:
+            import engine.unified_engine as ue
+            if not hasattr(ue, name):
+                raise SystemExit(f"нет загрузчика {name} в engine.unified_engine")
+            setattr(ue, name, lambda *a, **k: "")
+
+
+def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
+             as_genre: str | None = None, secondary: str | None = None,
+             tone: str | None = None, style: str | None = None,
+             mode: str = MODE, without: list[str] | None = None) -> int:
+    app = app.resolve()
+    _temp_db(app)
     import engine.db as db
     import engine.pipeline as pipeline
     from engine.pipeline_config import PROSE_MAX_TOKENS
@@ -252,18 +273,7 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
         return real_call(model_value, system, user, max_tokens=max_tokens, **kw)
 
     pipeline._call = recording_call
-
-    # Абляция: раздел блока движка или весь блок отключается подменой
-    # загрузчика — так меряется вклад одного слоя при прочих равных
-    for name in without or []:
-        if name == "engine":
-            import engine.pipeline_context as pc
-            pc.build_engine_context = lambda *a, **k: ""
-        else:
-            import engine.unified_engine as ue
-            if not hasattr(ue, name):
-                raise SystemExit(f"нет загрузчика {name} в engine.unified_engine")
-            setattr(ue, name, lambda *a, **k: "")
+    _ablate(without)
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
               "model": model, "mode": mode, "without": without or [], "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
@@ -310,6 +320,170 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
                   + (f"  ОШИБКА {error[:60]}" if error else ""), flush=True)
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
+# ─── Серия глав ──────────────────────────────────────────────────────────────
+#
+# Замер одной главы не видит того, что работает на серию: посев и расплату,
+# рост ставок, крючки между главами. Здесь главы пишутся подряд, и после
+# каждой делается то же, что при принятии главы в приложении: сохранение,
+# память L3, анализ главы и слияние его в State. Задача первой главы — из
+# посева, дальше одна и та же для обеих сторон.
+
+SERIES_NEXT_TASK = ("Следующая глава. Продолжи историю: развивай линии, открытые в "
+                    "предыдущих главах, и сдвинь главный конфликт.")
+
+SERIES_Q = [
+    "Детали, предметы или факты из ранних глав возвращаются позже и что-то значат (посев и расплата)",
+    "Ставки растут от главы к главе",
+    "Конец каждой главы цепляет, и следующая подхватывает этот крючок",
+    "Напряжение меняется осмысленно: нет плато и нет повторения одного уровня",
+    "Персонажи последовательны между главами: голос, мотивы, знание",
+    "Главы не повторяют друг друга: новые сцены, новые ходы, без пересказа",
+]
+
+
+def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
+           chapters: int, mode: str = "quick", without: list[str] | None = None) -> int:
+    app = app.resolve()
+    _temp_db(app)
+    import engine.db as db
+    import engine.pipeline as pipeline
+    from engine.state import analyze_chapter
+    _ablate(without)
+
+    result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
+              "model": model, "mode": mode, "without": without or [],
+              "chapters_per_series": chapters, "series": []}
+    for genre_key in genres:
+        seed = SEEDS[genre_key]
+        for run in range(runs):
+            pid = db.create_project(f"{genre_key}-{run}", seed["genre"])
+            db.set_project_genre_key(pid, genre_key)
+            db.set_active_project(pid)
+            db.save_chapter(pid, CHAPTER - 1, seed["prev"], "Предыдущая глава")
+            db.update_state(pid, seed["state"], "", "")
+            item = {"genre": genre_key, "run": run, "chapters": [], "errors": []}
+            for i in range(chapters):
+                num = CHAPTER + i
+                task = seed["task"] if i == 0 else SERIES_NEXT_TASK
+                t0, text = time.time(), ""
+                for _ in range(EMPTY_RETRIES):
+                    try:
+                        text = pipeline.run_generation(db.get_project(pid), num, mode, model, task)["text"]
+                        break
+                    except Exception as e:
+                        if "пустой ответ" not in str(e):
+                            item["errors"].append(f"гл.{num}: {str(e)[:200]}")
+                            break
+                if not text:
+                    break
+                db.save_chapter(pid, num, text, f"Глава {num}")
+                # Как при принятии главы: память L3 и State из анализа главы
+                try:
+                    pipeline.generate_l3(pid, num, text, model)
+                except Exception as e:
+                    item["errors"].append(f"L3 гл.{num}: {str(e)[:120]}")
+                try:
+                    upd = analyze_chapter(pid, num, model)
+                    for u in db.get_pending_updates(pid):
+                        if u["id"] == upd.get("update_id") and u.get("raw_analysis"):
+                            db.merge_analysis_into_state(pid, u["raw_analysis"], num)
+                            db.mark_update_applied(pid, u["id"])
+                except Exception as e:
+                    item["errors"].append(f"State гл.{num}: {str(e)[:120]}")
+                item["chapters"].append({"num": num, "task": task, "text": text,
+                                         "words": len(text.split())})
+                print(f"  {genre_key:24} #{run} гл.{num}  {len(text.split()):5} слов  "
+                      f"{round(time.time() - t0):4} с", flush=True)
+            result["series"].append(item)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
+SERIES_PROMPT = """Жанр: {genre}
+
+Перед тобой {n} глав подряд одной книги. Оцени их как серию, а не каждую
+отдельно. Каждый вопрос: 0 — нет, 1 — частично, 2 — да, явно. Сначала короткая
+цитата или указание на место, потом оценка. Затем общая оценка серии глав от 1
+до 10: насколько хочется читать дальше.
+
+{qs}
+
+{text}
+
+Ответь JSON без пояснений вокруг:
+{{"answers": [{{"q": 1, "quote": "…", "score": 0}}, …], "overall": N}}"""
+
+
+def series_rate(old_path: Path, new_path: Path, out: Path, judges: list[str],
+                workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean, stdev
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    sides = {"old": json.loads(old_path.read_text(encoding="utf-8")),
+             "new": json.loads(new_path.read_text(encoding="utf-8"))}
+    qs = "\n".join(f"{i}. {q}" for i, q in enumerate(SERIES_Q, 1))
+    jobs = [(side, it, jm, rep) for side, data in sides.items() for it in data["series"]
+            if len(it["chapters"]) == data["chapters_per_series"]
+            for jm in judges for rep in range(REPEATS)]
+    random.Random(20261003).shuffle(jobs)
+
+    def run(job):
+        side, it, jm, rep = job
+        text = "\n\n".join(f"=== ГЛАВА {c['num']} ===\n{c['text']}" for c in it["chapters"])
+        prompt = SERIES_PROMPT.format(genre=SEEDS[it["genre"]]["genre"], n=len(it["chapters"]),
+                                      qs=qs, text=text)
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=3000)) or {}
+                ans = {int(a["q"]): float(a["score"]) for a in got.get("answers", [])}
+                if len(ans) == len(SERIES_Q) and "overall" in got:
+                    print(f"  {side:3} {it['genre']:24} #{it['run']} {jm.split('::')[-1]:28} "
+                          f"повтор {rep} → {sum(ans.values())} / {got['overall']}", flush=True)
+                    return {"side": side, "genre": it["genre"], "run": it["run"],
+                            "judge": jm.split("::")[-1], "scores": ans,
+                            "overall": float(got["overall"])}
+            except Exception:
+                pass
+        return {"side": side, "genre": it["genre"], "run": it["run"],
+                "judge": jm.split("::")[-1], "scores": None, "overall": None}
+
+    with ThreadPoolExecutor(workers) as pool:
+        rows = [r for r in pool.map(run, jobs)]
+    ok = [r for r in rows if r["scores"]]
+    report: dict = {"date": date.today().isoformat(), "old": sides["old"].get("without"),
+                    "new": sides["new"].get("without"), "judges": judges,
+                    "failed": len(rows) - len(ok), "rows": rows, "questions": SERIES_Q}
+    print()
+    for i, q in enumerate(SERIES_Q, 1):
+        o = mean(r["scores"][i] for r in ok if r["side"] == "old")
+        n = mean(r["scores"][i] for r in ok if r["side"] == "new")
+        print(f"  {o:5.2f} → {n:<5.2f} {q}")
+    for key in ("sum", "overall"):
+        val = (lambda r: sum(r["scores"].values())) if key == "sum" else (lambda r: r["overall"])
+        diffs = []
+        for g in SEEDS:
+            for run_ in {r["run"] for r in ok if r["genre"] == g}:
+                o = [val(r) for r in ok if r["genre"] == g and r["run"] == run_ and r["side"] == "old"]
+                n = [val(r) for r in ok if r["genre"] == g and r["run"] == run_ and r["side"] == "new"]
+                if o and n:
+                    diffs.append(mean(n) - mean(o))
+        se = stdev(diffs) / len(diffs) ** .5 if len(diffs) > 1 else float("nan")
+        report[key] = {"old": mean(val(r) for r in ok if r["side"] == "old"),
+                       "new": mean(val(r) for r in ok if r["side"] == "new"),
+                       "pair_mean": mean(diffs) if diffs else None, "pair_se": se,
+                       "pairs": len(diffs), "new_higher": sum(d > 0 for d in diffs)}
+        r_ = report[key]
+        print(f"  {key:8} старая {r_['old']:.2f}  новая {r_['new']:.2f}  "
+              f"по парам {r_['pair_mean']:+.2f} ± {se:.2f}  новая выше в {r_['new_higher']} из {len(diffs)}")
+    print(f"  не разобрано {report['failed']} из {len(rows)}")
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0
 
 
@@ -687,6 +861,21 @@ def main() -> int:
     g.add_argument("--without", default="",
                    help="отключить загрузчики блока через запятую (_load_base_rules…) "
                         "или весь блок: engine")
+    se = sub.add_parser("series", help="главы подряд с обновлением State между ними")
+    se.add_argument("--app", type=Path, required=True)
+    se.add_argument("--out", type=Path, required=True)
+    se.add_argument("--model", default=DEFAULT_GEN)
+    se.add_argument("--runs", type=int, default=2)
+    se.add_argument("--chapters", type=int, default=3)
+    se.add_argument("--genres", default="detective_classic,fantasy_dark,thriller_psychological,realism_psychological")
+    se.add_argument("--mode", default="quick", choices=("quick", "quality", "master"))
+    se.add_argument("--without", default="")
+    sr = sub.add_parser("series-rate", help="оценка серий глав по вопросам о серии")
+    sr.add_argument("old", type=Path)
+    sr.add_argument("new", type=Path)
+    sr.add_argument("--out", type=Path, required=True)
+    sr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    sr.add_argument("--workers", type=int, default=4)
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -709,6 +898,12 @@ def main() -> int:
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","),
                         a.as_genre, a.secondary, a.tone, a.style, a.mode,
                         [w for w in a.without.split(",") if w])
+    if a.cmd == "series":
+        sys.path.insert(0, str(a.app.resolve()))
+        return series(a.app, a.out, a.model, a.runs, a.genres.split(","), a.chapters,
+                      a.mode, [w for w in a.without.split(",") if w])
+    if a.cmd == "series-rate":
+        return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
