@@ -269,6 +269,8 @@ def build_engine_context(
     Этот метод — чистый orchestrator.
     """
     if not engine_available():
+        from .engine_issues import note_engine_issue
+        note_engine_issue("каталог базы знаний не найден, блок движка пуст")
         return ""
 
     mode = mode if mode in MODE_MODULES else "quick"
@@ -290,6 +292,8 @@ def build_engine_context(
         chapter_tone = None
     fixed_sections = _build_fixed_sections(genre_key, mode, include_dialectics, task_text,
                                            style_key, secondary_key, chapter_tone)
+    _note_missing_sections(fixed_sections, genre_key, mode,
+                           style_key, secondary_key, chapter_tone)
     module_sections = _build_module_sections(
         mode, genre_key, pre_selected_modules, task_text, api_call_fn, secondary_key,
         chapter_tone
@@ -314,6 +318,55 @@ def build_engine_context(
     header = f"=== UNIFIED ENGINE v3 / {mode.upper()} / {genre_label} ==="
     body = "\n\n---\n\n".join(c for _, c in sections)
     return header + "\n\n" + body + "\n\n=== / UNIFIED ENGINE ==="
+
+
+# Разделы, которые база даёт для каждого жанра (это проверяет
+# tests/test_unified_contract.py). Пустой — значит, сломан файл базы или
+# путь к ней, и автор должен это увидеть, а не только лог.
+_SECTION_NAMES = {
+    "_base_rules":   "базовые правила",
+    "_catalog":      "каталог жанра",
+    "_genre_rules":  "правила жанра",
+    "_contract":     "читательский контракт",
+    "_anticliche":   "антиклише",
+    "_char_profile": "профиль персонажа жанра",
+    "_arc":          "шаблон арки",
+    "_style":        "стиль серии",
+    "_secondary":    "второй жанр",
+    "_chapter_tone": "тон главы",
+}
+
+
+def _note_missing_sections(
+    sections: list[tuple[str, str]],
+    genre_key: str | None,
+    mode: str,
+    style_key: str | None,
+    secondary_key: str | None,
+    chapter_tone: str | None,
+) -> None:
+    """Отметить обязательные разделы, которые не собрались."""
+    from .engine_issues import note_engine_issue
+    expected = ["_base_rules", "_anticliche"]
+    if genre_key:
+        expected += ["_catalog", "_genre_rules", "_char_profile"]
+        if mode in ("quality", "master"):
+            expected.append("_contract")
+        if mode == "master":
+            expected.append("_arc")
+    # Выбор автора: раз задан, раздел должен быть
+    from .style_profiles import is_style_key
+    if is_style_key(style_key):
+        expected.append("_style")
+    if secondary_key:
+        expected.append("_secondary")
+    if chapter_tone:
+        expected.append("_chapter_tone")
+    present = {name for name, _ in sections}
+    for name in expected:
+        if name not in present:
+            note_engine_issue(f"не собран раздел «{_SECTION_NAMES[name]}»"
+                              + (f" ({genre_key})" if genre_key else ""))
 
 
 def _build_fixed_sections(

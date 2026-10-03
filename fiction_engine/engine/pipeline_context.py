@@ -211,7 +211,11 @@ def _build_engine_block(project: dict, mode: str, model_value: str,
                           if chapter_num else None),
         )
     except Exception as e:
-        handle_error("_build_engine_block", e, level=ErrorLevel.RECOVERABLE)
+        # Генерация идёт дальше, но без базы знаний глава заметно хуже —
+        # автор должен это увидеть в предупреждении, а не только в логе (F4)
+        handle_error("_build_engine_block", e, level=ErrorLevel.DEGRADED)
+        from .engine_issues import note_engine_issue
+        note_engine_issue(f"блок движка не собран: {type(e).__name__}")
         return ""
 
 

@@ -12,6 +12,12 @@ from .engine_config import (
     CONTRACT_MAP, SUBGENRE_CONTRACT_LABELS,
     CHAR_FULL_KEY_MAP, CHAR_FAMILY_FALLBACK, ANTAGONIST_GENRE_MAP,
 )
+from .logger import get_logger
+
+# Загрузчик только пишет в лог, почему раздел пуст. Автору пропажу
+# показывает сборка блока (unified_engine._note_missing_sections):
+# там известно, какой раздел в этом режиме обязателен.
+log = get_logger(__name__)
 
 
 def load_genre_catalog(engine_path: Path, genre_key: str) -> str:
@@ -32,7 +38,8 @@ def load_genre_catalog(engine_path: Path, genre_key: str) -> str:
         if data.get("character_arcs"):
             parts.append(f"Арки: {data['character_arcs']}")
         return "\n".join(parts)
-    except Exception:
+    except Exception as e:
+        log.error("каталог жанра не прочитан", e, reason=genre_key)
         return ""
 
 
@@ -52,23 +59,28 @@ def load_genre_contract(engine_path: Path, genre_key: str) -> str:
         return ""
     content = p.read_text(encoding="utf-8")
     target = SUBGENRE_CONTRACT_LABELS.get(genre_key, "")
+    if not target:
+        log.warning("нет метки контракта", f"{genre_key}: SUBGENRE_CONTRACT_LABELS")
+        return ""
 
-    lines = content.split("\n")
     result = []
     in_section = False
-    for line in lines:
+    for line in content.split("\n"):
         if line.startswith("## "):
-            if target and target.upper() in line.upper():
+            if target.upper() in line.upper():
                 in_section = True
             elif in_section:
                 break
-        if in_section or (not target and line.strip()):
+        if in_section:
             result.append(line)
         if len(result) >= 30:
             break
 
+    # Раньше без своего раздела брались первые строки файла — то есть
+    # контракт первого поджанра в нём (U1). Чужой контракт хуже пустого.
     if not result:
-        result = [l for l in lines if l.strip()][:25]
+        log.warning("раздел контракта не найден", f"{genre_key}: «{target}» в {fname}")
+        return ""
 
     return "ЧИТАТЕЛЬСКИЙ КОНТРАКТ ЖАНРА:\n" + "\n".join(result)
 
@@ -154,7 +166,8 @@ def load_character_profile(engine_path: Path, genre_key: str) -> str:
         profile_text = profile_path.read_text(encoding="utf-8").strip()
         ant_section = _load_antagonist_section(engine_path, genre_family, subgenre)
         return f"ПРОФИЛЬ ПЕРСОНАЖА ({genre_key}):\n{profile_text}{ant_section}"
-    except Exception:
+    except Exception as e:
+        log.error("профиль персонажа не прочитан", e, reason=genre_key)
         return ""
 
 
@@ -230,7 +243,8 @@ def load_catalog_subgenre_hint(engine_path: Path, genre_key: str) -> str:
         if not lines:
             return ""
         return "СПЕЦИФИКА ПОДЖАНРА:\n" + "\n".join(lines)
-    except Exception:
+    except Exception as e:
+        log.error("специфика поджанра не прочитана", e, reason=genre_key)
         return ""
 
 
@@ -288,40 +302,44 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
         return ""
     try:
         text = path.read_text(encoding="utf-8")
-        result = _extract_subgenre_block(text, genre_key, subgenre)
-        if result:
-            # Если блок тонкий (компактный 1-строчный формат QUALITY/MASTER),
-            # добираем из QUICK-файла — там правила развёрнуты
-            if len(result) < 200 and mode.upper() != "QUICK":
-                quick_path = engine_path / "11_PROMPTS" / f"{family}_QUICK.md"
-                if quick_path.exists():
-                    try:
-                        quick_text = quick_path.read_text(encoding="utf-8")
-                        quick_block = _extract_subgenre_block(quick_text, genre_key, subgenre)
-                        # Добавляем только строки которых нет в текущем результате
-                        if quick_block:
-                            existing_lines = set(result.splitlines())
-                            extra = [
-                                l for l in quick_block.splitlines()
-                                if l.strip() and l not in existing_lines
-                                and not l.startswith("ПРАВИЛА ЖАНРА")
-                            ]
-                            if extra:
-                                result = result + "\n" + "\n".join(extra)
-                    except Exception as e:
-                        # Без QUICK-блока промпт беднее, но рабочий.
-                        # Молчать нельзя: отказ чтения файла базы знаний
-                        # иначе не проявится нигде.
-                        from .logger import get_logger
-                        get_logger(__name__).error(
-                            "жанровый блок QUICK не подклеен", e,
-                            reason=genre_key)
-            # Всегда добавляем каталожную специфику поджанра
-            catalog_addon = load_catalog_subgenre_hint(engine_path, genre_key)
-            return (result + "\n" + catalog_addon) if catalog_addon else result
-        return _extract_quality_rules_fallback(text, genre_key, family, engine_path)
-    except Exception:
+    except Exception as e:
+        log.error("жанровые правила не прочитаны", e, reason=genre_key)
         return ""
+    result = _extract_subgenre_block(text, genre_key, subgenre)
+    if not result:
+        # Раньше тут шёл запасной разбор «ПРАВИЛА КАЧЕСТВА» семейства.
+        # Для всех ключей блок поджанра есть (test_unified_contract),
+        # так что запасной путь не выполнялся, а сработав для нового
+        # ключа, молча отдал бы общие правила вместо своих.
+        log.warning("блок правил поджанра не найден", f"{genre_key}: {path.name}")
+        return ""
+    # Если блок тонкий (компактный 1-строчный формат QUALITY/MASTER),
+    # добираем из QUICK-файла — там правила развёрнуты
+    if len(result) < 200 and mode.upper() != "QUICK":
+        quick_path = engine_path / "11_PROMPTS" / f"{family}_QUICK.md"
+        if quick_path.exists():
+            try:
+                quick_text = quick_path.read_text(encoding="utf-8")
+            except Exception as e:
+                # Без QUICK-блока промпт беднее, но рабочий.
+                # Молчать нельзя: отказ чтения файла базы знаний
+                # иначе не проявится нигде.
+                log.error("жанровый блок QUICK не подклеен", e, reason=genre_key)
+                quick_text = ""
+            quick_block = _extract_subgenre_block(quick_text, genre_key, subgenre)
+            # Добавляем только строки которых нет в текущем результате
+            if quick_block:
+                existing_lines = set(result.splitlines())
+                extra = [
+                    l for l in quick_block.splitlines()
+                    if l.strip() and l not in existing_lines
+                    and not l.startswith("ПРАВИЛА ЖАНРА")
+                ]
+                if extra:
+                    result = result + "\n" + "\n".join(extra)
+    # Всегда добавляем каталожную специфику поджанра
+    catalog_addon = load_catalog_subgenre_hint(engine_path, genre_key)
+    return (result + "\n" + catalog_addon) if catalog_addon else result
 
 
 def _extract_subgenre_block(text: str, genre_key: str, subgenre: str) -> str:
@@ -346,25 +364,3 @@ def _extract_subgenre_block(text: str, genre_key: str, subgenre: str) -> str:
         if lines:
             return f"ПРАВИЛА ЖАНРА ({genre_key}):\n" + "\n".join(lines)
     return ""
-
-
-def _extract_quality_rules_fallback(
-    text: str, genre_key: str, family: str, engine_path: Path
-) -> str:
-    """Fallback: блок ОБЯЗАТЕЛЬНО из секции ПРАВИЛА КАЧЕСТВА."""
-    m = re.search(r"═══ ПРАВИЛА КАЧЕСТВА ═══\s*\n(.*?)(?=═══|\Z)", text, re.DOTALL)
-    if m:
-        m2 = re.search(r"ОБЯЗАТЕЛЬНО[^:]*:\s*\n(.*?)(?=═══|ЗАПРЕЩЕНО|\Z)", m.group(1), re.DOTALL)
-        if m2:
-            lines = []
-            for line in m2.group(1).splitlines():
-                line = line.strip().lstrip("- ")
-                if line and not line.startswith("["):
-                    lines.append(line)
-                    if len(lines) >= 6:
-                        break
-            if lines:
-                catalog_addon = load_catalog_subgenre_hint(engine_path, genre_key)
-                base = f"ПРАВИЛА ЖАНРА ({family}):\n" + "\n".join(lines)
-                return (base + "\n" + catalog_addon) if catalog_addon else base
-    return load_catalog_subgenre_hint(engine_path, genre_key)

@@ -277,8 +277,12 @@ def run_generation(project: dict, chapter_num: int, mode: str,
 
     base_prompt    = build_prompt(project_id, chapter_num, mode, project)
     full_prompt    = strip_empty_placeholders(f"{base_prompt}\n\n---\nЗАДАЧА ГЛАВЫ:\n{task}")
-    context_prompt = _build_context(project_id, chapter_num, full_prompt,
-                                    mode, model_value, task_text=task)
+    from .engine_issues import collect_engine_issues, engine_issues_note
+    with collect_engine_issues() as issues:
+        context_prompt = _build_context(project_id, chapter_num, full_prompt,
+                                        mode, model_value, task_text=task)
+    if issues:
+        warning = (warning or "") + " " + engine_issues_note(issues)
 
     from .pipeline_config import PROSE_MAX_TOKENS, context_char_budget
 

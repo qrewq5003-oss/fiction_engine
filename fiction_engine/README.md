@@ -61,7 +61,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 41 модуль
+engine/                движок — 42 модуля
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -118,7 +118,8 @@ tests/                 pytest-набор
 | `engine_loaders.py` | Фасад: путь движка, бюджет токенов |
 | `engine_loaders_core.py` | Универсальные блоки |
 | `engine_loaders_genre.py` | Жанровые блоки |
-| `engine_extractors.py` | Извлечение сути из markdown-модулей |
+| `engine_extractors.py` | Секции PROMPT модулей, чистка шума и чужих жанровых вариантов |
+| `engine_issues.py` | Сбои базы знаний при сборке блока движка: пропавшие разделы — в предупреждение генерации |
 | `engine_config.py` | Карты жанров, режимов и лимитов |
 | `auto_router.py` | Быстрый подбор модулей по ключевым словам задачи |
 
