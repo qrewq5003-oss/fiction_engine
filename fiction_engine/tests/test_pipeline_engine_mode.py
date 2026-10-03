@@ -1,9 +1,9 @@
 """
 Блок движка в генераторе пайплайна.
 
-С первого коммита шаг generate собирал контекст по умолчанию: QUICK, без
-модели и без задачи. Генератор не видел контракта жанра, а судья того же
-пайплайна проверял главу именно по нему.
+С первого коммита шаг generate собирал контекст без модели и без задачи:
+бюджет «default», разделы ремесла и паттерны не подбирались по задаче.
+Режим остаётся QUICK — см. PIPELINE_ENGINE_MODE.
 """
 from unittest.mock import patch
 
@@ -25,7 +25,7 @@ def _run(project_id, build):
             steps=[PipelineStep("generate")])
 
 
-def test_generate_builds_quality_context_for_generator_model(project_id):
+def test_generate_builds_context_for_generator_model_and_task(project_id):
     seen = {}
 
     def build(project_id, chapter_num, base_prompt, mode="quick",
@@ -34,8 +34,7 @@ def test_generate_builds_quality_context_for_generator_model(project_id):
         return base_prompt
 
     _run(project_id, build)
-    assert PIPELINE_ENGINE_MODE == "quality"
-    assert seen == {"mode": "quality", "model_value": "deepseek::chat",
+    assert seen == {"mode": PIPELINE_ENGINE_MODE, "model_value": "deepseek::chat",
                     "task_text": "Глава 1. Допрос в участке."}
 
 

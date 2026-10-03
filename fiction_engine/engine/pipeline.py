@@ -18,10 +18,12 @@ from .pipeline_steps import (step_generate, step_drift_check, step_chapter_analy
 
 log = get_logger(__name__)
 
-# Блок движка для генератора пайплайна. Пайплайн — путь «качества» с
-# критиком и судьёй, поэтому QUALITY: с контрактом жанра, который судья
-# проверяет. MASTER не берётся: он добавляет вызов модели на подбор модулей.
-PIPELINE_ENGINE_MODE = "quality"
+# Блок движка для генератора пайплайна. QUICK, а не QUALITY, хотя судья
+# проверяет главу по контракту жанра: замер 03.10 (bench/ab-pipeline-mode-
+# 2026-10-03.json, 4 жанра × 2 прогона) — оценка 7.72 против 7.69 при шуме
+# 0.44, контракт и без него выполнен на 9–10 из 10. QUALITY добавлял
+# ~25 тыс. символов к каждому вызову без измеримой пользы.
+PIPELINE_ENGINE_MODE = "quick"
 
 
 # ─── Конфигурация шагов ───────────────────────────────────────────────────────
@@ -176,10 +178,9 @@ def _execute_steps(
             clean_prompt = strip_empty_placeholders(generation_prompt)
             from .engine_issues import collect_engine_issues, engine_issues_note
             with collect_engine_issues() as issues:
-                # Режим и модель передаются явно. Раньше блок движка здесь
-                # собирался по умолчанию — QUICK без контракта, с бюджетом
-                # чужой модели и без подбора модулей по задаче, хотя судья
-                # того же пайплайна проверяет главу по контракту жанра.
+                # Режим, модель и задача передаются явно. Раньше блок здесь
+                # собирался по умолчанию: бюджет модели «default», а без
+                # задачи не подбирались разделы ремесла и паттерны сцен.
                 full_prompt = _build_context(project_id, chapter_num, clean_prompt,
                                              PIPELINE_ENGINE_MODE, model_gen,
                                              task_text=clean_prompt)
