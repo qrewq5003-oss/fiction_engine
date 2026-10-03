@@ -519,7 +519,26 @@ VOICE_GUESS_PROMPT = """Ниже глава и описания {n} авторс
 {{"guess": "буква", "why": "одно предложение: какой признак решил"}}"""
 
 
-def voice_guess(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+def _anon_profile(profile: str) -> str:
+    """
+    Описание голоса без названия и «Характера»: только ПАРАМЕТРЫ и ПРИЁМЫ.
+    Иначе судья сопоставляет сюжет с жанровыми словами описания («детектив»,
+    «цинизм»), а не манеру: замер 04.10 — главу-реализм от первого лица
+    по пресету нуара ни разу не отнесли к нуару.
+    """
+    keep, on = [], False
+    for line in profile.splitlines():
+        if line.rstrip(":") in ("ПАРАМЕТРЫ", "ПРИЁМЫ"):
+            on = True
+        elif line.endswith(":") and line.isupper():
+            on = False
+        if on:
+            keep.append(line)
+    return "\n".join(keep).strip()
+
+
+def voice_guess(paths: list[Path], out: Path, judges: list[str], workers: int,
+                anon: bool = False) -> int:
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor
     sys.path.insert(0, str(ROOT / "fiction_engine"))
@@ -532,6 +551,8 @@ def voice_guess(paths: list[Path], out: Path, judges: list[str], workers: int) -
         chapters += [dict(c, voice=data["voice"]) for c in data["chapters"] if c["text"]]
     sources = sorted({c["voice"] for c in chapters})
     profiles = {s_: get_voice_preset(s_)["profile"] for s_ in sources}
+    if anon:
+        profiles = {k: _anon_profile(v) for k, v in profiles.items()}
     rnd = random.Random(20261004)
     jobs = []
     for c in chapters:
@@ -978,6 +999,8 @@ def main() -> int:
     vg.add_argument("--out", type=Path, required=True)
     vg.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     vg.add_argument("--workers", type=int, default=4)
+    vg.add_argument("--anon", action="store_true",
+                    help="описания без названий голосов и «Характера»")
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -1007,7 +1030,7 @@ def main() -> int:
     if a.cmd == "series-rate":
         return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "voice-guess":
-        return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers)
+        return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
