@@ -256,7 +256,8 @@ def _ablate(without: list[str] | None) -> None:
 def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
              as_genre: str | None = None, secondary: str | None = None,
              tone: str | None = None, style: str | None = None,
-             mode: str = MODE, without: list[str] | None = None) -> int:
+             mode: str = MODE, without: list[str] | None = None,
+             voice: str | None = None) -> int:
     app = app.resolve()
     _temp_db(app)
     import engine.db as db
@@ -276,7 +277,7 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
     _ablate(without)
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
-              "model": model, "mode": mode, "without": without or [], "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
+              "model": model, "mode": mode, "without": without or [], "voice": voice, "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
               "chapters": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -294,6 +295,17 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
                 db.set_chapter_tone(pid, CHAPTER, tone)
             if style:
                 db.set_project_style_key(pid, style)
+            if voice:
+                # Как кнопка пресета на странице «Голос» и выбор его активным;
+                # «genre» — пресет, который приложение предлагает этому жанру
+                from engine.voice_profiles import get_voice_preset, recommended_genre_voice
+                src = recommended_genre_voice(as_genre or genre_key) if voice == "genre" else voice
+                preset = get_voice_preset(src or "")
+                if not preset:
+                    raise SystemExit(f"нет пресета голоса {src!r} для {genre_key}")
+                vid = db.save_voice_profile(pid, preset["name"], preset["profile"],
+                                            preset["samples"], preset["source"])
+                db.set_active_voice(pid, vid)
             db.set_active_project(pid)
             db.save_chapter(pid, CHAPTER - 1, seed["prev"], "Предыдущая глава")
             db.update_state(pid, seed["state"], "", "")
@@ -858,6 +870,8 @@ def main() -> int:
     g.add_argument("--style", default=None, help="стиль серии (literary, modern_minimal…)")
     g.add_argument("--mode", default=MODE, choices=("quick", "quality", "master"),
                    help="режим блока движка")
+    g.add_argument("--voice", default=None,
+                   help="активный голос: source пресета или genre — пресет жанра")
     g.add_argument("--without", default="",
                    help="отключить загрузчики блока через запятую (_load_base_rules…) "
                         "или весь блок: engine")
@@ -897,7 +911,7 @@ def main() -> int:
         sys.path.insert(0, str(a.app.resolve()))
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","),
                         a.as_genre, a.secondary, a.tone, a.style, a.mode,
-                        [w for w in a.without.split(",") if w])
+                        [w for w in a.without.split(",") if w], a.voice)
     if a.cmd == "series":
         sys.path.insert(0, str(a.app.resolve()))
         return series(a.app, a.out, a.model, a.runs, a.genres.split(","), a.chapters,

@@ -150,11 +150,11 @@ class TestContextBudget:
 
 class TestBuildConsolidatedVoice:
     @pytest.mark.parametrize("mode", ["quick", "quality", "master"])
-    def test_profile_used_only_in_deep_modes(self, mode):
+    def test_profile_used_in_every_mode(self, mode):
+        """Голос, выбранный автором, действует и в QUICK — режиме по умолчанию."""
         from engine.pipeline_context import build_consolidated_voice
         voice = {"name": "Нуар", "profile": "рубленые фразы"}
-        out = build_consolidated_voice(voice, [], mode)
-        assert ("рубленые фразы" in out) == (mode in ("quality", "master"))
+        assert "рубленые фразы" in build_consolidated_voice(voice, [], mode)
 
     def test_no_voice_no_chapters(self):
         from engine.pipeline_context import build_consolidated_voice
