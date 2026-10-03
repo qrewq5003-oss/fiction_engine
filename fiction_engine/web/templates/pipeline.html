@@ -391,6 +391,7 @@ function showResults(data) {
   if (data.and_chains) showToast('🔗 ' + data.and_chains, 'info', 8000);
   // Раздел базы знаний не собрался — глава написана без него
   if (data.engine_issues) showToast('⚠ ' + data.engine_issues, 'warning', 12000);
+  if (data.context_trimmed) showToast('✂️ ' + data.context_trimmed, 'warning', 8000);
 
   // Дрейф голоса — показываем если пришло предупреждение
   const driftBanner = document.getElementById('drift-banner');

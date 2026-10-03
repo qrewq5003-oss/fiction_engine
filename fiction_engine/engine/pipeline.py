@@ -18,6 +18,11 @@ from .pipeline_steps import (step_generate, step_drift_check, step_chapter_analy
 
 log = get_logger(__name__)
 
+# Блок движка для генератора пайплайна. Пайплайн — путь «качества» с
+# критиком и судьёй, поэтому QUALITY: с контрактом жанра, который судья
+# проверяет. MASTER не берётся: он добавляет вызов модели на подбор модулей.
+PIPELINE_ENGINE_MODE = "quality"
+
 
 # ─── Конфигурация шагов ───────────────────────────────────────────────────────
 
@@ -171,9 +176,22 @@ def _execute_steps(
             clean_prompt = strip_empty_placeholders(generation_prompt)
             from .engine_issues import collect_engine_issues, engine_issues_note
             with collect_engine_issues() as issues:
-                full_prompt = _build_context(project_id, chapter_num, clean_prompt)
+                # Режим и модель передаются явно. Раньше блок движка здесь
+                # собирался по умолчанию — QUICK без контракта, с бюджетом
+                # чужой модели и без подбора модулей по задаче, хотя судья
+                # того же пайплайна проверяет главу по контракту жанра.
+                full_prompt = _build_context(project_id, chapter_num, clean_prompt,
+                                             PIPELINE_ENGINE_MODE, model_gen,
+                                             task_text=clean_prompt)
             if issues:
                 results["engine_issues"] = engine_issues_note(issues)
+            from .pipeline_config import context_char_budget
+            max_context = context_char_budget(model_gen)
+            if len(full_prompt) > max_context:
+                full_prompt, trimmed = _truncate_context_by_blocks(
+                    full_prompt, max_chars=max_context)
+                if trimmed:
+                    results["context_trimmed"] = f"Контекст обрезан: удалены блоки {trimmed}."
             sys_gen      = _build_sys_generator(_genre)
 
             step_generate(run_id, iteration, chapter_num, generation_prompt,
