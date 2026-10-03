@@ -499,6 +499,89 @@ def series_rate(old_path: Path, new_path: Path, out: Path, judges: list[str],
     return 0
 
 
+# ─── Различимость голосов ────────────────────────────────────────────────────
+#
+# Оценка по шкале говорит, хороша ли глава, но не говорит, звучит ли она
+# голосом, который выбрал автор. Здесь судья видит главу и описания
+# нескольких пресетов в случайном порядке и угадывает, каким она написана.
+# Угадывание на уровне случая — пресеты голоса не создают.
+
+VOICE_GUESS_PROMPT = """Ниже глава и описания {n} авторских голосов. Глава написана по одному
+из них. Определи, по какому. Смотри на манеру: что рассказчик замечает, как
+строит фразу и диалог, какая интонация, — а не на сюжет.
+
+{voices}
+
+=== ГЛАВА ===
+{text}
+
+Ответь JSON без пояснений вокруг:
+{{"guess": "буква", "why": "одно предложение: какой признак решил"}}"""
+
+
+def voice_guess(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    from engine.voice_profiles import get_voice_preset
+    chapters = []
+    for p in paths:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        chapters += [dict(c, voice=data["voice"]) for c in data["chapters"] if c["text"]]
+    sources = sorted({c["voice"] for c in chapters})
+    profiles = {s_: get_voice_preset(s_)["profile"] for s_ in sources}
+    rnd = random.Random(20261004)
+    jobs = []
+    for c in chapters:
+        for jm in judges:
+            for rep_ in range(REPEATS):
+                order = sources[:]
+                rnd.shuffle(order)                 # свой порядок на каждый вызов
+                jobs.append((c, jm, rep_, order))
+
+    def run(job):
+        c, jm, rep_, order = job
+        letters = "ABCDEFGH"[:len(order)]
+        voices = "\n\n".join(f"=== ГОЛОС {l} ===\n{profiles[s_]}" for l, s_ in zip(letters, order))
+        prompt = VOICE_GUESS_PROMPT.format(n=len(order), voices=voices, text=c["text"])
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=800)) or {}
+                g = str(got.get("guess", "")).strip().upper()[:1]
+                if g in letters:
+                    picked = order[letters.index(g)]
+                    print(f"  {c['voice']:34} {c['genre']:22} {jm.split('::')[-1]:28} → {picked}"
+                          f"{'  ✓' if picked == c['voice'] else ''}", flush=True)
+                    return {"voice": c["voice"], "genre": c["genre"], "run": c["run"],
+                            "judge": jm.split("::")[-1], "repeat": rep_, "picked": picked,
+                            "why": got.get("why", "")}
+            except Exception:
+                pass
+        return {"voice": c["voice"], "genre": c["genre"], "run": c["run"],
+                "judge": jm.split("::")[-1], "repeat": rep_, "picked": None, "why": ""}
+
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    ok = [r for r in rows if r["picked"]]
+    hit = sum(r["picked"] == r["voice"] for r in ok)
+    print(f"\n  угадано {hit} из {len(ok)} = {hit / len(ok):.0%}; случайно — {1 / len(sources):.0%}")
+    for s_ in sources:
+        mine = [r for r in ok if r["voice"] == s_]
+        conf = Counter(r["picked"] for r in mine)
+        print(f"  {s_:34} {sum(r['picked'] == s_ for r in mine)}/{len(mine)}   "
+              + ", ".join(f"{k.split(':')[-1]}={v}" for k, v in conf.most_common()))
+    for jm in judges:
+        j = jm.split("::")[-1]
+        mine = [r for r in ok if r["judge"] == j]
+        print(f"  {j:30} {sum(r['picked'] == r['voice'] for r in mine)}/{len(mine)}")
+    out.write_text(json.dumps({"date": date.today().isoformat(), "sources": sources,
+                               "hit": hit, "total": len(ok), "failed": len(rows) - len(ok),
+                               "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
 # ─── Судья ───────────────────────────────────────────────────────────────────
 
 JUDGE_SYSTEM = ("Ты опытный литературный редактор. Сравниваешь две главы на одну и ту же "
@@ -890,6 +973,11 @@ def main() -> int:
     sr.add_argument("--out", type=Path, required=True)
     sr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     sr.add_argument("--workers", type=int, default=4)
+    vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
+    vg.add_argument("chapters", type=Path, nargs="+")
+    vg.add_argument("--out", type=Path, required=True)
+    vg.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    vg.add_argument("--workers", type=int, default=4)
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -918,6 +1006,8 @@ def main() -> int:
                       a.mode, [w for w in a.without.split(",") if w])
     if a.cmd == "series-rate":
         return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "voice-guess":
+        return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
