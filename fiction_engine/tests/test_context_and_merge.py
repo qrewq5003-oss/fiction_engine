@@ -303,3 +303,14 @@ def test_genre_voice_presets(monkeypatch):
         assert "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС" in v["profile"] or "КАК ИСПОЛЬЗОВАТЬ" in v["profile"], v["source"]
         assert len(v["profile"]) <= VOICE_PROFILE_MAX_CHARS, v["source"]
         assert get_voice_preset(v["source"]) == v
+
+
+def test_genre_voice_presets_have_no_rhythm_params():
+    """Ритм пресета спорил с нормой приложения: глава хуже на 0.22 (замер 03.10)."""
+    from engine.voice_profiles import get_genre_voices
+    voices = get_genre_voices()
+    assert voices
+    for v in voices:
+        for word in ("Длина предложений", "Абзацы:", "Темп:"):
+            assert word not in v["profile"], (v["source"], word)
+        assert "Диалог:" in v["profile"], v["source"]
