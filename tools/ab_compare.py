@@ -225,7 +225,7 @@ def _git_rev(path: Path) -> str:
 def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
              as_genre: str | None = None, secondary: str | None = None,
              tone: str | None = None, style: str | None = None,
-             mode: str = MODE) -> int:
+             mode: str = MODE, without: list[str] | None = None) -> int:
     app = app.resolve()
     keys = _read_real_keys(app)
     import engine.db_core as dbc
@@ -253,8 +253,20 @@ def generate(app: Path, out: Path, model: str, runs: int, genres: list[str],
 
     pipeline._call = recording_call
 
+    # Абляция: раздел блока движка или весь блок отключается подменой
+    # загрузчика — так меряется вклад одного слоя при прочих равных
+    for name in without or []:
+        if name == "engine":
+            import engine.pipeline_context as pc
+            pc.build_engine_context = lambda *a, **k: ""
+        else:
+            import engine.unified_engine as ue
+            if not hasattr(ue, name):
+                raise SystemExit(f"нет загрузчика {name} в engine.unified_engine")
+            setattr(ue, name, lambda *a, **k: "")
+
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
-              "model": model, "mode": mode, "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
+              "model": model, "mode": mode, "without": without or [], "as_genre": as_genre, "secondary": secondary, "tone": tone, "style": style,
               "chapters": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -672,6 +684,9 @@ def main() -> int:
     g.add_argument("--style", default=None, help="стиль серии (literary, modern_minimal…)")
     g.add_argument("--mode", default=MODE, choices=("quick", "quality", "master"),
                    help="режим блока движка")
+    g.add_argument("--without", default="",
+                   help="отключить загрузчики блока через запятую (_load_base_rules…) "
+                        "или весь блок: engine")
     j = sub.add_parser("judge")
     j.add_argument("old", type=Path)
     j.add_argument("new", type=Path)
@@ -692,7 +707,8 @@ def main() -> int:
     if a.cmd == "generate":
         sys.path.insert(0, str(a.app.resolve()))
         return generate(a.app, a.out, a.model, a.runs, a.genres.split(","),
-                        a.as_genre, a.secondary, a.tone, a.style, a.mode)
+                        a.as_genre, a.secondary, a.tone, a.style, a.mode,
+                        [w for w in a.without.split(",") if w])
     if a.cmd == "flaws":
         return flaws(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "rate":
