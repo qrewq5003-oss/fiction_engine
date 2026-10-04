@@ -185,4 +185,5 @@ class TestValidateEnginePaths:
         with patch("engine.engine_loaders.get_engine_path", return_value=tmp_path):
             res = validate_engine_paths()
         assert res["ok"] is False
-        assert any("INDEX.json" in m for m in res["missing_critical"])
+        assert any("16_GENRE_CONTRACT" in m for m in res["missing_critical"])
+        assert not any("anticliche" in m for m in res["missing_critical"])

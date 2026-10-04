@@ -60,7 +60,6 @@ _CRITICAL_PATHS = [
     "04_GENRE_ENGINE/catalog",
     "11_PROMPTS",
     "16_GENRE_CONTRACT",
-    "INDEX.json",
 ]
 
 # Некритические пути — без них пропадает отдельный раздел, движок работает
@@ -137,59 +136,15 @@ def validate_engine_paths() -> dict:
         "engine_path":      str(base),
     }
 
-def load_module_dependencies_from_index() -> dict[str, list[str]] | None:
-    """
-    Читает INDEX.json из UNIFIED_ENGINE_MASTER и строит граф зависимостей модулей.
-
-    INDEX.json хранит список файлов по директориям. Зависимости кодируются
-    полем "dependencies" внутри каждого файлового описания (если есть),
-    или через отдельный ключ "module_dependencies" на верхнем уровне.
-
-    Возвращает словарь {module_name: [dep1, dep2]} или None если
-    INDEX.json недоступен или не содержит зависимостей — в этом случае
-    caller должен использовать хардкод из engine_config.py как fallback.
-    """
-    import json
-
-    index_path = get_engine_path() / "INDEX.json"
-    if not index_path.exists():
-        return None
-
-    try:
-        with open(index_path, encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        # Ниже сработает хардкод зависимостей — но битый INDEX.json
-        # должен быть виден, иначе правка графа в нём молча не действует
-        from .logger import get_logger
-        get_logger(__name__).error("INDEX.json не прочитан", e)
-        return None
-
-    # Прямой ключ module_dependencies в INDEX.json (приоритет)
-    if "module_dependencies" in data:
-        deps = data["module_dependencies"]
-        if isinstance(deps, dict):
-            return deps
-
-    # Если структуры module_dependencies нет — вернуть None,
-    # чтобы caller использовал хардкод из engine_config.py
-    return None
-
-
 def get_module_dependencies() -> dict[str, list[str]]:
     """
-    Возвращает граф зависимостей модулей.
+    Граф зависимостей модулей — один источник, engine_config.MODULE_DEPENDENCIES.
 
-    Приоритет: INDEX.json > хардкод в engine_config.py
-    Это единственное место где нужно менять зависимости —
-    или в INDEX.json (если там есть ключ module_dependencies),
-    или в engine_config.MODULE_DEPENDENCIES как fallback.
+    Раньше копия жила ещё и в INDEX.json и читалась первой, а при битом
+    INDEX.json код молча брал свою: две копии, правка одной не действовала
+    на другую. Граф — логика выбора модулей, рядом с MODE_MODULES и
+    MODULE_PRIORITY ему и место.
     """
-    from_index = load_module_dependencies_from_index()
-    if from_index is not None:
-        return from_index
-
-    # Fallback: хардкод из engine_config.py
     from .engine_config import MODULE_DEPENDENCIES
     return MODULE_DEPENDENCIES
 

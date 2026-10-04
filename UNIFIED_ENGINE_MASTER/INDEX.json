@@ -319,46 +319,6 @@
       "README.md"
     ]
   },
-  "module_dependencies": {
-    "11_micromoments_library": [
-      "24_artistic_foundation"
-    ],
-    "17_character_chemistry": [
-      "02_character_resonance"
-    ],
-    "13_foreshadowing_engine": [
-      "03_thematic_dna"
-    ],
-    "10_subtext_engine": [
-      "15_dialogue_style"
-    ],
-    "20_stakes_escalation": [
-      "01_tension_curve"
-    ],
-    "09_deep_character_psychology": [
-      "02_character_resonance"
-    ],
-    "25_style_transformations": [
-      "24_artistic_foundation",
-      "23_literary_craft"
-    ],
-    "22_sensory_immersion": [
-      "24_artistic_foundation"
-    ],
-    "16_pov_filters": [
-      "14_narrative_distance"
-    ],
-    "18_beats_rhythm": [
-      "12_pacing_engine"
-    ],
-    "05_commercial_heatmap": [
-      "04_reader_simulation",
-      "12_pacing_engine"
-    ],
-    "06_multibook_causality": [
-      "03_thematic_dna"
-    ]
-  },
   "runtime_files": [
     "00_CORE/META_RULES.yaml",
     "00_CORE/ai_cliches.md",
@@ -535,7 +495,6 @@
     "17_TONE_LAYERS/noir.md",
     "17_TONE_LAYERS/romance.md",
     "17_TONE_LAYERS/satire.md",
-    "17_TONE_LAYERS/suspense.md",
-    "INDEX.json"
+    "17_TONE_LAYERS/suspense.md"
   ]
 }
