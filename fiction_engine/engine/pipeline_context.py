@@ -43,7 +43,10 @@ def build_consolidated_voice(active_voice: dict | None,
                               mode: str) -> str:
     lines = []
 
-    if active_voice and active_voice.get("profile") and mode in ("quality", "master"):
+    # Во всех режимах. До 03.10.2026 профиль шёл только в QUALITY и MASTER:
+    # в QUICK — режиме по умолчанию и режиме пайплайна — голос, выбранный
+    # автором на странице «Голос», молча не действовал. Профиль ≤ 1800 символов.
+    if active_voice and active_voice.get("profile"):
         profile_short = clip_profile(active_voice["profile"])
         lines.append(f"ГОЛОСОВОЙ ПРОФИЛЬ ({active_voice['name']}):\n{profile_short}")
 

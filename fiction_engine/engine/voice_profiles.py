@@ -500,7 +500,14 @@ _GENRE_VOICE_FOR_FAMILY: dict[str, str] = {
 }
 
 # Разделы файла голоса, которые идут в пресет, — по порядку
-_PRESET_SECTIONS = ("ПАРАМЕТРЫ", "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС", "КАК ИСПОЛЬЗОВАТЬ")
+_PRESET_SECTIONS = ("ПАРАМЕТРЫ", "ПРИЁМЫ", "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС", "КАК ИСПОЛЬЗОВАТЬ")
+
+# Параметры ритма в пресет не идут. Замер 03.10 (bench/ab-voice-preset-
+# 2026-10-03.json): с пресетом жанра глава хуже, −0.22 ± 0.08 на 16 парах,
+# сильнее всего в триллере («короткие, абзацы 1–3 предложения»). Ритм
+# задают тон главы и общая норма приложения (pipeline_config.RHYTHM_*),
+# а пресет спорил с ними.
+_PRESET_SKIP_PARAMS = ("Длина предложений", "Абзацы", "Темп")
 
 
 def _parse_genre_voice(stem: str, text: str) -> dict | None:
@@ -519,6 +526,8 @@ def _parse_genre_voice(stem: str, text: str) -> dict | None:
         body = re.sub(r"\n?---\s*$", "", body).strip()
         if body:
             lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+            if title_ == "ПАРАМЕТРЫ":
+                lines = [ln for ln in lines if not ln.lstrip("—- ").startswith(_PRESET_SKIP_PARAMS)]
             parts.append(title_ + ":\n" + "\n".join(f"— {ln}" for ln in lines))
     return {
         "name": f"{name} (жанр)",

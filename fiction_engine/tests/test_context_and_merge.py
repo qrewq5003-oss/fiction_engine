@@ -150,11 +150,11 @@ class TestContextBudget:
 
 class TestBuildConsolidatedVoice:
     @pytest.mark.parametrize("mode", ["quick", "quality", "master"])
-    def test_profile_used_only_in_deep_modes(self, mode):
+    def test_profile_used_in_every_mode(self, mode):
+        """Голос, выбранный автором, действует и в QUICK — режиме по умолчанию."""
         from engine.pipeline_context import build_consolidated_voice
         voice = {"name": "Нуар", "profile": "рубленые фразы"}
-        out = build_consolidated_voice(voice, [], mode)
-        assert ("рубленые фразы" in out) == (mode in ("quality", "master"))
+        assert "рубленые фразы" in build_consolidated_voice(voice, [], mode)
 
     def test_no_voice_no_chapters(self):
         from engine.pipeline_context import build_consolidated_voice
@@ -303,3 +303,22 @@ def test_genre_voice_presets(monkeypatch):
         assert "ЧТО ДЕЛАЕТ ЭТОТ ГОЛОС" in v["profile"] or "КАК ИСПОЛЬЗОВАТЬ" in v["profile"], v["source"]
         assert len(v["profile"]) <= VOICE_PROFILE_MAX_CHARS, v["source"]
         assert get_voice_preset(v["source"]) == v
+
+
+def test_genre_voice_presets_have_no_rhythm_params():
+    """Ритм пресета спорил с нормой приложения: глава хуже на 0.22 (замер 03.10)."""
+    from engine.voice_profiles import get_genre_voices
+    voices = get_genre_voices()
+    assert voices
+    for v in voices:
+        for word in ("Длина предложений", "Абзацы:", "Темп:"):
+            assert word not in v["profile"], (v["source"], word)
+        assert "Диалог:" in v["profile"], v["source"]
+
+
+def test_genre_voice_presets_have_concrete_devices():
+    """Пресет без конкретных приёмов не слышен в тексте (замер 04.10)."""
+    from engine.voice_profiles import get_genre_voices
+    for v in get_genre_voices():
+        assert "ПРИЁМЫ:" in v["profile"], v["source"]
+        assert "Вставь" not in v["profile"], v["source"]      # инструкции человеку
