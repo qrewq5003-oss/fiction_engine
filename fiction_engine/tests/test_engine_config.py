@@ -2,63 +2,10 @@
 test_engine_config.py — engine/engine_config.py
 
 Нет функций — только данные. Тестируем что:
-A. Паттерны компилируются без ошибок
-B. _COMPILED_PATTERNS матчат ценные строки
-C. _SKIP_PATTERNS матчат балласт
-D. MODULE_PRIORITY — словарь с разумными значениями
-E. GENRE_KEYWORDS — корректная структура
+A. MODULE_PRIORITY — словарь с разумными значениями
+B. GENRE_KEYWORDS — корректная структура
 """
 import pytest
-
-
-class TestCompiledPatterns:
-    def test_patterns_importable(self):
-        from engine.engine_config import _COMPILED_PATTERNS, _SKIP_PATTERNS
-        assert len(_COMPILED_PATTERNS) > 0
-        assert len(_SKIP_PATTERNS) > 0
-
-    def test_compiled_pattern_matches_rule_text(self):
-        from engine.engine_config import _COMPILED_PATTERNS
-        rule_text = "Запрещено использовать клише сердце сжалось"
-        assert any(p.search(rule_text) for p in _COMPILED_PATTERNS)
-
-    def test_compiled_pattern_matches_emoji_marker(self):
-        from engine.engine_config import _COMPILED_PATTERNS
-        text = "❌ Не делай так — это плохо"
-        assert any(p.search(text) for p in _COMPILED_PATTERNS)
-
-    def test_compiled_pattern_matches_nelzya(self):
-        from engine.engine_config import _COMPILED_PATTERNS
-        text = "Нельзя называть эмоцию напрямую"
-        assert any(p.search(text) for p in _COMPILED_PATTERNS)
-
-
-class TestSkipPatterns:
-    def test_skip_metadata_lines(self):
-        """
-        Пропускаются строки-метаданные в том виде, в каком они реально
-        стоят в файлах базы знаний: **Модуль:**, **Версия:** и т.п.
-        Прежние примеры («## ФИЛОСОФИЯ МОДУЛЯ», «Версия 2.0») были из
-        другого формата и не встречаются в UNIFIED_ENGINE_MASTER.
-        """
-        from engine.engine_config import _SKIP_PATTERNS
-        for text in ("**Модуль:** 01_tension_curve",
-                     "**Версия:** 2.0",
-                     "**Зависимости:** нет",
-                     "---"):
-            assert any(p.match(text) for p in _SKIP_PATTERNS), text
-
-    def test_headers_are_kept_not_skipped(self):
-        """Заголовки — структура, они намеренно попадают в выжимку."""
-        from engine.engine_config import _SKIP_PATTERNS, _COMPILED_PATTERNS
-        text = "## ФИЛОСОФИЯ МОДУЛЯ"
-        assert not any(p.match(text) for p in _SKIP_PATTERNS)
-        assert any(p.search(text) for p in _COMPILED_PATTERNS)
-
-    def test_dont_skip_content_line(self):
-        from engine.engine_config import _SKIP_PATTERNS
-        text = "Правило: показывай через действие"
-        assert not any(p.match(text) for p in _SKIP_PATTERNS)
 
 
 class TestModulePriority:

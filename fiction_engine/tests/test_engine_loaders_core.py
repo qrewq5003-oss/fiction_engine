@@ -3,7 +3,7 @@ test_engine_loaders_core.py — engine/engine_loaders_core.py
 
 Тестируем через mock filesystem — не трогаем реальные файлы.
 
-A. load_module — загрузка одного модуля
+A. load_module — секции PROMPT одного модуля
 B. _find_module_file — поиск файла
 C. load_anticliche_replacements, load_dialectics_hint и др. — smoke
 D. load_writing_core_hint — выбор файла по режиму
@@ -15,31 +15,36 @@ from pathlib import Path
 
 
 class TestLoadModule:
-    def test_returns_string(self, tmp_path):
-        from engine.engine_loaders_core import load_module
-        module_dir = tmp_path / "UNIFIED_ENGINE_MASTER"
-        module_dir.mkdir()
-        md_file = module_dir / "01_tension_curve.md"
-        md_file.write_text("## СЕКЦИЯ\n\nПравило: напряжение растёт.\n", encoding="utf-8")
+    """engine_path — это сам UNIFIED_ENGINE_MASTER, модули — в 03_ADVANCED_ENGINES."""
 
-        result = load_module(tmp_path, "01_tension_curve", max_lines=50)
-        assert isinstance(result, str)
+    SRC = ("# Модуль\n\n## PROMPT:QUICK\nядро\n\n## PROMPT:FULL\nдополнение\n\n"
+           "## СПРАВОЧНИК\nпримеры\n")
+
+    def _module(self, tmp_path, text):
+        d = tmp_path / "03_ADVANCED_ENGINES"
+        d.mkdir()
+        (d / "01_tension_curve.md").write_text(text, encoding="utf-8")
+
+    def test_quick_gets_core_only(self, tmp_path):
+        from engine.engine_loaders_core import load_module
+        self._module(tmp_path, self.SRC)
+        assert load_module(tmp_path, "01_tension_curve", max_lines=30) == "ядро"
+
+    def test_full_adds_extra_not_reference(self, tmp_path):
+        from engine.engine_loaders_core import load_module
+        self._module(tmp_path, self.SRC)
+        out = load_module(tmp_path, "01_tension_curve", max_lines=50)
+        assert out == "ядро\n\nдополнение"
 
     def test_returns_empty_when_file_missing(self, tmp_path):
         from engine.engine_loaders_core import load_module
         result = load_module(tmp_path, "99_nonexistent", max_lines=50)
         assert result == ""
 
-    def test_respects_max_lines(self, tmp_path):
+    def test_returns_empty_without_prompt_sections(self, tmp_path):
         from engine.engine_loaders_core import load_module
-        module_dir = tmp_path / "UNIFIED_ENGINE_MASTER"
-        module_dir.mkdir()
-        md_file = module_dir / "01_tension_curve.md"
-        md_file.write_text("## SEC\n" + "\n".join(f"Строка {i}." for i in range(100)),
-                           encoding="utf-8")
-
-        result = load_module(tmp_path, "01_tension_curve", max_lines=10)
-        assert len(result.split("\n")) <= 20  # с запасом на пустые строки
+        self._module(tmp_path, "## SEC\n" + "\n".join(f"Строка {i}." for i in range(100)))
+        assert load_module(tmp_path, "01_tension_curve", max_lines=70) == ""
 
 
 class TestFindModuleFile:

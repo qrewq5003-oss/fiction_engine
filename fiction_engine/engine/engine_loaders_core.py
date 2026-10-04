@@ -8,6 +8,7 @@ engine_loaders_core.py — загрузчики универсальных бл�
 import re
 from pathlib import Path
 from .engine_extractors import _extract_module_essence, _strip_meta_sections
+from .engine_issues import note_engine_issue
 
 
 # Заголовки блоков. По ним же блоки находят обрезка контекста
@@ -42,8 +43,12 @@ def _find_module_file(engine_path: Path, module_name: str) -> Path | None:
 def load_module(engine_path: Path, module_name: str, max_lines: int = 40) -> str:
     f = _find_module_file(engine_path, module_name)
     if not f:
+        note_engine_issue(f"модуль {module_name} не найден")
         return ""
-    return _extract_module_essence(f.read_text(encoding="utf-8"), max_lines)
+    essence = _extract_module_essence(f.read_text(encoding="utf-8"), max_lines)
+    if not essence:
+        note_engine_issue(f"в модуле {module_name} нет секции PROMPT:QUICK")
+    return essence
 
 
 _REPLACEMENT_RE = re.compile(r"^✅ Замен\w*(?: — (.+?))?:?$")

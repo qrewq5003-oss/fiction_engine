@@ -158,7 +158,11 @@ def load_module_dependencies_from_index() -> dict[str, list[str]] | None:
     try:
         with open(index_path, encoding="utf-8") as f:
             data = json.load(f)
-    except Exception:
+    except Exception as e:
+        # Ниже сработает хардкод зависимостей — но битый INDEX.json
+        # должен быть виден, иначе правка графа в нём молча не действует
+        from .logger import get_logger
+        get_logger(__name__).error("INDEX.json не прочитан", e)
         return None
 
     # Прямой ключ module_dependencies в INDEX.json (приоритет)

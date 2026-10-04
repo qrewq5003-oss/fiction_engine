@@ -124,7 +124,7 @@ def _execute_steps(
     previous_critique: str | None = None,
     prefill: str = "",
 ) -> dict:
-    results       = {"iteration": iteration}
+    results: dict = {"iteration": iteration}
     enabled_steps = [s for s in steps if s.enabled]
 
     # Загружаем проект один раз — жанр нужен нескольким шагам.
@@ -169,7 +169,11 @@ def _execute_steps(
         if step.name == "generate":
             from .state import strip_empty_placeholders
             clean_prompt = strip_empty_placeholders(generation_prompt)
-            full_prompt  = _build_context(project_id, chapter_num, clean_prompt)
+            from .engine_issues import collect_engine_issues, engine_issues_note
+            with collect_engine_issues() as issues:
+                full_prompt = _build_context(project_id, chapter_num, clean_prompt)
+            if issues:
+                results["engine_issues"] = engine_issues_note(issues)
             sys_gen      = _build_sys_generator(_genre)
 
             step_generate(run_id, iteration, chapter_num, generation_prompt,
