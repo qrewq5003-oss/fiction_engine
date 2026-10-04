@@ -84,3 +84,20 @@ def test_no_marketing_marks():
             for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
             if marks.search(line)]
     assert not hits, hits
+
+
+def test_working_folders_hold_only_runtime_files(index):
+    """
+    Справочник — в _reference/, устаревшее — в _archive/. В рабочих папках
+    только то, что читает движок, и README: иначе по раскладке не видно,
+    какой файл меняет промпт, а какой нет.
+    """
+    runtime = set(index["runtime_files"])
+    stray = sorted(
+        p.relative_to(KB).as_posix() for p in KB.rglob("*")
+        if p.is_file()
+        and p.relative_to(KB).parts[0] not in ("_reference", "_archive")
+        and p.name not in ("README.md", "INDEX.json")
+        and p.relative_to(KB).as_posix() not in runtime
+    )
+    assert not stray, f"не читаются движком — перенесите в _reference/: {stray}"
