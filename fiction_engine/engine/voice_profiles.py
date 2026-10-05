@@ -491,6 +491,9 @@ GENRE_VOICE_FOR: dict[str, str] = {
     "romance_contemporary":    "romance_voice",
     "romance_historical":      "romance_voice",
     "romance_paranormal":      "romance_voice",
+    # Пресет триллера написан под триллер действия (счёт времени, процедуры);
+    # психотриллеру он вредил: −0.45 и −0.20 ± 0.22 (замеры 03–04.10)
+    "thriller_psychological":  "psychological_thriller_voice",
 }
 _GENRE_VOICE_FOR_FAMILY: dict[str, str] = {
     "thriller": "thriller_voice",

@@ -1,7 +1,7 @@
 {
   "engine": "UNIFIED_ENGINE_MASTER",
   "version": "2.0",
-  "total_files": 248,
+  "total_files": 249,
   "changelog": "v2.0: во всех 25 модулях 03_ADVANCED_ENGINES — секции PROMPT:QUICK/PROMPT:FULL (ровно то, что уходит модели), MINI убраны. Добавлен runtime_files — файлы, которые читает движок; остальные — справочник для автора. files и total_files собраны с диска. | v1.8: 11_PROMPTS QUALITY/MASTER переписаны под машинное извлечение. Оригинальные шаблоны в 11_PROMPTS/templates/. Лимит извлечения 8→20 строк.",
   "files": {
     "00_CORE": [
@@ -189,6 +189,7 @@
       "horror_voice.md",
       "noir_detective_voice.md",
       "psychological_detective_voice.md",
+      "psychological_thriller_voice.md",
       "realism_voice.md",
       "romance_voice.md",
       "scifi_voice.md",
@@ -491,6 +492,7 @@
     "13_VOICE_LIBRARY/voice_profiles/horror_voice.md",
     "13_VOICE_LIBRARY/voice_profiles/noir_detective_voice.md",
     "13_VOICE_LIBRARY/voice_profiles/psychological_detective_voice.md",
+    "13_VOICE_LIBRARY/voice_profiles/psychological_thriller_voice.md",
     "13_VOICE_LIBRARY/voice_profiles/realism_voice.md",
     "13_VOICE_LIBRARY/voice_profiles/romance_voice.md",
     "13_VOICE_LIBRARY/voice_profiles/scifi_voice.md",
