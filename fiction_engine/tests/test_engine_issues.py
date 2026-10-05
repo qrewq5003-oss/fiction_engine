@@ -92,9 +92,12 @@ def test_contract_without_own_section_is_empty(tmp_path):
     d = tmp_path / "16_GENRE_CONTRACT"
     d.mkdir()
     (d / CONTRACT_MAP["detective"]).write_text(
-        "# Контракт\n## НУАР\nОбязательно: тьма\n", encoding="utf-8")
+        "# Контракт\n## НУАР\n<!-- genre: detective_noir -->\nОбязательно: тьма\n"
+        "## КЛАССИЧЕСКИЙ\nОбязательно: улики\n", encoding="utf-8")
+    # У классического раздел есть, но якоря нет — по русской метке не ищем
     assert load_genre_contract(tmp_path, "detective_classic") == ""
-    assert "НУАР" in load_genre_contract(tmp_path, "detective_noir")
+    noir = load_genre_contract(tmp_path, "detective_noir")
+    assert "НУАР" in noir and "тьма" in noir and "улики" not in noir and "<!--" not in noir
 
 
 def test_genre_prompt_without_subgenre_block_is_empty(tmp_path):

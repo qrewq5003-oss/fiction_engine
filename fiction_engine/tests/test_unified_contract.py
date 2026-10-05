@@ -33,7 +33,6 @@ for _mod in ("openai", "anthropic"):
 from engine.engine_config import (  # noqa: E402
     CHAR_FULL_KEY_MAP,
     GENRE_KEYWORDS,
-    SUBGENRE_CONTRACT_LABELS,
 )
 
 KB_PATH = Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER"
@@ -102,20 +101,27 @@ def test_character_profile_is_own_file(kb, genre_key):
 @pytest.mark.parametrize("genre_key", _cases("contract", GENRE_KEYS))
 def test_contract_is_own_subgenre(kb, genre_key):
     """
-    Контракт начинается с раздела этого поджанра.
-
-    Запасной путь загрузчика отдаёт начало файла: первой строкой там идёт
-    «# Читательский контракт: …», а за ней раздел первого поджанра в файле.
+    Контракт — раздел, помеченный якорем «<!-- genre: … -->» с этим ключом.
+    Якорь в текст для модели не попадает.
     """
     from engine.engine_loaders_genre import load_genre_contract
-    label = SUBGENRE_CONTRACT_LABELS.get(genre_key)
-    assert label, f"{genre_key}: нет метки в SUBGENRE_CONTRACT_LABELS"
     lines = load_genre_contract(kb, genre_key).splitlines()
-    assert len(lines) > 1, f"{genre_key}: контракт пуст"
-    first = lines[1]
-    assert first.startswith("## ") and label.upper() in first.upper(), (
-        f"{genre_key}: ожидался раздел «{label}», получено «{first}»"
-    )
+    assert len(lines) > 1, f"{genre_key}: нет якоря раздела в контракте семейства"
+    assert lines[1].startswith("## "), f"{genre_key}: раздел без заголовка: {lines[1]!r}"
+    assert not any("<!--" in line for line in lines), f"{genre_key}: якорь попал в текст"
+
+
+def test_genre_anchors_name_real_keys(kb):
+    """Опечатка в ключе якоря молча отключила бы раздел — ключи только из каталога."""
+    from engine.engine_loaders_genre import _anchor_keys
+    unknown = {}
+    for folder in ("16_GENRE_CONTRACT", "11_PROMPTS"):
+        for p in (kb / folder).glob("*.md"):
+            for line in p.read_text(encoding="utf-8").splitlines():
+                bad = _anchor_keys(line) - set(GENRE_KEYS)
+                if bad:
+                    unknown.setdefault(p.name, set()).update(bad)
+    assert not unknown, f"якоря с неизвестными ключами: {unknown}"
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -124,6 +130,7 @@ def test_genre_prompt_is_own_subgenre(kb, genre_key, mode):
     """Жанровые правила найдены для поджанра, а не общие правила семейства."""
     from engine.engine_loaders_genre import load_genre_prompt
     out = load_genre_prompt(kb, genre_key, mode)
+    assert "<!--" not in out, f"{genre_key}/{mode}: якорь попал в текст"
     assert out.startswith(f"ПРАВИЛА ЖАНРА ({genre_key}):"), (
         f"{genre_key}/{mode}: блок поджанра не найден, начало: {out[:60]!r}"
     )
