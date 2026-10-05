@@ -9,7 +9,7 @@ import json
 import re
 from pathlib import Path
 from .engine_config import (
-    CONTRACT_MAP, SUBGENRE_CONTRACT_LABELS,
+    CONTRACT_MAP,
     CHAR_FULL_KEY_MAP, CHAR_FAMILY_FALLBACK, ANTAGONIST_GENRE_MAP,
 )
 from .logger import get_logger
@@ -45,7 +45,22 @@ def load_genre_catalog(engine_path: Path, genre_key: str) -> str:
 
 # _CONTRACT_MAP → импортируется из engine_config.CONTRACT_MAP
 
-# _SUBGENRE_CONTRACT_LABELS → импортируется из engine_config.SUBGENRE_CONTRACT_LABELS
+# ─── Якоря жанров в файлах базы ─────────────────────────────────────────────
+#
+# Раздел поджанра в контрактах (16_GENRE_CONTRACT) и блок правил в жанровых
+# промптах (11_PROMPTS) помечены строкой «<!-- genre: ключ, ключ -->». Раньше
+# они искались подстрокой русской метки по таблицам SUBGENRE_CONTRACT_LABELS и
+# _SUBGENRE_PROMPT_LABELS: «ИСТОРИЧЕСКИЙ» не находил «ИСТОРИЧЕСКАЯ РОМАНТИКА»,
+# и 15 поджанров получали чужой контракт (AUDIT_UNIFIED.md, U1). По ключу
+# ошибиться нечем: раздел либо помечен этим ключом, либо его нет.
+# Якорь — служебная строка, модели он не передаётся.
+
+_ANCHOR = re.compile(r"^\s*<!--\s*genre:\s*(.*?)\s*-->\s*$")
+
+
+def _anchor_keys(line: str) -> set[str]:
+    m = _ANCHOR.match(line)
+    return {k.strip() for k in m.group(1).split(",")} if m else set()
 
 
 def load_genre_contract(engine_path: Path, genre_key: str) -> str:
@@ -57,30 +72,27 @@ def load_genre_contract(engine_path: Path, genre_key: str) -> str:
     p = engine_path / "16_GENRE_CONTRACT" / fname
     if not p.exists():
         return ""
-    content = p.read_text(encoding="utf-8")
-    target = SUBGENRE_CONTRACT_LABELS.get(genre_key, "")
-    if not target:
-        log.warning("нет метки контракта", f"{genre_key}: SUBGENRE_CONTRACT_LABELS")
-        return ""
-
-    result = []
-    in_section = False
-    for line in content.split("\n"):
+    lines = p.read_text(encoding="utf-8").split("\n")
+    # Раздел — от заголовка «## », под которым стоит якорь с этим ключом
+    start = None
+    header = None
+    for i, line in enumerate(lines):
         if line.startswith("## "):
-            if target.upper() in line.upper():
-                in_section = True
-            elif in_section:
-                break
-        if in_section:
-            result.append(line)
-        if len(result) >= 30:
+            header = i
+        elif genre_key in _anchor_keys(line) and header is not None:
+            start = header
             break
-
-    # Раньше без своего раздела брались первые строки файла — то есть
-    # контракт первого поджанра в нём (U1). Чужой контракт хуже пустого.
-    if not result:
-        log.warning("раздел контракта не найден", f"{genre_key}: «{target}» в {fname}")
+    # Чужой контракт хуже пустого: без своего раздела — пусто и запись в лог
+    if start is None:
+        log.warning("раздел контракта не найден", f"{genre_key}: нет якоря в {fname}")
         return ""
+
+    result = [lines[start]]
+    for line in lines[start + 1:]:
+        if line.startswith("## ") or len(result) >= 30:
+            break
+        if not _ANCHOR.match(line):
+            result.append(line)
 
     return "ЧИТАТЕЛЬСКИЙ КОНТРАКТ ЖАНРА:\n" + "\n".join(result)
 
@@ -248,40 +260,6 @@ def load_catalog_subgenre_hint(engine_path: Path, genre_key: str) -> str:
         return ""
 
 
-_SUBGENRE_PROMPT_LABELS: dict[str, list[str]] = {
-    "dark":             ["ТЁМНОЕ ФЭНТЕЗИ:", "ТЕМНОЕ ФЭНТЕЗИ:", "DARK FANTASY:"],
-    "epic":             ["ЭПИЧЕСКОЕ:"],
-    "urban":            ["ГОРОДСКОЕ:"],
-    "romantic":         ["РОМАНТИЧЕСКОЕ:"],
-    "sword_sorcery":    ["МЕЧ И МАГИЯ:", "SWORD AND SORCERY:"],
-    "noir":             ["НУАР:", "NOIR:"],
-    "classic":          ["КЛАССИЧЕСКИЙ:"],
-    "procedural":       ["ПРОЦЕДУРНЫЙ:"],
-    "psychological":    ["ПСИХОЛОГИЧЕСКИЙ:"],
-    "cozy":             ["УЮТНЫЙ:", "COZY:"],
-    "action":           ["БОЕВОЙ:"],
-    "cosmic":           ["КОСМИЧЕСКИЙ:"],
-    "gothic":           ["ГОТИЧЕСКИЙ:"],
-    "survival":         ["ВЫЖИВАНИЯ:"],
-    "spy":              ["ШПИОНСКИЙ:"],
-    "cyberpunk":        ["КИБЕРПАНК:"],
-    "hard":             ["ТВЁРДАЯ НФ:", "ТВЕРДАЯ НФ:", "HARD SF:"],
-    "space_opera":      ["КОСМИЧЕСКАЯ ОПЕРА:"],
-    "post_apocalyptic": ["ПОСТАПОК:", "ПОСТ-АПОК:"],
-    "steampunk":        ["СТИМПАНК:"],
-    "social":           ["СОЦИАЛЬНЫЙ:", "СОЦИАЛЬНАЯ НФ:"],
-    "contemporary":     ["СОВРЕМЕННАЯ:", "CONTEMPORARY:"],
-    "historical":       ["ИСТОРИЧЕСКАЯ:", "HISTORICAL:"],
-    "paranormal":       ["ПАРАНОРМАЛЬНАЯ:"],
-    "family_saga":      ["СЕМЕЙНАЯ САГА:"],
-    "legal":            ["ЮРИДИЧЕСКИЙ:"],
-    "medical":          ["МЕДИЦИНСКИЙ:"],
-    "adventure":        ["ПРИКЛЮЧЕНИЯ:"],
-    "magical":          ["МАГИЧЕСКИЙ РЕАЛИЗМ:"],
-    "alt_history":      ["АЛЬТЕРНАТИВНАЯ ИСТОРИЯ:"],
-}
-
-
 def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
     """
     Загрузить жанровый промпт из 11_PROMPTS/{family}_{MODE}.md.
@@ -296,7 +274,6 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
     if not genre_key:
         return ""
     family = genre_key.split("_")[0]
-    subgenre = genre_key.split("_", 1)[1] if "_" in genre_key else ""
     path = engine_path / "11_PROMPTS" / f"{family}_{mode.upper()}.md"
     if not path.exists():
         return ""
@@ -305,7 +282,7 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
     except Exception as e:
         log.error("жанровые правила не прочитаны", e, reason=genre_key)
         return ""
-    result = _extract_subgenre_block(text, genre_key, subgenre)
+    result = _extract_subgenre_block(text, genre_key)
     if not result:
         # Раньше тут шёл запасной разбор «ПРАВИЛА КАЧЕСТВА» семейства.
         # Для всех ключей блок поджанра есть (test_unified_contract),
@@ -326,7 +303,7 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
                 # иначе не проявится нигде.
                 log.error("жанровый блок QUICK не подклеен", e, reason=genre_key)
                 quick_text = ""
-            quick_block = _extract_subgenre_block(quick_text, genre_key, subgenre)
+            quick_block = _extract_subgenre_block(quick_text, genre_key)
             # Добавляем только строки которых нет в текущем результате
             if quick_block:
                 existing_lines = set(result.splitlines())
@@ -342,25 +319,27 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
     return (result + "\n" + catalog_addon) if catalog_addon else result
 
 
-def _extract_subgenre_block(text: str, genre_key: str, subgenre: str) -> str:
-    """Извлечь блок правил для конкретного поджанра."""
-    labels = _SUBGENRE_PROMPT_LABELS.get(subgenre, [])
-    for label in labels:
-        idx = text.find(label)
-        if idx < 0:
+def _extract_subgenre_block(text: str, genre_key: str) -> str:
+    """
+    Блок правил поджанра: строка-метка («ТЁМНОЕ ФЭНТЕЗИ: …») под якорем с
+    ключом и следующие строки до метки другого блока, не больше 8.
+    """
+    lines_all = text.split("\n")
+    at = next((i for i, l in enumerate(lines_all) if genre_key in _anchor_keys(l)), None)
+    if at is None or at + 1 >= len(lines_all):
+        return ""
+    label_line = lines_all[at + 1]
+    colon = label_line.find(":")
+    chunk = label_line[colon + 1:] + "\n" + "\n".join(lines_all[at + 2:])
+    end = re.search(r"\n[А-ЯЁA-Z][А-ЯЁA-Z\s]{3,}:", chunk)
+    if end:
+        chunk = chunk[:end.start()]
+    lines = []
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("[", "```", "<!--")):
             continue
-        chunk = text[idx + len(label):]
-        end = re.search(r"\n[А-ЯЁA-Z][А-ЯЁA-Z\s]{3,}:", chunk)
-        if end:
-            chunk = chunk[:end.start()]
-        lines = []
-        for line in chunk.splitlines():
-            line = line.strip()
-            if not line or line.startswith("[") or line.startswith("```"):
-                continue
-            lines.append(line)
-            if len(lines) >= 8:
-                break
-        if lines:
-            return f"ПРАВИЛА ЖАНРА ({genre_key}):\n" + "\n".join(lines)
-    return ""
+        lines.append(line)
+        if len(lines) >= 8:
+            break
+    return f"ПРАВИЛА ЖАНРА ({genre_key}):\n" + "\n".join(lines) if lines else ""

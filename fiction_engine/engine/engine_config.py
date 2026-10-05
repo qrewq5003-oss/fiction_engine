@@ -324,48 +324,6 @@ CONTRACT_MAP: dict[str, str] = {
     "realism":   "realism_contracts.md",
 }
 
-# Поджанр → метка в файле контракта.
-# Метка ищется подстрокой в заголовках «## » файла 16_GENRE_CONTRACT/<семейство>_contracts.md.
-# Не нашлась — загрузчик отдаёт начало файла, то есть контракт ДРУГОГО поджанра;
-# это ловит tests/test_unified_contract.py.
-SUBGENRE_CONTRACT_LABELS: dict[str, str] = {
-    "fantasy_dark":            "ТЁМНОЕ ФЭНТЕЗИ",
-    "fantasy_epic":            "ЭПИЧЕСКОЕ ФЭНТЕЗИ",
-    "fantasy_urban":           "ГОРОДСКОЕ ФЭНТЕЗИ",
-    "fantasy_romantic":        "РОМАНТИЧЕСКОЕ ФЭНТЕЗИ",
-    "fantasy_sword_sorcery":   "МЕЧ И МАГИЯ",
-    "detective_noir":          "НУАР",
-    "detective_classic":       "КЛАССИЧЕСКИЙ",
-    "detective_procedural":    "ПРОЦЕДУРАЛ",
-    "detective_psychological": "ПСИХОЛОГИЧЕСКИЙ",
-    "detective_action":        "ЭКШЕН",
-    "detective_cozy":          "COZY",           # общий раздел «КЛАССИЧЕСКИЙ / COZY»
-    "horror_cosmic":           "КОСМИЧЕСКИЙ",
-    "horror_gothic":           "ГОТИЧЕСКИЙ",
-    "horror_psychological":    "ПСИХОЛОГИЧЕСКИЙ",
-    "horror_survival":         "ХОРРОР ВЫЖИВАНИЯ",
-    "thriller_psychological":  "ПСИХОЛОГИЧЕСКИЙ",
-    "thriller_spy":            "ШПИОНСКИЙ",
-    "thriller_survival":       "ТРИЛЛЕР ВЫЖИВАНИЯ",
-    "romance_contemporary":    "СОВРЕМЕННАЯ РОМАНТИКА",
-    "romance_historical":      "ИСТОРИЧЕСКАЯ РОМАНТИКА",
-    "romance_paranormal":      "ПАРАНОРМАЛЬНАЯ РОМАНТИКА",
-    "scifi_hard":              "ТВЁРДАЯ НФ",
-    "scifi_cyberpunk":         "КИБЕРПАНК",
-    "scifi_space_opera":       "КОСМИЧЕСКАЯ ОПЕРА",
-    "scifi_post_apocalyptic":  "ПОСТАПОКАЛИПСИС",
-    "scifi_steampunk":         "СТИМПАНК",
-    "scifi_social":            "СОЦИАЛЬНАЯ НФ",
-    "realism_psychological":   "ПСИХОЛОГИЧЕСКИЙ",
-    "realism_social":          "СОЦИАЛЬНЫЙ",
-    "realism_family_saga":     "СЕМЕЙНАЯ САГА",
-    "thriller_legal":          "ЮРИДИЧЕСКИЙ ТРИЛЛЕР",
-    "thriller_medical":        "МЕДИЦИНСКИЙ ТРИЛЛЕР",
-    "thriller_adventure":      "ПРИКЛЮЧЕНИЯ",
-    "realism_magical":         "МАГИЧЕСКИЙ РЕАЛИЗМ",
-    "scifi_alt_history":       "АЛЬТЕРНАТИВНАЯ ИСТОРИЯ",
-}
-
 # Полный поджанр → файл профиля персонажа (05_CHARACTER_ENGINE/profiles/GENRE/)
 CHAR_FULL_KEY_MAP: dict[str, str] = {
     "detective_noir":          "noir.md",
