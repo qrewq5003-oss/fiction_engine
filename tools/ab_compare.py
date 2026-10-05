@@ -958,8 +958,12 @@ def pool_rate(new_path: Path, pool_path: Path, out: Path, judges: list[str], wor
     for g in genres:
         nv = [v for (gg, _), v in new_means.items() if gg == g]
         pv = [c["score"] for c in pool["chapters"] if c["genre"] == g]
-        se = ((stdev(nv) ** 2 / len(nv) if len(nv) > 1 else 0)
-              + stdev(pv) ** 2 / len(pv)) ** .5
+        # Разброс новых глав по малой выборке не оценить: при одной главе
+        # stdev не определён, при двух-трёх — случайно мал. Берём его из базы
+        # (тот же жанр, та же шкала) — иначе ошибка занижена в разы: замер
+        # стилей 05.10 с одной главой на жанр показал «± 0.04» вместо ~0.11.
+        s_new = stdev(pv) if len(nv) < 4 else max(stdev(nv), stdev(pv))
+        se = (s_new ** 2 / len(nv) + stdev(pv) ** 2 / len(pv)) ** .5
         per_genre[g] = {"new": round(mean(nv), 3), "pool": round(mean(pv), 3),
                         "diff": round(mean(nv) - mean(pv), 3), "se": round(se, 3), "n": len(nv)}
     # Итог — среднее разниц по жанрам; ошибка — по ошибкам жанров
