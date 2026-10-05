@@ -52,24 +52,15 @@ class TestGetTokenBudget:
 
 
 class TestGetModuleDependencies:
-    def test_returns_dict(self):
+    def test_single_source_is_config(self):
+        from engine.engine_config import MODULE_DEPENDENCIES
         from engine.engine_loaders import get_module_dependencies
-        with patch("engine.engine_loaders.load_module_dependencies_from_index",
-                   return_value=None):
-            result = get_module_dependencies()
-        assert isinstance(result, dict)
+        assert get_module_dependencies() is MODULE_DEPENDENCIES
 
-    def test_uses_index_when_available(self):
-        from engine.engine_loaders import get_module_dependencies
-        fake = {"genre": ["base", "arc"]}
-        with patch("engine.engine_loaders.load_module_dependencies_from_index",
-                   return_value=fake):
-            result = get_module_dependencies()
-        assert result == fake
+    def test_index_has_no_copy(self):
+        """Вторая копия графа в INDEX.json расходилась бы с кодом молча."""
+        import json
+        from pathlib import Path
+        index = Path(__file__).resolve().parents[2] / "UNIFIED_ENGINE_MASTER" / "INDEX.json"
+        assert "module_dependencies" not in json.loads(index.read_text(encoding="utf-8"))
 
-    def test_falls_back_to_hardcode_when_no_index(self):
-        from engine.engine_loaders import get_module_dependencies
-        with patch("engine.engine_loaders.load_module_dependencies_from_index",
-                   return_value=None):
-            result = get_module_dependencies()
-        assert len(result) > 0
