@@ -302,3 +302,16 @@ class TestMainIssueFallback:
             "- ✗ Глава не меняет состояние персонажа\n",
         ]
         assert all(parse_first_item(s, "ГЛАВНЫЕ ПРОБЛЕМЫ") for s in samples)
+
+
+def test_brackets_copied_from_format_template():
+    """
+    Шаблон ответа судьи — «ИТОГ: [0-50]»; Kimi K2.5 копирует скобки.
+    Настоящие строки ответов 05.10: балл разбирался в 0, вердикт — в
+    «НА ДОРАБОТКУ», хотя судья принял главу.
+    """
+    from engine.pipeline_llm import parse_criterion, parse_score, parse_verdict
+    raw = "ГОЛОС: [8]\nСТРУКТУРА: [9]\nИТОГ: [43]\nВЕРДИКТ: [ПРИНЯТЬ]\n"
+    assert parse_score(raw) == 43
+    assert parse_verdict(raw) == "ПРИНЯТЬ"
+    assert parse_criterion(raw, "ГОЛОС") == 8
