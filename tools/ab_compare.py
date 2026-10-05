@@ -952,8 +952,10 @@ def pool_rate(new_path: Path, pool_path: Path, out: Path, judges: list[str], wor
         rows = list(ex.map(run, jobs))
     new_means = _chapter_means([r for r in rows if r["side"] == "new"])
     anchor_means = _chapter_means([r for r in rows if r["side"] == "anchor"])
-    drift = mean(v - next(c["score"] for c in pool["chapters"]
-                          if (c["genre"], c["run"]) == k) for k, v in anchor_means.items())
+    anchor_diffs = [v - next(c["score"] for c in pool["chapters"] if (c["genre"], c["run"]) == k)
+                    for k, v in anchor_means.items()]
+    drift = mean(anchor_diffs)
+    drift_se = stdev(anchor_diffs) / len(anchor_diffs) ** .5 if len(anchor_diffs) > 1 else 0.0
     per_genre = {}
     for g in genres:
         nv = [v for (gg, _), v in new_means.items() if gg == g]
@@ -969,8 +971,15 @@ def pool_rate(new_path: Path, pool_path: Path, out: Path, judges: list[str], wor
     # Итог — среднее разниц по жанрам; ошибка — по ошибкам жанров
     diff = mean(v["diff"] for v in per_genre.values())
     se = (sum(v["se"] ** 2 for v in per_genre.values()) ** .5) / len(per_genre)
+    # Поправка на дрейф: якоря — главы базы, судимые в этом же прогоне. Если
+    # судьи сегодня строже, ниже и якоря, и новые главы; разница с базой
+    # занижена на столько же. Замер 05.10: дрейф −0.07…−0.29 во всех шести
+    # прогонах стилей. Поправка добавляет ошибку якорей.
+    corr = diff - drift
+    corr_se = (se ** 2 + drift_se ** 2) ** .5
     report = {"date": date.today().isoformat(), "pool": pool_path.name, "pool_date": pool["date"],
               "judges": judges, "per_genre": per_genre, "diff": round(diff, 3), "se": round(se, 3),
+              "diff_drift_corrected": round(corr, 3), "se_drift_corrected": round(corr_se, 3),
               "anchor_drift": round(drift, 3), "drift_limit": DRIFT_LIMIT,
               "failed": sum(r["total"] is None for r in rows), "rows": rows}
     out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -979,6 +988,7 @@ def pool_rate(new_path: Path, pool_path: Path, out: Path, judges: list[str], wor
         print(f"  {g:24} новые {v['new']:.2f} ({v['n']})  база {v['pool']:.2f}  "
               f"разница {v['diff']:+.2f} ± {v['se']:.2f}")
     print(f"  итог: {diff:+.2f} ± {se:.2f}  (t {diff / se if se else float('nan'):+.1f})")
+    print(f"  с поправкой на дрейф: {corr:+.2f} ± {corr_se:.2f}  (t {corr / corr_se if corr_se else float('nan'):+.1f})")
     print(f"  дрейф судей на {len(anchor_means)} якорях: {drift:+.2f}"
           + ("  ⚠ больше допустимого — база устарела, пересоберите её" if abs(drift) > DRIFT_LIMIT else ""))
     print(f"  не разобрано {report['failed']} из {len(rows)}")
