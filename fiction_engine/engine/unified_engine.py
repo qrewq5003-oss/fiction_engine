@@ -105,11 +105,7 @@ def project_genre_key(project: dict | None) -> str | None:
 # ─── Граф зависимостей ────────────────────────────────────────────────────────
 
 def resolve_dependencies(modules: list[str]) -> list[str]:
-    """Добавить зависимые модули в правильном порядке.
-    
-    Граф зависимостей читается из INDEX.json если там есть ключ
-    module_dependencies, иначе используется хардкод из engine_config.py.
-    """
+    """Добавить зависимые модули в правильном порядке (граф — engine_config)."""
     from .engine_loaders import get_module_dependencies
     dependencies = get_module_dependencies()
 
