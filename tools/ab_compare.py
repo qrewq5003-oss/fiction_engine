@@ -762,34 +762,40 @@ def _parse_scores(raw: str) -> dict[str, float] | None:
     return vals if len(vals) == len(RUBRIC) else None
 
 
-def rate(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: int) -> int:
-    from concurrent.futures import ThreadPoolExecutor
+def _rate_chapter(ch: dict, jm: str) -> tuple[dict | None, float | None, str]:
+    """Одна оценка главы по шкале RUBRIC: (баллы, среднее, сырой ответ)."""
     from statistics import mean
     sys.path.insert(0, str(ROOT / "fiction_engine"))
     from engine.pipeline import _call
-    sides = {"old": json.loads(old_path.read_text(encoding="utf-8")),
-             "new": json.loads(new_path.read_text(encoding="utf-8"))}
+    seed = SEEDS[ch["genre"]]
     rubric = "\n".join(f"- {k}: {v}" for k, v in RUBRIC.items())
     keys = ", ".join(f'"{k}": N' for k in RUBRIC)
+    prompt = RATE_PROMPT.format(genre=seed["genre"], task=seed["task"], rubric=rubric,
+                                keys=keys, text=ch["text"])
+    scores, raw = None, ""
+    for _ in range(2):
+        try:
+            raw = _call(jm, RATE_SYSTEM, prompt, max_tokens=1500)
+        except Exception as e:
+            raw = f"ошибка: {str(e)[:120]}"
+        scores = _parse_scores(raw)
+        if scores:
+            break
+    return scores, (round(mean(scores.values()), 2) if scores else None), raw
+
+
+def rate(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean
+    sides = {"old": json.loads(old_path.read_text(encoding="utf-8")),
+             "new": json.loads(new_path.read_text(encoding="utf-8"))}
     jobs = [(side, ch, jm, rep) for side, data in sides.items() for ch in data["chapters"]
             if ch["text"] for jm in judges for rep in range(REPEATS)]
     random.Random(20260927).shuffle(jobs)   # вперемешку: ревизии не идут блоками
 
     def run(job):
         side, ch, jm, rep = job
-        seed = SEEDS[ch["genre"]]
-        prompt = RATE_PROMPT.format(genre=seed["genre"], task=seed["task"], rubric=rubric,
-                                    keys=keys, text=ch["text"])
-        scores, raw = None, ""
-        for _ in range(2):
-            try:
-                raw = _call(jm, RATE_SYSTEM, prompt, max_tokens=1500)
-            except Exception as e:
-                raw = f"ошибка: {str(e)[:120]}"
-            scores = _parse_scores(raw)
-            if scores:
-                break
-        total = round(mean(scores.values()), 2) if scores else None
+        scores, total, raw = _rate_chapter(ch, jm)
         print(f"  {side:3} {ch['genre']:24} #{ch['run']}  {jm.split('::')[-1]:28} "
               f"повтор {rep} → {total}", flush=True)
         return {"side": side, "genre": ch["genre"], "run": ch["run"], "voice": ch.get("voice"),
@@ -842,6 +848,140 @@ def rate(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: 
           f"средняя разница {round(mean(d['diff'] for d in diffs), 2) if diffs else '—'}")
     print(f"  шум повторов (размах одного судьи на одной главе): {noise}; "
           f"не разобрано {report['failed']} из {len(ratings)}")
+    return 0
+
+
+# ─── Постоянный набор базовых глав ───────────────────────────────────────────
+#
+# Каждый замер заново генерировал и судил базу — 8–16 глав, и одни и те же
+# главы при повторной оценке сдвигались на 0.28 (замер голосов 04.10): шум
+# судей сравним с искомым эффектом. Здесь база генерируется и судится один
+# раз, плотнее обычного (больше повторов), и хранится в bench/. Новый замер
+# судит только свои главы и сравнивает их со средним базы того же жанра.
+#
+# Судьи — модели, которые обновляются. Поэтому в каждый замер подмешиваются
+# несколько глав базы («якоря»): если их оценка ушла от сохранённой, база
+# устарела, и вывод замера ненадёжен — инструмент об этом говорит.
+
+POOL_REPEATS = 4
+ANCHORS = 4
+DRIFT_LIMIT = 0.25
+
+
+def _chapter_means(rows: list[dict]) -> dict[tuple, float]:
+    """Средняя оценка каждой главы по всем судьям и повторам."""
+    from statistics import mean
+    by: dict[tuple, list[float]] = {}
+    for r in rows:
+        if r["total"] is not None:
+            by.setdefault((r["genre"], r["run"]), []).append(r["total"])
+    return {k: mean(v) for k, v in by.items()}
+
+
+def pool_build(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean
+    chapters: list[dict] = []
+    meta = {}
+    for p in paths:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        meta.setdefault("model", data.get("model"))
+        meta.setdefault("mode", data.get("mode"))
+        for c in data["chapters"]:
+            if c["text"]:
+                # Номер прогона — сквозной по жанру: в разных файлах он начинается с 0
+                c = dict(c, run=sum(1 for x in chapters if x["genre"] == c["genre"]),
+                         source=p.name)
+                chapters.append(c)
+    jobs = [(c, jm, rep) for c in chapters for jm in judges for rep in range(POOL_REPEATS)]
+    random.Random(20261004).shuffle(jobs)
+
+    def run(job):
+        c, jm, rep = job
+        scores, total, _ = _rate_chapter(c, jm)
+        print(f"  {c['genre']:24} #{c['run']}  {jm.split('::')[-1]:28} повтор {rep} → {total}",
+              flush=True)
+        return {"genre": c["genre"], "run": c["run"], "judge": jm.split("::")[-1],
+                "repeat": rep, "scores": scores, "total": total}
+
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    means = _chapter_means(rows)
+    for c in chapters:
+        c["score"] = round(means.get((c["genre"], c["run"]), float("nan")), 3)
+    by_genre = {g: round(mean(v for (gg, _), v in means.items() if gg == g), 3)
+                for g in sorted({c["genre"] for c in chapters})}
+    report = {"date": date.today().isoformat(), "judges": judges, "repeats": POOL_REPEATS,
+              **meta, "genre_means": by_genre, "failed": sum(r["total"] is None for r in rows),
+              "chapters": chapters, "ratings": rows}
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    for g, v in by_genre.items():
+        n = sum(1 for c in chapters if c["genre"] == g)
+        print(f"  {g:24} {n} глав  среднее {v}")
+    print(f"  не разобрано {report['failed']} из {len(rows)}")
+    return 0
+
+
+def pool_rate(new_path: Path, pool_path: Path, out: Path, judges: list[str], workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean, stdev
+    pool = json.loads(pool_path.read_text(encoding="utf-8"))
+    if sorted(judges) != sorted(pool["judges"]):
+        raise SystemExit(f"судьи замера {judges} не совпадают с судьями базы {pool['judges']}")
+    new = [c for c in json.loads(new_path.read_text(encoding="utf-8"))["chapters"] if c["text"]]
+    genres = sorted({c["genre"] for c in new})
+    missing = [g for g in genres if g not in pool["genre_means"]]
+    if missing:
+        raise SystemExit(f"в базе нет жанров {missing}")
+    rnd = random.Random(20261004)
+    anchors = rnd.sample([c for c in pool["chapters"] if c["genre"] in genres],
+                         min(ANCHORS, len(pool["chapters"])))
+    jobs = [("new", c, jm, rep) for c in new for jm in judges for rep in range(REPEATS)]
+    jobs += [("anchor", c, jm, rep) for c in anchors for jm in judges for rep in range(REPEATS)]
+    rnd.shuffle(jobs)
+
+    def run(job):
+        side, c, jm, rep = job
+        scores, total, _ = _rate_chapter(c, jm)
+        print(f"  {side:6} {c['genre']:24} #{c['run']}  {jm.split('::')[-1]:28} "
+              f"повтор {rep} → {total}", flush=True)
+        return {"side": side, "genre": c["genre"], "run": c["run"], "voice": c.get("voice"),
+                "judge": jm.split("::")[-1], "repeat": rep, "scores": scores, "total": total}
+
+    with ThreadPoolExecutor(workers) as ex:
+        rows = list(ex.map(run, jobs))
+    new_means = _chapter_means([r for r in rows if r["side"] == "new"])
+    anchor_means = _chapter_means([r for r in rows if r["side"] == "anchor"])
+    drift = mean(v - next(c["score"] for c in pool["chapters"]
+                          if (c["genre"], c["run"]) == k) for k, v in anchor_means.items())
+    per_genre = {}
+    for g in genres:
+        nv = [v for (gg, _), v in new_means.items() if gg == g]
+        pv = [c["score"] for c in pool["chapters"] if c["genre"] == g]
+        # Разброс новых глав по малой выборке не оценить: при одной главе
+        # stdev не определён, при двух-трёх — случайно мал. Берём его из базы
+        # (тот же жанр, та же шкала) — иначе ошибка занижена в разы: замер
+        # стилей 05.10 с одной главой на жанр показал «± 0.04» вместо ~0.11.
+        s_new = stdev(pv) if len(nv) < 4 else max(stdev(nv), stdev(pv))
+        se = (s_new ** 2 / len(nv) + stdev(pv) ** 2 / len(pv)) ** .5
+        per_genre[g] = {"new": round(mean(nv), 3), "pool": round(mean(pv), 3),
+                        "diff": round(mean(nv) - mean(pv), 3), "se": round(se, 3), "n": len(nv)}
+    # Итог — среднее разниц по жанрам; ошибка — по ошибкам жанров
+    diff = mean(v["diff"] for v in per_genre.values())
+    se = (sum(v["se"] ** 2 for v in per_genre.values()) ** .5) / len(per_genre)
+    report = {"date": date.today().isoformat(), "pool": pool_path.name, "pool_date": pool["date"],
+              "judges": judges, "per_genre": per_genre, "diff": round(diff, 3), "se": round(se, 3),
+              "anchor_drift": round(drift, 3), "drift_limit": DRIFT_LIMIT,
+              "failed": sum(r["total"] is None for r in rows), "rows": rows}
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    print()
+    for g, v in per_genre.items():
+        print(f"  {g:24} новые {v['new']:.2f} ({v['n']})  база {v['pool']:.2f}  "
+              f"разница {v['diff']:+.2f} ± {v['se']:.2f}")
+    print(f"  итог: {diff:+.2f} ± {se:.2f}  (t {diff / se if se else float('nan'):+.1f})")
+    print(f"  дрейф судей на {len(anchor_means)} якорях: {drift:+.2f}"
+          + ("  ⚠ больше допустимого — база устарела, пересоберите её" if abs(drift) > DRIFT_LIMIT else ""))
+    print(f"  не разобрано {report['failed']} из {len(rows)}")
     return 0
 
 
@@ -994,6 +1134,17 @@ def main() -> int:
     sr.add_argument("--out", type=Path, required=True)
     sr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     sr.add_argument("--workers", type=int, default=4)
+    pb = sub.add_parser("pool-build", help="оценить и сохранить постоянный набор базовых глав")
+    pb.add_argument("chapters", type=Path, nargs="+")
+    pb.add_argument("--out", type=Path, required=True)
+    pb.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    pb.add_argument("--workers", type=int, default=6)
+    pr = sub.add_parser("pool-rate", help="оценить новые главы против набора базовых")
+    pr.add_argument("new", type=Path)
+    pr.add_argument("--pool", type=Path, required=True)
+    pr.add_argument("--out", type=Path, required=True)
+    pr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    pr.add_argument("--workers", type=int, default=4)
     vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
     vg.add_argument("chapters", type=Path, nargs="+")
     vg.add_argument("--out", type=Path, required=True)
@@ -1029,6 +1180,10 @@ def main() -> int:
                       a.mode, [w for w in a.without.split(",") if w])
     if a.cmd == "series-rate":
         return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "pool-build":
+        return pool_build(a.chapters, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "pool-rate":
+        return pool_rate(a.new, a.pool, a.out, a.judges.split(","), a.workers)
     if a.cmd == "voice-guess":
         return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":
