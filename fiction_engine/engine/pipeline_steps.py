@@ -278,6 +278,10 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     from .chapter_analyzer import analyze_chapter_deep, format_analysis_for_prompt
 
     gen_text = call_fn(model_gen, sys_generator, full_prompt, prefill=prefill) if prefill else call_fn(model_gen, sys_generator, full_prompt)
+    from .pipeline import strip_reasoning
+    gen_text, reasoned = strip_reasoning(gen_text)
+    if reasoned:
+        results["reasoning_stripped"] = True
     if not prefill:
         from .pipeline import extend_short_chapter
         gen_text, extended = extend_short_chapter(gen_text, model_gen, sys_generator,
