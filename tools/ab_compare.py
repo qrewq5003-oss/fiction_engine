@@ -499,6 +499,99 @@ def series_rate(old_path: Path, new_path: Path, out: Path, judges: list[str],
     return 0
 
 
+# ─── Попарное сравнение серий ────────────────────────────────────────────────
+#
+# Шкала series-rate упёрлась в потолок (1.9 из 2 у обеих сторон, замер 03.10).
+# Здесь судья видит две серии одного посева и по каждому вопросу выбирает
+# лучшую. Позиция подтасовывает выбор (замер 27.09: 30 голосов из 31 — за
+# первую главу пары), поэтому каждая пара судится дважды, в прямом и
+# обратном порядке, и засчитывается только согласный ответ.
+
+PAIR_PROMPT = """Жанр: {genre}
+
+Ниже две серии по {n} главы подряд на один и тот же сюжет — серия A и серия B.
+Сравни их как серии, а не отдельные главы. По каждому вопросу выбери, какая
+серия лучше: "A", "B" или "=" (если разница незаметна). Не предпочитай серию
+за длину или за то, что она идёт первой.
+
+{qs}
+{k}. В целом: какую серию хочется читать дальше
+
+=== СЕРИЯ A ===
+{a}
+
+=== СЕРИЯ B ===
+{b}
+
+Ответь JSON без пояснений вокруг: {{"answers": [{{"q": 1, "pick": "A"}}, …]}}"""
+
+
+def series_pair(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: int) -> int:
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    old = {(s_["genre"], s_["run"]): s_ for s_ in json.loads(old_path.read_text(encoding="utf-8"))["series"]}
+    new = {(s_["genre"], s_["run"]): s_ for s_ in json.loads(new_path.read_text(encoding="utf-8"))["series"]}
+    keys = sorted(k for k in old if k in new and old[k]["chapters"] and new[k]["chapters"]
+                  and len(old[k]["chapters"]) == len(new[k]["chapters"]))
+    questions = SERIES_Q + ["В целом: какую серию хочется читать дальше"]
+    qs = "\n".join(f"{i}. {q}" for i, q in enumerate(SERIES_Q, 1))
+
+    def text(series):
+        return "\n\n".join(f"--- Глава {c['num']} ---\n{c['text']}" for c in series["chapters"])
+
+    def run(job):
+        k, jm, first = job                     # first: какая сторона идёт серией A
+        a, b = (old[k], new[k]) if first == "old" else (new[k], old[k])
+        prompt = PAIR_PROMPT.format(genre=SEEDS[k[0]]["genre"], n=len(a["chapters"]), qs=qs,
+                                    k=len(questions), a=text(a), b=text(b))
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=1500)) or {}
+                picks = {int(x["q"]): str(x["pick"]).strip().upper()[:1] for x in got.get("answers", [])}
+                if len(picks) == len(questions):
+                    # в стороны: A/B → old/new
+                    side = {"A": first, "B": "new" if first == "old" else "old", "=": "="}
+                    res = {q: side.get(p, "=") for q, p in picks.items()}
+                    print(f"  {k[0]:24} #{k[1]} {jm.split('::')[-1]:28} первой {first:3} → "
+                          f"в целом {res[len(questions)]}", flush=True)
+                    return {"genre": k[0], "run": k[1], "judge": jm.split("::")[-1],
+                            "first": first, "picks": res, "raw": picks}
+            except Exception:
+                pass
+        return {"genre": k[0], "run": k[1], "judge": jm.split("::")[-1], "first": first, "picks": None}
+
+    jobs = [(k, jm, first) for k in keys for jm in judges for first in ("old", "new")]
+    random.Random(20261006).shuffle(jobs)
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    ok = [r for r in rows if r["picks"]]
+    # Перекос позиции: как часто выбрана серия, шедшая первой (без «=»)
+    firsts = [r["raw"][q] == "A" for r in ok for q in r["raw"] if r["raw"][q] in "AB"]
+    bias = sum(firsts) / len(firsts) if firsts else float("nan")
+    report = {"date": date.today().isoformat(), "judges": judges, "questions": questions,
+              "position_first_share": round(bias, 3), "pairs": len(keys),
+              "failed": len(rows) - len(ok), "rows": rows, "per_question": {}}
+    print(f"\n  выбрана первая позиция: {bias:.0%} ответов (без «=»); 50 % — нет перекоса")
+    print(f"  {'вопрос':60} {'old':>5} {'new':>5} {'=':>5} {'несогл.':>8}")
+    for qi, q in enumerate(questions, 1):
+        c = Counter()
+        for k in keys:
+            for jm in judges:
+                j = jm.split("::")[-1]
+                pair = [r["picks"][qi] for r in ok if (r["genre"], r["run"]) == k and r["judge"] == j]
+                if len(pair) == 2:
+                    c[pair[0] if pair[0] == pair[1] else "несогл."] += 1
+        report["per_question"][q] = dict(c)
+        print(f"  {q[:60]:60} {c['old']:>5} {c['new']:>5} {c['=']:>5} {c['несогл.']:>8}")
+    print(f"  не разобрано {report['failed']} из {len(rows)}")
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
 # ─── Различимость голосов ────────────────────────────────────────────────────
 #
 # Оценка по шкале говорит, хороша ли глава, но не говорит, звучит ли она
@@ -1155,6 +1248,12 @@ def main() -> int:
     pr.add_argument("--out", type=Path, required=True)
     pr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     pr.add_argument("--workers", type=int, default=4)
+    sp = sub.add_parser("series-pair", help="попарное сравнение серий, в двух порядках")
+    sp.add_argument("old", type=Path)
+    sp.add_argument("new", type=Path)
+    sp.add_argument("--out", type=Path, required=True)
+    sp.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    sp.add_argument("--workers", type=int, default=3)
     vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
     vg.add_argument("chapters", type=Path, nargs="+")
     vg.add_argument("--out", type=Path, required=True)
@@ -1194,6 +1293,8 @@ def main() -> int:
         return pool_build(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "pool-rate":
         return pool_rate(a.new, a.pool, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "series-pair":
+        return series_pair(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "voice-guess":
         return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":
