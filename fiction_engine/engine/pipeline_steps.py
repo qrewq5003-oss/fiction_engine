@@ -292,9 +292,13 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     gen_text, foreign = clean_foreign_words(gen_text, model_gen, full_prompt, call_fn)
     if foreign:
         results["foreign_words"] = foreign
+    from .text_signals import chapter_signals
+    signals = chapter_signals(gen_text)
+    if signals:
+        results["text_signals"] = signals
     chains = and_chains_note(gen_text)
     if chains:
-        results["and_chains"] = chains
+        results["and_chains"] = chains        # прежний ключ: его читают внешние клиенты
     save_pipeline_iteration(run_id, iteration, "generate", model_gen,
                              generation_prompt, gen_text)
     results["generated_text"] = gen_text

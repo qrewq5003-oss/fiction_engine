@@ -388,7 +388,10 @@ function showResults(data) {
   // Короткую главу движок дописал сам вторым запросом — сказать об этом
   if (data.extended) showToast('📏 ' + data.extended, 'info', 6000);
   if (data.foreign_words) showToast('🔤 ' + data.foreign_words, 'info', 6000);
-  if (data.and_chains) showToast('🔗 ' + data.and_chains, 'info', 8000);
+  // Сигналы по самому тексту главы (цепочки — среди них)
+  if (data.text_signals && data.text_signals.length)
+    showToast('🔎 ' + data.text_signals.join(' · '), 'info', 12000);
+  else if (data.and_chains) showToast('🔗 ' + data.and_chains, 'info', 8000);
   // Раздел базы знаний не собрался — глава написана без него
   if (data.engine_issues) showToast('⚠ ' + data.engine_issues, 'warning', 12000);
   if (data.context_trimmed) showToast('✂️ ' + data.context_trimmed, 'warning', 8000);
