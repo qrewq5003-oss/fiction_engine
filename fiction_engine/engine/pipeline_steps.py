@@ -80,8 +80,8 @@ def analyze_sentence_rhythm(text: str) -> dict:
     pct_long   = round(long_  / total * 100)
 
     # Целевые диапазоны
+    # Средние отдельно не проверяются: их доля — остаток от коротких и длинных
     ok_short  = RHYTHM_RANGE["short"][0]  <= pct_short  <= RHYTHM_RANGE["short"][1]
-    ok_medium = RHYTHM_RANGE["medium"][0] <= pct_medium <= RHYTHM_RANGE["medium"][1]
     ok_long   = RHYTHM_RANGE["long"][0]   <= pct_long   <= RHYTHM_RANGE["long"][1]
 
     issues = []
@@ -585,7 +585,7 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         if checklist:
             sys_judge += f"\n\n{checklist}"
     except Exception as e:
-        handle_error(f"step_judge validation_checklist", e, level=ErrorLevel.RECOVERABLE)
+        handle_error("step_judge validation_checklist", e, level=ErrorLevel.RECOVERABLE)
 
     # ── Читательский контракт жанра ──────────────────────────────────────────
     # validation_checklist — технические критерии (ритм, структура, клише).

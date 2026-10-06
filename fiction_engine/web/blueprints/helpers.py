@@ -123,7 +123,11 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
         from engine.pipeline import generate_l3
         summary = generate_l3(project_id, chapter_num, text, cheap)
         result["l3_generated"] = summary is not None
-    except Exception:
+    except Exception as e:
+        # Без L3 следующие главы теряют память о прошлых — отказ должен
+        # быть виден (AUDIT_UNIFIED.md, F5)
+        log_web_error("после сохранения: память L3", e,
+                      project_id=project_id, chapter_num=chapter_num)
         result["l3_generated"] = False
 
     # 2. Дрейф голоса
@@ -184,5 +188,7 @@ def _auto_score_chapter(project_id: int, chapter_num: int,
                              review_layers_note(project, chapter_num))
         save_chapter_score(project_id, chapter_num, details)
         return details.get("total")
-    except Exception:
+    except Exception as e:
+        log_web_error("авто-оценка главы: score_text", e,
+                      project_id=project_id, chapter_num=chapter_num)
         return None

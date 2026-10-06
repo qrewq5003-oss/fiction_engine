@@ -352,7 +352,6 @@ def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dic
 
     # R05: программный анализ ритма — передаём как факт, не просим угадывать
     rhythm = analyze_sentence_rhythm(text)
-    rhythm_hint = rhythm.get("hint", "")
 
     # Замер ритма КРИТИКУ НЕ ПЕРЕДАЁТСЯ — сознательно.
     #

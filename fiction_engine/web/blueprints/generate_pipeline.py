@@ -5,6 +5,9 @@
 Выделено из generate_bp.py. Блупринт общий — см. generate_prompt.
 """
 
+import threading
+import uuid
+
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from engine.db import (get_chapters, save_chapter, get_api_key,
                        save_author_edit, get_pipeline_iterations)
@@ -115,6 +118,46 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
     return False
 
 
+# ─── Обновление State после принятия — в фоне ─────────────────────────────
+#
+# Анализ главы — вызов модели на десятки секунд. Он шёл прямо в запросе
+# «принять»: запуск уже помечен принятым и глава сохранена, а ответ ждёт
+# модель. Оборвись соединение (браузер, прокси) — автор не узнает, обновился
+# ли State (AUDIT_UNIFIED.md, F6). Теперь запрос отвечает сразу, State
+# обновляется в фоне, страница спрашивает статус.
+
+_state_jobs: dict[str, dict] = {}
+_state_lock = threading.Lock()
+
+
+def _start_state_update(project_id: int, chapter_num: int, model_value: str) -> str:
+    job_id = str(uuid.uuid4())
+    with _state_lock:
+        for k in list(_state_jobs)[:-50]:          # держим последние 50
+            del _state_jobs[k]
+        _state_jobs[job_id] = {"status": "running", "state_updated": False,
+                               "project_id": project_id}
+
+    def worker():
+        updated = _try_state_update_after_accept(project_id, chapter_num, model_value)
+        with _state_lock:
+            _state_jobs[job_id].update(status="done", state_updated=updated)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return job_id
+
+
+@bp.route("/pipeline/state_status/<job_id>")
+def pipeline_state_status(job_id):
+    current = get_current_project()
+    with _state_lock:
+        job = dict(_state_jobs.get(job_id) or {})
+    # Чужой проект — как несуществующая задача
+    if not job or not current or job["project_id"] != current["id"]:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify({"status": job["status"], "state_updated": job["state_updated"]})
+
+
 def _log_state_update_failure(project_id: int, chapter_num: int, exc: Exception) -> None:
     """Автообновление State — некритично, но должно быть видно в логах."""
     from .helpers import log_web_error
@@ -137,12 +180,12 @@ def pipeline_accept():
     from engine.pipeline import accept_pipeline
     accept_pipeline(run_id)
 
-    current       = get_current_project()
-    state_updated = False
+    current   = get_current_project()
+    state_job = None
     if current and chapter_num and final_text:
         save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
         if model_value:
-            state_updated = _try_state_update_after_accept(current["id"], chapter_num, model_value)
+            state_job = _start_state_update(current["id"], chapter_num, model_value)
 
         # ── Записываем правку автора для DATA_DRIVEN_LEARNING ──────────────
         # Находим оригинальный текст (последняя итерация generate/edit)
@@ -170,7 +213,7 @@ def pipeline_accept():
             log_web_error("accept: не записана правка автора", e,
                           project_id=current["id"], chapter_num=chapter_num)
 
-    return jsonify({"ok": True, "state_updated": state_updated})
+    return jsonify({"ok": True, "state_job": state_job})
 
 
 @bp.route("/pipeline/reject", methods=["POST"])

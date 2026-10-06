@@ -501,10 +501,21 @@ async function acceptResult() {
     final_text: state.currentText,
     model_value: modelGen,
   });
-  if (r.state_updated) {
-    showToast('Глава принята. State Engine обновлён автоматически ✓', 'success');
-  } else {
+  if (!r.state_job) {
     showToast('Глава принята и сохранена', 'success');
+    setTimeout(() => location.reload(), 2000);
+    return;
+  }
+  // State обновляется в фоне: анализ главы — вызов модели на десятки секунд
+  showToast('Глава принята. State Engine обновляется…', 'info', 6000);
+  for (let i = 0; i < 90; i++) {
+    await new Promise(res => setTimeout(res, 3000));
+    const s = await fetch(`/pipeline/state_status/${r.state_job}`).then(x => x.json()).catch(() => null);
+    if (s && s.status === 'done') {
+      showToast(s.state_updated ? 'State Engine обновлён ✓'
+                                : 'State Engine не изменился — проверь вкладку State', s.state_updated ? 'success' : 'warning');
+      break;
+    }
   }
   setTimeout(() => location.reload(), 2000);
 }
