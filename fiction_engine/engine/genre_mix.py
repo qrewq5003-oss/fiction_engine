@@ -130,21 +130,31 @@ def secondary_options() -> list[dict]:
     return out
 
 
-def _contract_promises(key: str) -> list[str]:
-    """Строки «Обязательно» из раздела контракта поджанра."""
+def _contract_subsection(key: str, starts: tuple[str, ...], limit: int) -> list[str]:
+    """Строки подраздела «### …» контракта поджанра, чей заголовок начинается с starts."""
     from .engine_loaders_genre import load_genre_contract
     lines: list[str] = []
     inside = False
     for raw in load_genre_contract(_engine_path(), key).split("\n"):
         line = raw.strip()
         if line.startswith("### "):
-            inside = line[4:].upper().startswith("ОБЯЗАТЕЛЬНО")
+            inside = line[4:].upper().startswith(starts)
             continue
         if line.startswith("## ") and lines:
             break
         if inside and line and line != "---":
             lines.append(line)
-    return lines[:4]
+    return lines[:limit]
+
+
+def _contract_promises(key: str) -> list[str]:
+    """Строки «Обязательно» из раздела контракта поджанра."""
+    return _contract_subsection(key, ("ОБЯЗАТЕЛЬНО",), 4)
+
+
+def _contract_violations(key: str) -> list[str]:
+    """Строки «Нарушение контракта» (или «Запрещено») раздела поджанра."""
+    return _contract_subsection(key, ("НАРУШЕНИЕ", "ЗАПРЕЩЕНО"), 6)
 
 
 def _modifier_body(key: str) -> list[str]:
@@ -285,28 +295,37 @@ def review_layers_note(project: dict | None, chapter_num: int | None = None) -> 
 # принимался с проваленной любовной линией. Обещания второго жанра идут
 # ему отдельно и мягче: второй линии может не быть в конкретной главе.
 
-SECONDARY_CONTRACT_HEADER = "ОБЕЩАНИЯ ВТОРОГО ЖАНРА"
+SECONDARY_CONTRACT_HEADER = "НАРУШЕНИЯ ВТОРОГО ЖАНРА"
 
 
 def secondary_contract_for_judge(project: dict | None) -> str:
-    """Обязательные пункты контракта второго жанра. Пусто — второго жанра нет
-    или вторым слоем стоит модификатор (у тона нет контракта)."""
+    """
+    Нарушения контракта второго жанра — что судье искать в главе. Пусто —
+    второго жанра нет или вторым слоем стоит модификатор (у тона нет контракта).
+
+    Раньше судья получал пункты «Обязательно», и из четырёх три были
+    обещаниями всей книги (HEA, чёрный момент, «оба меняются»). Замер 06.10:
+    проваленную линию («она поняла, что влюблена», химии нет) судья с таким
+    контрактом оценивал выше, чем без него, — признания читал как шаг к HEA;
+    разрыв с живой линией пропадал (−1.94 ± 0.48). Строка «Химии нет — они
+    просто говорят что влюблены» была в разделе нарушений, которого судья
+    не видел.
+    """
     key = project_secondary_key(project)
     if not key or key in MODIFIERS:
         return ""
     from .unified_engine import project_genre_key
     if key == project_genre_key(project):
         return ""
-    promises = _contract_promises(key)
-    if not promises:
+    violations = _contract_violations(key) or _contract_promises(key)
+    if not violations:
         return ""
     return (f"{SECONDARY_CONTRACT_HEADER} ({secondary_label(key)}) — вторая линия книги:\n"
-            + "\n".join(f"- {p}" for p in promises)
-            + "\n\nЕсли линия второго жанра в главе есть — эти обещания должны "
-              "выполняться; невыполненное — замечание в вердикте. Если её в этой "
-              "главе нет — это не нарушение. Обещания всей книги (финал, развязка, "
-              "чёрный момент) в отдельной главе не требуй. Контракт основного "
-              "жанра важнее.")
+            + "\n".join(f"- {p}" for p in violations)
+            + "\n\nЕсли линия второго жанра в главе есть — проверь её на эти "
+              "нарушения; найденное — замечание в вердикте и снижение оценки. Если "
+              "её в этой главе нет — это не нарушение. Финал и развязку книги в "
+              "отдельной главе не требуй. Контракт основного жанра важнее.")
 
 
 # ─── Ритм тона вместо общей нормы ────────────────────────────────────────────

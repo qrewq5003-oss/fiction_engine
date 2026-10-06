@@ -135,7 +135,7 @@ def test_judge_gets_secondary_genre_contract(project_id):
                    project_id=project_id, genre_key="thriller_psychological")
     system = call.calls[0]["system"]
     assert f"{SECONDARY_CONTRACT_HEADER} (Современная романтика)" in system
-    assert "Химия на странице" in system, "пункты контракта второго жанра не дошли"
+    assert "Химии нет — они просто говорят что влюблены" in system, "нарушения второго жанра не дошли"
     assert "не требуй" in system, "нет оговорки про обещания всей книги"
     # основной контракт на месте и идёт раньше
     assert system.index("ЧИТАТЕЛЬСКИЙ КОНТРАКТ ЖАНРА") < system.index(SECONDARY_CONTRACT_HEADER)
