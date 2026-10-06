@@ -51,6 +51,18 @@ def prompt_input(label, default=None):
     return val or default or ""
 
 
+def prompt_int(label, default=None):
+    """Число с клавиатуры. Не число — переспросить: int() на опечатке ронял CLI."""
+    while True:
+        val = prompt_input(label, None if default is None else str(default))
+        if not val:
+            return default
+        try:
+            return int(val)
+        except ValueError:
+            error(f"Нужно число, а введено «{val}»")
+
+
 def choose(options: list[dict], label="Выбери") -> dict | None:
     """Показать нумерованный список, вернуть выбранный элемент."""
     for i, opt in enumerate(options, 1):
@@ -155,7 +167,7 @@ def cmd_chapter_add():
 
     existing = get_chapters(pid)
     next_num = (existing[-1]["number"] + 1) if existing else 1
-    num      = int(prompt_input("Номер главы", str(next_num)) or next_num)
+    num      = prompt_int("Номер главы", next_num)
     title    = prompt_input("Название (Enter = пропустить)")
 
     print(f"\n  {dim('1. Путь к файлу   2. Ввод текста')}")
@@ -215,7 +227,7 @@ def cmd_state_analyze():
     for ch in chapters:
         print(f"    {ch['number']}.  {ch['title'] or 'Глава ' + str(ch['number'])}  {dim(str(ch['word_count']) + ' сл.')}")
 
-    num = int(prompt_input("\n  Номер главы для анализа") or "0")
+    num = prompt_int("\n  Номер главы для анализа", 0)
     if not any(c["number"] == num for c in chapters):
         error(f"Глава {num} не найдена")
         return
@@ -275,7 +287,7 @@ def cmd_prompt_generate():
     p        = get_project(pid)
     chapters = get_chapters(pid)
     next_num = (chapters[-1]["number"] + 1) if chapters else 1
-    num      = int(prompt_input("Номер главы", str(next_num)) or next_num)
+    num      = prompt_int("Номер главы", next_num)
 
     print("\n  Режим:")
     print("  1. QUICK   — черновик (5 мин)")
@@ -312,7 +324,7 @@ def cmd_keys():
     choice = input("  (1/2/3): ").strip()
     key_map = {"1": "anthropic_direct", "2": "nano_gpt"}
     if choice in key_map:
-        key = input(f"  Ключ: ").strip()
+        key = input("  Ключ: ").strip()
         if key:
             save_api_key(key_map[choice], key)
             success("Ключ сохранён")
@@ -367,13 +379,13 @@ def _select_pipeline_models() -> dict | None:
         except (ValueError, IndexError):
             return top[0]["value"]
 
-    print(f"\n  🖊  Генератор:")
+    print("\n  🖊  Генератор:")
     gen    = pick("номер")
-    print(f"  🔍 Критик:")
+    print("  🔍 Критик:")
     critic = pick("номер")
-    print(f"  ✏️  Редактор:")
+    print("  ✏️  Редактор:")
     editor = pick("номер")
-    print(f"  ⚖️  Судья:")
+    print("  ⚖️  Судья:")
     judge  = pick("номер")
 
     return {"gen": gen, "critic": critic, "editor": editor, "judge": judge}
@@ -436,7 +448,7 @@ def cmd_pipeline():
 
     chapters    = get_chapters(pid)
     next_num    = (chapters[-1]["number"] + 1) if chapters else 1
-    chapter_num = int(prompt_input("Номер главы", str(next_num)) or next_num)
+    chapter_num = prompt_int("Номер главы", next_num)
 
     gen_prompt = _read_prompt_text()
     if not gen_prompt:

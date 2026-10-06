@@ -659,7 +659,6 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
         knows_list = [k for k in (mem.get("knows") or []) if k and isinstance(k, str)]
         if not name or not knows_list:
             continue
-        knows_val = "; ".join(knows_list)
         pattern = rf"(###\s*{re.escape(name)}\nЗНАЕТ:\s*)(.*?)(?=\nНЕ_ЗНАЕТ|###|\Z)"
         mem_m = re.search(pattern, memory_text, re.DOTALL | re.IGNORECASE)
         if mem_m:
