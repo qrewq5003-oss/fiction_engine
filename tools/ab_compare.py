@@ -499,6 +499,236 @@ def series_rate(old_path: Path, new_path: Path, out: Path, judges: list[str],
     return 0
 
 
+# ─── Попарное сравнение серий ────────────────────────────────────────────────
+#
+# Шкала series-rate упёрлась в потолок (1.9 из 2 у обеих сторон, замер 03.10).
+# Здесь судья видит две серии одного посева и по каждому вопросу выбирает
+# лучшую. Позиция подтасовывает выбор (замер 27.09: 30 голосов из 31 — за
+# первую главу пары), поэтому каждая пара судится дважды, в прямом и
+# обратном порядке, и засчитывается только согласный ответ.
+
+PAIR_PROMPT = """Жанр: {genre}
+
+Ниже две серии по {n} главы подряд на один и тот же сюжет — серия A и серия B.
+Сравни их как серии, а не отдельные главы. По каждому вопросу выбери, какая
+серия лучше: "A", "B" или "=" (если разница незаметна). Не предпочитай серию
+за длину или за то, что она идёт первой.
+
+{qs}
+{k}. В целом: какую серию хочется читать дальше
+
+=== СЕРИЯ A ===
+{a}
+
+=== СЕРИЯ B ===
+{b}
+
+Ответь JSON без пояснений вокруг: {{"answers": [{{"q": 1, "pick": "A"}}, …]}}"""
+
+
+def series_pair(old_path: Path, new_path: Path, out: Path, judges: list[str], workers: int) -> int:
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    old = {(s_["genre"], s_["run"]): s_ for s_ in json.loads(old_path.read_text(encoding="utf-8"))["series"]}
+    new = {(s_["genre"], s_["run"]): s_ for s_ in json.loads(new_path.read_text(encoding="utf-8"))["series"]}
+    keys = sorted(k for k in old if k in new and old[k]["chapters"] and new[k]["chapters"]
+                  and len(old[k]["chapters"]) == len(new[k]["chapters"]))
+    questions = SERIES_Q + ["В целом: какую серию хочется читать дальше"]
+    qs = "\n".join(f"{i}. {q}" for i, q in enumerate(SERIES_Q, 1))
+
+    def text(series):
+        return "\n\n".join(f"--- Глава {c['num']} ---\n{c['text']}" for c in series["chapters"])
+
+    def run(job):
+        k, jm, first = job                     # first: какая сторона идёт серией A
+        a, b = (old[k], new[k]) if first == "old" else (new[k], old[k])
+        prompt = PAIR_PROMPT.format(genre=SEEDS[k[0]]["genre"], n=len(a["chapters"]), qs=qs,
+                                    k=len(questions), a=text(a), b=text(b))
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=1500)) or {}
+                picks = {int(x["q"]): str(x["pick"]).strip().upper()[:1] for x in got.get("answers", [])}
+                if len(picks) == len(questions):
+                    # в стороны: A/B → old/new
+                    side = {"A": first, "B": "new" if first == "old" else "old", "=": "="}
+                    res = {q: side.get(p, "=") for q, p in picks.items()}
+                    print(f"  {k[0]:24} #{k[1]} {jm.split('::')[-1]:28} первой {first:3} → "
+                          f"в целом {res[len(questions)]}", flush=True)
+                    return {"genre": k[0], "run": k[1], "judge": jm.split("::")[-1],
+                            "first": first, "picks": res, "raw": picks}
+            except Exception:
+                pass
+        return {"genre": k[0], "run": k[1], "judge": jm.split("::")[-1], "first": first, "picks": None}
+
+    jobs = [(k, jm, first) for k in keys for jm in judges for first in ("old", "new")]
+    random.Random(20261006).shuffle(jobs)
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    ok = [r for r in rows if r["picks"]]
+    # Перекос позиции: как часто выбрана серия, шедшая первой (без «=»)
+    firsts = [r["raw"][q] == "A" for r in ok for q in r["raw"] if r["raw"][q] in "AB"]
+    bias = sum(firsts) / len(firsts) if firsts else float("nan")
+    report = {"date": date.today().isoformat(), "judges": judges, "questions": questions,
+              "position_first_share": round(bias, 3), "pairs": len(keys),
+              "failed": len(rows) - len(ok), "rows": rows, "per_question": {}}
+    print(f"\n  выбрана первая позиция: {bias:.0%} ответов (без «=»); 50 % — нет перекоса")
+    print(f"  {'вопрос':60} {'old':>5} {'new':>5} {'=':>5} {'несогл.':>8}")
+    for qi, q in enumerate(questions, 1):
+        c = Counter()
+        for k in keys:
+            for jm in judges:
+                j = jm.split("::")[-1]
+                pair = [r["picks"][qi] for r in ok if (r["genre"], r["run"]) == k and r["judge"] == j]
+                if len(pair) == 2:
+                    c[pair[0] if pair[0] == pair[1] else "несогл."] += 1
+        report["per_question"][q] = dict(c)
+        print(f"  {q[:60]:60} {c['old']:>5} {c['new']:>5} {c['=']:>5} {c['несогл.']:>8}")
+    print(f"  не разобрано {report['failed']} из {len(rows)}")
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
+# ─── Считаемые находки серии ────────────────────────────────────────────────
+#
+# Попарное сравнение серий упирается в позицию (84 % за первую, 06.10), шкала
+# 0–2 — в потолок (1.9 из 2, 03.10). Здесь судья смотрит одну серию и
+# перечисляет находки с цитатами; цитата засчитывается, только если она есть
+# в тексте той главы и в том месте, которое судья назвал. Счёт не упирается
+# в потолок, позиции нет, выдумку отсекает проверка.
+
+COUNT_PROMPT = """Жанр: {genre}
+
+Ниже {n} главы подряд одной книги (главы {first}–{last}). Перечисли находки
+по четырём пунктам. Каждая цитата — точный кусок текста, 5–15 слов, без изменений.
+
+1. callbacks — деталь, предмет, факт или реплика из главы {first}, которая
+   возвращается в одной из следующих глав и что-то меняет. quote_a — из главы
+   {first}, quote_b — из более поздней главы, chapter_b — её номер.
+2. hooks — для каждой главы, кроме последней: чем она кончается (quote_a — из
+   её последнего абзаца) и где следующая глава это подхватывает (quote_b — из
+   первой трети следующей главы). Если не подхвачено — не включай. chapter_a —
+   номер главы с концом.
+3. stakes — момент, где герой рискует потерять больше, чем раньше в этой
+   серии: quote_a и chapter_a.
+4. repeats — сцена или ход, повторяющие уже бывшее в серии (тот же разговор,
+   пересказ, тот же приём): quote_a — первое место, quote_b — повтор,
+   chapter_a и chapter_b.
+
+{text}
+
+Ответь JSON без пояснений вокруг:
+{{"callbacks": [{{"quote_a": "…", "quote_b": "…", "chapter_b": 4}}],
+  "hooks": [{{"chapter_a": 3, "quote_a": "…", "quote_b": "…"}}],
+  "stakes": [{{"chapter_a": 4, "quote_a": "…"}}],
+  "repeats": [{{"chapter_a": 3, "quote_a": "…", "chapter_b": 5, "quote_b": "…"}}]}}"""
+
+
+def _norm_text(s_: str) -> str:
+    s_ = s_.lower().replace("ё", "е")
+    s_ = re.sub(r"[^\w\s]", " ", s_)
+    return re.sub(r"\s+", " ", s_).strip()
+
+
+def _quote_at(quote: str, text: str, where: str = "any") -> bool:
+    """Цитата есть в тексте (части через «…» — по отдельности, от 3 слов) и в нужном месте."""
+    t = _norm_text(text)
+    parts = [_norm_text(p) for p in re.split(r"\.\.\.|…", quote or "")]
+    parts = [p for p in parts if len(p.split()) >= 3]
+    if not parts:
+        return False
+    for p in parts:
+        i = t.find(p)
+        if i < 0:
+            return False
+        if where == "end" and i < len(t) * 0.8:
+            return False
+        if where == "start" and i > len(t) * 0.34:
+            return False
+    return True
+
+
+def series_count(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    items = []
+    for p in paths:
+        for s_ in json.loads(p.read_text(encoding="utf-8"))["series"]:
+            if len(s_["chapters"]) >= 2:
+                items.append(dict(s_, side=p.stem))
+
+    def run(job):
+        it, jm = job
+        ch = {c["num"]: c["text"] for c in it["chapters"]}
+        nums = sorted(ch)
+        text = "\n\n".join(f"=== ГЛАВА {n} ===\n{ch[n]}" for n in nums)
+        prompt = COUNT_PROMPT.format(genre=SEEDS[it["genre"]]["genre"], n=len(nums),
+                                     first=nums[0], last=nums[-1], text=text)
+        got = {}
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=4000)) or {}
+                if isinstance(got, dict) and "hooks" in got:
+                    break
+            except Exception:
+                got = {}
+        def num(x, k):
+            try:
+                return int(x.get(k))
+            except (TypeError, ValueError):
+                return None
+        ok = {"callbacks": 0, "hooks": 0, "stakes": 0, "repeats": 0}
+        claimed = {k: len(got.get(k) or []) for k in ok}
+        for x in got.get("callbacks") or []:
+            b = num(x, "chapter_b")
+            if b in ch and b != nums[0] and _quote_at(x.get("quote_a"), ch[nums[0]]) \
+                    and _quote_at(x.get("quote_b"), ch[b]):
+                ok["callbacks"] += 1
+        for x in got.get("hooks") or []:
+            a = num(x, "chapter_a")
+            if a in ch and a + 1 in ch and _quote_at(x.get("quote_a"), ch[a], "end") \
+                    and _quote_at(x.get("quote_b"), ch[a + 1], "start"):
+                ok["hooks"] += 1
+        for x in got.get("stakes") or []:
+            a = num(x, "chapter_a")
+            if a in ch and _quote_at(x.get("quote_a"), ch[a]):
+                ok["stakes"] += 1
+        for x in got.get("repeats") or []:
+            a, b = num(x, "chapter_a"), num(x, "chapter_b")
+            if a in ch and b in ch and _quote_at(x.get("quote_a"), ch[a]) \
+                    and _quote_at(x.get("quote_b"), ch[b]):
+                ok["repeats"] += 1
+        print(f"  {it['side']:6} {it['genre']:24} #{it['run']} {jm.split('::')[-1]:28} "
+              f"{ok}  (заявлено {claimed})", flush=True)
+        return {"side": it["side"], "genre": it["genre"], "run": it["run"],
+                "judge": jm.split("::")[-1], "verified": ok, "claimed": claimed, "raw": got}
+
+    jobs = [(it, jm) for it in items for jm in judges]
+    random.Random(20261006).shuffle(jobs)
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    sides = sorted({r["side"] for r in rows})
+    print()
+    print(f"  {'':12}" + "".join(f"{k:>12}" for k in ("callbacks", "hooks", "stakes", "repeats")))
+    for sd in sides:
+        r = [x for x in rows if x["side"] == sd]
+        print(f"  {sd:12}" + "".join(f"{mean(x['verified'][k] for x in r):>12.2f}"
+                                     for k in ("callbacks", "hooks", "stakes", "repeats")))
+    claimed_all = sum(sum(r["claimed"].values()) for r in rows)
+    verified_all = sum(sum(r["verified"].values()) for r in rows)
+    print(f"  подтверждено цитатами {verified_all} из {claimed_all} заявленных")
+    out.write_text(json.dumps({"date": date.today().isoformat(), "judges": judges, "rows": rows},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
 # ─── Различимость голосов ────────────────────────────────────────────────────
 #
 # Оценка по шкале говорит, хороша ли глава, но не говорит, звучит ли она
@@ -1155,6 +1385,17 @@ def main() -> int:
     pr.add_argument("--out", type=Path, required=True)
     pr.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     pr.add_argument("--workers", type=int, default=4)
+    sp = sub.add_parser("series-pair", help="попарное сравнение серий, в двух порядках")
+    sp.add_argument("old", type=Path)
+    sp.add_argument("new", type=Path)
+    sp.add_argument("--out", type=Path, required=True)
+    sp.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    sp.add_argument("--workers", type=int, default=3)
+    sc = sub.add_parser("series-count", help="находки серии с цитатами, проверенными по тексту")
+    sc.add_argument("series", type=Path, nargs="+")
+    sc.add_argument("--out", type=Path, required=True)
+    sc.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    sc.add_argument("--workers", type=int, default=4)
     vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
     vg.add_argument("chapters", type=Path, nargs="+")
     vg.add_argument("--out", type=Path, required=True)
@@ -1194,6 +1435,10 @@ def main() -> int:
         return pool_build(a.chapters, a.out, a.judges.split(","), a.workers)
     if a.cmd == "pool-rate":
         return pool_rate(a.new, a.pool, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "series-pair":
+        return series_pair(a.old, a.new, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "series-count":
+        return series_count(a.series, a.out, a.judges.split(","), a.workers)
     if a.cmd == "voice-guess":
         return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":

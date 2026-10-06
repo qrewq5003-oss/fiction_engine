@@ -1,0 +1,831 @@
+{
+ "date": "2026-10-06",
+ "judges": [
+  "nano_gpt::moonshotai/kimi-k2.5",
+  "nano_gpt::deepseek/deepseek-v4-pro-0813"
+ ],
+ "questions": [
+  "Детали, предметы или факты из ранних глав возвращаются позже и что-то значат (посев и расплата)",
+  "Ставки растут от главы к главе",
+  "Конец каждой главы цепляет, и следующая подхватывает этот крючок",
+  "Напряжение меняется осмысленно: нет плато и нет повторения одного уровня",
+  "Персонажи последовательны между главами: голос, мотивы, знание",
+  "Главы не повторяют друг друга: новые сцены, новые ходы, без пересказа",
+  "В целом: какую серию хочется читать дальше"
+ ],
+ "position_first_share": 0.843,
+ "pairs": 8,
+ "failed": 0,
+ "rows": [
+  {
+   "genre": "thriller_psychological",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "new",
+    "7": "="
+   },
+   "raw": {
+    "1": "B",
+    "2": "B",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "B",
+    "7": "="
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "new",
+    "5": "=",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "B",
+    "5": "=",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "old",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "B",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "new"
+   },
+   "raw": {
+    "1": "B",
+    "2": "B",
+    "3": "B",
+    "4": "B",
+    "5": "B",
+    "6": "B",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "old",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "B",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "old",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "B",
+    "2": "B",
+    "3": "B",
+    "4": "B",
+    "5": "A",
+    "6": "B",
+    "7": "B"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "old",
+    "6": "=",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "B",
+    "6": "=",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "new",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "B",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "=",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "=",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "=",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "=",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "new",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "B",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "=",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "=",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "=",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "=",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "new",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "B",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "old",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "B",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "B",
+    "2": "B",
+    "3": "B",
+    "4": "B",
+    "5": "B",
+    "6": "B",
+    "7": "B"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "new",
+    "3": "old",
+    "4": "new",
+    "5": "old",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "B",
+    "3": "A",
+    "4": "B",
+    "5": "A",
+    "6": "B",
+    "7": "B"
+   }
+  },
+  {
+   "genre": "fantasy_dark",
+   "run": 0,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "realism_psychological",
+   "run": 1,
+   "judge": "moonshotai/kimi-k2.5",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "detective_classic",
+   "run": 0,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "old",
+   "picks": {
+    "1": "old",
+    "2": "old",
+    "3": "old",
+    "4": "old",
+    "5": "old",
+    "6": "old",
+    "7": "old"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "genre": "thriller_psychological",
+   "run": 1,
+   "judge": "deepseek/deepseek-v4-pro-0813",
+   "first": "new",
+   "picks": {
+    "1": "new",
+    "2": "new",
+    "3": "new",
+    "4": "new",
+    "5": "new",
+    "6": "new",
+    "7": "new"
+   },
+   "raw": {
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A"
+   }
+  }
+ ],
+ "per_question": {
+  "Детали, предметы или факты из ранних глав возвращаются позже и что-то значат (посев и расплата)": {
+   "несогл.": 12,
+   "new": 3,
+   "old": 1
+  },
+  "Ставки растут от главы к главе": {
+   "несогл.": 10,
+   "new": 5,
+   "old": 1
+  },
+  "Конец каждой главы цепляет, и следующая подхватывает этот крючок": {
+   "несогл.": 12,
+   "new": 3,
+   "old": 1
+  },
+  "Напряжение меняется осмысленно: нет плато и нет повторения одного уровня": {
+   "несогл.": 11,
+   "new": 4,
+   "old": 1
+  },
+  "Персонажи последовательны между главами: голос, мотивы, знание": {
+   "несогл.": 9,
+   "old": 5,
+   "new": 1,
+   "=": 1
+  },
+  "Главы не повторяют друг друга: новые сцены, новые ходы, без пересказа": {
+   "несогл.": 11,
+   "new": 4,
+   "old": 1
+  },
+  "В целом: какую серию хочется читать дальше": {
+   "несогл.": 13,
+   "new": 3
+  }
+ },
+ "question": "попарное сравнение серий (3 главы) с модулями и без, серии из bench/ab-series-modules-2026-10-03.json, каждая пара в двух порядках",
+ "position_first_share_by_judge": {
+  "deepseek/deepseek-v4-pro-0813": 0.96,
+  "moonshotai/kimi-k2.5": 0.72
+ }
+}
