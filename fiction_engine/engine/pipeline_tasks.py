@@ -6,6 +6,7 @@ pipeline_tasks.py — самостоятельные операции над г�
 отдельно от оркестратора. Выделено из pipeline.py — см. pipeline_llm.
 """
 
+import re
 from .engine_loaders_core import ANTICLICHE_HEADER, VOICE_CHECK_HEADER
 from .error_policy import (handle_error, ErrorLevel)
 
@@ -187,6 +188,35 @@ def _ends_finished(text: str) -> bool:
     return bool(tail) and tail[-1] in _TERMINAL_CHARS
 
 
+# ─── Рассуждения модели в тексте главы ──────────────────────────────────────
+#
+# «Думающие» модели отдают рассуждения в тегах <think>, <thought> и т. п.
+# Блоки снимались только при разборе JSON (pipeline_llm.call_json), а в текст
+# главы попадали как есть. Замер 06.10: у MiMo v2.5 Pro глава начиналась с
+# «</thought>» — открывающий тег провайдер съел, закрывающий остался. Это
+# свойство не одной модели, а любой рассуждающей, поэтому чистится в движке.
+
+_REASONING_TAGS = "think|thinking|thought|reasoning"
+_REASONING_BLOCK = re.compile(rf"<({_REASONING_TAGS})>.*?</\1>", re.S | re.I)
+_REASONING_ANY = re.compile(rf"</?({_REASONING_TAGS})>", re.I)
+_REASONING_CLOSE = re.compile(rf"</({_REASONING_TAGS})>", re.I)
+
+
+def strip_reasoning(text: str) -> tuple[str, bool]:
+    """Текст главы без служебных рассуждений модели; второе — было ли что убрать."""
+    t = text or ""
+    if not _REASONING_ANY.search(t):
+        return t, False                      # без тегов текст не трогаем вовсе
+    cleaned = _REASONING_BLOCK.sub("", t)
+    close = _REASONING_CLOSE.search(cleaned)
+    if close and close.start() < len(cleaned) * 0.2:
+        # Одиночный закрывающий тег в начале: всё до него — рассуждение
+        cleaned = cleaned[close.end():]
+    # Остальные одиночные теги — только сами теги: текст вокруг может быть главой
+    cleaned = _REASONING_ANY.sub("", cleaned).strip()
+    return cleaned, True
+
+
 def _tail_for_message(text: str, n: int = 40) -> str:
     return (text or "").rstrip()[-n:]
 
@@ -217,7 +247,7 @@ def extend_short_chapter(text: str, model_value: str, sys_prompt: str,
     except Exception as e:
         handle_error("extend_short_chapter", e, level=ErrorLevel.RECOVERABLE)
         return text, ""
-    more = (more or "").strip()
+    more = strip_reasoning(more or "")[0].strip()
     if not more:
         return text, ""
     merged = text.rstrip() + "\n\n" + more
@@ -295,6 +325,9 @@ def run_generation(project: dict, chapter_num: int, mode: str,
             warning = (warning or "") + f" Контекст обрезан: удалены блоки {truncated}."
 
     text = _call(model_value, sys_prompt, context_prompt, max_tokens=PROSE_MAX_TOKENS)
+    text, reasoned = strip_reasoning(text)
+    if reasoned:
+        warning = (warning or "") + " Из главы убран служебный блок рассуждений модели."
     if not text or not text.strip():
         raise RuntimeError("Модель вернула пустой ответ.")
     text, extended = extend_short_chapter(text, model_value, sys_prompt,
