@@ -49,9 +49,12 @@ MODELS = {
     "claude_subscription": {
         "label": "Claude (подписка, личное)",
         "models": [
-            {"id": "sonnet", "name": "Claude Sonnet — через подписку Claude Code"},
-            {"id": "opus",   "name": "Claude Opus — через подписку Claude Code"},
-            {"id": "haiku",  "name": "Claude Haiku — через подписку Claude Code"},
+            # Точные имена, а не алиасы sonnet/opus/haiku: алиас сам переезжает
+            # на новую версию, и замеры перестают быть сравнимы. Fable 5.1 в
+            # подписку не входит («requires usage credits», 08.10).
+            {"id": "claude-sonnet-5-5",         "name": "Claude Sonnet 5.5 — через подписку Claude Code"},
+            {"id": "claude-opus-5-5",           "name": "Claude Opus 5.5 — через подписку Claude Code"},
+            {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5 — через подписку Claude Code"},
         ]
     },
     "anthropic_direct": {

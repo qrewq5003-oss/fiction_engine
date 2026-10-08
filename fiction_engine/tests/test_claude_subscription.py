@@ -33,7 +33,7 @@ def test_enabled_calls_cli_without_tools_and_settings(monkeypatch):
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
          patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
-        out = call_model("claude_subscription::sonnet", "сис", "юзер", max_tokens=300)
+        out = call_model("claude_subscription::claude-sonnet-5-5", "сис", "юзер", max_tokens=300)
     cmd = run.call_args.args[0]
     assert out == "Дождь шёл всю ночь." and get_last_stop_reason() == "end_turn"
     assert cmd[:2] == ["claude", "-p"] and "--tools" in cmd and cmd[cmd.index("--tools") + 1] == ""
@@ -48,7 +48,7 @@ def test_prefill_glued_with_space(monkeypatch):
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
          patch("engine.api.subprocess.run", return_value=_proc(dict(OK, result="а в щель тянуло."))):
-        out = call_model("claude_subscription::haiku", "с", "у", prefill="Дождь стучал, и")
+        out = call_model("claude_subscription::claude-haiku-4-5-20251001", "с", "у", prefill="Дождь стучал, и")
     assert out == "Дождь стучал, и а в щель тянуло."
 
 
@@ -58,7 +58,7 @@ def test_cli_error_raises(monkeypatch):
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
          patch("engine.api.subprocess.run", return_value=_proc({"is_error": True, "result": "limit"})):
         with pytest.raises(RuntimeError, match="limit"):
-            call_model("claude_subscription::sonnet", "с", "у")
+            call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
 
 
 def test_setup_token_from_settings_goes_to_cli_env(monkeypatch):
@@ -70,7 +70,7 @@ def test_setup_token_from_settings_goes_to_cli_env(monkeypatch):
     save_api_key("claude_subscription", "sk-ant-oat01-test-token-0000")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
          patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
-        call_model("claude_subscription::sonnet", "с", "у")
+        call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert run.call_args.kwargs["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "sk-ant-oat01-test-token-0000"
 
 
@@ -80,7 +80,7 @@ def test_without_token_cli_login_is_used(monkeypatch):
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
          patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
-        call_model("claude_subscription::sonnet", "с", "у")
+        call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in run.call_args.kwargs["env"]
 
 
