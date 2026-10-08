@@ -45,6 +45,15 @@ PROVIDERS = {
 # ─── Модели ───────────────────────────────────────────────────────────────────
 
 MODELS = {
+    # Только при FE_CLAUDE_SUBSCRIPTION=1 — см. _call_claude_subscription
+    "claude_subscription": {
+        "label": "Claude (подписка, личное)",
+        "models": [
+            {"id": "sonnet", "name": "Claude Sonnet — через подписку Claude Code"},
+            {"id": "opus",   "name": "Claude Opus — через подписку Claude Code"},
+            {"id": "haiku",  "name": "Claude Haiku — через подписку Claude Code"},
+        ]
+    },
     "anthropic_direct": {
         "label": "Anthropic (прямой)",
         "models": [
@@ -193,6 +202,8 @@ MODELS = {
 def get_all_models_flat():
     result = []
     for provider_key, provider in MODELS.items():
+        if provider_key == "claude_subscription" and not claude_subscription_enabled():
+            continue
         if provider_key == "nano_gpt":
             for group, models in provider.get("groups", {}).items():
                 for m in models:
@@ -268,6 +279,7 @@ def call_model(model_value: str, system: str, user: str,
         "gemini_direct":    (_call_gemini_direct,   gemini_key),
         "deepseek_direct":  (_call_deepseek_direct, deepseek_key),
         "nano_gpt":         (_call_nanogpt,         nano_key),
+        "claude_subscription": (_call_claude_subscription, None),
     }
     if provider not in dispatch:
         raise ValueError(f"Неизвестный провайдер: {provider}")
@@ -489,6 +501,74 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
     _remember_usage(getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))
     result = _first_text_block(msg.content)
     return (prefill + result) if prefill else result
+
+
+# ─── Claude через подписку Claude Code ───────────────────────────────────────
+#
+# Вызов идёт через установленный и залогиненный `claude` CLI в режиме -p:
+# расход списывается с подписки Pro/Max, а не с ключа API. Только для
+# личного использования и выключено по умолчанию (FE_CLAUDE_SUBSCRIPTION=1).
+#
+# Риски — на владельце аккаунта: условия Anthropic рассчитаны на подписку в
+# приложениях Anthropic и Claude Code, сторонние инструменты — через ключи
+# API; аккаунт могут ограничить. Лимит подписки общий с Claude Code. Поэтому
+# вызовы строго по одному, а для замеров и пакетной работы этот провайдер
+# не годится — для них ключ API (anthropic_direct).
+#
+# Ограничения CLI: нет temperature; prefill эмулируется просьбой продолжить
+# с места; каждый вызов — отдельный процесс (медленнее API на секунды).
+
+import shutil
+import subprocess
+import threading
+
+_CLAUDE_SUB_LOCK = threading.Lock()
+CLAUDE_SUB_TIMEOUT = 900          # секунд: длинная глава пишется минутами
+
+
+def claude_subscription_enabled() -> bool:
+    return os.environ.get("FE_CLAUDE_SUBSCRIPTION") == "1" and bool(shutil.which("claude"))
+
+
+def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
+    import json as _json
+    if not claude_subscription_enabled():
+        raise ValueError("Claude через подписку выключен: нужен FE_CLAUDE_SUBSCRIPTION=1 "
+                         "и залогиненный `claude` CLI")
+    prompt = user
+    if prefill:
+        prompt = (user + "\n\nТекст ниже оборван. Верни ТОЛЬКО его продолжение — со "
+                  "следующего слова, без повтора написанного и без пояснений.\n\n"
+                  "=== УЖЕ НАПИСАНО ===\n" + prefill)
+    cmd = ["claude", "-p", "--model", model_id, "--system-prompt", system or "",
+           "--tools", "", "--output-format", "json", "--no-session-persistence",
+           "--setting-sources", "", "--strict-mcp-config"]
+    env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max_tokens),
+               MAX_THINKING_TOKENS="0")       # размышление съедает бюджет ответа (см. _call_anthropic)
+    with _CLAUDE_SUB_LOCK:
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                              timeout=CLAUDE_SUB_TIMEOUT, env=env)
+    try:
+        data = _json.loads(proc.stdout)
+    except ValueError:
+        raise RuntimeError(f"claude CLI: не JSON (код {proc.returncode}): "
+                           f"{(proc.stderr or proc.stdout)[:300]}")
+    if data.get("is_error"):
+        raise RuntimeError(f"claude CLI: {str(data.get('result') or data)[:300]}")
+    reason = data.get("stop_reason") or ""
+    _remember_stop_reason("max_tokens" if reason in ("max_tokens", "length") else reason)
+    u = data.get("usage") or {}
+    # Подписка не тарифицирует токены — стоимость 0, чтобы сводка расходов не врала
+    _remember_usage(int(u.get("input_tokens", 0)) + int(u.get("cache_read_input_tokens", 0))
+                    + int(u.get("cache_creation_input_tokens", 0)),
+                    int(u.get("output_tokens", 0)), 0.0)
+    result = data.get("result") or ""
+    if not prefill:
+        return result
+    # Стык: модель отдаёт продолжение без пробела в начале
+    glue = "" if (not result or prefill[-1:].isspace() or result[:1].isspace()
+                  or result[:1] in ",.;:!?…»)") else " "
+    return prefill + glue + result
 
 
 def _call_openai_direct(model_id, system, user, api_key, max_tokens, prefill=""):

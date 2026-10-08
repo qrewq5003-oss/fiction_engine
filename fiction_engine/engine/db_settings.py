@@ -32,6 +32,11 @@ def _get_api_key_from_db(provider: str) -> str | None:
 
 
 def get_api_key(provider: str) -> str | None:
+    # У подписки Claude ключа нет: вход — через `claude login`. Маркер вместо
+    # ключа, чтобы проверки «есть ли ключ провайдера» в вебе работали как есть
+    if provider == "claude_subscription":
+        from .api import claude_subscription_enabled
+        return "claude-cli" if claude_subscription_enabled() else None
     result = _get_api_key_from_db(provider)
     if result:
         return result
