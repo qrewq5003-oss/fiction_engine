@@ -101,6 +101,32 @@
     <div class="key-hint">→ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> → API Keys</div>
   </div>
 
+  {% if claude_sub %}
+  <!-- Claude через подписку: токен `claude setup-token` (необязателен) -->
+  <div class="key-card" id="card-claude_subscription">
+    <div class="key-header">
+      <div>
+        <div class="key-provider-label">Claude (подписка, личное)</div>
+        <div class="key-models-hint">Sonnet, Opus, Haiku через подписку Claude Code — риски для аккаунта в README</div>
+      </div>
+      <div class="key-status inactive" id="status-claude_subscription">○ не задан</div>
+    </div>
+    <div class="key-row" id="row-claude_subscription">
+      <input class="key-input" type="password" id="input-claude_subscription"
+             placeholder="sk-ant-oat01-..." autocomplete="off">
+      <button class="key-btn key-btn-save"
+              onclick="saveKey('claude_subscription')">✓</button>
+    </div>
+    <div class="key-masked" id="masked-claude_subscription" style="display:none;">
+      <span class="key-value" id="value-claude_subscription"></span>
+      <button class="key-btn key-btn-edit" onclick="editKey('claude_subscription')">✎</button>
+      <button class="key-btn key-btn-delete" onclick="deleteKey('claude_subscription')">✕</button>
+    </div>
+    <div class="key-hint">→ токен: в терминале <code>claude setup-token</code>. Без токена используется вход
+      <code>claude login</code> этой машины — {% if claude_cli_login %}сейчас он есть ✓{% else %}сейчас его нет{% endif %}.</div>
+  </div>
+  {% endif %}
+
   <!-- nano-gpt -->
   <div class="key-card" id="card-nano_gpt" style="border-color:#4c1d95;">
     <div class="key-header">
@@ -246,7 +272,7 @@
 
 {% block scripts %}
 <script>
-const PROVIDERS = ['anthropic_direct','openai_direct','gemini_direct','deepseek_direct','nano_gpt'];
+const PROVIDERS = ['anthropic_direct','openai_direct','gemini_direct','deepseek_direct','nano_gpt'].concat({{ 'true' if claude_sub else 'false' }} ? ['claude_subscription'] : []);
 
 async function loadKeyStatus() {
   const status = await fetch('/api/keys/status').then(r => r.json());

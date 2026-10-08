@@ -530,6 +530,17 @@ def claude_subscription_enabled() -> bool:
     return os.environ.get("FE_CLAUDE_SUBSCRIPTION") == "1" and bool(shutil.which("claude"))
 
 
+def claude_cli_logged_in() -> bool:
+    """Есть ли у CLI свой вход (`claude login`), без токена приложения."""
+    import json as _json
+    try:
+        out = subprocess.run(["claude", "auth", "status"], capture_output=True, text=True,
+                             timeout=20).stdout
+        return bool(_json.loads(out).get("loggedIn"))
+    except Exception:
+        return False
+
+
 def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
     import json as _json
     if not claude_subscription_enabled():
@@ -545,6 +556,12 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
            "--setting-sources", "", "--strict-mcp-config"]
     env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max_tokens),
                MAX_THINKING_TOKENS="0")       # размышление съедает бюджет ответа (см. _call_anthropic)
+    # Долгоживущий токен `claude setup-token`: из настроек приложения, иначе из
+    # окружения; без него CLI берёт свой `claude login`
+    from .db_settings import get_api_key
+    token = get_api_key("claude_subscription")
+    if token and token != "claude-cli":
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = token
     with _CLAUDE_SUB_LOCK:
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                               timeout=CLAUDE_SUB_TIMEOUT, env=env)

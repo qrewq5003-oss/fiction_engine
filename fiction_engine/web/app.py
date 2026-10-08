@@ -220,7 +220,11 @@ def stats_page():
 def settings_page():
     models = get_all_models_flat()
     from engine import __version__
-    return render_template("settings.html", models=models, version=__version__)
+    from engine.api import claude_cli_logged_in, claude_subscription_enabled
+    claude_sub = claude_subscription_enabled()
+    return render_template("settings.html", models=models, version=__version__,
+                           claude_sub=claude_sub,
+                           claude_cli_login=claude_sub and claude_cli_logged_in())
 
 
 @app.route("/api/keys/status")

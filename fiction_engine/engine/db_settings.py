@@ -36,7 +36,12 @@ def get_api_key(provider: str) -> str | None:
     # ключа, чтобы проверки «есть ли ключ провайдера» в вебе работали как есть
     if provider == "claude_subscription":
         from .api import claude_subscription_enabled
-        return "claude-cli" if claude_subscription_enabled() else None
+        if not claude_subscription_enabled():
+            return None
+        # Токен `claude setup-token` (из настроек или окружения) — для сервера
+        # и Docker; без него — текущий `claude login` на этой машине
+        return (_get_api_key_from_db(provider)
+                or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or "claude-cli")
     result = _get_api_key_from_db(provider)
     if result:
         return result

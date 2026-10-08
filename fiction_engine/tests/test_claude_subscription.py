@@ -59,3 +59,42 @@ def test_cli_error_raises(monkeypatch):
          patch("engine.api.subprocess.run", return_value=_proc({"is_error": True, "result": "limit"})):
         with pytest.raises(RuntimeError, match="limit"):
             call_model("claude_subscription::sonnet", "с", "у")
+
+
+def test_setup_token_from_settings_goes_to_cli_env(monkeypatch):
+    """Токен `claude setup-token`, сохранённый в настройках, уходит CLI в окружении."""
+    from engine.api import call_model
+    from engine.db import save_api_key
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    save_api_key("claude_subscription", "sk-ant-oat01-test-token-0000")
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+        call_model("claude_subscription::sonnet", "с", "у")
+    assert run.call_args.kwargs["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "sk-ant-oat01-test-token-0000"
+
+
+def test_without_token_cli_login_is_used(monkeypatch):
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+        call_model("claude_subscription::sonnet", "с", "у")
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in run.call_args.kwargs["env"]
+
+
+def test_settings_card_only_when_enabled(monkeypatch):
+    import logging
+    from web.app import app
+    app.config["TESTING"] = True
+    logging.disable(logging.CRITICAL)
+    client = app.test_client()
+    monkeypatch.delenv("FE_CLAUDE_SUBSCRIPTION", raising=False)
+    assert "claude setup-token" not in client.get("/settings").get_data(as_text=True)
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.claude_cli_logged_in", return_value=True):
+        page = client.get("/settings").get_data(as_text=True)
+    assert "claude setup-token" in page and "сейчас он есть" in page
+    logging.disable(logging.NOTSET)
