@@ -31,6 +31,12 @@ def _get_api_key_from_db(provider: str) -> str | None:
     return row["api_key"] if row else None
 
 
+def claude_subscription_on() -> bool:
+    """Включён ли провайдер «Claude через подписку» (FE_CLAUDE_SUBSCRIPTION=1)."""
+    from .api import claude_subscription_enabled
+    return claude_subscription_enabled()
+
+
 def get_api_key(provider: str) -> str | None:
     # У подписки Claude ключа нет: вход — через `claude login`. Маркер вместо
     # ключа, чтобы проверки «есть ли ключ провайдера» в вебе работали как есть

@@ -533,17 +533,6 @@ def claude_subscription_enabled() -> bool:
     return os.environ.get("FE_CLAUDE_SUBSCRIPTION") == "1" and bool(shutil.which("claude"))
 
 
-def claude_cli_logged_in() -> bool:
-    """Есть ли у CLI свой вход (`claude login`), без токена приложения."""
-    import json as _json
-    try:
-        out = subprocess.run(["claude", "auth", "status"], capture_output=True, text=True,
-                             timeout=20).stdout
-        return bool(_json.loads(out).get("loggedIn"))
-    except Exception:
-        return False
-
-
 def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
     import json as _json
     if not claude_subscription_enabled():

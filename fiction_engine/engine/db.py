@@ -26,7 +26,7 @@ from .db_core import (
 # ─── Конфигурация ─────────────────────────────────────────────────────────────
 from .db_settings import (
     save_api_key,
-    get_api_key,
+    get_api_key, claude_subscription_on,
     get_all_api_keys,
     get_setting,
     set_setting,

@@ -93,8 +93,7 @@ def test_settings_card_only_when_enabled(monkeypatch):
     monkeypatch.delenv("FE_CLAUDE_SUBSCRIPTION", raising=False)
     assert "claude setup-token" not in client.get("/settings").get_data(as_text=True)
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
-    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.claude_cli_logged_in", return_value=True):
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"):
         page = client.get("/settings").get_data(as_text=True)
-    assert "claude setup-token" in page and "сейчас он есть" in page
+    assert "claude setup-token" in page
     logging.disable(logging.NOTSET)

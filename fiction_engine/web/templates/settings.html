@@ -122,8 +122,8 @@
       <button class="key-btn key-btn-edit" onclick="editKey('claude_subscription')">✎</button>
       <button class="key-btn key-btn-delete" onclick="deleteKey('claude_subscription')">✕</button>
     </div>
-    <div class="key-hint">→ токен: в терминале <code>claude setup-token</code>. Без токена используется вход
-      <code>claude login</code> этой машины — {% if claude_cli_login %}сейчас он есть ✓{% else %}сейчас его нет{% endif %}.</div>
+    <div class="key-hint">→ токен: в обычном терминале <code>claude setup-token</code>. Без токена используется
+      вход <code>claude login</code> этой машины (проверить: <code>claude auth status</code>).</div>
   </div>
   {% endif %}
 
