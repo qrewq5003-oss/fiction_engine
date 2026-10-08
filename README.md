@@ -146,6 +146,7 @@ FE_HOST=0.0.0.0 .venv/bin/python web/app.py
 | `FICTION_DEBUG` | Подробный лог в консоль | выключено |
 | `FE_URL` | Адрес Fiction Engine для планировщика | `http://127.0.0.1:5000` |
 | `ANTHROPIC_API_KEY` | Ключ Anthropic, если не хранить в базе | — |
+| `FE_CLAUDE_SUBSCRIPTION` | `1` — модели Claude через подписку Claude Code (`claude` CLI, `claude login`); см. ниже | выключено |
 | `OPENAI_API_KEY` | Ключ OpenAI | — |
 | `GEMINI_API_KEY` | Ключ Google Gemini | — |
 | `DEEPSEEK_API_KEY` | Ключ DeepSeek | — |
@@ -154,6 +155,30 @@ FE_HOST=0.0.0.0 .venv/bin/python web/app.py
 Ключи можно держать в `.env` (файл в `.gitignore`) либо ввести в `/settings`.
 
 ---
+
+
+### Claude через подписку — только для себя
+
+При `FE_CLAUDE_SUBSCRIPTION=1` в списке моделей появляются Claude Sonnet,
+Opus и Haiku, которые вызываются через установленный и залогиненный
+`claude` CLI: расход списывается с подписки Pro/Max, а не с ключа API.
+
+Вход — один из двух:
+- `claude login` на этой машине (как у Claude Code) — ничего настраивать не нужно;
+- долгоживущий токен для сервера или Docker: `claude setup-token`, затем
+  вставить его в «Настройки → Claude (подписка)» или задать переменной
+  `CLAUDE_CODE_OAUTH_TOKEN`. Токен в настройках важнее переменной.
+
+- **Риск — на владельце аккаунта.** Условия Anthropic рассчитаны на
+  подписку в приложениях Anthropic и Claude Code; сторонним инструментам
+  Anthropic предлагает ключи API. Аккаунт могут ограничить — вместе с
+  Claude Code.
+- **Лимит общий с Claude Code.** Вызовы идут строго по одному; для замеров
+  и пакетной работы (`tools/ab_compare.py`) используйте ключ API
+  (`anthropic_direct`).
+- **Ограничения CLI:** нет управления температурой; продолжение главы
+  (prefill) эмулируется просьбой продолжить с места; каждый вызов —
+  отдельный процесс, на секунды медленнее API.
 
 ## Разработка
 
