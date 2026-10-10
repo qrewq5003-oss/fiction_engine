@@ -338,8 +338,9 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     if foreign:
         warning = (warning or "") + " " + foreign
     # Сигналы по самому тексту — при любом генераторе (engine/text_signals.py)
-    from .text_signals import chapter_signals
-    signals = chapter_signals(text)
+    from .text_signals import chapter_signals, previous_chapters, series_signals
+    signals = chapter_signals(text) + series_signals(
+        text, previous_chapters(project_id, chapter_num))
     if signals:
         warning = (warning or "") + " " + " ".join(signals)
     word_count = len(text.split())
