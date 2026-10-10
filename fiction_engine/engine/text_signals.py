@@ -114,3 +114,104 @@ def chapter_signals(text: str) -> list[str]:
     if chains:
         out.append(chains)
     return out
+
+
+# ─── Повторы между главами серии ─────────────────────────────────────────────
+#
+# Видны только на серии: модель приносит в каждую главу свои обороты
+# («поймала себя на том, что», «так, как смотрят на»), открывает соседние
+# главы одинаково («Замок на двери лязгнул в третий раз… / в четвёртый
+# раз»), пересказывает прошлую главу дословно. Замер 11.10 на 16 сериях по 3
+# главы (bench/ab-series-modules-2026-10-03.json): оборот во всех трёх главах
+# — в 5 сериях, одинаковое начало соседних глав — 1 раз из 32, дословный
+# кусок от 10 слов — 3 раза. Признаки считаются по самому тексту, без
+# модели, — при любом генераторе.
+
+SERIES_LOOKBACK = 4          # сколько предыдущих глав сравнивать
+SERIES_PHRASE_CHAPTERS = 3   # оборот в стольких главах подряд, включая новую
+VERBATIM_WORDS = 10          # дословный кусок от стольких слов — пересказ
+EDGE_WORDS = 15              # начало и конец главы — столько слов
+
+_SERIES_STOP = _STOP | set("который которая которые которого которой".split())
+
+
+def _toks(text: str) -> list[str]:
+    return re.findall(r"[А-ЯЁа-яё]+", (text or "").replace("ё", "е").replace("Ё", "Е"))
+
+
+def _names(texts: list[str]) -> set[str]:
+    caps: Counter[str] = Counter()
+    low: Counter[str] = Counter()
+    for t in texts:
+        for w in _toks(t):
+            (caps if w[0].isupper() else low)[w.lower()] += 1
+    return {w for w in caps if caps[w] > low[w]}
+
+
+def _phrases(text: str, names: set[str], n: int = 4) -> set[str]:
+    """Обороты из n слов: без имён, хотя бы с одним содержательным словом."""
+    w = [x.lower() for x in _toks(text)]
+    out = set()
+    for i in range(len(w) - n + 1):
+        g = w[i:i + n]
+        if any(x in names for x in g):
+            continue
+        if any(len(x) >= 5 and x not in _SERIES_STOP for x in g):
+            out.add(" ".join(g))
+    return out
+
+
+def _ngrams(words: list[str], n: int) -> set[str]:
+    return {" ".join(words[i:i + n]) for i in range(len(words) - n + 1)}
+
+
+def series_signals(text: str, previous: list[dict]) -> list[str]:
+    """
+    Повторы новой главы относительно предыдущих. previous — [{number, content}]
+    по возрастанию номера, только главы раньше новой.
+    """
+    prev = [p for p in previous if (p.get("content") or "").strip()][-SERIES_LOOKBACK:]
+    if not prev or not (text or "").strip():
+        return []
+    names = _names([text] + [p["content"] for p in prev])
+    out: list[str] = []
+
+    # Оборот в нескольких главах подряд (новая и предыдущие подряд)
+    need = SERIES_PHRASE_CHAPTERS - 1
+    if len(prev) >= need:
+        common = _phrases(text, names)
+        for p in prev[-need:]:
+            common &= _phrases(p["content"], names)
+        if common:
+            ex = ", ".join(f"«{g}»" for g in sorted(common)[:3])
+            out.append(f"Обороты уже в {SERIES_PHRASE_CHAPTERS} главах подряд: {ex} — если это не "
+                       f"нарочная отсылка, замените.")
+
+    cur = [x.lower() for x in _toks(text)]
+    last = prev[-1]
+    lw = [x.lower() for x in _toks(last["content"])]
+    # Начало и конец — как у предыдущей главы
+    for where, a, b in (("начинается", cur[:EDGE_WORDS], lw[:EDGE_WORDS]),
+                        ("заканчивается", cur[-EDGE_WORDS:], lw[-EDGE_WORDS:])):
+        if _ngrams(a, 3) & _ngrams(b, 3):
+            out.append(f"Глава {where} так же, как глава {last['number']}: "
+                       f"«{' '.join(a[:8])}…» и «{' '.join(b[:8])}…».")
+    # Дословный кусок из прошлой главы — пересказ
+    cur_long = _ngrams(cur, VERBATIM_WORDS)
+    for p in reversed(prev):
+        same = cur_long & _ngrams([x.lower() for x in _toks(p["content"])], VERBATIM_WORDS)
+        if same:
+            out.append(f"Дословный повтор из главы {p['number']}: «{sorted(same)[0]}…» — "
+                       f"пересказ уже написанного?")
+            break
+    return out
+
+
+def previous_chapters(project_id: int, chapter_num: int, n: int = SERIES_LOOKBACK) -> list[dict]:
+    """До n глав проекта с номером меньше chapter_num, по возрастанию."""
+    from .db import get_conn
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT number, content FROM chapters WHERE project_id=? AND number<? "
+            "ORDER BY number DESC LIMIT ?", (project_id, chapter_num, n)).fetchall()
+    return [dict(r) for r in reversed(rows)]

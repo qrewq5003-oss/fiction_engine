@@ -199,6 +199,11 @@ def _execute_steps(
                           full_prompt, model_gen, sys_gen, step_call, results,
                           prefill=prefill)
             gen_text = str(results.get("generated_text", "") or "")
+            # Повторы относительно прошлых глав проекта — сигнал автору
+            from .text_signals import previous_chapters, series_signals
+            series = series_signals(gen_text, previous_chapters(project_id, chapter_num))
+            if series:
+                results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,
                              gen_text, model_critic, step_call, results)
             step_chapter_analysis(project_id, chapter_num,
