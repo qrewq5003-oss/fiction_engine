@@ -357,16 +357,23 @@ SERIES_Q = [
 
 
 def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
-           chapters: int, mode: str = "quick", without: list[str] | None = None) -> int:
+           chapters: int, mode: str = "quick", without: list[str] | None = None,
+           memory: bool = True) -> int:
     app = app.resolve()
     _temp_db(app)
     import engine.db as db
     import engine.pipeline as pipeline
     from engine.state import analyze_chapter
     _ablate(without)
+    if not memory:
+        # Без памяти серии: State остаётся исходным, L3 не строится, анализ
+        # главы (открытые линии, логические дыры) в следующую главу не идёт.
+        # Начало прошлых глав в образце голоса остаётся — его видит генератор всегда.
+        import engine.pipeline_steps as ps
+        ps.step_chapter_analysis = lambda *a, **k: None
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
-              "model": model, "mode": mode, "without": without or [],
+              "model": model, "mode": mode, "without": without or [], "memory": memory,
               "chapters_per_series": chapters, "series": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -392,6 +399,12 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
                 if not text:
                     break
                 db.save_chapter(pid, num, text, f"Глава {num}")
+                if not memory:
+                    item["chapters"].append({"num": num, "task": task, "text": text,
+                                             "words": len(text.split())})
+                    print(f"  {genre_key:24} #{run} гл.{num}  {len(text.split()):5} слов  "
+                          f"{round(time.time() - t0):4} с  (без памяти)", flush=True)
+                    continue
                 # Как при принятии главы: память L3 и State из анализа главы
                 try:
                     pipeline.generate_l3(pid, num, text, model)
@@ -724,6 +737,91 @@ def series_count(paths: list[Path], out: Path, judges: list[str], workers: int) 
     claimed_all = sum(sum(r["claimed"].values()) for r in rows)
     verified_all = sum(sum(r["verified"].values()) for r in rows)
     print(f"  подтверждено цитатами {verified_all} из {claimed_all} заявленных")
+    out.write_text(json.dumps({"date": date.today().isoformat(), "judges": judges, "rows": rows},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
+# ─── Противоречия серии ──────────────────────────────────────────────────────
+#
+# Память движка (State, L3, анализ главы) нужна, чтобы серия не спорила сама с
+# собой: имена, раны, время, кто что знает. Судья выписывает противоречия
+# парой цитат — где факт задан и где нарушен; пара засчитывается, только если
+# обе цитаты есть в названных главах, и вторая глава позже первой.
+
+CONTINUITY_PROMPT = """Жанр: {genre}
+
+Ниже начало книги (что было до серии) и {n} главы подряд. Найди противоречия
+между главами: факт, заданный раньше, нарушен позже — имя, внешность, рана,
+вещь, место, время, кто что знает или видел, что уже произошло. Не считай
+противоречием развитие (герой узнал новое, передумал), ложь персонажа, если
+текст её так и подаёт, и стиль. Цитаты — точные, 5–15 слов.
+
+=== ДО СЕРИИ ===
+{prev}
+
+{text}
+
+Ответь JSON без пояснений вокруг:
+{{"contradictions": [{{"chapter_a": 3, "quote_a": "…", "chapter_b": 5, "quote_b": "…", "what": "…"}}]}}"""
+
+
+def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    from statistics import mean, stdev
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    items = []
+    for p in paths:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        side = "с памятью" if data.get("memory", True) else "без памяти"
+        for s_ in data["series"]:
+            if len(s_["chapters"]) >= 2:
+                items.append(dict(s_, side=side))
+
+    def run(job):
+        it, jm = job
+        ch = {c["num"]: c["text"] for c in it["chapters"]}
+        ch_prev = SEEDS[it["genre"]]["prev"]
+        text = "\n\n".join(f"=== ГЛАВА {n} ===\n{ch[n]}" for n in sorted(ch))
+        prompt = CONTINUITY_PROMPT.format(genre=SEEDS[it["genre"]]["genre"], n=len(ch),
+                                          prev=ch_prev, text=text)
+        got = {}
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=3000)) or {}
+                if isinstance(got, dict) and "contradictions" in got:
+                    break
+            except Exception:
+                got = {}
+        claimed = got.get("contradictions") or []
+        ok = []
+        for x in claimed:
+            try:
+                a, b = int(x.get("chapter_a")), int(x.get("chapter_b"))
+            except (TypeError, ValueError):
+                continue
+            if b in ch and b > a and (a in ch and _quote_at(x.get("quote_a"), ch[a])
+                                      or a == CHAPTER - 1 and _quote_at(x.get("quote_a"), ch_prev)) \
+                    and _quote_at(x.get("quote_b"), ch[b]):
+                ok.append(x)
+        print(f"  {it['side']:10} {it['genre']:24} #{it['run']} {jm.split('::')[-1]:28} "
+              f"противоречий {len(ok)} (заявлено {len(claimed)})", flush=True)
+        return {"side": it["side"], "genre": it["genre"], "run": it["run"],
+                "judge": jm.split("::")[-1], "verified": ok, "claimed": len(claimed)}
+
+    jobs = [(it, jm) for it in items for jm in judges]
+    random.Random(20261011).shuffle(jobs)
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    print()
+    for sd in ("с памятью", "без памяти"):
+        r = [len(x["verified"]) for x in rows if x["side"] == sd]
+        if r:
+            print(f"  {sd:10} противоречий на серию {mean(r):.2f} ± "
+                  f"{(stdev(r) / len(r) ** .5) if len(r) > 1 else 0:.2f} (оценок {len(r)})")
     out.write_text(json.dumps({"date": date.today().isoformat(), "judges": judges, "rows": rows},
                               ensure_ascii=False, indent=1), encoding="utf-8")
     return 0
@@ -1368,6 +1466,8 @@ def main() -> int:
     se.add_argument("--genres", default="detective_classic,fantasy_dark,thriller_psychological,realism_psychological")
     se.add_argument("--mode", default="quick", choices=("quick", "quality", "master"))
     se.add_argument("--without", default="")
+    se.add_argument("--no-memory", action="store_true",
+                    help="без L3, State и анализа главы между главами")
     sr = sub.add_parser("series-rate", help="оценка серий глав по вопросам о серии")
     sr.add_argument("old", type=Path)
     sr.add_argument("new", type=Path)
@@ -1396,6 +1496,11 @@ def main() -> int:
     sc.add_argument("--out", type=Path, required=True)
     sc.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     sc.add_argument("--workers", type=int, default=4)
+    sk = sub.add_parser("series-continuity", help="противоречия серии с цитатами, проверенными по тексту")
+    sk.add_argument("series", type=Path, nargs="+")
+    sk.add_argument("--out", type=Path, required=True)
+    sk.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
+    sk.add_argument("--workers", type=int, default=4)
     vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
     vg.add_argument("chapters", type=Path, nargs="+")
     vg.add_argument("--out", type=Path, required=True)
@@ -1428,7 +1533,7 @@ def main() -> int:
     if a.cmd == "series":
         sys.path.insert(0, str(a.app.resolve()))
         return series(a.app, a.out, a.model, a.runs, a.genres.split(","), a.chapters,
-                      a.mode, [w for w in a.without.split(",") if w])
+                      a.mode, [w for w in a.without.split(",") if w], not a.no_memory)
     if a.cmd == "series-rate":
         return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "pool-build":
@@ -1439,6 +1544,8 @@ def main() -> int:
         return series_pair(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "series-count":
         return series_count(a.series, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "series-continuity":
+        return series_continuity(a.series, a.out, a.judges.split(","), a.workers)
     if a.cmd == "voice-guess":
         return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":
