@@ -102,6 +102,15 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
         handle_error(f"continuity_checker _build_series_facts state ({project_id})", e,
                      level=ErrorLevel.RECOVERABLE)
 
+    try:
+        from .text_signals import previous_chapters, series_names
+        names = series_names(previous_chapters(project_id, chapter_num, n=1000))
+        if names:
+            parts.append("ИМЕНА С ОТЧЕСТВАМИ (как впервые названы): " + ", ".join(names[:40]))
+    except Exception as e:
+        handle_error(f"continuity_checker _build_series_facts names ({project_id})", e,
+                     level=ErrorLevel.RECOVERABLE)
+
     # ── Causal chains и opened_promises из прошлых глав ──────────────────
     try:
         from .db_chapters import get_analyses_range
