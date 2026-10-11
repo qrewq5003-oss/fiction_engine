@@ -108,6 +108,13 @@ def extract_relevant_state(state: dict, prompt_text: str,
     if plot.get("next"):     lines.append(f"СЛЕДУЮЩИЙ ШАГ: {plot['next']}")
     if plot.get("must_not"): lines.append(f"ПОМНИ: {plot['must_not']}")
 
+    # Детали серии — вещи, приметы мест, время, числа: их нельзя нарушить
+    from .db_state import series_details
+    details = series_details(state.get("plot_matrix", ""))
+    if details:
+        lines.append("ДЕТАЛИ СЕРИИ (не противоречь им):\n"
+                     + "\n".join(f"- {d}" for d in details[-30:]))
+
     if lines:
         return "\n\n".join(lines)
 
