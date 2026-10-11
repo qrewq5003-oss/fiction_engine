@@ -368,9 +368,12 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
     if not memory:
         # Без памяти серии: State остаётся исходным, L3 не строится, анализ
         # главы (открытые линии, логические дыры) в следующую главу не идёт.
-        # Начало прошлых глав в образце голоса остаётся — его видит генератор всегда.
+        # Реестра имён с отчествами тоже нет. Начало прошлых глав в образце
+        # голоса остаётся — его видит генератор всегда.
         import engine.pipeline_steps as ps
         ps.step_chapter_analysis = lambda *a, **k: None
+        import engine.text_signals as ts
+        ts.series_names = lambda *a, **k: []
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
               "model": model, "mode": mode, "without": without or [], "memory": memory,

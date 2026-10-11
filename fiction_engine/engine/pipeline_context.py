@@ -271,6 +271,19 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     except Exception as e:
         handle_error("build_context monotony_check", e, level=ErrorLevel.RECOVERABLE)
 
+    # Имена с отчествами из уже написанных глав — генератор их не меняет
+    # (engine/text_signals.series_names, замер 11.10)
+    names_block = ""
+    if chapter_num > 1:
+        try:
+            from .text_signals import previous_chapters, series_names
+            names = series_names(previous_chapters(project_id, chapter_num, n=1000))
+            if names:
+                names_block = ("\nИМЕНА СЕРИИ (пиши ровно так, отчества не меняй и не придумывай "
+                               "новые для этих людей): " + ", ".join(names[:40]) + "\n")
+        except Exception as e:
+            handle_error("build_context series_names", e, level=ErrorLevel.RECOVERABLE)
+
     # State — только если не задан явно в промпте
     state_markers = [
         "ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ", "СОСТОЯНИЕ МИРА",
@@ -318,7 +331,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
 {kb_block}
 {l3_block}
 {prep_block}
-{monotony_block}{prev_analysis_block}{engine_block}
+{monotony_block}{names_block}{prev_analysis_block}{engine_block}
 {symbols_block}{state_block}"""
 
     # ── Debug: сохранить промпт в файл для верификации ────────────────────────

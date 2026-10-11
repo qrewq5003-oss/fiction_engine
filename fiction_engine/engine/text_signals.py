@@ -204,6 +204,104 @@ def series_signals(text: str, previous: list[dict]) -> list[str]:
             out.append(f"Дословный повтор из главы {p['number']}: «{sorted(same)[0]}…» — "
                        f"пересказ уже написанного?")
             break
+    out += _name_signals(text, prev)
+    return out
+
+
+# ─── Имена и отчества ────────────────────────────────────────────────────────
+#
+# Замер 11.10 (bench/ab-series-details-2026-10-11.json, судьи Claude): после
+# деталей серии чаще всего остаётся одно — отчество у того же персонажа
+# меняется от главы к главе: Ирина Андреевна становится Борисовной, Аркадий
+# за серию бывает Петровичем, Фомичом и Сергеевичем. Так в 8 сериях детектива
+# из 8 во всех трёх замерах, у GLM и DeepSeek, с памятью и без. Отчество
+# видно по самому тексту, без модели: имя с большой буквы и следом слово на
+# -ович / -евич / -ич / -ыч или -овна / -евна / -ична.
+
+_PATR = (("м", re.compile(r"\b([А-Я][а-я]{2,})\s+([А-Я][а-я]+?)(ович|евич|ьич|ыч|ич)(а|у|ем|е)?\b")),
+         ("ж", re.compile(r"\b([А-Я][а-я]{2,})\s+([А-Я][а-я]+?)(овна|евна|инична|ична|овн|евн|иничн|ичн)"
+                          r"(ы|е|у|ой)?\b")))
+# Разговорные отчества, у которых основа не совпадает с полной формой
+_PATR_SPOKEN = {"пал": "павл", "михал": "михайл", "сан": "александр", "алексан": "александр"}
+_NAME_END = sorted("ием ией ом ем ой ей ий ия ию ии ея ею а я у ю е ы и й".split(),
+                   key=len, reverse=True)
+
+
+def _name_stem(w: str) -> str:
+    """Имя без падежного окончания: Аркадий / Аркадию → аркад, Вера / Веры → вер."""
+    w = w.lower()
+    for e in _NAME_END:
+        if w.endswith(e) and len(w) - len(e) >= 3:
+            w = w[:-len(e)]
+            break
+    # Беглая гласная: Павел / Павла, Лев / Льва
+    return re.sub(r"(?<=[бвгджзклмнпрстфхцчшщ])[ео]?ь?(?=[лвнрк]$)", "", w)
+
+
+def name_mentions(text: str) -> list[tuple[tuple[str, str], str, str, bool]]:
+    """
+    Упоминания «имя + отчество» по порядку: (ключ (род, основа имени),
+    основа отчества — имя отца, как написано, в именительном ли падеже).
+    Аркадий Павлович и Аркадию Павловичу дают один ключ и одно отчество,
+    Борисыч и Борисович — тоже.
+    """
+    t = (text or "").replace("ё", "е").replace("Ё", "Е")
+    names = _names([t])
+    found = []
+    for g, rx in _PATR:
+        for m in rx.finditer(t):
+            if m.group(1).lower() not in names:
+                continue     # «Вчера Павлович…» — первое слово не имя
+            nom = not m.group(4) and (g == "м" or m.group(3).endswith("а"))
+            patr = m.group(2).lower()
+            found.append((m.start(), (g, _name_stem(m.group(1))), _PATR_SPOKEN.get(patr, patr),
+                          m.group(0), nom))
+    return [x[1:] for x in sorted(found)]
+
+
+def series_names(chapters: list[dict]) -> list[str]:
+    """
+    Отчества, закреплённые в серии: для каждого имени — первое, с которым
+    оно появилось, в именительном падеже, если он есть. chapters — [{number,
+    content}] по возрастанию.
+    """
+    first: dict[tuple[str, str], str] = {}
+    shown: dict[tuple[str, str], tuple[str, bool]] = {}
+    for c in chapters:
+        for key, patr, surf, nom in name_mentions(c.get("content") or ""):
+            first.setdefault(key, patr)
+            if first[key] == patr and (key not in shown or nom and not shown[key][1]):
+                shown[key] = (surf, nom)
+    return [shown[k][0] for k in first if k in shown]
+
+
+def _name_signals(text: str, prev: list[dict]) -> list[str]:
+    """Отчество у того же имени не такое, как в прошлых главах."""
+    Form = dict[tuple[str, str], dict[str, tuple[int, str, bool]]]
+
+    def forms(mentions: list, num: int = 0) -> Form:
+        """Для каждого имени и отчества — форма, лучше в именительном."""
+        got: Form = {}
+        for key, patr, surf, nom in mentions:
+            seen = got.setdefault(key, {})
+            if patr not in seen or nom and not seen[patr][2]:
+                seen[patr] = (num, surf, nom)
+        return got
+
+    before: Form = {}
+    for p in prev:
+        for key, pats in forms(name_mentions(p["content"]), p["number"]).items():
+            for patr, v in pats.items():
+                before.setdefault(key, {}).setdefault(patr, v)
+    now = forms(name_mentions(text))
+    out = []
+    for key, pats in now.items():
+        old = before.get(key)
+        # Оба отчества в одной главе — скорее два человека с одним именем
+        if old and not set(pats) & set(old):
+            num, was, _ = next(iter(old.values()))
+            out.append(f"Отчество меняется: «{was}» в главе {num}, здесь «{next(iter(pats.values()))[1]}» "
+                       f"— один ли это человек?")
     return out
 
 
