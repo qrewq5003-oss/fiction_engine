@@ -792,7 +792,10 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
         claimed = None
         for _ in range(2):
             try:
-                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=3000))
+                # Claude через подписку тратит лимит и на скрытое размышление
+                # (Haiku 5.5 при ответе в ~2000 токенов не укладывалась в 8000).
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt,
+                                       max_tokens=32000 if jm.startswith("claude_subscription::") else 3000))
             except Exception:
                 continue
             # Судья иногда отдаёт сразу список противоречий без обёртки.
