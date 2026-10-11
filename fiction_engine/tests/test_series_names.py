@@ -25,6 +25,14 @@ def test_mentions_fold_cases_and_forms():
     assert (("ж", "ирин"), "андре") in keys
 
 
+def test_name_stem_folds_cases():
+    from engine.text_signals import _name_stem
+    for forms in ("Сергей Сергея Сергею Сергеем Сергее", "Софья Софьи Софье Софьей",
+                  "Павел Павла Павлом", "Лев Льва Львом", "Аркадий Аркадия Аркадием",
+                  "Вера Веры Вере Верой", "Мария Марии Марией"):
+        assert len({_name_stem(w) for w in forms.split()}) == 1, forms
+
+
 def test_sentence_start_is_not_a_name():
     from engine.text_signals import name_mentions
     assert name_mentions("Вчера Павлович не пришёл. вчера было тихо, вчера и сегодня.") == []
