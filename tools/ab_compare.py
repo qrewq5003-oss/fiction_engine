@@ -776,7 +776,8 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
     items = []
     for p in paths:
         data = json.loads(p.read_text(encoding="utf-8"))
-        side = "с памятью" if data.get("memory", True) else "без памяти"
+        # label — для сравнения двух версий памяти между собой
+        side = data.get("label") or ("с памятью" if data.get("memory", True) else "без памяти")
         for s_ in data["series"]:
             if len(s_["chapters"]) >= 2:
                 items.append(dict(s_, side=side))
@@ -788,15 +789,24 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
         text = "\n\n".join(f"=== ГЛАВА {n} ===\n{ch[n]}" for n in sorted(ch))
         prompt = CONTINUITY_PROMPT.format(genre=SEEDS[it["genre"]]["genre"], n=len(ch),
                                           prev=ch_prev, text=text)
-        got = {}
+        claimed = None
         for _ in range(2):
             try:
-                got = parse_json(_call(jm, RATE_SYSTEM, prompt, max_tokens=3000)) or {}
-                if isinstance(got, dict) and "contradictions" in got:
-                    break
+                # Claude через подписку тратит лимит и на скрытое размышление
+                # (Haiku 5.5 при ответе в ~2000 токенов не укладывалась в 8000).
+                got = parse_json(_call(jm, RATE_SYSTEM, prompt,
+                                       max_tokens=32000 if jm.startswith("claude_subscription::") else 3000))
             except Exception:
-                got = {}
-        claimed = got.get("contradictions") or []
+                continue
+            # Судья иногда отдаёт сразу список противоречий без обёртки.
+            if isinstance(got, list):
+                claimed = got
+            elif isinstance(got, dict) and isinstance(got.get("contradictions"), list):
+                claimed = got["contradictions"]
+            if claimed is not None:
+                break
+        failed = claimed is None
+        claimed = [x for x in claimed or [] if isinstance(x, dict)]
         ok = []
         for x in claimed:
             try:
@@ -808,17 +818,19 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
                     and _quote_at(x.get("quote_b"), ch[b]):
                 ok.append(x)
         print(f"  {it['side']:10} {it['genre']:24} #{it['run']} {jm.split('::')[-1]:28} "
-              f"противоречий {len(ok)} (заявлено {len(claimed)})", flush=True)
+              + ("судья не ответил" if failed else
+                 f"противоречий {len(ok)} (заявлено {len(claimed)})"), flush=True)
         return {"side": it["side"], "genre": it["genre"], "run": it["run"],
-                "judge": jm.split("::")[-1], "verified": ok, "claimed": len(claimed)}
+                "judge": jm.split("::")[-1], "verified": ok, "claimed": len(claimed),
+                "failed": failed}
 
     jobs = [(it, jm) for it in items for jm in judges]
     random.Random(20261011).shuffle(jobs)
     with ThreadPoolExecutor(workers) as pool:
         rows = list(pool.map(run, jobs))
     print()
-    for sd in ("с памятью", "без памяти"):
-        r = [len(x["verified"]) for x in rows if x["side"] == sd]
+    for sd in dict.fromkeys(x["side"] for x in rows):
+        r = [len(x["verified"]) for x in rows if x["side"] == sd and not x["failed"]]
         if r:
             print(f"  {sd:10} противоречий на серию {mean(r):.2f} ± "
                   f"{(stdev(r) / len(r) ** .5) if len(r) > 1 else 0:.2f} (оценок {len(r)})")

@@ -690,11 +690,57 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
         except Exception as e:
             handle_error("_merge_from_json resolved_promises", e, level=ErrorLevel.RECOVERABLE)
 
+    # ── Детали серии ───────────────────────────────────────────────────────
+    details = [d.strip() for d in (data.get("details") or [])
+               if isinstance(d, str) and _is_real_value(d.strip())]
+    if details:
+        before = plot_text
+        plot_text = merge_series_details(plot_text, details, chapter_num)
+        if plot_text != before:
+            fields_changed.append({"field": "Детали серии", "before": "",
+                                   "after": "; ".join(details)})
+
     changed = bool(fields_changed)
     if changed:
         update_state(project_id, global_text, plot_text, memory_text)
 
     return {"changed": changed, "fields": fields_changed, "new_chars": new_chars}
+
+
+# ─── Детали серии ────────────────────────────────────────────────────────────
+#
+# Замер 11.10 (bench/ab-series-memory-2026-10-11.json): с памятью противоречий
+# между главами вдвое меньше, но остаются мелкие детали — шуба с каракулевым
+# воротником становится бобровой, ворота из подъёмных — ржавыми. В State их не
+# было: анализ главы писал персонажей, линии и знания. Теперь он выписывает и
+# детали, они копятся разделом «ДЕТАЛИ СЕРИИ» в plot_matrix и идут генератору
+# следующих глав и проверке непрерывности.
+
+SERIES_DETAILS_HEADER = "## ДЕТАЛИ СЕРИИ"
+SERIES_DETAILS_MAX = 60
+
+
+def series_details(plot_text: str) -> list[str]:
+    """Строки раздела «ДЕТАЛИ СЕРИИ» («гл.N: деталь»), по порядку добавления."""
+    m = re.search(rf"{re.escape(SERIES_DETAILS_HEADER)}\n(.*?)(?=\n## |\Z)", plot_text or "", re.S)
+    if not m:
+        return []
+    return [l[2:].strip() for l in m.group(1).splitlines() if l.startswith("- ")]
+
+
+def merge_series_details(plot_text: str, details: list[str], chapter_num: int) -> str:
+    """Добавить детали главы в раздел, без повторов, не больше SERIES_DETAILS_MAX строк."""
+    old = series_details(plot_text)
+    known = {re.sub(r"^гл\.\d+:\s*", "", x).lower() for x in old}
+    new = [f"гл.{chapter_num}: {d}" if chapter_num else d
+           for d in details if d.lower() not in known]
+    if not new:
+        return plot_text
+    lines = (old + new)[-SERIES_DETAILS_MAX:]
+    block = SERIES_DETAILS_HEADER + "\n" + "\n".join(f"- {x}" for x in lines)
+    base = re.sub(rf"\n*{re.escape(SERIES_DETAILS_HEADER)}\n.*?(?=\n## |\Z)", "",
+                  plot_text or "", flags=re.S).rstrip()
+    return (base + "\n\n" + block).lstrip() + "\n"
 
 
 def merge_analysis_into_state(
@@ -719,7 +765,7 @@ def merge_analysis_into_state(
         data = parse_json(raw_analysis)
         if isinstance(data, dict):
             # Базовая валидация: JSON-анализ должен иметь хотя бы один из ключевых полей
-            if any(k in data for k in ("global_state_changes", "plot_changes",
+            if any(k in data for k in ("global_state_changes", "plot_changes", "details",
                                        "memory_changes", "next_context",
                                        "resolved_promises")):
                 return _merge_from_json(data, project_id, chapter_num)

@@ -92,6 +92,12 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
         if forbidden:
             parts.append(f"НЕЛЬЗЯ ДОПУСТИТЬ (из State Engine): {forbidden}")
 
+        from .db_state import series_details
+        details = series_details(state.get("plot_matrix", ""))
+        if details:
+            parts.append("ДЕТАЛИ СЕРИИ (вещи, места, время, числа):\n"
+                         + "\n".join(f"  {d}" for d in details[-30:]))
+
     except Exception as e:
         handle_error(f"continuity_checker _build_series_facts state ({project_id})", e,
                      level=ErrorLevel.RECOVERABLE)
