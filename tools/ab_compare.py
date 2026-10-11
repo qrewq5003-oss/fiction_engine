@@ -776,7 +776,8 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
     items = []
     for p in paths:
         data = json.loads(p.read_text(encoding="utf-8"))
-        side = "с памятью" if data.get("memory", True) else "без памяти"
+        # label — для сравнения двух версий памяти между собой
+        side = data.get("label") or ("с памятью" if data.get("memory", True) else "без памяти")
         for s_ in data["series"]:
             if len(s_["chapters"]) >= 2:
                 items.append(dict(s_, side=side))
@@ -817,7 +818,7 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
     with ThreadPoolExecutor(workers) as pool:
         rows = list(pool.map(run, jobs))
     print()
-    for sd in ("с памятью", "без памяти"):
+    for sd in dict.fromkeys(x["side"] for x in rows):
         r = [len(x["verified"]) for x in rows if x["side"] == sd]
         if r:
             print(f"  {sd:10} противоречий на серию {mean(r):.2f} ± "
