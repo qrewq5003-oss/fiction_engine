@@ -15,10 +15,11 @@ from .error_policy import error_boundary, handle_error, ErrorLevel
 # ─── API ключи ────────────────────────────────────────────────────────────────
 
 def save_api_key(provider: str, key: str) -> None:
+    from .secret_store import encrypt
     with get_conn() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO api_keys (provider, api_key) VALUES (?,?)",
-            (provider, key)
+            (provider, encrypt(key))
         )
 
 
@@ -28,7 +29,34 @@ def _get_api_key_from_db(provider: str) -> str | None:
         row = conn.execute(
             "SELECT api_key FROM api_keys WHERE provider=?", (provider,)
         ).fetchone()
-    return row["api_key"] if row else None
+    from .secret_store import decrypt
+    return decrypt(row["api_key"]) if row else None
+
+
+def api_keys_plain() -> dict[str, str]:
+    """Все ключи провайдеров расшифрованными; нерасшифруемый — пропущен."""
+    from .secret_store import decrypt
+    with get_conn() as conn:
+        rows = conn.execute("SELECT provider, api_key FROM api_keys").fetchall()
+    out = {}
+    for r in rows:
+        try:
+            out[r["provider"]] = decrypt(r["api_key"]) or ""
+        except ValueError as e:
+            handle_error(f"ключ {r['provider']} не расшифрован", e, level=ErrorLevel.RECOVERABLE)
+    return out
+
+
+def encrypt_plaintext_keys() -> int:
+    """Зашифровать ключи, сохранённые до шифрования. Сколько зашифровано."""
+    from .secret_store import PREFIX, encrypt
+    with get_conn() as conn:
+        rows = conn.execute("SELECT provider, api_key FROM api_keys").fetchall()
+        old = [(r["provider"], r["api_key"]) for r in rows
+               if r["api_key"] and not r["api_key"].startswith(PREFIX)]
+        for provider, key in old:
+            conn.execute("UPDATE api_keys SET api_key=? WHERE provider=?", (encrypt(key), provider))
+    return len(old)
 
 
 def claude_subscription_on() -> bool:
@@ -65,12 +93,9 @@ def get_api_key(provider: str) -> str | None:
 
 @error_boundary(level=ErrorLevel.RECOVERABLE, fallback={})
 def get_all_api_keys() -> dict:
-    with get_conn() as conn:
-        rows = conn.execute("SELECT provider, api_key FROM api_keys").fetchall()
     result = {}
-    for r in rows:
-        k = r["api_key"]
-        result[r["provider"]] = k[:8] + "..." + k[-4:] if len(k) > 12 else "***"
+    for provider, k in api_keys_plain().items():
+        result[provider] = k[:8] + "..." + k[-4:] if len(k) > 12 else "***"
     return result
 
 

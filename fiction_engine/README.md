@@ -49,6 +49,7 @@
 | `/symbols` | Символы и мотивы |
 | `/stats` | Статистика по главам |
 | `/settings` | API-ключи, модели, путь к базе знаний |
+| `/login` | Вход по паролю, если задан `FE_PASSWORD` |
 | `/export/txt`, `/export/docx` | Выгрузка |
 
 Плюс 48 маршрутов `/api/*` для внутренних вызовов интерфейса.
@@ -61,7 +62,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 43 модуля
+engine/                движок — 44 модуля
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -109,6 +110,7 @@ tests/                 pytest-набор
 | `chapter_analyzer.py` | Разбор главы: арки, обещания, причинность, разрывы |
 | `narrative_intelligence.py` | NIL: арки, невыполненные обещания, противоречия |
 | `continuity_checker.py` | Кросс-главная проверка непрерывности |
+| `secret_store.py` | Шифрование API-ключей в БД (Fernet), ключ шифрования — вне базы |
 | `prevalidation.py` | Проверка задачи главы до генерации |
 
 **База знаний**

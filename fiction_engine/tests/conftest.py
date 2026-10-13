@@ -10,6 +10,15 @@ conftest.py — общие pytest-фикстуры.
 import sys
 import os
 import pytest
+import tempfile
+
+# Ключ шифрования API-ключей (engine/secret_store.py) — не из домашней папки:
+# импорт web.app при сборе тестов не должен создавать ~/fiction_engine/secret.key
+_keys_dir = tempfile.mkdtemp(prefix="fe_test_key_")
+os.environ.setdefault("FE_SECRET_KEY_FILE", os.path.join(_keys_dir, "secret.key"))
+os.environ.setdefault("FE_API_TOKEN_FILE", os.path.join(_keys_dir, "api_token"))
+# Тесты маршрутов шлют POST без сессии; защиту от CSRF проверяет test_web_security.py
+os.environ.setdefault("FE_CSRF", "0")
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -67,7 +76,8 @@ def use_temp_db(tmp_path):
     Патчим DB_PATH до импорта модулей движка.
     """
     db_file = tmp_path / "test.db"
-    with patch("engine.db_core.DB_PATH", db_file):
+    with patch("engine.db_core.DB_PATH", db_file), \
+         patch.dict(os.environ, {"FE_SECRET_KEY_FILE": str(tmp_path / "secret.key")}):
         from engine.db_core import init_db
         init_db()
         yield db_file
