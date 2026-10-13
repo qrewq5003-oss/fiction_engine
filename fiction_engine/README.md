@@ -62,7 +62,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 44 модуля
+engine/                движок — 45 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -110,6 +110,7 @@ tests/                 pytest-набор
 | `chapter_analyzer.py` | Разбор главы: арки, обещания, причинность, разрывы |
 | `narrative_intelligence.py` | NIL: арки, невыполненные обещания, противоречия |
 | `continuity_checker.py` | Кросс-главная проверка непрерывности |
+| `secondary_check.py` | Проверка второй линии книги после вердикта судьи — вопросы о ремесле линии (романтика, триллер, хоррор) |
 | `secret_store.py` | Шифрование API-ключей в БД (Fernet), ключ шифрования — вне базы |
 | `prevalidation.py` | Проверка задачи главы до генерации |
 

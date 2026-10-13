@@ -664,6 +664,32 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     judge_score = parse_score(judgment)
     verdict     = parse_verdict(judgment)
 
+    # ── Вторая линия книги: конкретные вопросы о её ремесле (secondary_check) ──
+    if project_id:
+        try:
+            from .db import get_project
+            from .genre_mix import project_secondary_key, secondary_label
+            from .secondary_check import check_line, format_line_note, line_family
+            key = project_secondary_key(get_project(project_id))
+            if line_family(key):
+                label = secondary_label(key)
+                line = check_line(current_text, key, label, lambda p: call_fn(
+                    model_judge, "Ты строгий редактор. Отвечаешь только JSON.", p,
+                    # Claude через подписку тратит лимит и на скрытое размышление
+                    max_tokens=32000 if model_judge.startswith("claude_subscription::") else 3000))
+                if line:
+                    results["secondary_line"] = line
+                    if line["failed"]:
+                        note = format_line_note(line, label)
+                        judgment = f"{judgment}\n\n{note}"
+                        if verdict == "ПРИНЯТЬ":
+                            # Сама строка вердикта, а не приписка: текст разбирают заново
+                            from .pipeline_llm import set_verdict
+                            verdict = "НА ДОРАБОТКУ"
+                            judgment = set_verdict(judgment, verdict)
+        except Exception as e:
+            handle_error(f"step_judge secondary_line ({project_id})", e, level=ErrorLevel.RECOVERABLE)
+
     save_pipeline_iteration(run_id, iteration, "judge", model_judge,
                              current_text, judgment,
                              score=judge_score, verdict=verdict)
