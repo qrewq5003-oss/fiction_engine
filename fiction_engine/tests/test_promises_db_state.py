@@ -16,7 +16,7 @@ from unittest.mock import patch, MagicMock
 class TestCreateCharEntry:
 
     def test_returns_string_with_all_fields(self):
-        from engine.db_state import _create_char_entry
+        from engine.state_merge import _create_char_entry
         entry = _create_char_entry("Иван", "испуган", "лес", "спастись")
         assert "### Иван" in entry
         assert "СОСТОЯНИЕ: испуган" in entry
@@ -28,7 +28,7 @@ class TestCreateCharEntry:
         assert "ИЗМЕНЕНИЕ: [автодобавлен]" in entry
 
     def test_empty_state_becomes_placeholder(self):
-        from engine.db_state import _create_char_entry
+        from engine.state_merge import _create_char_entry
         entry = _create_char_entry("Мария", "", "", "")
         assert "СОСТОЯНИЕ: []" in entry
         assert "ЛОКАЦИЯ: []" in entry
@@ -36,7 +36,7 @@ class TestCreateCharEntry:
 
     def test_arrow_notation_stripped(self):
         """Значения вида 'старое → новое' должны сохранять только правую часть."""
-        from engine.db_state import _create_char_entry
+        from engine.state_merge import _create_char_entry
         entry = _create_char_entry("Иван", "живой → мёртвый", "дом → лес", "")
         assert "мёртвый" in entry
         assert "лес" in entry
@@ -44,13 +44,13 @@ class TestCreateCharEntry:
 
     def test_placeholder_bracket_value_becomes_empty(self):
         """Значения вида '[что-то]' считаются плейсхолдерами."""
-        from engine.db_state import _create_char_entry
+        from engine.state_merge import _create_char_entry
         entry = _create_char_entry("Иван", "[неизвестно]", "дом", "")
         assert "СОСТОЯНИЕ: []" in entry
 
     def test_used_in_add_new_char(self, project_id):
         """_add_new_char должна использовать _create_char_entry — содержит все поля."""
-        from engine.db_state import _add_new_char
+        from engine.state_merge import _add_new_char
         global_text = "## ПЕРСОНАЖИ\n"
         new_chars = []
         result = _add_new_char("Новый", "Section:\nсостояние: радостный\nлокация: замок\nцель: найти клад",
@@ -64,7 +64,7 @@ class TestCreateCharEntry:
         Ключевой инвариант: оба пути создания персонажа дают одинаковый шаблон.
         Проверяем что оба содержат ЦЕЛЬ_ГЛУБИННАЯ и ИЗМЕНЕНИЕ.
         """
-        from engine.db_state import _add_new_char, _create_char_entry
+        from engine.state_merge import _add_new_char, _create_char_entry
 
         new_chars_1 = []
         global_text = "## ПЕРСОНАЖИ\n"
