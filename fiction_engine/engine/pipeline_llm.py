@@ -180,6 +180,13 @@ def parse_verdict(text: str) -> str:
     return m.group(1).upper() if m else "НА ДОРАБОТКУ"
 
 
+def set_verdict(text: str, verdict: str) -> str:
+    """Заменить вердикт в тексте судьи — так, чтобы parse_verdict прочёл новый."""
+    new, n = re.subn(r'(ВЕРДИКТ:\s*\[?\s*)(ПРИНЯТЬ|НА ДОРАБОТКУ)', lambda m: m.group(1) + verdict,
+                     text, count=1, flags=re.IGNORECASE)
+    return new if n else f"{text}\nВЕРДИКТ: {verdict}"
+
+
 def _build_context(project_id: int, chapter_num: int, base_prompt: str,
                    mode: str = "quick", model_value: str = "",
                    task_text: str = "") -> str:
