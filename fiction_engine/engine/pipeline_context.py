@@ -284,6 +284,17 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         except Exception as e:
             handle_error("build_context series_names", e, level=ErrorLevel.RECOVERABLE)
 
+    # Библия серии: места, вещи, время событий (engine/series_bible)
+    bible_ctx = ""
+    if chapter_num > 1:
+        try:
+            from .series_bible import bible_block
+            b = bible_block(project_id, f"{task_text}\n{base_prompt[-3000:]}")
+            if b:
+                bible_ctx = f"\n{b}\n"
+        except Exception as e:
+            handle_error("build_context series_bible", e, level=ErrorLevel.RECOVERABLE)
+
     # State — только если не задан явно в промпте
     state_markers = [
         "ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ", "СОСТОЯНИЕ МИРА",
@@ -331,7 +342,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
 {kb_block}
 {l3_block}
 {prep_block}
-{monotony_block}{names_block}{prev_analysis_block}{engine_block}
+{monotony_block}{names_block}{bible_ctx}{prev_analysis_block}{engine_block}
 {symbols_block}{state_block}"""
 
     # ── Debug: сохранить промпт в файл для верификации ────────────────────────

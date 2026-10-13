@@ -246,6 +246,10 @@ def _ablate(without: list[str] | None) -> None:
         if name == "engine":
             import engine.pipeline_context as pc
             pc.build_engine_context = lambda *a, **k: ""
+        elif name == "bible":
+            # Библия серии пишется, но генератору не идёт — меряется блок «пиши ровно так»
+            import engine.series_bible as sb
+            sb.bible_block = lambda *a, **k: ""
         else:
             import engine.unified_engine as ue
             if not hasattr(ue, name):

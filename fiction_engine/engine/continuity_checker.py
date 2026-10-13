@@ -111,6 +111,15 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
         handle_error(f"continuity_checker _build_series_facts names ({project_id})", e,
                      level=ErrorLevel.RECOVERABLE)
 
+    try:
+        from .series_bible import bible_block
+        b = bible_block(project_id)
+        if b:
+            parts.append(b)
+    except Exception as e:
+        handle_error(f"continuity_checker _build_series_facts bible ({project_id})", e,
+                     level=ErrorLevel.RECOVERABLE)
+
     # ── Causal chains и opened_promises из прошлых глав ──────────────────
     try:
         from .db_chapters import get_analyses_range

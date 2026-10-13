@@ -352,6 +352,7 @@ class _Changes:
     def __init__(self) -> None:
         self.fields: list[dict] = []
         self.new_chars: list[str] = []
+        self.bible_conflicts: list[dict] = []
 
     def record(self, field_name: str, before: str, after: str) -> None:
         if before != after and after and not str(after).startswith("["):
@@ -446,6 +447,25 @@ def _merge_details(details_raw: list, plot_text: str, chapter_num: int, ch: _Cha
     return new_plot
 
 
+def _merge_bible(entries: list, project_id: int, chapter_num: int, ch: _Changes) -> None:
+    """Факты главы — в библию серии (дописываются; противоречие не перезаписывает)."""
+    try:
+        from .series_bible import record
+        got = record(project_id, entries, chapter_num)
+    except Exception as err:
+        handle_error("_merge_from_json bible", err, level=ErrorLevel.RECOVERABLE)
+        return
+    for e in got["added"]:
+        ch.add(f"Библия: {e['name']} — {e['attr']}", "", e["value"])
+    for e in got["changed"]:
+        ch.add(f"Библия: {e['name']} — {e['attr']}", e["was"], f"{e['value']} ({e['changed']})")
+    for e in got["conflicts"]:
+        # Видно автору в списке изменений; в библию как текущее значение не идёт
+        ch.add(f"⚠ Противоречие с библией: {e['name']} — {e['attr']}",
+               f"{e['was']} (гл.{e['was_chapter']})", e["value"])
+    ch.bible_conflicts += got["conflicts"]
+
+
 def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     """
     Применить структурированный JSON-анализ к State Engine.
@@ -464,11 +484,13 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     memory_text = _merge_memory(data.get("memory_changes", []), state.get("memory_graph", ""), ch)
     _merge_promises(data.get("resolved_promises", []), project_id, chapter_num, ch)
     plot_text = _merge_details(data.get("details") or [], plot_text, chapter_num, ch)
+    _merge_bible(data.get("bible") or [], project_id, chapter_num, ch)
 
     changed = bool(ch.fields)
     if changed:
         update_state(project_id, global_text, plot_text, memory_text)
-    return {"changed": changed, "fields": ch.fields, "new_chars": ch.new_chars}
+    return {"changed": changed, "fields": ch.fields, "new_chars": ch.new_chars,
+            "bible_conflicts": ch.bible_conflicts}
 
 
 # ─── Детали серии ────────────────────────────────────────────────────────────
@@ -529,7 +551,7 @@ def merge_analysis_into_state(
         data = parse_json(raw_analysis)
         if isinstance(data, dict):
             # Базовая валидация: JSON-анализ должен иметь хотя бы один из ключевых полей
-            if any(k in data for k in ("global_state_changes", "plot_changes", "details",
+            if any(k in data for k in ("global_state_changes", "plot_changes", "details", "bible",
                                        "memory_changes", "next_context",
                                        "resolved_promises")):
                 return _merge_from_json(data, project_id, chapter_num)
