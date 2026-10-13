@@ -1092,7 +1092,10 @@ def judge(old_path: Path, new_path: Path, out: Path, judges: list[str]) -> int:
                 prompt = JUDGE_PROMPT.format(genre=seed["genre"], task=seed["task"],
                                              a=texts[first], b=texts[second])
                 try:
-                    v = _parse_verdict(_call(jm, JUDGE_SYSTEM, prompt, max_tokens=600))
+                    # Claude через подписку тратит лимит и на скрытое размышление
+                    v = _parse_verdict(_call(jm, JUDGE_SYSTEM, prompt,
+                                             max_tokens=32000 if jm.startswith("claude_subscription::")
+                                             else 600))
                 except Exception as e:
                     v = {"winner": "?", "margin": "", "reason": f"ошибка: {str(e)[:120]}"}
                 who = {"A": first, "B": second, "tie": "tie"}.get(v.get("winner"), "?")
