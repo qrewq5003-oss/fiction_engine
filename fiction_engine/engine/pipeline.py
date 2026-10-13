@@ -360,6 +360,12 @@ def start_pipeline(
                 break
             prev_score = current_score
 
+    # Судья пристрастен к тексту генератора (Claude судит Claude) — сказать
+    # автору. После авто-цикла: он подменяет result
+    from .pipeline_config import judge_bias_warning
+    bias = judge_bias_warning(model_gen, model_judge)
+    if bias:
+        result["judge_warning"] = bias
     return result
 
 
@@ -387,6 +393,10 @@ def continue_pipeline(
         steps=resolved_steps,
     )
     result["run_id"] = run_id
+    from .pipeline_config import judge_bias_warning
+    bias = judge_bias_warning(run["model_gen"], run["model_judge"])
+    if bias:
+        result["judge_warning"] = bias
     return result
 
 
