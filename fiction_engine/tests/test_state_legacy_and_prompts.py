@@ -20,7 +20,7 @@ sys.modules["openai"].OpenAI = MagicMock()
 
 class TestApplyGlobalBlock:
     def _apply(self, block, state_text):
-        from engine.db_state import _apply_global_block
+        from engine.state_merge import _apply_global_block
         changes, new_chars = [], []
         out = _apply_global_block(
             block, state_text,
@@ -68,7 +68,7 @@ class TestApplyGlobalBlock:
 
 class TestApplyPlotBlock:
     def _apply(self, block, plot_text):
-        from engine.db_state import _apply_plot_block
+        from engine.state_merge import _apply_plot_block
         changes = []
         out = _apply_plot_block(block, plot_text,
                                 lambda f, b, a: changes.append(f))
@@ -94,7 +94,7 @@ class TestApplyPlotBlock:
 
 class TestApplyCharKnows:
     def _apply(self, val, block):
-        from engine.db_state import _apply_char_knows
+        from engine.state_merge import _apply_char_knows
         changes = []
         out = _apply_char_knows(val, block, "Марк",
                                 lambda f, b, a: changes.append(f))
