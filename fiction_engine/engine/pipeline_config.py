@@ -745,3 +745,41 @@ def list_presets() -> list[dict]:
         }
         for name, cfg in PRESETS.items()
     ]
+
+
+# ─── Судья и генератор из одного семейства ───────────────────────────────────
+#
+# Замер 13.10 (bench/ab-writers-sonnet-2026-10-13.json, tools/self_recognition.py):
+# «одну из двух глав написал ты — какую?» — Sonnet 5.5 узнал свою главу 16
+# раз из 16, Opus 5.5 главу Sonnet — тоже 16 из 16, и Sonnet-судья голосовал
+# за свою главу во всех парах; DeepSeek и Kimi свои главы не узнали (6 из 16).
+# Поэтому предупреждаем, когда Claude судит Claude, и когда судит та же
+# модель, что писала: генератор не должен судить себя.
+
+def model_family(model_value: str) -> str:
+    """Семейство модели по её значению «провайдер::модель»: claude, deepseek, kimi…"""
+    provider, _, model = (model_value or "").partition("::")
+    m = (model or provider).lower()
+    if provider in ("anthropic_direct", "claude_subscription") or "claude" in m:
+        return "claude"
+    for fam, keys in (("deepseek", ("deepseek",)), ("kimi", ("kimi", "moonshot")),
+                      ("glm", ("glm", "z-ai", "zhipu")), ("gpt", ("gpt", "openai/")),
+                      ("gemini", ("gemini",)), ("qwen", ("qwen",)), ("mistral", ("mistral",)),
+                      ("mimo", ("mimo", "xiaomi"))):
+        if any(k in m for k in keys):
+            return fam
+    return m
+
+
+def judge_bias_warning(model_gen: str, model_judge: str) -> str:
+    """Предупреждение автору, если судья пристрастен к тексту генератора; иначе «»."""
+    if not model_gen or not model_judge:
+        return ""
+    if model_family(model_gen) == model_family(model_judge) == "claude":
+        return ("Судья и генератор — оба Claude: на замере Claude узнавал текст Claude 16 раз "
+                "из 16 и голосовал за него. Оценка судьи, скорее всего, завышена — поставьте "
+                "судьёй модель другого семейства (Kimi, DeepSeek).")
+    if model_gen.split("::")[-1] == model_judge.split("::")[-1]:
+        return ("Судья — та же модель, что писала главу: генератор не должен судить себя. "
+                "Поставьте судьёй модель другого семейства.")
+    return ""
