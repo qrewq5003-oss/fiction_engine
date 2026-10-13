@@ -62,7 +62,7 @@
 cli.py                 терминальный интерфейс
 check_architecture.py  линтер границ слоёв
 
-engine/                движок — 44 модуля
+engine/                движок — 45 модулей
 web/                   Flask: app.py + 6 блупринтов + шаблоны
                        (маршруты generate разнесены по четырём файлам:
                         generate_bp, generate_prompt, generate_pipeline,
@@ -94,7 +94,8 @@ tests/                 pytest-набор
 | `db_core.py` | Соединение, схема, миграции, чистка сирот |
 | `db_projects.py` | Проекты |
 | `db_chapters.py` | Главы, история генераций, оценки |
-| `db_state.py` | State Engine: хранение, разбор, слияние анализа |
+| `db_state.py` | State Engine: хранение и разбор |
+| `state_merge.py` | Слияние анализа главы в State: персонажи, сюжет, память, детали серии |
 | `db_narrative.py` | Запуски pipeline, голоса, эталоны |
 | `db_settings.py` | Ключи и настройки |
 | `db.py` | Фасад обратной совместимости |

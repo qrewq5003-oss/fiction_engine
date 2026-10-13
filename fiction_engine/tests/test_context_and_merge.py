@@ -245,17 +245,17 @@ class TestFieldStyle:
         ("### Марк\nСостояние: спокоен\nЛокация: дом\n", "Состояние"),
     ])
     def test_key_style_follows_block(self, block, expected):
-        from engine.db_state import _key_style, FIELD_ALIASES
+        from engine.state_merge import _key_style, FIELD_ALIASES
         assert _key_style(block, FIELD_ALIASES["состояние"]) == expected
 
     def test_append_field_keeps_indent_and_newlines(self):
-        from engine.db_state import _append_field
+        from engine.state_merge import _append_field
         out = _append_field("### Марк\r\nВозраст: 34\r\n", "Локация", "склад")
         assert "Локация: склад" in out
         assert "\r\n" in out, "перевод строки CRLF не сохранён"
 
     def test_append_field_on_plain_lf(self):
-        from engine.db_state import _append_field
+        from engine.state_merge import _append_field
         out = _append_field("### Марк\nВозраст: 34\n", "Локация", "склад")
         assert "Локация: склад" in out and "\r" not in out
 
