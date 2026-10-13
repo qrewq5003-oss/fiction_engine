@@ -842,6 +842,92 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
     return 0
 
 
+# ─── Проверка непрерывности после генерации ──────────────────────────────────
+#
+# engine.continuity_checker.check_against_chapters — то, что движок делает с
+# новой главой: сверка с полным текстом прошлых глав, пары цитат. Здесь она
+# прогоняется по готовым сериям, как если бы каждая глава была только что
+# написана, и сравнивается со списком судьи (--ref, вывод series-continuity):
+# какую долю его противоречий проверка ловит и сколько находит сверх.
+
+def _shingles(s_: str, n: int = 4) -> set[str]:
+    w = _norm_text(s_).split()
+    return {" ".join(w[i:i + n]) for i in range(max(1, len(w) - n + 1))}
+
+
+def _same_finding(f: dict, r: dict) -> bool:
+    if r.get("chapter_b") != f["chapter_b"]:
+        return False
+    return bool(_shingles(f["quote_b"]) & _shingles(r.get("quote_b") or "")
+                or _shingles(f["quote_a"]) & _shingles(r.get("quote_a") or ""))
+
+
+def series_check(paths: list[Path], out: Path, checkers: list[str], ref: Path | None,
+                 ref_judge: str, workers: int) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(ROOT / "fiction_engine"))
+    _temp_db(ROOT / "fiction_engine")
+    from engine.continuity_checker import CROSS_LOOKBACK, check_against_chapters
+    from engine.pipeline import _call
+    jobs = []
+    for p in paths:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        side = data.get("label") or p.stem
+        for s_ in data["series"]:
+            chs = [{"number": CHAPTER - 1, "content": SEEDS[s_["genre"]]["prev"]}] + \
+                  [{"number": c["num"], "content": c["text"]} for c in s_["chapters"]]
+            for i in range(2, len(chs)):
+                for cm in checkers:
+                    jobs.append((side, s_["genre"], s_["run"], chs[i], chs[:i], cm))
+
+    def run(job):
+        side, genre, run_, ch, prev, cm = job
+        mt = 32000 if cm.startswith("claude_subscription::") else 4000
+        try:
+            found = check_against_chapters(ch["number"], ch["content"], prev,
+                                           lambda pr: _call(cm, RATE_SYSTEM, pr, max_tokens=mt))
+            failed = False
+        except Exception:
+            found, failed = [], True
+        print(f"  {side:12} {genre:24} #{run_} гл.{ch['number']} {cm.split('::')[-1]:28} "
+              + ("не ответил" if failed else f"находок {len(found)}"), flush=True)
+        return {"side": side, "genre": genre, "run": run_, "chapter": ch["number"],
+                "checker": cm.split("::")[-1], "failed": failed,
+                "found": [dict(f, chapter_b=ch["number"]) for f in found]}
+
+    with ThreadPoolExecutor(workers) as pool:
+        rows = list(pool.map(run, jobs))
+    print()
+    refs = []
+    if ref:
+        refs = [r for r in json.loads(ref.read_text(encoding="utf-8"))["rows"]
+                if r["judge"] == ref_judge and not r.get("failed")]
+    for cm in dict.fromkeys(r["checker"] for r in rows):
+        mine = [r for r in rows if r["checker"] == cm]
+        ok = [r for r in mine if not r["failed"]]
+        n = sum(len(r["found"]) for r in ok)
+        line = f"  {cm:28} глав {len(ok)}/{len(mine)}, находок {n}"
+        if refs:
+            hit = total = 0
+            for r in refs:
+                for item in r["verified"]:
+                    b, a = item.get("chapter_b"), item.get("chapter_a")
+                    if not isinstance(b, int) or not isinstance(a, int) or b - a > CROSS_LOOKBACK:
+                        continue      # проверка этих глав вместе не видит
+                    same = [x for x in ok if (x["side"], x["genre"], x["run"], x["chapter"])
+                            == (r["side"], r["genre"], r["run"], b)]
+                    if not same:
+                        continue
+                    total += 1
+                    hit += any(_same_finding(f, item) for x in same for f in x["found"])
+            line += f"; из {total} противоречий судьи поймано {hit}"
+        print(line)
+    out.write_text(json.dumps({"date": date.today().isoformat(), "checkers": checkers,
+                               "ref": str(ref) if ref else None, "rows": rows},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
 # ─── Различимость голосов ────────────────────────────────────────────────────
 #
 # Оценка по шкале говорит, хороша ли глава, но не говорит, звучит ли она
@@ -1516,6 +1602,13 @@ def main() -> int:
     sk.add_argument("--out", type=Path, required=True)
     sk.add_argument("--judges", default=",".join(DEFAULT_JUDGES))
     sk.add_argument("--workers", type=int, default=4)
+    ck = sub.add_parser("series-check", help="проверка непрерывности движка по готовым сериям")
+    ck.add_argument("series", type=Path, nargs="+")
+    ck.add_argument("--out", type=Path, required=True)
+    ck.add_argument("--checkers", default=",".join(DEFAULT_JUDGES))
+    ck.add_argument("--ref", type=Path, help="вывод series-continuity — с чем сравнивать")
+    ck.add_argument("--ref-judge", default="claude-sonnet-5-5")
+    ck.add_argument("--workers", type=int, default=4)
     vg = sub.add_parser("voice-guess", help="угадывание пресета голоса по главе")
     vg.add_argument("chapters", type=Path, nargs="+")
     vg.add_argument("--out", type=Path, required=True)
@@ -1561,6 +1654,8 @@ def main() -> int:
         return series_count(a.series, a.out, a.judges.split(","), a.workers)
     if a.cmd == "series-continuity":
         return series_continuity(a.series, a.out, a.judges.split(","), a.workers)
+    if a.cmd == "series-check":
+        return series_check(a.series, a.out, a.checkers.split(","), a.ref, a.ref_judge, a.workers)
     if a.cmd == "voice-guess":
         return voice_guess(a.chapters, a.out, a.judges.split(","), a.workers, a.anon)
     if a.cmd == "flaws":
