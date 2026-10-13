@@ -23,6 +23,36 @@ def _fe_base_url() -> str:
     return os.environ.get("FE_URL", "http://127.0.0.1:5000").rstrip("/")
 
 
+def _fe_headers() -> dict:
+    """
+    Заголовок X-FE-Token: Fiction Engine пускает программы с ним без сессии
+    и токена CSRF (fiction_engine/web/security.py). Токен — sha256 от
+    FE_PASSWORD, если задан, иначе файл, который создаёт сам FE: FE_API_TOKEN_FILE или
+    ~/fiction_engine/api_token.
+    """
+    import hashlib
+    import os
+    from pathlib import Path
+    pw = os.environ.get("FE_PASSWORD", "")
+    # Не сам пароль — заголовок HTTP латиница-1; так же считает FE
+    # (fiction_engine/web/security.py, token_from_password)
+    token = hashlib.sha256(("fiction-engine-api:" + pw).encode()).hexdigest() if pw else ""
+    if not token:
+        path = Path(os.environ.get("FE_API_TOKEN_FILE")
+                    or Path.home() / "fiction_engine" / "api_token")
+        try:
+            token = path.read_text().strip()
+        except OSError:
+            token = ""      # FE ещё ни разу не запускался — он и не ответит
+    return {"X-FE-Token": token} if token else {}
+
+
+def _fe_get(path: str, timeout: float):
+    import urllib.request
+    return urllib.request.urlopen(
+        urllib.request.Request(f"{_fe_base_url()}{path}", headers=_fe_headers()), timeout=timeout)
+
+
 @bp.route("/scenes")
 def scenes_list():
     pid = current_pid()
@@ -184,7 +214,7 @@ def ai_assist():
     # Вызов модели делает Fiction Engine: ключи живут там
     try:
         import requests as req
-        resp = req.post(f"{_fe_base_url()}/api/inline_call", json={
+        resp = req.post(f"{_fe_base_url()}/api/inline_call", headers=_fe_headers(), json={
             "model": model,
             "system": "Ты помощник сценариста и писателя. Отвечаешь конкретно и по делу.",
             "prompt": f"{instruction}\n\n{scene_text}",
@@ -246,7 +276,7 @@ def export_send():
     import requests as req
     try:
         resp = req.post(f"{_fe_base_url()}/api/director_note/{chapter_num}/save",
-                        json={"note": prompt_text}, timeout=10)
+                        json={"note": prompt_text}, headers=_fe_headers(), timeout=10)
         if resp.ok:
             return jsonify({"ok": True, "prompt": prompt_text, "sent": True})
     except req.exceptions.RequestException:
@@ -278,7 +308,7 @@ def system_status():
 
     fe_server, keys = False, {}
     try:
-        with urllib.request.urlopen(f"{_fe_base_url()}/api/keys/status", timeout=2) as r:
+        with _fe_get("/api/keys/status", timeout=2) as r:
             raw = _json.loads(r.read())
         fe_server = True
         # FE отдаёт {провайдер: маскированный ключ}; нам нужен сам факт наличия
@@ -305,8 +335,8 @@ def system_status():
 def fe_projects():
     """Список проектов FE."""
     try:
-        import urllib.request, json as _json
-        with urllib.request.urlopen(f"{_fe_base_url()}/api/projects/list", timeout=3) as r:
+        import json as _json
+        with _fe_get("/api/projects/list", timeout=3) as r:
             return jsonify(_json.loads(r.read()))
     except Exception as e:
         return jsonify({"error": str(e), "projects": []})
@@ -320,10 +350,8 @@ def fe_import(fe_pid):
         return jsonify({"error": "Нет проекта в планировщике"}), 400
 
     try:
-        import urllib.request, json as _json
-        with urllib.request.urlopen(
-            f"{_fe_base_url()}/api/project/context?pid={fe_pid}", timeout=10
-        ) as r:
+        import json as _json
+        with _fe_get(f"/api/project/context?pid={fe_pid}", timeout=10) as r:
             data = _json.loads(r.read())
     except Exception as e:
         return jsonify({"error": f"FE недоступен: {e}"}), 503

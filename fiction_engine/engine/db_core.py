@@ -390,6 +390,9 @@ def init_db() -> None:
         """)
 
     _run_migrations()
+    # Ключи провайдеров, сохранённые до шифрования (ROADMAP 5.2)
+    from .db_settings import encrypt_plaintext_keys
+    encrypt_plaintext_keys()
 
 
 def _run_migrations() -> None:

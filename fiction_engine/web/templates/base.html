@@ -3,6 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script>
+// Токен CSRF (web/security.py): fetch добавляет заголовок к запросам, меняющим
+// данные, форма POST получает скрытое поле при отправке
+(function () {
+  var token = document.querySelector('meta[name="csrf-token"]').content;
+  var safe = /^(GET|HEAD|OPTIONS)$/i;
+  var orig = window.fetch;
+  window.fetch = function (input, init) {
+    init = init || {};
+    var method = init.method || (input && input.method) || 'GET';
+    if (!safe.test(method)) {
+      var h = new Headers(init.headers || (input && input.headers) || {});
+      if (!h.has('X-CSRF-Token')) h.set('X-CSRF-Token', token);
+      init.headers = h;
+    }
+    return orig.call(this, input, init);
+  };
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || !/^post$/i.test(f.method) || f.querySelector('input[name="csrf_token"]')) return;
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'csrf_token'; i.value = token;
+    f.appendChild(i);
+  }, true);
+})();
+</script>
 <title>Fiction Engine{% if current %} — {{ current.name }}{% endif %}</title>
 <style>
   :root {

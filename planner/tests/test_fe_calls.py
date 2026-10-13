@@ -38,6 +38,7 @@ class _Recorder(BaseHTTPRequestHandler):
             "method": method,
             "path": self.path,
             "body": json.loads(body) if body else None,
+            "token": self.headers.get("X-FE-Token"),
         })
         status, payload = _Recorder.responses.get(
             self.path.split("?")[0], (200, {"ok": True}))
@@ -150,6 +151,39 @@ class TestCallsReachFe:
         req = next(r for r in fake_fe.received if "director_note" in r["path"])
         assert req["path"] == "/api/director_note/4/save"
         assert req["body"]["note"], "текст плана не передан"
+
+
+class TestCallsCarryToken:
+    """
+    Fiction Engine без сессии пускает только с X-FE-Token
+    (fiction_engine/web/security.py) — каждый запрос планировщика его несёт.
+    """
+
+    def test_every_call_has_token(self, client, project_id, fake_fe, monkeypatch):
+        monkeypatch.setenv("FE_PASSWORD", "пароль-fe")
+        from engine.db import create_scene
+        sid = create_scene(project_id)
+        fake_fe.responses["/api/inline_call"] = (200, {"ok": True, "result": "x"})
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        client.get("/api/status")
+        client.get("/api/fe/projects")
+        client.post("/api/fe/import/7")
+        client.post("/api/ai/assist", json={"scene_id": sid, "action": "develop",
+                                            "model": "deepseek_direct::deepseek-chat"})
+        client.post("/api/export/send", json={"scene_ids": [sid], "chapter_num": 4})
+        assert len(fake_fe.received) == 5
+        import hashlib
+        want = hashlib.sha256("fiction-engine-api:пароль-fe".encode()).hexdigest()
+        assert all(r["token"] == want for r in fake_fe.received), fake_fe.received
+
+    def test_token_file_when_no_password(self, tmp_path, monkeypatch):
+        from web.blueprints.api_bp import _fe_headers
+        monkeypatch.delenv("FE_PASSWORD", raising=False)
+        monkeypatch.setenv("FE_API_TOKEN_FILE", str(tmp_path / "api_token"))
+        assert _fe_headers() == {}
+        (tmp_path / "api_token").write_text("токен-файла\n")
+        assert _fe_headers() == {"X-FE-Token": "токен-файла"}
 
 
 class TestFailuresAreDistinguishable:

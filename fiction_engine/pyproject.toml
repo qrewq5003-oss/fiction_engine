@@ -18,6 +18,8 @@ dependencies = [
     "flask>=3.0.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
+    # Шифрование API-ключей в БД (engine/secret_store.py, ROADMAP 5.2)
+    "cryptography>=42.0",
     # Импорт глав и экспорт книги в .docx: без неё оба пути отвечали
     # «установи python-docx», хотя README обещает .docx
     "python-docx>=1.1",

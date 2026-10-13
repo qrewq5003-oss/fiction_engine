@@ -40,18 +40,14 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
 # ─── Secret Key ───────────────────────────────────────────────────────────────
-_secret = os.environ.get("FLASK_SECRET_KEY", "")
-if not _secret:
-    import secrets as _secrets
-    _secret = _secrets.token_hex(32)
-    import logging as _logging
-    _logging.warning(
-        "FLASK_SECRET_KEY не задан — используется случайный ключ. "
-        "Сессии сбросятся при перезапуске. "
-        "Задайте переменную окружения FLASK_SECRET_KEY для стабильной работы."
-    )
-app.secret_key = _secret
-del _secret
+# FLASK_SECRET_KEY, иначе — производный от ключа шифрования (engine/secret_store):
+# сессия входа и токен CSRF переживают перезапуск
+from engine.secret_store import session_secret
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "") or session_secret()
+
+# Вход по паролю и CSRF (ROADMAP 5.1, 5.3)
+from web.security import check_host, init_security
+init_security(app)
 
 
 # ─── Хелпер ──────────────────────────────────────────────────────────────────
@@ -227,13 +223,10 @@ def settings_page():
 
 @app.route("/api/keys/status")
 def api_keys_status():
-    from engine.db import get_conn
-    with get_conn() as conn:
-        rows = conn.execute("SELECT provider, api_key FROM api_keys").fetchall()
+    from engine.db_settings import api_keys_plain
     result = {}
-    for r in rows:
-        k = r["api_key"]
-        result[r["provider"]] = k[:8] + "\u00b7" * 8 + k[-4:] if len(k) > 12 else "***"
+    for provider, k in api_keys_plain().items():
+        result[provider] = k[:8] + "\u00b7" * 8 + k[-4:] if len(k) > 12 else "***"
     return jsonify(result)
 
 
@@ -530,14 +523,14 @@ def main() -> None:
     init_db()
     # validate_engine_paths вызывается автоматически при первом запросе
     # через @before_request хук _validate_engine_once — работает при любом запуске.
-    # По умолчанию только петля: аутентификации нет, а в БД лежат API-ключи.
-    # Выставить наружу — осознанно через FE_HOST=0.0.0.0.
+    # По умолчанию только петля. Наружу (FE_HOST=0.0.0.0 и любой не-петлевой
+    # адрес) — только с паролем FE_PASSWORD: в БД лежат ключи провайдеров.
     host = os.environ.get("FE_HOST", "127.0.0.1")
     port = int(os.environ.get("FE_PORT", "5000"))
+    refuse = check_host(host)
+    if refuse:
+        sys.exit(f"Fiction Engine не запущен: {refuse}")
     print(f"Fiction Engine запускается на http://{host}:{port}")
-    if host == "0.0.0.0":
-        print("  ВНИМАНИЕ: слушаем все интерфейсы без аутентификации — "
-              "в БД хранятся API-ключи.")
     app.run(debug=False, host=host, port=port)
 
 
