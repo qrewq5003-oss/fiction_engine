@@ -214,8 +214,289 @@ def summary(dirs: list[Path], thr: float = FAIL_SUM) -> list[dict]:
     return out
 
 
+# ─── Слабости обычных глав (что на самом деле не так) ────────────────────────
+#
+# Модули описывают ремесло, которым модели уже владеют: хуки и напряжение
+# обычные главы проходят на 9–10 из 10. Чтобы выбрать, какие модули делать
+# проверкой, нужно знать реальные слабости. Судья выписывает до 6 слабостей
+# уровня сцены и главы с цитатой; тип — модуль базы, который об этом.
+
+WEAK_TYPES = {
+    "сцена_пустая": ("06_scene_structure", "сцена ничего не меняет: ни знания, ни отношений, ни цели"),
+    "мотивация": ("09_deep_character_psychology", "поступок или реакция без причины, удобные сюжету"),
+    "персонаж_функция": ("02_character_resonance", "персонаж — функция: без своих целей и реакций"),
+    "ставки": ("20_stakes_escalation", "неясно, что герой потеряет; ставка не растёт"),
+    "темп": ("12_pacing_engine", "провисание, пересказ, затянутая или скомканная сцена"),
+    "диалог": ("01_dialogues", "реплики-экспозиция, все говорят одинаково, разговор ради справки"),
+    "подтекст": ("10_subtext_engine", "сказано прямо то, что сильнее было бы недосказать"),
+    "фокал": ("05_pov", "сбой точки зрения: знание или ощущение вне фокального персонажа"),
+    "описание": ("22_sensory_immersion", "общее описание без конкретной детали, декорация"),
+    "голос": ("07_voice_consistency", "голос рассказчика скачет, чужой регистр"),
+    "тема": ("03_thematic_dna", "событие без смысла для темы и героя"),
+    "начало_конец": ("19_hooks_closings", "слабое начало или концовка главы"),
+    "логика": ("08_world_state_kernel", "нестыковка, ошибка факта, физики, времени"),
+    "другое": ("", ""),
+}
+
+WEAK_PROMPT = """Ты редактор. Найди в главе до 6 самых серьёзных слабостей УРОВНЯ СЦЕНЫ И ГЛАВЫ —
+то, что редактор вернул бы автору на переработку. Не стиль отдельных фраз (штампы, повторы
+слов) — а устройство: сцены, персонажи, ставки, темп, диалог, точка зрения. Если глава
+сильная — найди меньше, не выдумывай. Хвалить не нужно.
+
+Для каждой:
+- quote: точная цитата из текста, до 20 слов, без изменений — где слабость видна;
+- type: одно из: {types};
+- why: в чём проблема, до 15 слов.
+
+Типы: {legend}
+
+=== ГЛАВА ===
+{text}
+
+Ответь JSON без пояснений вокруг: {{"weak": [{{"quote": "…", "type": "…", "why": "…"}}]}}"""
+
+
+def weak(sources: dict[str, Path], judges_for: dict[str, list[str]], out: Path) -> None:
+    """Слабости уровня сцены: {писатель: файл глав}, {писатель: судьи}."""
+    from collections import Counter
+    _call = _setup()
+    from engine.continuity_checker import quote_in
+    from engine.pipeline_llm import parse_json
+    legend = "; ".join(f"{k} — {v[1]}" for k, v in WEAK_TYPES.items() if v[1])
+    jobs = [(w, c, jm) for w, p in sources.items() for c in json.load(open(p))["chapters"]
+            if c.get("text") for jm in judges_for[w]]
+
+    def run(job):
+        w, c, jm = job
+        prompt = WEAK_PROMPT.format(types=", ".join(WEAK_TYPES), legend=legend, text=c["text"])
+        items = None
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, "Ты строгий редактор. Отвечаешь только JSON.", prompt,
+                                       max_tokens=_mt(jm, 4000)))
+                items = got.get("weak") if isinstance(got, dict) else got if isinstance(got, list) else None
+                if isinstance(items, list):
+                    break
+            except Exception as e:
+                print("  не разобрано:", str(e)[:100], flush=True)
+                _retry_wait(e)
+        found = [{"type": x.get("type", "другое"), "quote": x.get("quote", ""), "why": x.get("why", ""),
+                  "verified": quote_in(x.get("quote", ""), c["text"])}
+                 for x in items or [] if isinstance(x, dict)]
+        print(f"  {w:9} {c['genre']:24} #{c['run']} {jm.split('::')[-1]:28} "
+              + ("нет ответа" if items is None else f"{sum(f['verified'] for f in found)} подтв. из {len(found)}"),
+              flush=True)
+        return {"writer": w, "genre": c["genre"], "run": c["run"], "judge": jm.split("::")[-1],
+                "failed": items is None, "weak": found}
+
+    sub = any(j.startswith("claude_subscription::") for js in judges_for.values() for j in js)
+    # Claude через подписку — строго по одному; остальные параллельно
+    nano = [j for j in jobs if not j[2].startswith("claude_subscription::")]
+    claude = [j for j in jobs if j[2].startswith("claude_subscription::")]
+    with ThreadPoolExecutor(3) as pool:
+        fut = pool.map(run, nano)
+        rows = [run(j) for j in claude] if sub else []
+        rows += list(fut)
+    real = [dict(f, writer=r["writer"]) for r in rows for f in r["weak"] if f["verified"]]
+    print()
+    for w in sources:
+        n_ch = len({(r["genre"], r["run"]) for r in rows if r["writer"] == w})
+        c = Counter(f["type"] for f in real if f["writer"] == w)
+        print(f"  {w:9} глав {n_ch}: " + ", ".join(f"{t} {k}" for t, k in c.most_common()))
+    allc = Counter(f["type"] for f in real)
+    print("  всего:   " + ", ".join(f"{t} {k} ({WEAK_TYPES.get(t, ('',))[0]})" for t, k in allc.most_common()))
+    out.write_text(json.dumps({"judges_for": judges_for, "types": WEAK_TYPES, "rows": rows,
+                               "by_type": dict(allc.most_common())}, ensure_ascii=False, indent=1),
+                   encoding="utf-8")
+
+
+# ─── Правка по находкам ──────────────────────────────────────────────────────
+#
+# Судья лучше находит слабость с цитатой, чем ставит балл: Kimi ставил
+# проваленному подтексту 10 из 10, но, выписывая слабости, сам находит его.
+# Поэтому UNIFIED работает здесь не советом перед письмом, а содержанием
+# правки: судья другого семейства выписывает места (строка и сцена), редактор
+# правит только их по указаниям модулей, свежие судьи считают, сколько
+# слабостей осталось.
+
+# Тип находки → модуль, чей PROMPT:QUICK идёт редактору как указание
+FIX_GUIDE = {
+    "подтекст": "03_ADVANCED_ENGINES/10_subtext_engine.md",
+    "эмоция_названа": "03_ADVANCED_ENGINES/10_subtext_engine.md",
+    "мотивация": "03_ADVANCED_ENGINES/09_deep_character_psychology.md",
+    "персонаж_функция": "03_ADVANCED_ENGINES/09_deep_character_psychology.md",
+    "темп": "03_ADVANCED_ENGINES/12_pacing_engine.md",
+    "вода": "03_ADVANCED_ENGINES/12_pacing_engine.md",
+    "диалог": "03_ADVANCED_ENGINES/15_dialogue_style.md",
+    "начало_конец": "03_ADVANCED_ENGINES/19_hooks_closings.md",
+    "ставки": "03_ADVANCED_ENGINES/20_stakes_escalation.md",
+}
+FIX_RULES = {
+    "логика": "Нестыковку исправь минимально: число, время, факт — так, чтобы сцена стала "
+              "согласованной, сюжет не меняй.",
+    "фокал": "Убери знание или ощущение, недоступное фокальному персонажу.",
+    "повтор": "Повтор замени или убери.",
+}
+
+FIX_SYS = ("Ты литературный редактор. Правишь главу точечно: меняешь только указанные места. "
+           "Отвечаешь только полным текстом главы, без пояснений.")
+FIX_PROMPT = """Ниже глава и список слабых мест, которые нашёл редактор. Исправь ТОЛЬКО их: само место
+и, если нужно, соседнее предложение. Остальной текст оставь дословно, слово в слово. Не добавляй
+сцен и событий, не меняй сюжет, имена и порядок. Объём — как был (±5 %).
+
+=== СЛАБЫЕ МЕСТА ===
+{items}
+
+=== КАК ПРАВИТЬ (из базы ремесла) ===
+{guide}
+
+=== ГЛАВА ===
+{text}"""
+
+
+def _guide(types: set[str]) -> str:
+    from engine.engine_extractors import extract_prompt_sections
+    from engine.engine_loaders_core import load_anticliche_replacements
+    kb = ROOT / "UNIFIED_ENGINE_MASTER"
+    parts, seen = [], set()
+    if types & {"штамп", "ии_оборот", "эмоция_названа"}:
+        parts.append(load_anticliche_replacements(kb))
+    for t in sorted(types):
+        f = FIX_GUIDE.get(t)
+        if f and f not in seen:
+            seen.add(f)
+            q = extract_prompt_sections((kb / f).read_text(encoding="utf-8"), full=False)
+            if q:
+                parts.append(q)
+        if t in FIX_RULES:
+            parts.append(FIX_RULES[t])
+    return "\n\n".join(parts)
+
+
+def _find(_call, jm: str, text: str, genre: str) -> list[dict]:
+    """Слабости строки (FLAW_PROMPT из ab_compare) и сцены (WEAK_PROMPT) с проверенной цитатой."""
+    import ab_compare as ab
+    from engine.continuity_checker import quote_in
+    from engine.pipeline_llm import parse_json
+    prompts = [
+        ("flaws", ab.FLAW_PROMPT.format(genre=ab.SEEDS[genre]["genre"], types=", ".join(ab.FLAW_TYPES),
+                                        legend="; ".join(f"{k} — {v}" for k, v in ab.FLAW_TYPES.items() if v),
+                                        text=text)),
+        ("weak", WEAK_PROMPT.format(types=", ".join(WEAK_TYPES), text=text,
+                                    legend="; ".join(f"{k} — {v[1]}" for k, v in WEAK_TYPES.items() if v[1]))),
+    ]
+    out: list[dict] = []
+    for key, pr in prompts:
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, "Ты строгий редактор. Отвечаешь только JSON.", pr,
+                                       max_tokens=_mt(jm, 4000)))
+                items = got.get(key) if isinstance(got, dict) else got
+                if isinstance(items, list):
+                    out += [{"level": key, "type": x.get("type", "другое"), "quote": x.get("quote", ""),
+                             "why": x.get("why", "")} for x in items
+                            if isinstance(x, dict) and quote_in(x.get("quote", ""), text)]
+                    break
+            except Exception as e:
+                print("  не разобрано:", str(e)[:100], flush=True)
+                _retry_wait(e)
+    return out
+
+
+def fix(src: Path, finder: str, editors: list[str], d: Path) -> None:
+    _call = _setup()
+    import difflib
+    chs = [c for c in json.load(open(src))["chapters"] if c.get("text")]
+    with ThreadPoolExecutor(3) as pool:
+        found = list(pool.map(lambda c: _find(_call, finder, c["text"], c["genre"]), chs))
+    for c, f in zip(chs, found):
+        c["found"] = f
+        print(f"  {c['genre']:24} #{c['run']} находок {len(f)}", flush=True)
+    json.dump({"source": str(src), "finder": finder, "chapters": chs},
+              open(d / "found.json", "w"), ensure_ascii=False, indent=1)
+
+    def edit(job):
+        c, ed = job
+        items = "\n".join(f"{i}. [{x['type']}] «{x['quote']}» — {x['why']}" for i, x in enumerate(c["found"], 1))
+        prompt = FIX_PROMPT.format(items=items, guide=_guide({x["type"] for x in c["found"]}), text=c["text"])
+        for _ in range(3):
+            try:
+                t = _call(ed, FIX_SYS, prompt, max_tokens=_mt(ed, 12000)).strip()
+                if t and len(t.split()) > 0.8 * len(c["text"].split()):
+                    a, b = c["text"].split(), t.split()
+                    same = difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
+                    return {"genre": c["genre"], "run": c["run"], "text": t, "words": len(b),
+                            "same_ratio": round(same, 3),
+                            "quotes_gone": sum(1 for x in c["found"] if _norm(x["quote"]) not in _norm(t))}
+            except Exception as e:
+                print("  ошибка правки:", str(e)[:100], flush=True)
+                _retry_wait(e)
+        return {"genre": c["genre"], "run": c["run"], "text": "", "words": 0}
+
+    for ed in editors:
+        sub = ed.startswith("claude_subscription::")
+        rows = list(ThreadPoolExecutor(1 if sub else 3).map(edit, [(c, ed) for c in chs]))
+        tag = ed.split("::")[-1].split("/")[-1]
+        json.dump({"model": ed, "chapters": rows}, open(d / f"edited-{tag}.json", "w"),
+                  ensure_ascii=False, indent=1)
+        for r, c in zip(rows, chs):
+            print(f"  {tag[:18]:18} {r['genre']:24} #{r['run']} слов {r['words']} "
+                  f"совпадает {r.get('same_ratio')} ушло цитат {r.get('quotes_gone')}/{len(c['found'])}",
+                  flush=True)
+
+
+def _norm(s: str) -> str:
+    from engine.continuity_checker import _norm_quote
+    return _norm_quote(s)
+
+
+def measure(versions: dict[str, Path], judges: list[str], out: Path) -> None:
+    """Свежие судьи ищут слабости в каждой версии; считаем подтверждённые."""
+    _call = _setup()
+    jobs = [(v, c, jm) for v, p in versions.items() for c in json.load(open(p))["chapters"]
+            if c.get("text") for jm in judges]
+
+    def run(job):
+        v, c, jm = job
+        f = _find(_call, jm, c["text"], c["genre"])
+        print(f"  {v:18} {c['genre']:24} #{c['run']} {jm.split('::')[-1][:24]:24} {len(f)}", flush=True)
+        return {"version": v, "genre": c["genre"], "run": c["run"], "judge": jm.split("::")[-1], "found": f}
+
+    rows = list(ThreadPoolExecutor(3).map(run, jobs))
+    print()
+    for j in judges:
+        jj = j.split("::")[-1]
+        for v in versions:
+            r = [x for x in rows if x["version"] == v and x["judge"] == jj]
+            fl = sum(1 for x in r for f in x["found"] if f["level"] == "flaws")
+            wk = sum(1 for x in r for f in x["found"] if f["level"] == "weak")
+            print(f"  {jj[:24]:24} {v:18} строка {fl:3}  сцена {wk:3}  всего {fl + wk:3}  (глав {len(r)})")
+    out.write_text(json.dumps({"judges": judges, "versions": {k: str(p) for k, p in versions.items()},
+                               "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
+    if cmd == "fix":
+        d = ROOT / ".ab_work/craft/fix"
+        d.mkdir(parents=True, exist_ok=True)
+        fix(ROOT / ".ab_work/writers/deepseek.json", JUDGES[0], [JUDGES[1], REWRITER], d)
+        sys.exit(0)
+    if cmd == "measure":
+        d = ROOT / ".ab_work/craft/fix"
+        measure({"до": ROOT / ".ab_work/writers/deepseek.json",
+                 "правил DeepSeek": d / "edited-deepseek-v4-pro-0813.json",
+                 "правил Sonnet": d / "edited-claude-sonnet-5-5.json"}, JUDGES, d / "measure.json")
+        sys.exit(0)
+    if cmd == "weak":
+        K, D, S = JUDGES[0], JUDGES[1], REWRITER
+        W = ROOT / ".ab_work/writers"
+        weak({"glm": ROOT / ".ab_work/craft/glm.json", "deepseek": W / "deepseek.json",
+              "sonnet": W / "sonnet2.json"},
+             # никто не судит своё семейство; Claude не судит Claude
+             {"glm": [K, S], "deepseek": [K, S], "sonnet": [K, D]},
+             ROOT / ".ab_work/craft/weak.json")
+        sys.exit(0)
     if cmd == "summary":
         summary([Path(p) for p in sys.argv[2:]] or sorted(p for p in (ROOT / ".ab_work/craft").glob("*")
                                                          if p.is_dir()))
