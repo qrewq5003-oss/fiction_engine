@@ -475,8 +475,77 @@ def measure(versions: dict[str, Path], judges: list[str], out: Path) -> None:
                                "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+# ─── Калибровка шкалы классикой ──────────────────────────────────────────────
+#
+# «7.7 из 10» у наших глав — мнение судей по рубрике ab_compare.RUBRIC, ни с
+# чем не сверенное. Те же судьи и та же рубрика — на главах классики
+# (общественное достояние) того же жанра и объёма. Задача главы нейтральная
+# у всех: классика писалась не под нашу задачу. Судья называет автора, если
+# узнал текст, — узнанная классика может получить надбавку за имя.
+
+CALIB_GENRE = {"detective_classic": "детектив", "fantasy_dark": "тёмная фантастика, мистика",
+               "thriller_psychological": "психологический триллер",
+               "realism_psychological": "психологическая проза"}
+CALIB_TAIL = """
+
+Отдельно: если ты узнал этот текст — назови автора и произведение, иначе «не знаю».
+Добавь в JSON поле "recognized": "…"."""
+
+
+def calibrate(sets: dict[str, Path], judges: list[str], out: Path) -> None:
+    _call = _setup()
+    import ab_compare as ab
+    from engine.pipeline_llm import parse_json
+    rubric = "\n".join(f"- {k}: {v}" for k, v in ab.RUBRIC.items())
+    keys = ", ".join(f'"{k}": N' for k in ab.RUBRIC)
+    jobs = [(name, c, jm) for name, p in sets.items() for c in json.load(open(p))["chapters"]
+            if c.get("text") for jm in judges]
+
+    def run(job):
+        name, c, jm = job
+        prompt = ab.RATE_PROMPT.format(genre=CALIB_GENRE[c["genre"]], task="глава художественной прозы",
+                                       rubric=rubric, keys=keys, text=c["text"]) + CALIB_TAIL
+        got, sc = None, None
+        for _ in range(2):
+            try:
+                got = parse_json(_call(jm, ab.RATE_SYSTEM, prompt, max_tokens=_mt(jm, 2000)))
+                sc = {k: float(got["scores"][k]) for k in ab.RUBRIC} if isinstance(got, dict) else None
+                if sc:
+                    break
+            except Exception as e:
+                print("  не разобрано:", str(e)[:100], flush=True)
+                _retry_wait(e)
+        rec = str((got or {}).get("recognized", "")) if isinstance(got, dict) else ""
+        mean_ = round(mean(sc.values()), 2) if sc else None
+        print(f"  {name:9} {c.get('title', c['genre'])[:40]:40} {jm.split('::')[-1][:22]:22} "
+              f"{mean_}  узнал: {rec[:40]}", flush=True)
+        return {"set": name, "genre": c["genre"], "run": c["run"], "title": c.get("title", ""),
+                "judge": jm.split("::")[-1], "scores": sc, "mean": mean_, "recognized": rec}
+
+    rows = list(ThreadPoolExecutor(3).map(run, jobs))
+    print()
+    for name in sets:
+        for j in judges:
+            jj = j.split("::")[-1]
+            v = [r["mean"] for r in rows if r["set"] == name and r["judge"] == jj and r["mean"] is not None]
+            if v:
+                print(f"  {name:9} {jj[:24]:24} среднее {mean(v):.2f}  ({len(v)} глав)")
+    out.write_text(json.dumps({"judges": judges, "sets": {k: str(v) for k, v in sets.items()},
+                               "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
+    if cmd == "calibrate":
+        C = ROOT / ".ab_work/craft"
+        W = ROOT / ".ab_work/writers"
+        sub = {}
+        for name, p in (("GLM", C / "glm.json"), ("DeepSeek", W / "deepseek.json"), ("Sonnet", W / "sonnet2.json")):
+            chs = [c for c in json.load(open(p))["chapters"] if int(c["run"]) == 0]
+            sub[name] = C / f"calib-{name}.json"
+            json.dump({"chapters": chs}, open(sub[name], "w"), ensure_ascii=False)
+        calibrate({"классика": C / "classics.json", **sub}, JUDGES, C / "calibrate.json")
+        sys.exit(0)
     if cmd == "fix":
         d = ROOT / ".ab_work/craft/fix"
         d.mkdir(parents=True, exist_ok=True)
