@@ -290,3 +290,100 @@ def format_continuity_for_prompt(violations: list[dict]) -> str:
         lines.append(f"     Факт: {v['fact']}")
 
     return "\n".join(lines)
+
+
+# ─── Сверка с текстом прошлых глав ───────────────────────────────────────────
+#
+# check_continuity сверяет главу с выжимкой: State, анализ глав, L3. Этажа
+# квартиры, цвета шарфа и того, что плащ уже изъят, в выжимке нет — и судья
+# Sonnet находит их в каждой серии (замер 12.10, bench/ab-series-names-2026-10-12.json:
+# 13 противоречий на серию из 4 глав, отчества уже не в счёт). Здесь модель
+# видит полный текст последних глав и новую главу и выписывает противоречие
+# парой цитат. Цитаты проверяются по тексту: что не найдено — отброшено, так
+# что выдумать противоречие модель не может.
+#
+# К генерации НЕ подключено. Замер 13.10 (bench/ab-continuity-cross-2026-10-13.json,
+# 36 глав из 12 серий, разметка находок судьёй Sonnet 5.5): настоящих у
+# DeepSeek V4 Pro 21 из 70 (30 %), у Kimi K2.5 7 из 50; из 135 противоречий
+# Sonnet поймано 17 и 5. Узкий промпт (только «проверяемые факты»): 9 находок,
+# настоящая одна. Сигнал, который в двух случаях из трёх ошибается, автору
+# хуже, чем никакого.
+
+CROSS_LOOKBACK = 3            # сколько прошлых глав показывать целиком
+CROSS_PREV_CHARS = 60000      # потолок на прошлые главы, старшие отрезаются первыми
+CROSS_MAX = 8                 # больше автору за раз не показываем
+
+_CROSS_PROMPT = """Ниже прошлые главы серии и новая глава {num}. Найди, где НОВАЯ глава
+противоречит прошлым: факт, заданный раньше, нарушен — имя, внешность, рана,
+одежда, вещь и где она, место, этаж, время, день, погода, кто что знает,
+видел или говорил, что уже произошло. Не считай противоречием развитие (герой
+узнал новое, передумал), ложь персонажа, если текст её так и подаёт, и стиль.
+Цитаты точные, 5–15 слов: quote_a — из прошлой главы, quote_b — из новой.
+
+{prev}
+
+=== НОВАЯ ГЛАВА {num} ===
+{text}
+
+Ответь JSON без пояснений вокруг (нет противоречий — пустой список):
+{{"contradictions": [{{"chapter_a": 3, "quote_a": "…", "quote_b": "…", "what": "…"}}]}}"""
+
+
+def _norm_quote(s: str) -> str:
+    import re
+    s = (s or "").lower().replace("ё", "е")
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", s)).strip()
+
+
+def quote_in(quote: str, text: str) -> bool:
+    """Цитата есть в тексте; части через «…» — по отдельности, каждая от 3 слов."""
+    import re
+    t = _norm_quote(text)
+    parts = [_norm_quote(p) for p in re.split(r"\.\.\.|…", quote or "")]
+    parts = [p for p in parts if len(p.split()) >= 3]
+    return bool(parts) and all(p in t for p in parts)
+
+
+def check_against_chapters(chapter_num: int, chapter_text: str, previous: list[dict],
+                           api_call_fn: LLMCaller) -> list[dict]:
+    """
+    Противоречия новой главы с текстом прошлых. previous — [{number, content}]
+    по возрастанию. Возвращает только пары, обе цитаты которых нашлись:
+    [{chapter_a, quote_a, quote_b, what}].
+    """
+    prev = [p for p in previous if (p.get("content") or "").strip()][-CROSS_LOOKBACK:]
+    if not prev or not (chapter_text or "").strip():
+        return []
+    while len(prev) > 1 and sum(len(p["content"]) for p in prev) > CROSS_PREV_CHARS:
+        prev = prev[1:]
+    from .pipeline_config import CRITIC_TEXT_LIMIT
+    blocks = "\n\n".join(f"=== ГЛАВА {p['number']} ===\n{p['content'][-CROSS_PREV_CHARS:]}"
+                         for p in prev)
+    raw = api_call_fn(_CROSS_PROMPT.format(num=chapter_num, prev=blocks,
+                                           text=chapter_text[:CRITIC_TEXT_LIMIT]))
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    items = data if isinstance(data, list) else \
+        data.get("contradictions") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        raise ValueError("проверка непрерывности: ответ модели не разобран")
+    by_num = {p["number"]: p["content"] for p in prev}
+    out = []
+    for x in items:
+        if not isinstance(x, dict):
+            continue
+        try:
+            a = int(x.get("chapter_a"))
+        except (TypeError, ValueError):
+            continue
+        if a in by_num and quote_in(x.get("quote_a"), by_num[a]) \
+                and quote_in(x.get("quote_b"), chapter_text):
+            out.append({"chapter_a": a, "quote_a": str(x["quote_a"]).strip(),
+                        "quote_b": str(x["quote_b"]).strip(), "what": str(x.get("what") or "").strip()})
+    return out[:CROSS_MAX]
+
+
+def format_cross_signals(found: list[dict]) -> list[str]:
+    """Сигналы автору: «Противоречие с главой N: …»."""
+    return [f"Противоречие с главой {x['chapter_a']}: {x['what']} («{x['quote_a']}» — "
+            f"здесь «{x['quote_b']}»)." for x in found]
