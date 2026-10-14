@@ -76,3 +76,18 @@ def test_generator_and_continuity_get_bible(project_id):
         ctx = build_context(project_id, 4, "Задача главы")
     assert "БИБЛИЯ СЕРИИ" in ctx and "квартира Ларионовой — этаж: второй" in ctx
     assert "квартира Ларионовой" in _build_series_facts(project_id, 4)
+
+
+def test_refinement_is_not_a_conflict(project_id):
+    """Ложные противоречия замера 14.10 — уточнения, а не смена факта."""
+    from engine.series_bible import current, history, record
+    record(project_id, [_e("тайник", "где", "в полу, под ковром, в кабинете")], 4)
+    r = record(project_id, [_e("тайник", "где", "в полу кабинета под ковром, крышка люка — половица")], 5)
+    assert r["conflicts"] == []
+    assert current(project_id)[0]["value"].startswith("в полу кабинета")
+    assert [h["status"] for h in history(project_id, "тайник", "где")] == ["введено", "уточнено"]
+    record(project_id, [_e("Кирпичный переулок", "дом", "15, квартира 8")], 4)
+    assert record(project_id, [_e("Кирпичный переулок", "дом", "15")], 5)["conflicts"] == []
+    # Числа и порядковые расходятся — противоречие
+    record(project_id, [_e("контора", "этаж", "второй")], 3)
+    assert record(project_id, [_e("контора", "этаж", "третий")], 4)["conflicts"]

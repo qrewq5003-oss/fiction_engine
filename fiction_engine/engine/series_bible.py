@@ -40,7 +40,7 @@ def _ensure() -> None:
                 attr        TEXT NOT NULL,
                 value       TEXT NOT NULL,
                 chapter_num INTEGER NOT NULL DEFAULT 0,
-                status      TEXT NOT NULL DEFAULT 'введено',   -- введено | изменено | противоречие | автор
+                status      TEXT NOT NULL DEFAULT 'введено',   -- введено | уточнено | изменено | противоречие | автор
                 reason      TEXT NOT NULL DEFAULT '',
                 created_at  TEXT DEFAULT (datetime('now'))
             )""")
@@ -49,6 +49,40 @@ def _ensure() -> None:
 
 def _key(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").lower().replace("ё", "е")).strip(" .«»\"")
+
+
+# Различающие слова: если они расходятся — это другое значение, а не уточнение
+_ORD = re.compile(r"\b(перв|втор|трет|четв[её]рт|пят|шест|седьм|восьм|девят|десят|одиннадцат|двенадцат)\w*")
+_COLOR = re.compile(r"\b(бел|черн|чёрн|красн|син|зел[её]н|ж[её]лт|сер|коричнев|бур|голуб|розов|фиолет|оранж|рыж|"
+                    r"бордов|бежев|золот|серебр)\w*")
+_DAY = re.compile(r"\b(понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)\w*")
+
+
+def _marks(v: str) -> set[str]:
+    v = _key(v)
+    return (set(re.findall(r"\d+", v)) | {m.group(1) for m in _ORD.finditer(v)}
+            | {m.group(1).replace("ё", "е") for m in _COLOR.finditer(v)}
+            | {m.group(1) for m in _DAY.finditer(v)})
+
+
+def _words(v: str) -> set[str]:
+    return {w[:5] for w in re.findall(r"[а-яa-z]{4,}", _key(v))}
+
+
+def same_or_refined(old: str, new: str) -> bool:
+    """
+    Новое значение — то же или уточнение прежнего: «15, квартира 8» → «15»,
+    «под ковром» → «в полу кабинета под ковром». Не уточнение — если расходятся
+    числа, порядковые, цвета или дни недели («второй» → «третий») или значения
+    не пересекаются по смыслу.
+    """
+    mo, mn = _marks(old), _marks(new)
+    if mo and mn and not (mo <= mn or mn <= mo):
+        return False
+    wo, wn = _words(old), _words(new)
+    if not wo or not wn:
+        return bool(mo or mn) and (mo <= mn or mn <= mo)
+    return len(wo & wn) * 2 >= min(len(wo), len(wn))
 
 
 def _rows(project_id: int) -> list[dict]:
@@ -109,6 +143,12 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
             _add(project_id, e, chapter_num, "введено")
             out["added"].append(e)
         elif _key(old["value"]) == _key(e["value"]):
+            continue
+        elif not e["changed"] and same_or_refined(old["value"], e["value"]):
+            # Уточнение — подробнее прежнего; короче или то же — ничего не пишем
+            if len(_key(e["value"])) > len(_key(old["value"])):
+                _add(project_id, e, chapter_num, "уточнено", f"было «{old['value']}» (гл.{old['chapter_num']})")
+                now[k] = {"name": e["name"], "attr": e["attr"], "value": e["value"], "chapter_num": chapter_num}
             continue
         elif e["changed"]:
             _add(project_id, e, chapter_num, "изменено", e["changed"])
