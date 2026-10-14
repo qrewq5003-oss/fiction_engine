@@ -41,7 +41,8 @@
 <script>
 let BIBLE = null;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const key = (n, a) => (n + '|' + a).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+// Ключ факта даёт FE: «окно: третий этаж» и «этаж: третий» — один признак
+const key = x => x.key || (x.name + '|' + x.attr).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 
 async function load() {
   const r = await fetch('/api/fe/bible');
@@ -53,7 +54,7 @@ async function load() {
 function render() {
   const q = document.getElementById('filter').value.toLowerCase();
   const hist = {};
-  for (const h of BIBLE.history) (hist[key(h.name, h.attr)] ||= []).push(h);
+  for (const h of BIBLE.history) (hist[key(h)] ||= []).push(h);
   const kinds = {};
   for (const f of BIBLE.facts) {
     if (q && !(f.name + ' ' + f.attr + ' ' + f.value).toLowerCase().includes(q)) continue;
@@ -64,7 +65,7 @@ function render() {
     html += `<div style="font-size:11px;font-weight:600;margin:10px 0 4px;color:var(--text);">${esc(kind)}</div>`;
     facts.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
     for (const f of facts) {
-      const h = hist[key(f.name, f.attr)] || [];
+      const h = hist[key(f)] || [];
       const more = h.length > 1 ? `<details style="margin-top:4px;"><summary style="cursor:pointer;">история (${h.length})</summary>` +
         h.map(x => `<div style="padding-left:10px;">гл.${x.chapter_num}: ${esc(x.value)} — ${esc(x.status)}${x.reason ? ' (' + esc(x.reason) + ')' : ''}</div>`).join('') +
         '</details>' : '';
