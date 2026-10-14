@@ -15,7 +15,7 @@ undefined.py — поиск обращений к несуществующим �
 шум pyflakes не мешают, их отсеиваем.
 
 Запуск:
-    python3 tools/undefined.py fiction_engine planner
+    python tools/undefined.py fiction_engine planner
 """
 
 import subprocess

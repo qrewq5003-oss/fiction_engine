@@ -9,7 +9,7 @@ from typing import Callable
 import os
 from pathlib import Path
 
-# Пакет ставится через `pip install -e .` (см. setup.sh), поэтому
+# Пакет ставится через `pip install -e .` (см. setup_windows.bat), поэтому
 # engine и web импортируются штатно — подмешивать пути не нужно.
 
 from engine.db import (init_db, create_project, get_projects, get_project,
@@ -443,7 +443,7 @@ def cmd_pipeline():
     from engine.pipeline import start_pipeline, continue_pipeline
 
     if not get_api_key("anthropic_direct") and not get_api_key("nano_gpt"):
-        error("Нет API ключей. Добавь: python3 cli.py keys")
+        error("Нет API ключей. Добавь: fiction-engine keys")
         return
 
     chapters    = get_chapters(pid)

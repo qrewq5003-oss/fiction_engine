@@ -24,66 +24,92 @@
 
 ## Установка
 
-Нужен Python 3.10+.
+Windows 10/11, Python 3.10+ с [python.org](https://www.python.org/downloads/)
+(при установке отметить «Add python.exe to PATH»).
 
-```bash
-bash fiction_engine/setup.sh
+```bat
+setup_windows.bat
 ```
 
-Скрипт создаёт `.venv`, ставит зависимости, генерирует `.env` со случайным
-`FLASK_SECRET_KEY` и инициализирует базу.
-
-На системах с неизменяемым `/usr` (SteamOS, Fedora Silverblue) это
-единственный рабочий путь: системный `pip` там недоступен.
+Скрипт создаёт `fiction_engine\.venv`, ставит зависимости, генерирует `.env`
+со случайным `FLASK_SECRET_KEY` и инициализирует базу. Если рядом лежит архив
+переноса `fiction_engine_perenos_*.zip`, раскладывает из него данные (см.
+«Перенос на другую машину»).
 
 Вручную:
 
-```bash
-cd fiction_engine
-python3 -m venv .venv
-.venv/bin/pip install -e .
-.venv/bin/fiction-engine version
+```bat
+python -m venv fiction_engine\.venv
+fiction_engine\.venv\Scripts\python -m pip install -e fiction_engine
+fiction_engine\.venv\Scripts\python perenos.py init
 ```
 
 Проект ставится пакетом, поэтому `engine` и `web` импортируются штатно —
-без подмешивания путей.
+без подмешивания путей. Во всех командах ниже нужен `PYTHONUTF8=1`
+(`start_all.bat` задаёт его сам): без него Python на Windows читает файлы и
+пишет в консоль в cp1251/cp1252, и русский текст ломается.
 
 ---
 
 ## Запуск
 
-```bash
-bash start_all.sh          # оба приложения сразу
+```bat
+start_all.bat
 ```
 
-По отдельности:
+Оба приложения — в отдельных окнах, браузер открывается, когда они ответили.
+Окна не закрываются при ошибке: её текст остаётся виден. Остановить —
+закрыть окна.
 
-```bash
-cd fiction_engine && .venv/bin/fiction-engine-web    # http://127.0.0.1:5000
-cd fiction_engine && .venv/bin/fiction-engine        # терминальный интерфейс
-cd planner        && python3 app.py                  # http://127.0.0.1:5001
+По отдельности (из корня репозитория):
+
+```bat
+set PYTHONUTF8=1
+fiction_engine\.venv\Scripts\fiction-engine-web     &rem http://127.0.0.1:5000
+fiction_engine\.venv\Scripts\fiction-engine         &rem терминальный интерфейс
+cd planner && ..\fiction_engine\.venv\Scripts\python app.py   &rem http://127.0.0.1:5001
 ```
+
+Порт 5000 на Windows бывает занят системой (Hyper-V, WSL — ошибка `10013`):
+тогда `set FE_PORT=5050` перед `start_all.bat`, планировщик найдёт FE сам.
 
 Оба сервера по умолчанию слушают только петлевой интерфейс. Fiction Engine
 наружу (например, для телефона через Tailscale) открывается только с паролем —
 без `FE_PASSWORD` на не-петлевом адресе он не запустится:
 
-```bash
-FE_PASSWORD='длинный-пароль' FE_HOST=0.0.0.0 .venv/bin/python web/app.py
+```bat
+set FE_PASSWORD=длинный-пароль
+set FE_HOST=0.0.0.0
+start_all.bat
 ```
 
 Ключи провайдеров хранятся в базе зашифрованными; ключ шифрования — в
-`~/fiction_engine/secret.key` (права 600) или в `FE_SECRET_KEY`. Потеряете файл —
+`%USERPROFILE%\fiction_engine\secret.key` или в `FE_SECRET_KEY`. Потеряете файл —
 ключи провайдеров придётся ввести заново. Запросы, меняющие данные, требуют
 токена CSRF — страницы добавляют его сами. Планировщик ходит в Fiction Engine
 с заголовком `X-FE-Token`: производным от `FE_PASSWORD` (задайте его обоим) или из
-`~/fiction_engine/api_token`.
+`%USERPROFILE%\fiction_engine\api_token`.
+
+### Перенос на другую машину
+
+Код — в git, данные — нет. `perenos.py` переносит то, чего в git нет: проекты
+и ключи (`%USERPROFILE%\fiction_engine`), планы (`planner\planner.db`),
+`fiction_engine\.env`, рабочие замеры `.ab_work` и переписку с Claude Code по
+проекту.
+
+```bat
+fiction_engine\.venv\Scripts\python perenos.py pack            &rem на старой машине
+```
+
+На новой — архив в корень репозитория и `setup_windows.bat`. Существующие
+файлы не затираются, а откладываются с суффиксом `.before-perenos`. В архиве
+ключи API — переносить флешкой, не выкладывать в сеть.
 
 ---
 
 ## Первые шаги
 
-1. **Ключи** — `/settings` в браузере или `python3 cli.py keys`.
+1. **Ключи** — `/settings` в браузере или `fiction-engine keys`.
    Поддерживаются Anthropic, OpenAI, Google Gemini, DeepSeek напрямую
    и nano-gpt.com как шлюз к 300+ моделям.
 2. **Проект** — название и жанр серии. «Жанр для движка» выбирается из
@@ -129,7 +155,7 @@ FE_PASSWORD='длинный-пароль' FE_HOST=0.0.0.0 .venv/bin/python web/a
 ## Где лежат данные
 
 ```
-~/fiction_engine/
+%USERPROFILE%\fiction_engine\
 ├── projects.db      все проекты, главы, State Engine, ключи, история
 ├── engine.log       структурированный лог (5 МБ, 3 ротации)
 ├── prompts_out/     сохранённые промпты
@@ -137,7 +163,7 @@ FE_PASSWORD='длинный-пароль' FE_HOST=0.0.0.0 .venv/bin/python web/a
 ```
 
 Резервная копия — это копия `projects.db`. Команда
-`python3 cli.py cleanup` удаляет данные, оставшиеся от удалённых проектов.
+`fiction-engine cleanup` удаляет данные, оставшиеся от удалённых проектов.
 
 ---
 
@@ -149,12 +175,12 @@ FE_PASSWORD='длинный-пароль' FE_HOST=0.0.0.0 .venv/bin/python web/a
 | `FE_HOST` / `FE_PORT` | Адрес веб-интерфейса | `127.0.0.1` / `5000` |
 | `FE_PASSWORD` | Пароль входа в Fiction Engine; обязателен, если `FE_HOST` не петля | нет — вход не спрашивается |
 | `FE_SECRET_KEY` | Ключ шифрования API-ключей в базе (ключ Fernet) | файл `FE_SECRET_KEY_FILE` |
-| `FE_SECRET_KEY_FILE` | Файл ключа шифрования, создаётся с правами 600 | `~/fiction_engine/secret.key` |
-| `FE_API_TOKEN_FILE` | Токен для планировщика (`X-FE-Token`), если `FE_PASSWORD` не задан | `~/fiction_engine/api_token` |
+| `FE_SECRET_KEY_FILE` | Файл ключа шифрования (на POSIX — с правами 600) | `%USERPROFILE%\fiction_engine\secret.key` |
+| `FE_API_TOKEN_FILE` | Токен для планировщика (`X-FE-Token`), если `FE_PASSWORD` не задан | `%USERPROFILE%\fiction_engine\api_token` |
 | `FE_CSRF` | `0` — выключить проверку CSRF; только для тестов | включено |
 | `SECRET_KEY` | Подпись сессий планировщика | случайный при старте |
 | `PLANNER_HOST` / `PLANNER_PORT` | Адрес планировщика | `127.0.0.1` / `5001` |
-| `PLANNER_DB` | Путь к базе планировщика | `planner/planner.db` |
+| `PLANNER_DB` | Путь к базе планировщика | `planner\planner.db` |
 | `FICTION_DEBUG` | Подробный лог в консоль | выключено |
 | `FE_URL` | Адрес Fiction Engine для планировщика | `http://127.0.0.1:5000` |
 | `ANTHROPIC_API_KEY` | Ключ Anthropic, если не хранить в базе | — |
@@ -194,19 +220,21 @@ Opus и Haiku, которые вызываются через установле
 
 ## Разработка
 
-```bash
+```bat
+set PYTHONUTF8=1
 cd fiction_engine
-.venv/bin/python -m pytest tests/ -q --cov=engine --cov=web
-.venv/bin/python -m mypy engine web cli.py
-python3 check_architecture.py            # границы слоёв: web не лезет в приватное
+.venv\Scripts\python -m pytest tests -q --cov=engine --cov=web
+.venv\Scripts\python -m mypy engine web cli.py
+.venv\Scripts\python check_architecture.py   &rem границы слоёв: web не лезет в приватное
 ```
 
 Собственные анализаторы в `tools/` (запускать из корня репозитория):
 
-```bash
-python3 tools/sigcheck.py fiction_engine                      # сигнатуры вызовов
-python3 tools/pitfalls.py fiction_engine --skip-tests --fail-on-new
-python3 tools/dead.py    fiction_engine                       # недостижимый код
+```bat
+set PY=fiction_engine\.venv\Scripts\python
+%PY% tools\sigcheck.py fiction_engine                      &rem сигнатуры вызовов
+%PY% tools\pitfalls.py fiction_engine --skip-tests --fail-on-new
+%PY% tools\dead.py fiction_engine                          &rem недостижимый код
 ```
 
 Всё это гоняется в CI на каждый push. Состояние проекта и план развития:

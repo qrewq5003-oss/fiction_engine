@@ -136,7 +136,7 @@ def unpack(archive: Path) -> None:
 
 
 def init() -> None:
-    """То, что на Linux делает setup.sh: .env со случайным ключом Flask и база."""
+    """.env со случайным ключом Flask и база (setup_windows.bat)."""
     import secrets
     env = ROOT / "fiction_engine" / ".env"
     if not env.exists():
