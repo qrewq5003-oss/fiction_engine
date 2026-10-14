@@ -91,3 +91,42 @@ def test_refinement_is_not_a_conflict(project_id):
     # Числа и порядковые расходятся — противоречие
     record(project_id, [_e("контора", "этаж", "второй")], 3)
     assert record(project_id, [_e("контора", "этаж", "третий")], 4)["conflicts"]
+
+
+def test_floor_from_any_attr_catches_real_conflict(project_id):
+    """Замер 14.10, deepseek без библии: «адрес: …, 5 этаж» в гл.3 и «этаж: четвёртый» в гл.6."""
+    from engine.series_bible import current, record
+    record(project_id, [_e("квартира вдовы Ларионовой", "адрес", "набережная Мойки, дом с лепниной, 5 этаж")], 3)
+    assert {(r["attr"], r["value"]) for r in current(project_id)} >= {("этаж", "5-й")}
+    r = record(project_id, [_e("квартира вдовы Ларионовой", "этаж", "четвёртый")], 6)
+    assert r["conflicts"] and r["conflicts"][0]["was"] == "5-й"
+    # «третий» и «3-й» — одно и то же, «окно: третий этаж» — тот же этаж
+    record(project_id, [_e("дом Ирины", "окно", "третий этаж, тёплый жёлтый свет")], 3)
+    assert record(project_id, [_e("дом Ирины", "этаж", "третий, окно справа")], 4)["conflicts"] == []
+    assert record(project_id, [_e("дом Ирины", "адрес", "канал Грибоедова, пятый этаж")], 5)["conflicts"]
+
+
+def test_place_aliases_merge_events_do_not(project_id):
+    from engine.series_bible import current, record
+    record(project_id, [_e("квартира вдовы Ларионовой", "этаж", "второй")], 3)
+    r = record(project_id, [_e("дом Ларионовой", "этаж", "третий")], 4)
+    assert r["conflicts"] and r["conflicts"][0]["name"] == "квартира вдовы Ларионовой"
+    # Разные события с похожими именами — разные: ложные противоречия замера
+    record(project_id, [_e("звонок Гордеева", "время", "около пяти часов", kind="событие")], 4)
+    assert record(project_id, [_e("звонок Гордееву", "время", "17:02", kind="событие")], 5)["conflicts"] == []
+    assert len([r for r in current(project_id) if r["kind"] == "событие"]) == 2
+
+
+def test_event_date_time_weekday(project_id):
+    from engine.series_bible import facets, record
+    assert facets("событие", "дата и время", "17 ноября, 19:00") == {"дата": "17 ноября", "время": "19:00"}
+    assert facets("событие", "время", "среда, 21:10") == {"день недели": "среда"}
+    assert facets("событие", "дата", "двадцать пятое декабря") == {}       # сам признак — дата
+    assert facets("событие", "когда", "двадцать пятое декабря")["дата"] == "25 декабря"
+    # Время чужого действия — не время события
+    assert facets("событие", "присутствие Куприка", "у люка до ~21:45") == {}
+    # «вторник» и «пятно» — не порядковые
+    assert facets("место", "вид", "пятно у двери во вторник") == {}
+    record(project_id, [_e("встреча у вдовы", "дата", "среда, четвёртое декабря", kind="событие")], 5)
+    r = record(project_id, [_e("встреча у вдовы", "время", "четверг, вечер", kind="событие")], 6)
+    assert [c["attr"] for c in r["conflicts"]] == ["день недели"]

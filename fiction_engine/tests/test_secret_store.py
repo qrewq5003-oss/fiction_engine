@@ -3,6 +3,9 @@ API-ключи в БД не открытым текстом (ROADMAP, этап 5
 """
 import os
 import stat
+import sys
+
+import pytest
 
 
 def _raw_rows():
@@ -30,6 +33,7 @@ def test_plaintext_keys_are_encrypted_on_init():
     assert get_api_key("openai_direct") == "sk-old-plain-key-0000"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="права 600 — POSIX; на Windows chmod их не задаёт")
 def test_key_file_created_private(tmp_path, monkeypatch):
     from engine import secret_store
     monkeypatch.setenv("FE_SECRET_KEY_FILE", str(tmp_path / "k" / "secret.key"))

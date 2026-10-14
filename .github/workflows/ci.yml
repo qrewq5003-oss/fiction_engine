@@ -90,16 +90,22 @@ jobs:
           test -f "$USERPROFILE/fiction_engine/projects.db"
           test -f fiction_engine/.env
 
+      # Каждая команда со своим «|| exit /b 1»: в многострочном cmd итог шага —
+      # код последней команды, и провалы тестов FE на Windows не были видны
       - name: Тесты
         shell: cmd
         env:
           PYTHONUTF8: "1"
         run: |
-          fiction_engine\.venv\Scripts\python -m pip install -q -e "fiction_engine[dev]"
+          fiction_engine\.venv\Scripts\python -m pip install -q -e "fiction_engine[dev]" || exit /b 1
           cd fiction_engine
-          .venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider
+          .venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider || exit /b 1
           cd ..\planner
-          ..\fiction_engine\.venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider
+          ..\fiction_engine\.venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider || exit /b 1
+
+      - name: Ловушки Python (пути Windows)
+        shell: cmd
+        run: fiction_engine\.venv\Scripts\python tools\pitfalls.py fiction_engine --skip-tests --fail-on-new
 
       # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта
       - name: start_all.bat
