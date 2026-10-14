@@ -70,12 +70,14 @@ class TestSceneApi:
 
 
 class TestStatus:
-    def test_status_without_fe(self, client):
+    def test_status_without_fe(self, client, monkeypatch):
         """
         Fiction Engine не запущен — это штатное состояние, а не ошибка.
         Раньше /status лез в projects.db чужого приложения; теперь
         спрашивает по HTTP и спокойно переживает отказ.
         """
+        # Заведомо закрытый порт: на машине автора FE может быть запущен на 5000
+        monkeypatch.setenv("FE_URL", "http://127.0.0.1:1")
         resp = client.get("/api/status")
         assert resp.status_code == 200
         data = json.loads(resp.data)

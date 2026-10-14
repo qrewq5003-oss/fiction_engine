@@ -15,13 +15,13 @@ def _skip(path) -> bool:
     return any(part in _SKIP_DIRS for part in Path(str(path)).parts)
 
 for p in sorted(ROOT.rglob("*.py")):
-    sp = str(p)
+    sp = p.as_posix()
     if _skip(p): continue
     if SKIP_TESTS and ("test" in p.name or "/tests/" in sp): continue
     src = p.read_text(encoding="utf-8")
     try: t = ast.parse(src, sp)
     except SyntaxError: continue
-    rel = p.relative_to(ROOT)
+    rel = p.relative_to(ROOT).as_posix()      # в базе пути через /, и на Windows тоже
     lines = src.splitlines()
     for n in ast.walk(t):
         loc = f"{rel}:{getattr(n,'lineno','?')}"
