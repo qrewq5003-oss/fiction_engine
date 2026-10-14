@@ -353,3 +353,79 @@ def projects_list_api():
         {"id": p["id"], "name": p["name"], "genre": p.get("genre", "")}
         for p in projects
     ]})
+
+
+# ─── Библия серии для планировщика ───────────────────────────────────────────
+#
+# engine/series_bible.py: места, вещи, события с историей. Планировщик
+# показывает их и правит — правка автора тоже новая запись, прошлое не
+# перезаписывается. Проект — явный ?pid / "pid": планировщик связан с
+# конкретным проектом Fiction Engine, а не с тем, что сейчас открыт.
+
+def _project_from(pid):
+    from engine.db import get_project
+    if pid:
+        p = get_project(int(pid))
+        return p, (None if p else (jsonify({"error": f"Проект {pid} не найден"}), 404))
+    p = get_current_project()
+    return p, (None if p else (jsonify({"error": "Нет проекта"}), 400))
+
+
+@bp.route("/api/bible")
+def bible_get():
+    """Текущие факты библии, противоречия и история записей проекта."""
+    project, err = _project_from(request.args.get("pid", type=int))
+    if err:
+        return err
+    from engine.series_bible import _rows, conflicts, current
+    pid = project["id"]
+    return jsonify({"project": {"id": pid, "name": project["name"]},
+                    "facts": current(pid), "conflicts": conflicts(pid), "history": _rows(pid)})
+
+
+@bp.route("/api/bible/set", methods=["POST"])
+def bible_set():
+    """Запись автора: новый факт или изменение (с причиной). Старое остаётся в истории."""
+    data = request.json or {}
+    project, err = _project_from(data.get("pid"))
+    if err:
+        return err
+    name, attr, value = (str(data.get(k) or "").strip() for k in ("name", "attr", "value"))
+    if not (name and attr and value):
+        return jsonify({"error": "нужны name, attr и value"}), 400
+    from engine.series_bible import author_set
+    author_set(project["id"], str(data.get("kind") or "место"), name, attr, value,
+               int(data.get("chapter_num") or 0), str(data.get("reason") or "правка автора"))
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/chapter_plan/<int:chapter_num>/save", methods=["POST"])
+def chapter_plan_save(chapter_num):
+    """
+    План главы из планировщика: записка режиссёра для главы N и факты сцен
+    (место, время, кто) — в библию ДО того, как глава написана, чтобы
+    генератор получил их блоком «пиши ровно так».
+    """
+    if chapter_num < 1:
+        return jsonify({"error": "Номер главы начинается с 1"}), 400
+    data = request.json or {}
+    project, err = _project_from(data.get("pid"))
+    if err:
+        return err
+    note = (data.get("note") or "").strip()
+    if not note:
+        return jsonify({"error": "Пустой план"}), 400
+    from engine.db import save_director_note
+    from engine.series_bible import author_set
+    # Как в director_note_save: заметка для главы N хранится «после главы N-1»
+    save_director_note(project["id"], chapter_num - 1, note)
+    n = 0
+    for f in data.get("facts") or []:
+        if not isinstance(f, dict):
+            continue
+        name, attr, value = (str(f.get(k) or "").strip() for k in ("name", "attr", "value"))
+        if name and attr and value:
+            author_set(project["id"], str(f.get("kind") or "событие"), name, attr, value,
+                       chapter_num, f"план главы {chapter_num}")
+            n += 1
+    return jsonify({"ok": True, "facts": n})

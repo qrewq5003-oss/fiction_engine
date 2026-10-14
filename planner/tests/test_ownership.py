@@ -108,6 +108,21 @@ def _proof_switch(client, f):
     assert (dict(get_scene(f["scene_id"])), len(get_acts(f["project_id"]))) == before
 
 
+def _proof_fe_bible_set(client, f):
+    """
+    В базу планировщика не пишет; проект FE берёт из связи проекта СЕССИИ.
+    У чужого проекта связь есть, у своего нет — отказ, чужая связь не
+    используется.
+    """
+    from engine.db import get_scene, set_fe_project
+    other = get_scene(f["scene_id"])["project_id"]
+    set_fe_project(other, 99)
+    set_fe_project(f["project_id"], None)
+    r = client.post("/api/fe/bible/set", json={"name": "x", "attr": "y", "value": "z"})
+    assert r.status_code == 400, "взята связь чужого проекта"
+    assert get_scene(f["scene_id"])["title"] == "ЧУЖАЯ-2", "чужая сцена изменена"
+
+
 PROOFS = {
     "/api/scenes/new":            _proof_scene_new,
     "/api/ai/assist":             _proof_ai_assist,
@@ -115,6 +130,7 @@ PROOFS = {
     "/projects/new":              _proof_projects_new,
     "/projects/<int:pid>/delete": _proof_project_delete,
     "/switch/<int:pid>":          _proof_switch,
+    "/api/fe/bible/set":          _proof_fe_bible_set,
 }
 
 

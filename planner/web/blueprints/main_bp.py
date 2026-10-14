@@ -115,6 +115,14 @@ def export():
     return render_template("export.html", acts=acts, scenes=scenes)
 
 
+@bp.route("/bible")
+def bible():
+    p = current_project()
+    if not p:
+        return redirect(url_for("main.projects"))
+    return render_template("bible.html", linked=bool(p.get("fe_project_id")))
+
+
 @bp.route("/projects")
 def projects():
     from engine.db import get_projects

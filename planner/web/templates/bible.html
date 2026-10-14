@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Библия серии{% endblock %}
+{% block content %}
+{% if not linked %}
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Проект не связан с Fiction Engine</div>
+  <div style="font-size:12px;color:var(--text2);">Импортируй проект Fiction Engine на странице «Экспорт» —
+    тогда здесь появятся места, вещи и время событий серии, которые движок ведёт по главам.</div>
+</div>
+{% else %}
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+  <div>
+    <div class="card" id="conflicts-card" style="display:none;border-color:var(--warning, #fbbf24);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;">⚠ Противоречия — факт сменился без события</div>
+      <div id="conflicts" style="font-size:12px;"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:600;">Факты серии</div>
+        <input id="filter" placeholder="найти…" style="width:180px;">
+      </div>
+      <div id="facts" style="font-size:12px;color:var(--text2);">Загрузка…</div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Добавить или изменить факт</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Прежнее значение не стирается —
+        изменение пишется новой записью с причиной и главой, с которой оно действует.</div>
+      <div class="form-group"><label>Что это</label>
+        <select id="f-kind"><option>место</option><option>вещь</option><option>событие</option><option>персонаж</option></select></div>
+      <div class="form-group"><label>Название</label><input id="f-name" placeholder="квартира Ларионовой"></div>
+      <div class="form-group"><label>Признак</label><input id="f-attr" placeholder="этаж"></div>
+      <div class="form-group"><label>Значение</label><input id="f-value" placeholder="второй"></div>
+      <div class="form-group"><label>С главы</label><input id="f-chapter" type="number" min="0" value="0" style="width:100px;"></div>
+      <div class="form-group"><label>Причина (если меняется)</label><input id="f-reason" placeholder="переехала к сестре"></div>
+      <button class="btn btn-primary" onclick="saveFact()">Записать</button>
+    </div>
+  </div>
+</div>
+<script>
+let BIBLE = null;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const key = (n, a) => (n + '|' + a).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+
+async function load() {
+  const r = await fetch('/api/fe/bible');
+  const d = await r.json();
+  if (d.error) { document.getElementById('facts').textContent = d.error; return; }
+  BIBLE = d; render();
+}
+
+function render() {
+  const q = document.getElementById('filter').value.toLowerCase();
+  const hist = {};
+  for (const h of BIBLE.history) (hist[key(h.name, h.attr)] ||= []).push(h);
+  const kinds = {};
+  for (const f of BIBLE.facts) {
+    if (q && !(f.name + ' ' + f.attr + ' ' + f.value).toLowerCase().includes(q)) continue;
+    (kinds[f.kind] ||= []).push(f);
+  }
+  let html = '';
+  for (const [kind, facts] of Object.entries(kinds)) {
+    html += `<div style="font-size:11px;font-weight:600;margin:10px 0 4px;color:var(--text);">${esc(kind)}</div>`;
+    facts.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    for (const f of facts) {
+      const h = hist[key(f.name, f.attr)] || [];
+      const more = h.length > 1 ? `<details style="margin-top:4px;"><summary style="cursor:pointer;">история (${h.length})</summary>` +
+        h.map(x => `<div style="padding-left:10px;">гл.${x.chapter_num}: ${esc(x.value)} — ${esc(x.status)}${x.reason ? ' (' + esc(x.reason) + ')' : ''}</div>`).join('') +
+        '</details>' : '';
+      html += `<div style="padding:6px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;">
+        <b>${esc(f.name)}</b> — ${esc(f.attr)}: <span style="color:var(--text);">${esc(f.value)}</span>
+        <span style="color:var(--text2);"> · с гл.${f.chapter_num}${f.status !== 'введено' ? ' · ' + esc(f.status) : ''}</span>${more}</div>`;
+    }
+  }
+  document.getElementById('facts').innerHTML = html || 'Фактов пока нет — они появятся после анализа глав в Fiction Engine.';
+  const c = BIBLE.conflicts || [];
+  document.getElementById('conflicts-card').style.display = c.length ? '' : 'none';
+  document.getElementById('conflicts').innerHTML = c.map(x =>
+    `<div style="margin-bottom:4px;">гл.${x.chapter_num}: <b>${esc(x.name)}</b> — ${esc(x.attr)}: «${esc(x.value)}», ${esc(x.reason)}</div>`).join('');
+}
+
+async function saveFact() {
+  const body = {kind: document.getElementById('f-kind').value, name: document.getElementById('f-name').value,
+    attr: document.getElementById('f-attr').value, value: document.getElementById('f-value').value,
+    chapter_num: +document.getElementById('f-chapter').value || 0, reason: document.getElementById('f-reason').value};
+  const r = await fetch('/api/fe/bible/set', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  ['f-name', 'f-attr', 'f-value', 'f-reason'].forEach(id => document.getElementById(id).value = '');
+  load();
+}
+
+document.getElementById('filter').addEventListener('input', () => BIBLE && render());
+load();
+</script>
+{% endif %}
+{% endblock %}

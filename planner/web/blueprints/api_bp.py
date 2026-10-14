@@ -268,6 +268,32 @@ def export_send():
 
     prompt_text = "\n".join(lines)
 
+    # Проект связан с Fiction Engine (импорт) — план идёт в него вместе с
+    # фактами сцен: место, время, кто — в библию серии до того, как глава
+    # написана. Без связи — прежняя записка в активный проект FE.
+    from engine.db import get_project
+    fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
+    if fe_pid:
+        facts = []
+        for i, s in enumerate(scenes, 1):
+            ev = f"глава {chapter_num}, сцена {i}: {s['title'] or 'без названия'}"
+            for attr, key in (("место", "location"), ("время", "time_of_day"), ("кто", "characters")):
+                if s[key]:
+                    facts.append({"kind": "событие", "name": ev, "attr": attr, "value": s[key]})
+        import requests as req
+        try:
+            resp = req.post(f"{_fe_base_url()}/api/chapter_plan/{chapter_num}/save",
+                            json={"pid": fe_pid, "note": prompt_text, "facts": facts},
+                            headers=_fe_headers(), timeout=10)
+            if resp.ok:
+                return jsonify({"ok": True, "prompt": prompt_text, "sent": True,
+                                "facts": resp.json().get("facts", 0)})
+            return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
+                            "error": f"Fiction Engine ответил отказом: {resp.text[:200]}"}), 502
+        except req.exceptions.RequestException:
+            return jsonify({"ok": True, "prompt": prompt_text, "sent": False,
+                            "message": "Fiction Engine недоступен — скопируй план вручную"})
+
     # Отправляем в FE как режиссёрскую заметку к главе.
     # Путь именно такой: /api/director_note/<N>/save. Прежний вариант бил
     # в /api/director_note без номера главы — такого маршрута в FE нет,
@@ -342,6 +368,38 @@ def fe_projects():
         return jsonify({"error": str(e), "projects": []})
 
 
+@bp.route("/fe/bible")
+def fe_bible():
+    """Библия серии связанного проекта Fiction Engine."""
+    from engine.db import get_project
+    fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
+    if not fe_pid:
+        return jsonify({"error": "Проект не связан с Fiction Engine — сначала импортируй его"}), 400
+    try:
+        import json as _json
+        with _fe_get(f"/api/bible?pid={fe_pid}", timeout=10) as r:
+            return jsonify(_json.loads(r.read()))
+    except Exception as e:
+        return jsonify({"error": f"FE недоступен: {e}"}), 503
+
+
+@bp.route("/fe/bible/set", methods=["POST"])
+def fe_bible_set():
+    """Правка автора — новая запись в библии FE, прошлое остаётся в истории."""
+    from engine.db import get_project
+    fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
+    if not fe_pid:
+        return jsonify({"error": "Проект не связан с Fiction Engine — сначала импортируй его"}), 400
+    import requests as req
+    body = {k: (request.json or {}).get(k) for k in ("kind", "name", "attr", "value", "chapter_num", "reason")}
+    try:
+        resp = req.post(f"{_fe_base_url()}/api/bible/set", json=dict(body, pid=fe_pid),
+                        headers=_fe_headers(), timeout=10)
+    except req.exceptions.RequestException as e:
+        return jsonify({"error": f"FE недоступен: {e}"}), 503
+    return jsonify(resp.json()), resp.status_code
+
+
 @bp.route("/fe/import/<int:fe_pid>", methods=["POST"])
 def fe_import(fe_pid):
     """Импортировать контекст проекта из FE в планировщик."""
@@ -386,6 +444,9 @@ def fe_import(fe_pid):
         genre=fe_proj.get("genre") or project.get("genre", ""),
         description=description
     )
+    # Связь запоминается: план главы и библия дальше идут в этот проект FE
+    from engine.db import set_fe_project
+    set_fe_project(pid, fe_pid)
 
     return jsonify({
         "ok": True,
