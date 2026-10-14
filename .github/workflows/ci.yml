@@ -105,6 +105,8 @@ jobs:
 
       - name: Ловушки Python (пути Windows)
         shell: cmd
+        env:
+          PYTHONUTF8: "1"
         run: fiction_engine\.venv\Scripts\python tools\pitfalls.py fiction_engine --skip-tests --fail-on-new
 
       # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта
