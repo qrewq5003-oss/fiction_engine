@@ -10,7 +10,7 @@
 **Браузер** (`http://127.0.0.1:5000`) — основная работа: State Engine,
 генерация, pipeline, разбор глав.
 
-**Терминал** (`fiction-engine`, он же `python3 cli.py`) — быстрые действия
+**Терминал** (`fiction-engine`, он же `python cli.py`) — быстрые действия
 без мыши.
 
 | Команда | Что делает |
@@ -179,10 +179,11 @@ tests/                 pytest-набор
 
 ## Разработка
 
-```bash
-.venv/bin/python -m pytest tests/ -q --cov=engine --cov=web
-.venv/bin/python -m mypy engine web cli.py
-python3 check_architecture.py
+```bat
+set PYTHONUTF8=1
+.venv\Scripts\python -m pytest tests -q --cov=engine --cov=web
+.venv\Scripts\python -m mypy engine web cli.py
+.venv\Scripts\python check_architecture.py
 ```
 
 `check_architecture.py` следит за границей слоёв: web-слой не должен

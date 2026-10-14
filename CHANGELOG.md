@@ -16,6 +16,15 @@ CI и документация, сверяемая с кодом автомат�
 Стык движка с базой знаний UNIFIED_ENGINE_MASTER. Подробности и замеры —
 в [AUDIT_UNIFIED.md](AUDIT_UNIFIED.md).
 
+### Изменено
+
+- **Только Windows.** Проект переехал со Steam Deck на ПК с Windows (14.10):
+  установка — `setup_windows.bat`, запуск — `start_all.bat`, перенос данных —
+  `perenos.py`. Скрипты `setup.sh`, `run.sh`, `start_all.sh`, `planner/start.sh`
+  удалены, CI (`checks`, `audit`) — на `windows-latest`, README — команды и
+  пути Windows. Код по-прежнему переносим (`pathlib`, явный UTF-8), но
+  проверяется только на Windows.
+
 ### Добавлено
 
 - **Планировщик и библия серии.** Импорт проекта Fiction Engine запоминает

@@ -21,8 +21,8 @@ _build_context, блок движка включён) на двух ревизи
 Запуск
 ──────
     # ревизия «до» — в отдельной рабочей копии
-    git worktree add /tmp/ab_old ece0528
-    python tools/ab_compare.py generate --app /tmp/ab_old/fiction_engine --out bench/ab-old.json
+    git worktree add ..\ab_old ece0528
+    python tools/ab_compare.py generate --app ..\ab_old\fiction_engine --out bench/ab-old.json
     python tools/ab_compare.py generate --app fiction_engine --out bench/ab-new.json
     python tools/ab_compare.py rate bench/ab-old.json bench/ab-new.json --out bench/ab-rate.json
 

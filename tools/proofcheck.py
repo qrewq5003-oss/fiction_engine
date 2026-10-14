@@ -26,7 +26,7 @@ proofcheck.py — доказательства должны проверять �
 считается и ложных срабатываний не даёт.
 
 Запуск:
-    python3 tools/proofcheck.py fiction_engine planner
+    python tools/proofcheck.py fiction_engine planner
 """
 
 import ast

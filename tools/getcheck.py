@@ -31,7 +31,7 @@ SQL ищется в строковых литералах, а не в текст
 обработчике, а через две-три функции от него.
 
 Запуск:
-    python3 tools/getcheck.py fiction_engine planner
+    python tools/getcheck.py fiction_engine planner
 """
 
 import ast

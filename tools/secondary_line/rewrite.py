@@ -2,7 +2,7 @@
 import json, sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-ROOT = Path("/home/deck/Downloads/fiction_engine")
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools")); sys.path.insert(0, str(ROOT / "fiction_engine"))
 import ab_compare as ab
 ab._temp_db(ROOT / "fiction_engine")

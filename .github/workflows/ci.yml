@@ -6,12 +6,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Проект живёт на Windows (переезд со Steam Deck 14.10.2026), CI — там же.
+# Без UTF-8 Python на Windows читает файлы и пишет в консоль в cp1252, и
+# русский текст ломается — у пользователя это задаёт start_all.bat.
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     defaults:
       run:
-        working-directory: fiction_engine
+        shell: cmd
 
     steps:
       - uses: actions/checkout@v5
@@ -20,58 +26,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: fiction_engine/pyproject.toml
 
-      # Ставим сам проект: так проверяется и то, что пакет собирается,
-      # и что импорты работают без подмешивания путей.
-      - name: Установка
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
-
-      # Единственный набор. До слияния их было три: run_tests.py (9118 строк),
-      # tests/ и четыре мёртвых tests_*.py в корне — одни и те же проверки
-      # в двух-трёх реализациях, править приходилось синхронно.
-      #
-      # Порог покрытия держит планку: на момент слияния 77.8%, запас на
-      # колебания. Просадка ниже 75% роняет сборку.
-      - name: Тесты с покрытием
-        run: >
-          python -m pytest tests/ -q
-          --cov=engine --cov=web
-          --cov-report=term-missing:skip-covered
-          --cov-fail-under=75
-
-      # Границы слоёв: web не лезет в приватные функции engine.
-      - name: Архитектурные границы
-        run: python check_architecture.py
-
-      # Планировщик — отдельное приложение со своими пакетами engine и web,
-      # поэтому запускается отдельным прогоном из своего каталога: иначе
-      # одноимённые пакеты перекрыли бы друг друга.
-      - name: Тесты планировщика
-        working-directory: planner
-        run: python -m pytest tests/ -q -p no:cacheprovider
-
-      - name: Компиляция всех модулей
-        run: python -m compileall -q engine web cli.py
-
-      # Блокирующая проверка: на 2026-09-11 mypy даёт 0 ошибок.
-      # Дальнейшее ужесточение — по плану в mypy.ini.
-      - name: mypy
-        run: mypy engine web cli.py
-
-  # Windows: установка тем же setup_windows.bat, что у пользователя, с
-  # переносом данных архивом perenos.py; тесты обоих приложений и запуск.
-  # На Linux не видно двух классов поломок: кодировка файлов по умолчанию
-  # (cp1251) и `claude` как claude.cmd.
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
+      # Установка тем же setup_windows.bat, что у пользователя, с переносом
+      # данных архивом perenos.py: проверяется и пакет, и перенос.
       - name: Архив переноса
         shell: bash
         run: |
@@ -81,7 +39,6 @@ jobs:
           rm -rf "$USERPROFILE/fiction_engine"
 
       - name: setup_windows.bat
-        shell: cmd
         run: setup_windows.bat < nul
 
       - name: Данные на месте
@@ -90,38 +47,59 @@ jobs:
           test -f "$USERPROFILE/fiction_engine/projects.db"
           test -f fiction_engine/.env
 
-      # Каждая команда со своим «|| exit /b 1»: в многострочном cmd итог шага —
-      # код последней команды, и провалы тестов FE на Windows не были видны
-      - name: Тесты
-        shell: cmd
-        env:
-          PYTHONUTF8: "1"
+      - name: Зависимости разработки
+        run: fiction_engine\.venv\Scripts\python -m pip install -q -e "fiction_engine[dev]"
+
+      # Единственный набор. До слияния их было три: run_tests.py (9118 строк),
+      # tests/ и четыре мёртвых tests_*.py в корне — одни и те же проверки
+      # в двух-трёх реализациях, править приходилось синхронно.
+      #
+      # Порог покрытия держит планку: на момент слияния 77.8%, запас на
+      # колебания. Просадка ниже 75% роняет сборку.
+      - name: Тесты с покрытием
+        working-directory: fiction_engine
+        run: >
+          .venv\Scripts\python -m pytest tests -q -p no:cacheprovider
+          --cov=engine --cov=web
+          --cov-report=term-missing:skip-covered
+          --cov-fail-under=75
+
+      # Границы слоёв: web не лезет в приватные функции engine.
+      - name: Архитектурные границы
+        working-directory: fiction_engine
+        run: .venv\Scripts\python check_architecture.py
+
+      # Планировщик — отдельное приложение со своими пакетами engine и web,
+      # поэтому запускается отдельным прогоном из своего каталога: иначе
+      # одноимённые пакеты перекрыли бы друг друга.
+      - name: Тесты планировщика
+        working-directory: planner
+        run: ..\fiction_engine\.venv\Scripts\python -m pytest tests -q -p no:cacheprovider
+
+      - name: Компиляция всех модулей
+        working-directory: fiction_engine
+        run: .venv\Scripts\python -m compileall -q engine web cli.py
+
+      # Блокирующая проверка: на 2026-09-11 mypy даёт 0 ошибок.
+      # Дальнейшее ужесточение — по плану в mypy.ini.
+      - name: mypy
+        working-directory: fiction_engine
+        run: .venv\Scripts\python -m mypy engine web cli.py
+
+      # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта.
+      # Проверка — в том же шаге: по его окончании раннер снимает все
+      # запущенные им процессы, и к следующему шагу серверов уже нет.
+      - name: start_all.bat, оба приложения отвечают
         run: |
-          fiction_engine\.venv\Scripts\python -m pip install -q -e "fiction_engine[dev]" || exit /b 1
-          cd fiction_engine
-          .venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider || exit /b 1
-          cd ..\planner
-          ..\fiction_engine\.venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider || exit /b 1
-
-      - name: Ловушки Python (пути Windows)
-        shell: cmd
-        env:
-          PYTHONUTF8: "1"
-        run: fiction_engine\.venv\Scripts\python tools\pitfalls.py fiction_engine --skip-tests --fail-on-new
-
-      # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта
-      - name: start_all.bat
-        shell: cmd
-        run: start_all.bat < nul
-
-      - name: Оба приложения отвечают
-        shell: bash
-        run: |
-          curl -sf -o /dev/null -w "FE %{http_code}\n" http://127.0.0.1:5000/
-          curl -s -o /dev/null -w "Планировщик %{http_code}\n" http://127.0.0.1:5001/
+          call start_all.bat < nul || exit /b 1
+          curl -sf -o nul -w "FE %%{http_code}\n" http://127.0.0.1:5000/ || exit /b 1
+          curl -s -o nul -w "Планировщик %%{http_code}\n" http://127.0.0.1:5001/ || exit /b 1
 
   audit:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: cmd
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -132,32 +110,32 @@ jobs:
       # классические ловушки. Ловят класс багов, который юнит-тесты
       # пропускают по построению.
       - name: Сигнатуры вызовов
-        run: python tools/sigcheck.py fiction_engine
+        run: python tools\sigcheck.py fiction_engine
 
       - name: Ловушки Python
-        run: python tools/pitfalls.py fiction_engine --skip-tests --fail-on-new
+        run: python tools\pitfalls.py fiction_engine --skip-tests --fail-on-new
 
       # Обращения к несуществующим именам. Ровно так шесть вызовов
       # планировщика к Fiction Engine падали с NameError, маскируясь
       # под «FE не запущен», при 55 зелёных тестах.
       - name: Неопределённые имена
         run: |
-          pip install pyflakes
-          python tools/undefined.py fiction_engine planner
+          pip install pyflakes || exit /b 1
+          python tools\undefined.py fiction_engine planner
 
       # Доказательства из класс-тестов обязаны проверять то, что собирают.
       # Ложное обоснование дважды выводило маршрут из-под проверок: сперва
       # строкой в списке исключений, потом докстрингом функции рядом с
       # собранным и выброшенным наблюдением.
       - name: Доказательства проверяют собранное
-        run: python tools/proofcheck.py fiction_engine planner
+        run: python tools\proofcheck.py fiction_engine planner
 
       # Запись в таблицу проекта обязана ограничиваться project_id.
       # Семь утечек принадлежности рождались не в обработчиках, а здесь:
       # `DELETE FROM symbols WHERE id=?` позволяла удалить чужой символ,
       # какие бы проверки ни стояли выше по стеку.
       - name: Запись ограничена проектом
-        run: python tools/scoping.py
+        run: python tools\scoping.py
 
       # GET-обработчик не должен менять данные: по такому адресу браузер
       # волен сходить сам — предзагрузка ссылки, восстановление вкладок,
@@ -165,4 +143,4 @@ jobs:
       # переключавший активный проект без действия пользователя; проверка
       # добавлена вместе с его починкой, а не с записью в исключения.
       - name: GET не меняет данные
-        run: python tools/getcheck.py
+        run: python tools\getcheck.py

@@ -11,7 +11,7 @@ app.py регистрирует blueprints и держит только:
 import os
 import sys
 from pathlib import Path
-# Пакет ставится через `pip install -e .` (см. setup.sh), поэтому
+# Пакет ставится через `pip install -e .` (см. setup_windows.bat), поэтому
 # engine и web импортируются штатно — подмешивать пути не нужно.
 
 # Загружаем .env если есть (python-dotenv опционален)
