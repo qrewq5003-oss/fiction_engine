@@ -360,9 +360,87 @@ SERIES_Q = [
 ]
 
 
+# План главы из планировщика: автор раскладывает главу на сцены (место,
+# время, кто, что происходит, эмоция) и отправляет её в FE. Автора играет
+# модель плана; записка и факты сцен идут тем же путём, что из планировщика
+# (planner export_send → /api/chapter_plan/<N>/save).
+
+PLAN_PROMPT = """Ты автор книги ({genre}) и планируешь следующую главу в планировщике сцен.
+
+Состояние истории:
+{state}
+
+{bible}Предыдущая глава (конец):
+{prev}
+
+Задача главы {num}: {task}
+
+Разложи главу {num} на 3–5 сцен. Для каждой: короткое название, место (конкретное,
+как называется в истории), время (день недели, время суток или час — согласуй с
+прошлыми главами), кто в сцене, что происходит (одно-два предложения), эмоция.
+Ответь JSON без пояснений вокруг:
+{{"scenes": [{{"title": "…", "location": "…", "time_of_day": "…", "characters": "…",
+"what_happens": "…", "emotion": "…"}}]}}"""
+
+
+def plan_note(num: int, scenes: list[dict]) -> tuple[str, list[dict]]:
+    """Записка и факты сцен — ровно как planner/web/blueprints/api_bp.export_send."""
+    lines = [f"ПЛАН ГЛАВЫ {num}\n"]
+    facts = []
+    for i, s in enumerate(scenes, 1):
+        g = {k: str(s.get(k) or "").strip() for k in
+             ("title", "location", "time_of_day", "characters", "what_happens", "emotion")}
+        lines.append(f"СЦЕНА {i}: {g['title'] or 'Без названия'}")
+        if g["location"]:
+            lines.append(f"  Локация: {g['location']} / {g['time_of_day']}")
+        if g["characters"]:
+            lines.append(f"  Персонажи: {g['characters']}")
+        if g["what_happens"]:
+            lines.append(f"  Что происходит: {g['what_happens']}")
+        if g["emotion"]:
+            lines.append(f"  Эмоция: {g['emotion']}")
+        lines.append("")
+        ev = f"глава {num}, сцена {i}: {g['title'] or 'без названия'}"
+        for attr, key in (("место", "location"), ("время", "time_of_day"), ("кто", "characters")):
+            if g[key]:
+                facts.append({"kind": "событие", "name": ev, "attr": attr, "value": g[key]})
+    return "\n".join(lines), facts
+
+
+def _plan_chapter(pid: int, num: int, task: str, genre: str, plan_model: str) -> dict:
+    import engine.db as db
+    from engine.pipeline import _call
+    from engine.pipeline_llm import parse_json
+    from engine.series_bible import bible_block
+    prev = db.get_chapter(pid, num - 1) or {}
+    bible = bible_block(pid, task)
+    prompt = PLAN_PROMPT.format(genre=genre, state=db.get_state(pid).get("global_state", "")[:6000],
+                                bible=bible + "\n\n" if bible else "",
+                                prev=(prev.get("content") or "")[-6000:], num=num, task=task)
+    scenes: list = []
+    for _ in range(2):
+        try:
+            scenes = (parse_json(_call(plan_model, "Ты автор и планируешь книгу.", prompt,
+                                       max_tokens=4000)) or {}).get("scenes") or []
+        except Exception:
+            scenes = []
+        if scenes:
+            break
+    scenes = [s for s in scenes if isinstance(s, dict)]
+    if not scenes:
+        return {"note": "", "facts": 0}
+    note, facts = plan_note(num, scenes)
+    # Как /api/chapter_plan/<N>/save: записка «после главы N-1», факты — записи автора
+    from engine.series_bible import author_set
+    db.save_director_note(pid, num - 1, note)
+    for f in facts:
+        author_set(pid, f["kind"], f["name"], f["attr"], f["value"], num, f"план главы {num}")
+    return {"note": note, "facts": len(facts)}
+
+
 def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
            chapters: int, mode: str = "quick", without: list[str] | None = None,
-           memory: bool = True) -> int:
+           memory: bool = True, plan_model: str | None = None) -> int:
     app = app.resolve()
     _temp_db(app)
     import engine.db as db
@@ -381,6 +459,7 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
 
     result = {"date": date.today().isoformat(), "git": _git_rev(app), "app": str(app),
               "model": model, "mode": mode, "without": without or [], "memory": memory,
+              "plan_model": plan_model, "label": "с планом" if plan_model else None,
               "chapters_per_series": chapters, "series": []}
     for genre_key in genres:
         seed = SEEDS[genre_key]
@@ -395,6 +474,9 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
                 num = CHAPTER + i
                 task = seed["task"] if i == 0 else SERIES_NEXT_TASK
                 t0, text = time.time(), ""
+                plan = _plan_chapter(pid, num, task, seed["genre"], plan_model) if plan_model else None
+                if plan is not None and not plan["note"]:
+                    item["errors"].append(f"план гл.{num}: пустой")
                 for _ in range(EMPTY_RETRIES):
                     try:
                         text = pipeline.run_generation(db.get_project(pid), num, mode, model, task)["text"]
@@ -426,9 +508,11 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
                 except Exception as e:
                     item["errors"].append(f"State гл.{num}: {str(e)[:120]}")
                 item["chapters"].append({"num": num, "task": task, "text": text,
-                                         "words": len(text.split())})
+                                         "words": len(text.split()),
+                                         **({"plan": plan["note"]} if plan else {})})
                 print(f"  {genre_key:24} #{run} гл.{num}  {len(text.split()):5} слов  "
-                      f"{round(time.time() - t0):4} с", flush=True)
+                      f"{round(time.time() - t0):4} с"
+                      + (f"  план: {plan['facts']} фактов" if plan else ""), flush=True)
             # Библия серии из временной базы — иначе пропадёт вместе с ней
             try:
                 from engine.series_bible import _rows
@@ -1584,6 +1668,8 @@ def main() -> int:
     se.add_argument("--without", default="")
     se.add_argument("--no-memory", action="store_true",
                     help="без L3, State и анализа главы между главами")
+    se.add_argument("--plan", default=None, metavar="MODEL",
+                    help="план каждой главы по сценам, как из планировщика; модель играет автора")
     sr = sub.add_parser("series-rate", help="оценка серий глав по вопросам о серии")
     sr.add_argument("old", type=Path)
     sr.add_argument("new", type=Path)
@@ -1656,7 +1742,7 @@ def main() -> int:
     if a.cmd == "series":
         sys.path.insert(0, str(a.app.resolve()))
         return series(a.app, a.out, a.model, a.runs, a.genres.split(","), a.chapters,
-                      a.mode, [w for w in a.without.split(",") if w], not a.no_memory)
+                      a.mode, [w for w in a.without.split(",") if w], not a.no_memory, a.plan)
     if a.cmd == "series-rate":
         return series_rate(a.old, a.new, a.out, a.judges.split(","), a.workers)
     if a.cmd == "pool-build":
