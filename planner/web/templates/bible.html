@@ -85,7 +85,7 @@ async function saveFact() {
   const body = {kind: document.getElementById('f-kind').value, name: document.getElementById('f-name').value,
     attr: document.getElementById('f-attr').value, value: document.getElementById('f-value').value,
     chapter_num: +document.getElementById('f-chapter').value || 0, reason: document.getElementById('f-reason').value};
-  const r = await fetch('/api/fe/bible/set', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const r = await fetch('/api/fe/bible/set', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken()}, body: JSON.stringify(body)});
   const d = await r.json();
   if (d.error) { alert(d.error); return; }
   ['f-name', 'f-attr', 'f-value', 'f-reason'].forEach(id => document.getElementById(id).value = '');
