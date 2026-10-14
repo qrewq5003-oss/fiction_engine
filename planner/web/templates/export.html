@@ -33,6 +33,7 @@
   <div>
     <div class="card" id="prompt-card" style="display:none;">
       <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Промт для главы</div>
+      <div id="timeline-warn" style="display:none;font-size:12px;color:var(--warning);margin-bottom:10px;"></div>
       <textarea id="prompt-output" rows="20" style="font-family:monospace;font-size:12px;"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-secondary" onclick="copyPrompt()">📋 Скопировать</button>
@@ -51,7 +52,7 @@
 <script>
 const SCENES_DATA = {{ scenes | tojson }};
 
-function generatePrompt() {
+async function generatePrompt() {
   const checked = [...document.querySelectorAll('.scene-check:checked')].map(c => parseInt(c.value));
   if (!checked.length) { showToast('Выбери хотя бы одну сцену', 'error'); return; }
 
@@ -71,6 +72,21 @@ function generatePrompt() {
 
   document.getElementById('prompt-output').value = lines.join('\n');
   document.getElementById('prompt-card').style.display = 'block';
+
+  // Подсказки по времени: день недели, дата, время суток — без модели
+  const box = document.getElementById('timeline-warn');
+  box.style.display = 'none';
+  try {
+    const r = await fetch('/api/timeline?ids=' + checked.join(',')).then(x => x.json());
+    if (r.warnings && r.warnings.length) {
+      box.replaceChildren(...r.warnings.map(w => {
+        const d = document.createElement('div');
+        d.textContent = '🕓 ' + w.title + ': ' + w.message;
+        return d;
+      }));
+      box.style.display = 'block';
+    }
+  } catch (e) {}
 }
 
 function copyPrompt() {

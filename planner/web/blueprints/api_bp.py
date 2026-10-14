@@ -242,6 +242,18 @@ def ai_assist():
 
 # ─── Export to Fiction Engine ─────────────────────────────────────────────────
 
+@bp.route("/timeline")
+def timeline():
+    """
+    Подсказки по времени для сцен главы в порядке экспорта
+    (engine/timeline.py). Чужие сцены отбрасываются, как в export_send.
+    """
+    from engine.timeline import check
+    ids = [int(x) for x in request.args.get("ids", "").split(",") if x.strip().isdigit()]
+    scenes = [sc for sc in (owned_scene(sid) for sid in ids) if sc]
+    return jsonify({"warnings": check(scenes)})
+
+
 @bp.route("/export/send", methods=["POST"])
 def export_send():
     data       = request.json or {}
