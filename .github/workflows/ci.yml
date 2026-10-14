@@ -101,20 +101,16 @@ jobs:
           cd ..\planner
           ..\fiction_engine\.venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider
 
-      - name: Запуск приложений
+      # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта
+      - name: start_all.bat
+        shell: cmd
+        run: start_all.bat < nul
+
+      - name: Оба приложения отвечают
         shell: bash
-        env:
-          PYTHONUTF8: "1"
         run: |
-          VPY="$PWD/fiction_engine/.venv/Scripts/python.exe"
-          (cd fiction_engine/web && "$VPY" app.py > ../../fe.log 2>&1 &)
-          (cd planner && "$VPY" app.py > ../pl.log 2>&1 &)
-          for i in $(seq 30); do
-            curl -sf -o /dev/null http://127.0.0.1:5000/ && curl -sf -o /dev/null http://127.0.0.1:5001/ && break
-            sleep 2
-          done
-          curl -sf -o /dev/null -w "FE %{http_code}\n" http://127.0.0.1:5000/ || { cat fe.log; exit 1; }
-          curl -s -o /dev/null -w "Планировщик %{http_code}\n" http://127.0.0.1:5001/ || { cat pl.log; exit 1; }
+          curl -sf -o /dev/null -w "FE %{http_code}\n" http://127.0.0.1:5000/
+          curl -s -o /dev/null -w "Планировщик %{http_code}\n" http://127.0.0.1:5001/
 
   audit:
     runs-on: ubuntu-latest
