@@ -164,4 +164,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # Консоль Windows без PYTHONUTF8 — cp1252/cp866, русский вывод падает
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main(sys.argv))
