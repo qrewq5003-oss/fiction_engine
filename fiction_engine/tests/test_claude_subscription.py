@@ -36,7 +36,7 @@ def test_enabled_calls_cli_without_tools_and_settings(monkeypatch):
         out = call_model("claude_subscription::claude-sonnet-5-5", "сис", "юзер", max_tokens=300)
     cmd = run.call_args.args[0]
     assert out == "Дождь шёл всю ночь." and get_last_stop_reason() == "end_turn"
-    assert cmd[:2] == ["claude", "-p"] and "--tools" in cmd and cmd[cmd.index("--tools") + 1] == ""
+    assert cmd[:2] == ["/usr/bin/claude", "-p"] and "--tools" in cmd and cmd[cmd.index("--tools") + 1] == ""
     assert "--setting-sources" in cmd and "--no-session-persistence" in cmd
     assert run.call_args.kwargs["input"] == "юзер"
     assert run.call_args.kwargs["env"]["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "300"

@@ -60,6 +60,62 @@ jobs:
       - name: mypy
         run: mypy engine web cli.py
 
+  # Windows: установка тем же setup_windows.bat, что у пользователя, с
+  # переносом данных архивом perenos.py; тесты обоих приложений и запуск.
+  # На Linux не видно двух классов поломок: кодировка файлов по умолчанию
+  # (cp1251) и `claude` как claude.cmd.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Архив переноса
+        shell: bash
+        run: |
+          mkdir -p "$USERPROFILE/fiction_engine"
+          python -c "import sqlite3, os; c = sqlite3.connect(os.path.expanduser('~/fiction_engine/projects.db')); c.execute('create table t (x)'); c.commit()"
+          python perenos.py pack fiction_engine_perenos_ci.zip
+          rm -rf "$USERPROFILE/fiction_engine"
+
+      - name: setup_windows.bat
+        shell: cmd
+        run: setup_windows.bat < nul
+
+      - name: Данные на месте
+        shell: bash
+        run: |
+          test -f "$USERPROFILE/fiction_engine/projects.db"
+          test -f fiction_engine/.env
+
+      - name: Тесты
+        shell: cmd
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          fiction_engine\.venv\Scripts\python -m pip install -q -e "fiction_engine[dev]"
+          cd fiction_engine
+          .venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider
+          cd ..\planner
+          ..\fiction_engine\.venv\Scripts\python -m pytest tests/ -q -p no:cacheprovider
+
+      - name: Запуск приложений
+        shell: bash
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          VPY="$PWD/fiction_engine/.venv/Scripts/python.exe"
+          (cd fiction_engine/web && "$VPY" app.py > ../../fe.log 2>&1 &)
+          (cd planner && "$VPY" app.py > ../pl.log 2>&1 &)
+          for i in $(seq 30); do
+            curl -sf -o /dev/null http://127.0.0.1:5000/ && curl -sf -o /dev/null http://127.0.0.1:5001/ && break
+            sleep 2
+          done
+          curl -sf -o /dev/null -w "FE %{http_code}\n" http://127.0.0.1:5000/ || { cat fe.log; exit 1; }
+          curl -s -o /dev/null -w "Планировщик %{http_code}\n" http://127.0.0.1:5001/ || { cat pl.log; exit 1; }
+
   audit:
     runs-on: ubuntu-latest
     steps:

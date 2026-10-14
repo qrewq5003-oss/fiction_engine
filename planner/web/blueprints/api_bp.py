@@ -41,7 +41,7 @@ def _fe_headers() -> dict:
         path = Path(os.environ.get("FE_API_TOKEN_FILE")
                     or Path.home() / "fiction_engine" / "api_token")
         try:
-            token = path.read_text().strip()
+            token = path.read_text(encoding="utf-8").strip()
         except OSError:
             token = ""      # FE ещё ни разу не запускался — он и не ответит
     return {"X-FE-Token": token} if token else {}
