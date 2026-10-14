@@ -86,15 +86,14 @@ jobs:
         working-directory: fiction_engine
         run: .venv\Scripts\python -m mypy engine web cli.py
 
-      # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта
-      - name: start_all.bat
-        run: start_all.bat < nul
-
-      - name: Оба приложения отвечают
-        shell: bash
+      # Тем же start_all.bat, что у пользователя: он сам ждёт оба порта.
+      # Проверка — в том же шаге: по его окончании раннер снимает все
+      # запущенные им процессы, и к следующему шагу серверов уже нет.
+      - name: start_all.bat, оба приложения отвечают
         run: |
-          curl -sf -o /dev/null -w "FE %{http_code}\n" http://127.0.0.1:5000/
-          curl -s -o /dev/null -w "Планировщик %{http_code}\n" http://127.0.0.1:5001/
+          call start_all.bat < nul || exit /b 1
+          curl -sf -o nul -w "FE %%{http_code}\n" http://127.0.0.1:5000/ || exit /b 1
+          curl -s -o nul -w "Планировщик %%{http_code}\n" http://127.0.0.1:5001/ || exit /b 1
 
   audit:
     runs-on: windows-latest
