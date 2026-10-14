@@ -122,6 +122,12 @@ def update_project(pid: int, name: str, genre: str, description: str):
         )
 
 
+def set_fe_project(pid: int, fe_pid: int | None) -> None:
+    """Связать проект планировщика с проектом Fiction Engine."""
+    with get_conn() as conn:
+        conn.execute("UPDATE projects SET fe_project_id=? WHERE id=?", (fe_pid, pid))
+
+
 def delete_project(pid: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM projects WHERE id=?", (pid,))

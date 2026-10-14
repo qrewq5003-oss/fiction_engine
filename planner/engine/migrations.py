@@ -88,8 +88,13 @@ MIGRATIONS = {
                    COALESCE(new.characters,''), COALESCE(new.location,''), COALESCE(new.notes,''));
         END""",
     ],
+    4: [
+        # Связанный проект Fiction Engine: импорт его запоминает, план главы и
+        # библия серии ходят в него, а не в тот, что открыт в FE сейчас
+        "ALTER TABLE projects ADD COLUMN fe_project_id INTEGER",
+    ],
     # Следующие миграции добавлять здесь:
-    # 4: [ "ALTER TABLE scenes ADD COLUMN ..." ],
+    # 5: [ "ALTER TABLE scenes ADD COLUMN ..." ],
 }
 
 

@@ -246,3 +246,50 @@ class TestFailuresAreDistinguishable:
                                       json={"scene_ids": [sid], "chapter_num": 1}).data)
         assert data["sent"] is False
         assert data["prompt"], "промпт для ручного копирования обязан вернуться"
+
+
+class TestSeriesBibleLink:
+    """План главы и библия серии идут в связанный проект Fiction Engine."""
+
+    def _link(self, client, project_id, fake_fe, fe_pid=7):
+        fake_fe.responses["/api/project/context"] = (200, {"project": {"id": fe_pid, "genre": "детектив"}})
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        assert client.post(f"/api/fe/import/{fe_pid}").status_code == 200
+
+    def test_import_remembers_fe_project(self, client, project_id, fake_fe):
+        from engine.db import get_project
+        self._link(client, project_id, fake_fe)
+        assert get_project(project_id)["fe_project_id"] == 7
+
+    def test_export_sends_plan_with_scene_facts(self, client, project_id, fake_fe):
+        from engine.db import create_scene, update_scene
+        self._link(client, project_id, fake_fe)
+        sid = create_scene(project_id)
+        update_scene(sid, {"title": "Допрос", "location": "контора на Литейном", "time_of_day": "вечер",
+                           "characters": "Вера, Лаптев"})
+        fake_fe.responses["/api/chapter_plan/4/save"] = (200, {"ok": True, "facts": 3})
+        resp = client.post("/api/export/send", json={"scene_ids": [sid], "chapter_num": 4})
+        data = json.loads(resp.data)
+        assert data["sent"] is True and data["facts"] == 3
+        req = next(r for r in fake_fe.received if r["path"] == "/api/chapter_plan/4/save")
+        assert req["body"]["pid"] == 7 and "Допрос" in req["body"]["note"]
+        assert {(f["attr"], f["value"]) for f in req["body"]["facts"]} == {
+            ("место", "контора на Литейном"), ("время", "вечер"), ("кто", "Вера, Лаптев")}
+
+    def test_bible_proxy_uses_linked_pid(self, client, project_id, fake_fe):
+        self._link(client, project_id, fake_fe)
+        fake_fe.responses["/api/bible"] = (200, {"facts": [], "conflicts": [], "history": []})
+        assert json.loads(client.get("/api/fe/bible").data)["facts"] == []
+        assert any(r["path"] == "/api/bible?pid=7" for r in fake_fe.received)
+        client.post("/api/fe/bible/set", json={"kind": "место", "name": "квартира", "attr": "этаж",
+                                               "value": "второй", "reason": "правка"})
+        req = next(r for r in fake_fe.received if r["path"] == "/api/bible/set")
+        assert req["body"]["pid"] == 7 and req["body"]["value"] == "второй"
+
+    def test_unlinked_project_is_told_to_import(self, client, project_id):
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        r = client.get("/api/fe/bible")
+        assert r.status_code == 400 and "импортируй" in json.loads(r.data)["error"]
+        assert "не связан" in client.get("/bible").get_data(as_text=True)
