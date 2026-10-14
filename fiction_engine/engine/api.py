@@ -543,7 +543,9 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
         prompt = (user + "\n\nТекст ниже оборван. Верни ТОЛЬКО его продолжение — со "
                   "следующего слова, без повтора написанного и без пояснений.\n\n"
                   "=== УЖЕ НАПИСАНО ===\n" + prefill)
-    cmd = ["claude", "-p", "--model", model_id, "--system-prompt", system or "",
+    # Полный путь: на Windows `claude` — это claude.cmd (npm), а subprocess
+    # без shell находит только .exe
+    cmd = [shutil.which("claude") or "claude", "-p", "--model", model_id, "--system-prompt", system or "",
            "--tools", "", "--output-format", "json", "--no-session-persistence",
            "--setting-sources", "", "--strict-mcp-config"]
     env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max_tokens),
@@ -556,6 +558,7 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token
     with _CLAUDE_SUB_LOCK:
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace",
                               timeout=CLAUDE_SUB_TIMEOUT, env=env)
     try:
         data = _json.loads(proc.stdout)

@@ -304,7 +304,7 @@ def cmd_prompt_generate():
     out_dir  = Path.home() / "fiction_engine" / "prompts_out"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / f"prompt_ch{num:02d}_{mode}.md"
-    out_file.write_text(prompt_text)
+    out_file.write_text(prompt_text, encoding="utf-8")
     success(f"Промпт сохранён: {out_file}")
 
 
