@@ -246,6 +246,10 @@ def _ablate(without: list[str] | None) -> None:
         if name == "engine":
             import engine.pipeline_context as pc
             pc.build_engine_context = lambda *a, **k: ""
+        elif name == "bible":
+            # Библия серии пишется, но генератору не идёт — меряется блок «пиши ровно так»
+            import engine.series_bible as sb
+            sb.bible_block = lambda *a, **k: ""
         else:
             import engine.unified_engine as ue
             if not hasattr(ue, name):
@@ -425,6 +429,13 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
                                          "words": len(text.split())})
                 print(f"  {genre_key:24} #{run} гл.{num}  {len(text.split()):5} слов  "
                       f"{round(time.time() - t0):4} с", flush=True)
+            # Библия серии из временной базы — иначе пропадёт вместе с ней
+            try:
+                from engine.series_bible import _rows
+                item["bible"] = [{k: r[k] for k in ("kind", "name", "attr", "value", "chapter_num",
+                                                    "status", "reason")} for r in _rows(pid)]
+            except Exception as e:
+                item["errors"].append(f"библия: {str(e)[:120]}")
             result["series"].append(item)
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")

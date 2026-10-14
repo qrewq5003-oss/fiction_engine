@@ -40,7 +40,9 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
     except Exception:
         active_promises = []
 
-    user_prompt = _build_analysis_prompt(chapter_num, state, ch["content"], active_promises)
+    from .series_bible import known_for_analysis
+    user_prompt = _build_analysis_prompt(chapter_num, state, ch["content"], active_promises,
+                                         known_for_analysis(project_id))
 
     anthropic_key = get_api_key("anthropic_direct")
     nano_key = get_api_key("nano_gpt")
@@ -91,6 +93,7 @@ def _build_analysis_prompt(
     state: dict,
     chapter_content: str,
     active_promises: list[dict] | None = None,
+    bible_known: str = "",
 ) -> str:
     """
     Строит промпт для анализа главы.
@@ -108,6 +111,8 @@ def _build_analysis_prompt(
     else:
         promises_block = ""
 
+    bible_block = (f"\nБИБЛИЯ СЕРИИ — уже известные места, вещи, события (называй их ровно так же, "
+                   f"сверяй значения):\n{bible_known}\n") if bible_known else ""
     return f"""ТЕКУЩИЙ STATE:
 
 ПЕРСОНАЖИ:
@@ -118,7 +123,7 @@ def _build_analysis_prompt(
 
 ПАМЯТЬ (кто что знает):
 {state['memory_graph']}
-{promises_block}
+{promises_block}{bible_block}
 ---
 
 НОВАЯ ГЛАВА {chapter_num}:
@@ -155,6 +160,7 @@ def _build_analysis_prompt(
   "open_questions": ["открытый вопрос после главы"],
   "next_context": "2-3 предложения: где все находятся, что произошло, какое нерешённое напряжение",
   "details": ["конкретная деталь, которую дальше нельзя нарушить: вещь и её примета, примета места, время события, число (номер, адрес, сумма) — до 8, коротко: «шуба Ларионовой — каракулевый воротник»"],
+  "bible": [{{"kind": "место | вещь | событие", "name": "квартира Ларионовой", "attr": "этаж", "value": "второй", "changed": ""}}],
   "resolved_promises": ["id_закрытого_обещания"]
 }}
 
@@ -162,7 +168,12 @@ def _build_analysis_prompt(
 - Только реальные изменения. Пустая строка если поле не изменилось.
 - global_state_changes: только персонажи у которых что-то изменилось.
 - next_context: обязательно, это ключевой блок для следующей генерации.
-- resolved_promises: список id обещаний которые получили payoff в этой главе. Пустой список [] если ни одно не закрыто."""
+- resolved_promises: список id обещаний которые получили payoff в этой главе. Пустой список [] если ни одно не закрыто.
+- bible: ВСЕ проверяемые факты главы о местах (адрес, этаж, номер, как выглядит), вещах (чья, где лежит,
+  как выглядит, цвет) и событиях (день недели, дата, время) — то, что сказано в тексте прямо. Уже
+  известную сущность называй ровно так, как в БИБЛИИ СЕРИИ. changed — пусто, если факт новый или
+  совпадает; если глава ПОКАЗЫВАЕТ событие, которое его изменило (переехала, отдала, сломала), — коротко
+  это событие. Если значение в главе другое, а события нет — всё равно запиши, как в главе, changed пусто."""
 
 
 # ─── Обратная совместимость ───────────────────────────────────────────────────
@@ -214,7 +225,9 @@ def queue_state_update_from_analysis(
         except Exception:
             active_promises = []
 
-        prompt = _build_analysis_prompt(chapter_num, state, chapter_text, active_promises)
+        from .series_bible import known_for_analysis
+        prompt = _build_analysis_prompt(chapter_num, state, chapter_text, active_promises,
+                                        known_for_analysis(project_id))
 
         analysis_text = call_fn(prompt)
         if not analysis_text or len(analysis_text.strip()) < 20:
