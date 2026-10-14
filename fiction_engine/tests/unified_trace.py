@@ -82,7 +82,8 @@ def traced_runtime_files(kb: pathlib.Path) -> set[str]:
 def files_on_disk(kb: pathlib.Path) -> dict[str, list[str]]:
     """Все файлы базы по каталогам — в формате поля files в INDEX.json."""
     out: dict[str, list[str]] = {}
-    for p in sorted(kb.rglob("*")):
+    # Сортировка по строке: WindowsPath сравнивается без регистра, порядок другой
+    for p in sorted(kb.rglob("*"), key=lambda p: p.as_posix()):
         if p.is_file():
             parent = p.parent.relative_to(kb).as_posix()
             out.setdefault(parent, []).append(p.name)
