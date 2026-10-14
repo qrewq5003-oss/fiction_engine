@@ -1076,8 +1076,9 @@ def judge(old_path: Path, new_path: Path, out: Path, judges: list[str]) -> int:
              if o["genre"] == n["genre"] and o["run"] == n["run"]
              and o["text"] and n["text"]]
     rng = random.Random(20260927)
-    report = {"date": date.today().isoformat(), "old": old["git"], "new": new["git"],
-              "model": new["model"], "judges": judges, "pairs": []}
+    report = {"date": date.today().isoformat(), "old": old.get("git", old_path.name),
+              "new": new.get("git", new_path.name), "model": new.get("model", ""),
+              "judges": judges, "pairs": []}
     score = {"new": 0, "old": 0, "tie": 0, "?": 0}
     for o, n in pairs:
         seed = SEEDS[o["genre"]]
