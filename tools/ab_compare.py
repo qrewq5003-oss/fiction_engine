@@ -878,8 +878,15 @@ def series_continuity(paths: list[Path], out: Path, judges: list[str], workers: 
     items = []
     for p in paths:
         data = json.loads(p.read_text(encoding="utf-8"))
-        # label — для сравнения двух версий памяти между собой
+        # label — для сравнения двух версий памяти между собой; без него
+        # сторону называют --without и --plan, иначе обе стороны замера
+        # приходят под одним именем и в выводе неразличимы
         side = data.get("label") or ("с памятью" if data.get("memory", True) else "без памяти")
+        if not data.get("label"):
+            if data.get("without"):
+                side += ", без " + ", ".join(data["without"])
+            if data.get("plan_model"):
+                side += ", план"
         for s_ in data["series"]:
             if len(s_["chapters"]) >= 2:
                 items.append(dict(s_, side=side))
