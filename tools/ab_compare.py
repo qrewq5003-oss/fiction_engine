@@ -250,6 +250,10 @@ def _ablate(without: list[str] | None) -> None:
             # Библия серии пишется, но генератору не идёт — меряется блок «пиши ровно так»
             import engine.series_bible as sb
             sb.bible_block = lambda *a, **k: ""
+        elif name == "testimony":
+            # Показания пишутся и сверяются, но генератору не идут
+            import engine.series_bible as sb
+            sb.TESTIMONY_IN_BLOCK = False
         else:
             import engine.unified_engine as ue
             if not hasattr(ue, name):

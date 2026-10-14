@@ -24,9 +24,19 @@ import re
 
 from .db_core import get_conn
 
-KINDS = ("место", "вещь", "событие", "персонаж")
+KINDS = ("место", "вещь", "событие", "персонаж", "показание")
 BLOCK_MAX = 40          # строк в блоке генератору
 KNOWN_MAX = 60          # сущностей в подсказке анализу
+
+# Показания: кто что сказал, видел, знал. Замер плана 14.10 — почти половина
+# противоречий серии здесь: «о сейфе знала только я» → «он видел, как я
+# открывала». Сверка по числам и словам такие утверждения не сравнит, поэтому
+# противоречие отмечает анализ главы (поле contradicts), а библия его хранит и
+# отдаёт генератору: персонаж может солгать или узнать новое, но это должно
+# быть видно в тексте.
+TESTIMONY = "показание"
+TESTIMONY_MAX = 20      # строк показаний в блоке генератору
+TESTIMONY_IN_BLOCK = True   # ab_compare --without testimony
 
 
 def _ensure() -> None:
@@ -168,7 +178,16 @@ def _proper(name: str) -> set[str]:
 
 def resolve_name(known: list[str], kind_known: dict[str, str], kind: str, name: str) -> str:
     """Имя уже известной сущности, если новое — её другое название; иначе само имя."""
-    if kind != "место" or any(_key(k) == _key(name) for k in known):
+    if any(_key(k) == _key(name) for k in known):
+        return name
+    if kind == TESTIMONY:
+        # Показание — по персонажу: «Ирина» = «Ирина Воробьёва». Слова целиком, без
+        # основ: «Лаптев» и «Лаптева» — разные люди
+        words = set(_key(name).split())
+        hits = [k for k in known if kind_known.get(k) == kind
+                and (set(_key(k).split()) <= words or words <= set(_key(k).split()))]
+        return hits[0] if len(hits) == 1 else name
+    if kind != "место":
         return name
     head, prop = _head(name), _proper(name)
     if not prop:
@@ -251,19 +270,39 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
     now = {_fact_key(r["name"], r["attr"]): r for r in facts}
     names = {r["name"]: r["kind"] for r in facts}
     out: dict[str, list] = {"added": [], "changed": [], "conflicts": []}
+    # Кто давал показания в прошлых главах. Противоречие показаний — только с
+    # собой прежним: расхождение разных людей (Лаптев «вернулся ко второму акту»,
+    # капельдинер «не возвращался») — улика, а не ошибка автора
+    earlier = {_key(r["name"]) for r in facts if r["kind"] == TESTIMONY and r["chapter_num"] < chapter_num}
+
+    def said_before(name: str) -> bool:
+        return _key(name) in earlier
 
     def one(e: dict, src: str = "") -> str:
         """Сверить и записать один факт; вернуть, что вышло."""
         k = _fact_key(e["name"], e["attr"])
         old = now.get(k)
         where = f"из «{src}»" if src else ""
+        if e.get("contradicts") and not e["changed"] and said_before(e["name"]):
+            # Анализ главы видит противоречие с известным показанием — даже если
+            # тема названа иначе; прежнее остаётся текущим
+            was = old["value"] if old else e["contradicts"]
+            was_ch = old["chapter_num"] if old else 0
+            _add(project_id, e, chapter_num, "противоречие",
+                 f"было «{was}»" + (f" (гл.{was_ch})" if was_ch else ""))
+            out["conflicts"].append(dict(e, was=was, was_chapter=was_ch, src=src))
+            return "conflict"
         if old is None:
             _add(project_id, e, chapter_num, "введено", where)
             out["added"].append(e)
             result = "added"
         elif _key(old["value"]) == _key(e["value"]):
             return "same"
-        elif not e["changed"] and same_or_refined(old["value"], e["value"]):
+        elif e["kind"] == TESTIMONY and not e["changed"] and not e["contradicts"]:
+            # Новое утверждение о том же, а анализ противоречия не увидел — дополнение
+            _add(project_id, e, chapter_num, "уточнено", f"было «{old['value']}» (гл.{old['chapter_num']})")
+            result = "same"
+        elif not e["changed"] and e["kind"] != TESTIMONY and same_or_refined(old["value"], e["value"]):
             # Уточнение — подробнее прежнего; короче или то же — ничего не пишем
             if len(_key(e["value"])) > len(_key(old["value"])):
                 _add(project_id, e, chapter_num, "уточнено", f"было «{old['value']}» (гл.{old['chapter_num']})")
@@ -285,7 +324,10 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
     for e in entries or []:
         if not isinstance(e, dict):
             continue
-        e = {k: str(e.get(k) or "").strip() for k in ("kind", "name", "attr", "value", "changed")}
+        e = {k: str(e.get(k) or "").strip()
+             for k in ("kind", "name", "attr", "value", "changed", "contradicts")}
+        if e["kind"] != TESTIMONY:
+            e["contradicts"] = ""       # у мест и вещей противоречие решает сверка значений
         if not (e["name"] and e["attr"] and e["value"]):
             continue
         if e["kind"] not in KINDS:
@@ -347,16 +389,30 @@ def bible_block(project_id: int, focus_text: str = "") -> str:
         return any(w[:-1] in focus for w in words) if focus else False
 
     facts.sort(key=lambda r: (not hit(r), -r["chapter_num"]))
-    lines = []
-    for r in facts[:BLOCK_MAX]:
+    said = [r for r in facts if r["kind"] == TESTIMONY][:TESTIMONY_MAX] if TESTIMONY_IN_BLOCK else []
+    facts = [r for r in facts if r["kind"] != TESTIMONY]
+
+    def line(r: dict) -> str:
         note = f" (с гл.{r['chapter_num']}: {r['reason']})" if r["status"] in ("изменено", "автор") and r["reason"] else ""
-        lines.append(f"- {r['name']} — {r['attr']}: {r['value']}{note}")
-    return ("БИБЛИЯ СЕРИИ (пиши ровно так; менять факт можно только событием сюжета, "
-            "и тогда покажи это событие):\n" + "\n".join(lines))
+        return f"- {r['name']} — {r['attr']}: {r['value']}{note}"
+
+    out = []
+    if facts:
+        out.append("БИБЛИЯ СЕРИИ (пиши ровно так; менять факт можно только событием сюжета, "
+                   "и тогда покажи это событие):\n" + "\n".join(line(r) for r in facts[:BLOCK_MAX]))
+    if said:
+        out.append("ПОКАЗАНИЯ — что персонажи уже сказали, видели и знают (персонаж может солгать, "
+                   "передумать или узнать новое, но тогда это видно в тексте — пойман на лжи, "
+                   "узнал от кого-то; молча другое не говорит):\n"
+                   + "\n".join(f"- {r['name']} (гл.{r['chapter_num']}) — {r['attr']}: {r['value']}"
+                               + (f" ({r['reason']})" if r["status"] == "изменено" and r["reason"] else "")
+                               for r in said))
+    return "\n\n".join(out)
 
 
 def conflict_signals(found: list[dict], chapter_num: int) -> list[str]:
-    return [f"Противоречие с библией серии: {c['name']} — {c['attr']}: было «{c['was']}» "
-            f"(гл.{c['was_chapter']}), в главе {chapter_num} «{c['value']}»"
+    return [f"Противоречие с библией серии: {c['name']} — {c['attr']}: было «{c['was']}»"
+            + (f" (гл.{c['was_chapter']})" if c.get("was_chapter") else "")
+            + f", в главе {chapter_num} «{c['value']}»"
             + (f" (в тексте: «{c['src']}»)" if c.get("src") else "")
             + " без события, которое это объясняет." for c in found]

@@ -130,3 +130,49 @@ def test_event_date_time_weekday(project_id):
     record(project_id, [_e("встреча у вдовы", "дата", "среда, четвёртое декабря", kind="событие")], 5)
     r = record(project_id, [_e("встреча у вдовы", "время", "четверг, вечер", kind="событие")], 6)
     assert [c["attr"] for c in r["conflicts"]] == ["день недели"]
+
+
+def test_testimony_conflict_comes_from_analysis(project_id):
+    """Замер плана 14.10: «о сейфе знала только я» → «он видел, как я открывала»."""
+    from engine.series_bible import bible_block, conflicts, current, record
+    t = lambda name, attr, value, **kw: dict(_e(name, attr, value, kind="показание"), **kw)  # noqa: E731
+    record(project_id, [t("Ирина Воробьёва", "кто знал о втором сейфе", "знала только она")], 4)
+    # Другая формулировка без пометки анализа — дополнение, не противоречие
+    r = record(project_id, [t("Ирина", "кто знал о втором сейфе", "знала она, Гордеев не знал")], 5)
+    assert r["conflicts"] == [] and current(project_id)[0]["name"] == "Ирина Воробьёва"
+    # Анализ увидел противоречие — даже под другой темой; прежнее остаётся текущим
+    r = record(project_id, [t("Ирина Воробьёва", "открывала ли сейф при других", "при Лаптеве",
+                              contradicts="о сейфе знала только она")], 6)
+    assert r["conflicts"][0]["was"] == "о сейфе знала только она" and len(conflicts(project_id, 6)) == 1
+    # Причина показана — законное изменение
+    r = record(project_id, [t("Ирина Воробьёва", "кто знал о втором сейфе", "знал и Лаптев",
+                              changed="призналась Вере", contradicts="знала только она")], 7)
+    assert r["changed"] and not r["conflicts"]
+    b = bible_block(project_id, "")
+    assert "ПОКАЗАНИЯ" in b and "Ирина Воробьёва (гл.7) — кто знал о втором сейфе: знал и Лаптев (призналась Вере)" in b
+
+
+def test_testimony_names_whole_words(project_id):
+    from engine.series_bible import current, record
+    record(project_id, [_e("Лаптев", "где был вечером", "в театре", kind="показание")], 3)
+    record(project_id, [_e("Лаптева", "где был вечером", "дома", kind="показание")], 4)
+    assert len(current(project_id)) == 2
+
+
+def test_testimony_left_out_of_block_by_flag(project_id, monkeypatch):
+    from engine import series_bible as sb
+    sb.record(project_id, [_e("Вера", "что видела", "свет в окне", kind="показание"),
+                           _e("контора", "этаж", "второй")], 3)
+    monkeypatch.setattr(sb, "TESTIMONY_IN_BLOCK", False)
+    b = sb.bible_block(project_id, "")
+    assert "ПОКАЗАНИЯ" not in b and "контора — этаж: второй" in b
+    # contradicts у мест не действует — там решает сверка значений
+    assert sb.record(project_id, [dict(_e("контора", "этаж", "второй"), contradicts="x")], 4)["conflicts"] == []
+
+def test_testimony_conflict_only_with_own_earlier_words(project_id):
+    """Улика, а не ошибка: разные люди в одной главе говорят разное."""
+    from engine.series_bible import record
+    t = lambda name, attr, value, c="": dict(_e(name, attr, value, kind="показание"), contradicts=c)  # noqa: E731
+    r = record(project_id, [t("Аркадий Лаптев", "возвращение в театр", "вернулся ко второму акту"),
+                            t("капельдинер", "Лаптев в театре", "не возвращался", "Лаптев: вернулся")], 3)
+    assert r["conflicts"] == []

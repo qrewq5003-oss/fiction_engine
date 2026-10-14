@@ -462,7 +462,7 @@ def _merge_bible(entries: list, project_id: int, chapter_num: int, ch: _Changes)
     for e in got["conflicts"]:
         # Видно автору в списке изменений; в библию как текущее значение не идёт
         ch.add(f"⚠ Противоречие с библией: {e['name']} — {e['attr']}",
-               f"{e['was']} (гл.{e['was_chapter']})", e["value"])
+               e["was"] + (f" (гл.{e['was_chapter']})" if e.get("was_chapter") else ""), e["value"])
     ch.bible_conflicts += got["conflicts"]
 
 
