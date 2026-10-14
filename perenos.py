@@ -9,6 +9,7 @@ perenos.py — перенос данных Fiction Engine и Планировщ�
   python perenos.py pack   [архив.zip]   — собрать на старой машине
   python perenos.py unpack  архив.zip    — разложить на новой (из корня репозитория)
   python perenos.py init                 — .env и база, если их ещё нет (setup_windows.bat)
+  python perenos.py wait 5000 5001       — ждать, пока приложения ответят (start_all.bat)
 
 В архиве ключи API: передавать флешкой или кабелем, не выкладывать в сеть.
 Существующие файлы на новой машине не затираются — откладываются с
@@ -148,6 +149,28 @@ def init() -> None:
     print(f"  ✓ база {HOME_FE / 'projects.db'}")
 
 
+def wait(ports: list[int], timeout: float = 120) -> bool:
+    """Ждать ответа приложений: Fiction Engine поднимается дольше планировщика."""
+    import time
+    import urllib.error
+    import urllib.request
+    left = set(ports)
+    end = time.monotonic() + timeout
+    while left and time.monotonic() < end:
+        for p in sorted(left):
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{p}/", timeout=2)
+                left.discard(p)
+            except urllib.error.HTTPError:
+                left.discard(p)         # ответил — пусть и ошибкой или входом
+            except OSError:
+                pass
+        time.sleep(1)
+    for p in sorted(left):
+        print(f"  ✗ порт {p} не ответил за {int(timeout)} с — смотри текст ошибки в его окне")
+    return not left
+
+
 def main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[1] == "pack":
         pack(Path(argv[2]) if len(argv) > 2
@@ -156,6 +179,8 @@ def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[1] == "init":
         init()
         return 0
+    if len(argv) >= 3 and argv[1] == "wait":
+        return 0 if wait([int(p) for p in argv[2:]]) else 1
     if len(argv) == 3 and argv[1] == "unpack":
         unpack(Path(argv[2]))
         return 0
