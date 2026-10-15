@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Планировщик{% endblock %}</title>
 <style>
@@ -156,11 +157,13 @@ function showToast(msg, type='success') {
   setTimeout(() => t.style.display = 'none', 2500);
 }
 
+function csrfToken() { return document.querySelector('meta[name=csrf-token]').content; }
+
 async function apiPost(url, data) {
   try {
     const r = await fetch(url, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json', 'X-CSRF-Token': csrfToken()},
       body: JSON.stringify(data)
     });
     return await r.json();

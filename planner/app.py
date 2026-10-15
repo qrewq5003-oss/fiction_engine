@@ -22,6 +22,10 @@ if not _secret:
 app.secret_key = _secret
 del _secret
 
+# Вход по паролю и CSRF — web/security.py
+from web.security import check_host, init_security
+init_security(app)
+
 # ─── Init DB ─────────────────────────────────────────────────────────────────
 from engine.db import init_db
 init_db()
@@ -60,12 +64,12 @@ def switch_project(pid):
 
 
 if __name__ == "__main__":
-    # По умолчанию слушаем только петлю: у приложения нет аутентификации,
-    # а 0.0.0.0 открывает его всей локальной сети. Для доступа с телефона
-    # (Tailscale) задайте PLANNER_HOST=0.0.0.0 осознанно.
+    # По умолчанию слушаем только петлю. Для доступа с телефона (Tailscale) —
+    # PLANNER_HOST=0.0.0.0 и пароль: без него не на петле не запускаемся.
     host = os.environ.get("PLANNER_HOST", "127.0.0.1")
     port = int(os.environ.get("PLANNER_PORT", "5001"))
+    why = check_host(host)
+    if why:
+        raise SystemExit(why)
     print(f"Планировщик запускается на http://{host}:{port}")
-    if host == "0.0.0.0":
-        print("  ВНИМАНИЕ: слушаем все интерфейсы, аутентификации нет.")
     app.run(debug=False, host=host, port=port)

@@ -49,11 +49,14 @@ def project_id():
 
 
 @pytest.fixture
-def client(temp_db):
-    """Flask-клиент планировщика."""
+def client(temp_db, monkeypatch):
+    """Flask-клиент планировщика: без пароля и без проверки CSRF (её — test_security)."""
+    monkeypatch.delenv("PLANNER_PASSWORD", raising=False)
+    monkeypatch.delenv("FE_PASSWORD", raising=False)
     import app as planner_app
     planner_app.app.config["TESTING"] = True
     planner_app.app.config["SECRET_KEY"] = "test"
+    planner_app.app.config["PLANNER_CSRF"] = False
     return planner_app.app.test_client()
 
 
