@@ -204,8 +204,47 @@ def series_signals(text: str, previous: list[dict]) -> list[str]:
             out.append(f"Дословный повтор из главы {p['number']}: «{sorted(same)[0]}…» — "
                        f"пересказ уже написанного?")
             break
+    out += _dialogue_format_signals(text, prev)
     out += _name_signals(text, prev)
     return out
+
+
+# ─── Формат диалога ──────────────────────────────────────────────────────────
+#
+# Замер 15.10 (bench/ab-voice-drift-2026-10-15.json, tools/voice_drift.py):
+# DeepSeek меняет оформление реплик от главы к главе — в одной главе через
+# тире с абзаца, в соседней в кавычках («…», — сказал он): так в 21 серии
+# из 36, 28 глав из 144 не в формате своей серии. У GLM — 3 серии из 10, у
+# Sonnet — ни одной из 8. Видно по самому тексту, без модели.
+
+DIALOGUE_MIN_LINES = 5          # меньше реплик — формат главы не определяем
+
+
+def dialogue_format(text: str) -> str:
+    """«тире» — реплики с абзаца через тире, «кавычки» — абзацы с «…», «» — не понять."""
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    dash = sum(1 for l in lines if l.startswith(("—", "–")))
+    quote = sum(1 for l in lines if l.startswith("«"))
+    if dash >= DIALOGUE_MIN_LINES and dash >= 2 * quote:
+        return "тире"
+    if quote >= DIALOGUE_MIN_LINES and quote >= 2 * dash:
+        return "кавычки"
+    return ""
+
+
+def _dialogue_format_signals(text: str, prev: list[dict]) -> list[str]:
+    cur = dialogue_format(text)
+    before = [(p["number"], dialogue_format(p["content"])) for p in prev]
+    before = [(n, f) for n, f in before if f]
+    if not cur or not before:
+        return []
+    usual = max({f for _, f in before}, key=lambda f: sum(1 for _, g in before if g == f))
+    if cur == usual:
+        return []
+    nums = [n for n, f in before if f == usual]
+    where = f"главе {nums[0]}" if len(nums) == 1 else f"главах {nums[0]}–{nums[-1]}"
+    how = {"тире": "через тире с абзаца", "кавычки": "в кавычках"}
+    return [f"Диалог оформлен {how[cur]}, а в {where} — {how[usual]}: приведите к одному виду."]
 
 
 # ─── Имена и отчества ────────────────────────────────────────────────────────
