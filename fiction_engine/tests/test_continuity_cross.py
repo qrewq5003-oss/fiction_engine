@@ -238,3 +238,43 @@ def test_fix_settings_api(client):
     assert r["model"] == SONNET
     assert client.get("/api/continuity/fix-model").get_json()["model"] == SONNET
     assert client.post("/api/continuity/fix-model", json={"model": ""}).get_json()["model"] == ""
+
+
+def test_second_round_fixes_what_recheck_found(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    scarf = [{"chapter_a": 3, "quote_a": "красно-чёрный клетчатый шарф",
+              "quote_b": "зелёно-сером шарфе", "what": "цвет шарфа"}]
+    seen = []
+
+    def call(model, system, user, max_tokens=None):
+        seen.append(model)
+        if model == SONNET:
+            if "цвет шарфа" in user:
+                return json.dumps({"edits": [{"old": "в зелёно-сером шарфе", "new": "в красно-чёрном шарфе"}]},
+                                  ensure_ascii=False)
+            return json.dumps({"edits": [{"old": "Вера поднялась на третий этаж к квартире вдовы",
+                                          "new": FIXED}]}, ensure_ascii=False)
+        if "красно-чёрном шарфе" in user:
+            return json.dumps({"contradictions": []})
+        return json.dumps({"contradictions": scarf if FIXED in user else FLOOR}, ensure_ascii=False)
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", call)
+    assert FIXED in text and "красно-чёрном шарфе" in text
+    assert seen == [SOL, SONNET, SOL, SONNET, SOL]        # два круга правки
+    assert sig == ["Правка непрерывности (claude-sonnet-5-5): противоречий с прошлыми главами 2, "
+                   "замен 2, кругов 2; не осталось."]
+
+
+def test_rounds_are_capped(project_id):
+    from engine.continuity_checker import CROSS_FIX_ROUNDS, cross_check_and_fix
+    _setup(project_id)
+    calls = []
+
+    def call(model, system, user, max_tokens=None):
+        calls.append(model)
+        if model == SONNET:      # каждый раз правит, но проверка всё время что-то находит
+            n = sum(1 for m in calls if m == SONNET)
+            return json.dumps({"edits": [{"old": "квартире вдовы", "new": f"квартире вдовы{' ' * n}"}]})
+        return json.dumps({"contradictions": FLOOR}, ensure_ascii=False)
+    cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", call)
+    assert calls.count(SONNET) == CROSS_FIX_ROUNDS

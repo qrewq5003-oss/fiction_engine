@@ -499,6 +499,13 @@ def cross_check_signals(project_id: int, chapter_num: int, text: str, model_gen:
 
 CONTINUITY_FIX_MODEL_KEY = "continuity_fix_model"
 
+# Второй круг (тот же замер, bench/ab-continuity-fix-r2): перепроверка после
+# правки находит ещё противоречия — за проход проверяющий видит не всё. Правка
+# по ним снимает 47 из 49, проза по судье не хуже (8 : 7), изменено 0.9 %
+# слов. Круг идёт, только если после прошлого что-то осталось; третий круг
+# не мерили.
+CROSS_FIX_ROUNDS = 2
+
 
 def continuity_fix_model() -> str:
     """Модель правки по находкам проверки; «» — правки нет, только сигналы."""
@@ -545,21 +552,33 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
         return text, head + format_cross_signals(found)
 
     from .continuity_fix import SYS_FIX, fix_contradictions
-    try:
-        res = fix_contradictions(chapter_num, text, found, prev, lambda p: call_fn(
-            fixer, SYS_FIX, p, max_tokens=_budget(fixer, 8000)))
-    except Exception as e:
-        handle_error(f"continuity_fix {where}", e, level=ErrorLevel.RECOVERABLE)
+    total = edits = rounds = 0
+    left = found
+    while left and rounds < CROSS_FIX_ROUNDS:
+        try:
+            res = fix_contradictions(chapter_num, text, left, prev, lambda p: call_fn(
+                fixer, SYS_FIX, p, max_tokens=_budget(fixer, 8000)))
+        except Exception as e:
+            handle_error(f"continuity_fix {where}", e, level=ErrorLevel.RECOVERABLE)
+            break
+        if not res["applied"]:
+            break
+        text, rounds = res["text"], rounds + 1
+        total, edits = total + len(left), edits + len(res["applied"])
+        try:
+            left = against_previous(text)
+        except Exception as e:
+            handle_error(f"cross_check_signals (перепроверка) {where}", e, level=ErrorLevel.RECOVERABLE)
+            done = _fix_summary(fixer, total, edits, rounds)
+            return text, head + [done + "; перепроверка не удалась — проверь эти места:"] + \
+                format_cross_signals(left)
+    if not rounds:
         return text, head + format_cross_signals(found)
-    if not res["applied"]:
-        return text, head + format_cross_signals(found)
-    done = (f"Правка непрерывности ({fixer.split('::')[-1]}): противоречий с прошлыми главами "
-            f"{len(found)}, замен {len(res['applied'])}")
-    try:
-        left = against_previous(res["text"])
-    except Exception as e:
-        handle_error(f"cross_check_signals (перепроверка) {where}", e, level=ErrorLevel.RECOVERABLE)
-        return res["text"], head + [done + "; перепроверка не удалась — проверь эти места:"] + \
-            format_cross_signals(found)
-    return res["text"], head + [done + (f"; осталось {len(left)}:" if left else "; не осталось.")] + \
+    done = _fix_summary(fixer, total, edits, rounds)
+    return text, head + [done + (f"; осталось {len(left)}:" if left else "; не осталось.")] + \
         format_cross_signals(left)
+
+
+def _fix_summary(fixer: str, total: int, edits: int, rounds: int) -> str:
+    return (f"Правка непрерывности ({fixer.split('::')[-1]}): противоречий с прошлыми главами "
+            f"{total}, замен {edits}" + (f", кругов {rounds}" if rounds > 1 else ""))
