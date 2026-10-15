@@ -98,7 +98,8 @@ def generate_run():
                      gen_id=gen_id, warning=result["warning"],
                      truncated=result.get("truncated", False),
                      cut_reason=result.get("cut_reason", ""),
-                     word_count=result.get("word_count", 0))
+                     word_count=result.get("word_count", 0),
+                     continuity=result.get("continuity"))
 
         except Exception as e:
             _set_job(job_id, status="error", error=_classify_api_error(str(e)))
@@ -125,6 +126,8 @@ def generate_status(job_id):
         "truncated":  job.get("truncated", False),
         "cut_reason": job.get("cut_reason", ""),
         "word_count": job.get("word_count", 0),
+        # Карточка главы: проверка непрерывности и правка по её находкам
+        "continuity": job.get("continuity"),
     })
 
 

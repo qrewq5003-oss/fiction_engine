@@ -1,0 +1,52 @@
+{# Карточка главы: итог проверки непрерывности и правки по её находкам.
+   Общая для генерации и конвейера; данные — поле continuity ответа
+   (engine.continuity_checker.cross_check_and_fix, report). #}
+<script>
+function _esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// Карточка главы: что нашла проверка непрерывности, что поправил правщик, что осталось
+function showContinuityCard(c, cardId = 'continuity-card') {
+  const card = document.getElementById(cardId);
+  if (!c) { card.style.display = 'none'; return; }
+  const short = m => (m || '').split('::').pop();
+  const found = c.found || [], edits = c.edits || [], left = c.left || [];
+  let head, color;
+  if (!found.length) { head = '✓ Противоречий с прошлыми главами не найдено'; color = 'var(--success)'; }
+  else if (c.rounds) {
+    head = `🔧 Исправлено: замен ${edits.length}` + (c.rounds > 1 ? `, кругов ${c.rounds}` : '') +
+           (c.recheck_failed ? ' — перепроверка не удалась' : left.length ? ` — осталось ${left.length}` : ' — не осталось');
+    color = left.length || c.recheck_failed ? 'var(--warning)' : 'var(--success)';
+  } else { head = `⚠ Противоречий с прошлыми главами: ${found.length}`; color = 'var(--warning)'; }
+  let html = `<div style="font-weight:700;color:${color};">🔎 Непрерывность. ${_esc(head)}</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px;">Проверял ${_esc(short(c.checker))}` +
+    (c.rounds ? `, правил ${_esc(short(c.fixer))}` : '') + `</div>`;
+  if (c.note) html += `<div style="font-size:12px;color:var(--warning);margin-top:6px;">${_esc(c.note)}</div>`;
+  if (edits.length) {
+    html += `<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:12px;">Что заменено (${edits.length})</summary>`;
+    let lastWhat = null;
+    edits.forEach(e => {
+      if (e.what !== lastWhat) {
+        html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px;">${c.rounds > 1 ? `Круг ${e.round}. ` : ''}${_esc(e.what)}</div>`;
+        lastWhat = e.what;
+      }
+      html += `<div style="font-size:12px;margin:4px 0 6px 8px;border-left:2px solid var(--border);padding-left:8px;">
+        <div style="color:var(--error);text-decoration:line-through;opacity:.8;">${_esc(e.old)}</div>
+        <div style="color:var(--success);">${_esc(e.new)}</div></div>`;
+    });
+    html += `</details>`;
+  }
+  const rest = c.rounds ? left : found;
+  if (rest.length) {
+    html += `<div style="font-size:12px;font-weight:600;margin-top:8px;">${c.rounds ? 'Осталось — проверь сам' : 'Найдено'}:</div>`;
+    rest.forEach(x => {
+      html += `<div style="font-size:12px;margin:4px 0 0 8px;">Глава ${_esc(x.chapter_a)}: ${_esc(x.what)}
+        <div style="color:var(--text2);">«${_esc(x.quote_a)}» — здесь «${_esc(x.quote_b)}»</div></div>`;
+    });
+  }
+  card.innerHTML = html;
+  card.style.display = 'block';
+}
+
+</script>

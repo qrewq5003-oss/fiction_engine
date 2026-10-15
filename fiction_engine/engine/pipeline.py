@@ -202,7 +202,11 @@ def _execute_steps(
             # Сверка с прошлыми главами и, если выбран правщик, правка на месте —
             # отдельной итерацией, чтобы в истории прогона была видна и исходная глава
             from .continuity_checker import continuity_fix_model, cross_check_and_fix
-            fixed, cross = cross_check_and_fix(project_id, chapter_num, gen_text, model_gen, step_call)
+            continuity: dict = {}
+            fixed, cross = cross_check_and_fix(project_id, chapter_num, gen_text, model_gen, step_call,
+                                               report=continuity)
+            if continuity:
+                results["continuity"] = continuity
             if fixed != gen_text:
                 from .db import save_pipeline_iteration
                 save_pipeline_iteration(run_id, iteration, "continuity_fix", continuity_fix_model(),

@@ -139,6 +139,7 @@
           ▶️ Продолжить главу
         </button>
       </div>
+      <div id="pl-continuity-card" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;"></div>
       <div id="result-text"
            style="white-space:pre-wrap;font-family:'Georgia',serif;font-size:14px;
                   line-height:1.8;max-height:500px;overflow-y:auto;
@@ -270,6 +271,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% include '_continuity_card.html' %}
 <script>
 let state = {
   runId: null,
@@ -388,6 +390,11 @@ function showResults(data) {
   // Короткую главу движок дописал сам вторым запросом — сказать об этом
   if (data.extended) showToast('📏 ' + data.extended, 'info', 6000);
   if (data.foreign_words) showToast('🔤 ' + data.foreign_words, 'info', 6000);
+  // Проверка непрерывности и правка — карточкой над текстом главы; итог
+  // правки и оставшиеся противоречия не дублируются во всплывающем сигнале
+  showContinuityCard(data.continuity, 'pl-continuity-card');
+  const contSig = s => /^(Противоречие с главой|Правка непрерывности|Проверка непрерывности:)/.test(s);
+  if (data.continuity && data.text_signals) data.text_signals = data.text_signals.filter(s => !contSig(s));
   // Сигналы по самому тексту главы (цепочки — среди них)
   if (data.text_signals && data.text_signals.length)
     showToast('🔎 ' + data.text_signals.join(' · '), 'info', 12000);
