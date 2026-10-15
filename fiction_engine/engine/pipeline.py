@@ -202,6 +202,8 @@ def _execute_steps(
             # Повторы относительно прошлых глав проекта — сигнал автору
             from .text_signals import previous_chapters, series_signals
             series = series_signals(gen_text, previous_chapters(project_id, chapter_num))
+            from .continuity_checker import cross_check_signals
+            series += cross_check_signals(project_id, chapter_num, gen_text, model_gen, step_call)
             if series:
                 results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,

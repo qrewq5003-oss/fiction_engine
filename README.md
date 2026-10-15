@@ -188,6 +188,7 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `FE_URL` | Адрес Fiction Engine для планировщика | `http://127.0.0.1:5000` |
 | `ANTHROPIC_API_KEY` | Ключ Anthropic, если не хранить в базе | — |
 | `FE_CLAUDE_SUBSCRIPTION` | `1` — модели Claude через подписку Claude Code (`claude` CLI, `claude login`); см. ниже | выключено |
+| `FE_CHATGPT_SUBSCRIPTION` | `1` — модели GPT через подписку ChatGPT (`codex` CLI, `codex login`); см. ниже | выключено |
 | `OPENAI_API_KEY` | Ключ OpenAI | — |
 | `GEMINI_API_KEY` | Ключ Google Gemini | — |
 | `DEEPSEEK_API_KEY` | Ключ DeepSeek | — |
@@ -220,6 +221,29 @@ Opus и Haiku, которые вызываются через установле
 - **Ограничения CLI:** нет управления температурой; продолжение главы
   (prefill) эмулируется просьбой продолжить с места; каждый вызов —
   отдельный процесс, на секунды медленнее API.
+
+### GPT через подписку ChatGPT — только для себя
+
+При `FE_CHATGPT_SUBSCRIPTION=1` в списке моделей появляются GPT-6.1 Sol,
+GPT-6 Astra и GPT-6 Luna через Codex CLI: расход — с подписки ChatGPT
+Plus/Pro. Установка и вход:
+
+```bat
+npm.cmd install -g @openai/codex
+codex.cmd login
+```
+
+(вход — «Sign in with ChatGPT»). В имени модели после `@` — глубина
+размышления: `chatgpt_subscription::gpt-6.1-sol@high`.
+
+- **Риски и лимит — как у Claude через подписку**: условия OpenAI, лимит
+  общий с Codex (окно 5 часов и неделя; отсчёт — с первого вызова, а не
+  по календарю). Остаток: `engine.api.chatgpt_limits()`. Вызовы — по одному.
+- **Codex — агент**, поэтому он запускается в пустой временной папке,
+  с песочницей read-only, выключенными инструментами, без `config.toml` и
+  без сохранения сессии; вызов инструмента — ошибка. Служебный промпт
+  Codex всё равно добавляет к каждому вызову около 7.6 тыс. токенов.
+- **Ограничения:** нет температуры и потолка длины ответа.
 
 ## Разработка
 

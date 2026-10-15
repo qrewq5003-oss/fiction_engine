@@ -292,6 +292,18 @@ def resolver_model_set():
     return jsonify({"ok": True})
 
 
+@app.route("/api/continuity/model", methods=["GET", "POST"])
+def continuity_model_api():
+    """Модель проверки непрерывности после главы; «» — выключено."""
+    from engine.continuity_checker import CONTINUITY_MODEL_KEY, continuity_model, same_family_note
+    from engine.db import get_setting, set_setting
+    if request.method == "POST":
+        set_setting(CONTINUITY_MODEL_KEY, str((request.json or {}).get("model", "")).strip())
+    model = continuity_model()
+    return jsonify({"ok": True, "model": model,
+                    "note": same_family_note(get_setting("model") or "", model)})
+
+
 @app.route("/api/settings/prevalidation", methods=["GET"])
 def prevalidation_get():
     from engine.db import get_setting
