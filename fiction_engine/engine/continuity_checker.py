@@ -311,12 +311,18 @@ def format_continuity_for_prompt(violations: list[dict]) -> str:
 # парой цитат. Цитаты проверяются по тексту: что не найдено — отброшено, так
 # что выдумать противоречие модель не может.
 #
-# К генерации НЕ подключено. Замер 13.10 (bench/ab-continuity-cross-2026-10-13.json,
+# К генерации подключено только по выбору автора — см. cross_check_signals ниже. Замер 13.10 (bench/ab-continuity-cross-2026-10-13.json,
 # 36 глав из 12 серий, разметка находок судьёй Sonnet 5.5): настоящих у
 # DeepSeek V4 Pro 21 из 70 (30 %), у Kimi K2.5 7 из 50; из 135 противоречий
 # Sonnet поймано 17 и 5. Узкий промпт (только «проверяемые факты»): 9 находок,
 # настоящая одна. Сигнал, который в двух случаях из трёх ошибается, автору
 # хуже, чем никакого.
+#
+# Проверяющий другого семейства, чем писатель (14.10,
+# bench/ab-continuity-sonnet-2026-10-14.json): Sonnet 5.5 на 24 главах
+# DeepSeek — 108 находок, настоящих по Kimi 77 %, по Opus 84 %, по обоим 70 %;
+# из 63 противоречий, которые Sonnet находит, читая серию целиком, поймано 43.
+# GLM 5.2 там же — 42 % и 3 из 66. Годится только сильный проверяющий.
 
 CROSS_LOOKBACK = 3            # сколько прошлых глав показывать целиком
 CROSS_PREV_CHARS = 60000      # потолок на прошлые главы, старшие отрезаются первыми
@@ -396,3 +402,62 @@ def format_cross_signals(found: list[dict]) -> list[str]:
     """Сигналы автору: «Противоречие с главой N: …»."""
     return [f"Противоречие с главой {x['chapter_a']}: {x['what']} («{x['quote_a']}» — "
             f"здесь «{x['quote_b']}»)." for x in found]
+
+
+# ─── Проверка после генерации: подключение к движку ──────────────────────────
+#
+# Выключена, пока автор не выбрал модель («Настройки → Проверка
+# непрерывности», ключ continuity_model). Слабый проверяющий даёт сигнал,
+# который чаще ошибается, чем нет (DeepSeek 30 %, GLM 42 %, GPT-6 Luna — по
+# обоим судьям 2 из 33), поэтому без выбора автора вызова нет.
+#
+# Замер 15.10 (bench/ab-continuity-gpt-2026-10-15.json): GPT-6.1 Sol через
+# подписку ChatGPT — по обоим судьям 84 % настоящих, полнота 42 из 68; Sonnet
+# 5.5 — 70 % и 43 из 63. Проверяющий того же семейства, что писатель, не
+# замерен; модель склонна не видеть собственных ошибок, поэтому — предупреждение.
+
+CONTINUITY_MODEL_KEY = "continuity_model"
+_SYS_CROSS = "Ты строгий литературный редактор серии. Отвечаешь только JSON."
+
+
+def continuity_model() -> str:
+    """Модель проверки непрерывности из настроек; «» — проверка выключена."""
+    from .db_settings import get_setting
+    return (get_setting(CONTINUITY_MODEL_KEY) or "").strip()
+
+
+def same_family_note(model_gen: str, model_check: str) -> str:
+    """Предупреждение, если проверяющий из того же семейства, что писатель; иначе «»."""
+    from .pipeline_config import model_family
+    if not model_gen or not model_check or model_family(model_gen) != model_family(model_check):
+        return ""
+    return (f"Проверка непрерывности: проверяющий ({model_check.split('::')[-1]}) из того же "
+            f"семейства, что писатель — свои ошибки модель видит хуже. Надёжнее проверяющий "
+            f"другого семейства («Настройки → Проверка непрерывности»).")
+
+
+def cross_check_signals(project_id: int, chapter_num: int, text: str, model_gen: str,
+                        call_fn: Callable[..., str]) -> list[str]:
+    """
+    Сигналы автору по сверке новой главы с текстом прошлых: до CROSS_MAX
+    противоречий парами цитат. call_fn(model, system, user, max_tokens=…) -> str.
+    Модель не выбрана, прошлых глав нет или вызов упал — пустой список.
+    """
+    model = continuity_model()
+    if not model or not project_id or not (text or "").strip():
+        return []
+    from .text_signals import previous_chapters
+    prev = previous_chapters(project_id, chapter_num, CROSS_LOOKBACK)
+    if not prev:
+        return []
+    # Подписка Claude тратит бюджет и на скрытое размышление, как у судей
+    mt = 32000 if model.startswith("claude_subscription::") else 4000
+    try:
+        found = check_against_chapters(chapter_num, text, prev,
+                                       lambda p: call_fn(model, _SYS_CROSS, p, max_tokens=mt))
+    except Exception as e:
+        handle_error(f"cross_check_signals ({project_id}, ch{chapter_num})", e,
+                     level=ErrorLevel.RECOVERABLE)
+        return []
+    note = same_family_note(model_gen, model)
+    return ([note] if note and found else []) + format_cross_signals(found)

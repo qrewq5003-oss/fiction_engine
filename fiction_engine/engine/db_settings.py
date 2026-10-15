@@ -76,6 +76,9 @@ def get_api_key(provider: str) -> str | None:
         # и Docker; без него — текущий `claude login` на этой машине
         return (_get_api_key_from_db(provider)
                 or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or "claude-cli")
+    if provider == "chatgpt_subscription":        # вход — `codex login`, ключа нет
+        from .api import chatgpt_subscription_enabled
+        return "codex-cli" if chatgpt_subscription_enabled() else None
     result = _get_api_key_from_db(provider)
     if result:
         return result
