@@ -103,6 +103,8 @@
 {% block scripts %}
 <script>
 async function loadQualityGraph() {
+  // Без глав блока графика на странице нет — он рисуется только при главах
+  if (!document.getElementById('quality-loading')) return;
   const r = await fetch('/api/quality/graph').then(x => x.json()).catch(() => null);
   document.getElementById('quality-loading').style.display = 'none';
 

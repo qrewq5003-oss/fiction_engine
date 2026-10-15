@@ -11,7 +11,8 @@ from collections import Counter
 
 
 # Потолки State в промпте — общие с конвейером (pipeline_context)
-from .pipeline_context import MEMORY_RAW_MAX_CHARS, PLOT_RAW_MAX_CHARS, STATE_RAW_MAX_CHARS  # noqa: E402
+from .pipeline_context import (DIRECTOR_MARKER, MEMORY_RAW_MAX_CHARS,  # noqa: E402
+                               PLOT_RAW_MAX_CHARS, STATE_RAW_MAX_CHARS)
 
 
 def _trunc(text: str, limit: int) -> str:
@@ -275,7 +276,7 @@ def _genre_rules(genre: str) -> str:
 def _director_block(note: str | None) -> str:
     if not note:
         return ""
-    return f"ЗАМЕТКА ДЛЯ ЭТОЙ ГЛАВЫ (от редактора после предыдущей):\n{note}\n\n"
+    return f"{DIRECTOR_MARKER}\n{note}\n\n"
 
 
 # ─── Шаблоны промптов ─────────────────────────────────────────────────────────

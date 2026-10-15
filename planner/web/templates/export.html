@@ -23,6 +23,20 @@
         {% endfor %}
       </div>
       {% endfor %}
+      {# Сцены без акта (или с удалённым актом): на доске они в группе «Без
+         акта», а здесь их не было совсем — такую сцену нельзя было отправить #}
+      {% if loose %}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Без акта</div>
+        {% for s in loose %}
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);margin-bottom:4px;">
+          <input type="checkbox" class="scene-check" value="{{ s.id }}" style="width:auto;">
+          <span style="font-size:12px;">{{ s.title or 'Сцена #'+s.id|string }}</span>
+          {% if s.characters %}<span style="font-size:10px;color:var(--text2);">{{ s.characters }}</span>{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
 
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button class="btn btn-primary" style="flex:1;" onclick="generatePrompt()">Сгенерировать промт</button>

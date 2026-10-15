@@ -57,6 +57,23 @@ def get_current_project():
     return get_project(pid) if pid else None
 
 
+@app.context_processor
+def _sidebar_context():
+    """
+    Текущий проект и список проектов — в каждый шаблон: боковая панель и
+    заголовок base.html читают их на любой странице. Раньше их передавали
+    только главная и «Идеи»: на остальных список «Проекты» был пуст, а на
+    «Оценке», «Символах», «Настройках» не было и карточки проекта.
+    Аргументы render_template этого маршрута важнее.
+    """
+    try:
+        return {"current": get_current_project(), "projects": get_projects()}
+    except Exception as e:
+        from web.blueprints.helpers import log_web_error
+        log_web_error("контекст боковой панели", e)
+        return {}
+
+
 # ─── Регистрация blueprints ──────────────────────────────────────────────────
 
 from web.blueprints.chapters  import bp as chapters_bp

@@ -39,17 +39,33 @@ app.register_blueprint(main_bp)
 app.register_blueprint(scene_bp)
 app.register_blueprint(api_bp)
 
-# ─── Context processor ───────────────────────────────────────────────────────
+# ─── Текущий проект ──────────────────────────────────────────────────────────
+# Выбирается до обработчика, а не при отрисовке шаблона. Раньше первый проект
+# подставлялся только в контекст шаблона: в новой сессии панель показывала
+# проект выбранным, а «Доска» уводила на список проектов — маршруты читают
+# session["project_id"], который ещё не был задан.
+@app.before_request
+def ensure_current_project():
+    # Только страницы: запросы /api/ идут со страницы, где проект уже выбран,
+    # а часть из них доказанно не обращается к базе (tests/test_ownership.py)
+    if request.path.startswith(("/api/", "/static/")):
+        return
+    from engine.db import get_projects, get_project
+    pid = session.get("project_id")
+    if pid and get_project(pid):
+        return
+    projects = get_projects()
+    if projects:
+        session["project_id"] = projects[0]["id"]
+    else:
+        session.pop("project_id", None)
+
+
 @app.context_processor
 def inject_globals():
     from engine.db import get_projects, get_project
-    projects = get_projects()
     current_id = session.get("project_id")
-    current = get_project(current_id) if current_id else None
-    if not current and projects:
-        current = projects[0]
-        session["project_id"] = current["id"]
-    return {"projects": projects, "current": current}
+    return {"projects": get_projects(), "current": get_project(current_id) if current_id else None}
 
 
 @app.route("/")
