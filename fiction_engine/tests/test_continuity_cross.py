@@ -143,3 +143,98 @@ def test_settings_api(client):
     assert r.get_json()["model"] == "claude_subscription::claude-sonnet-5-5"
     assert client.get("/api/continuity/model").get_json()["model"] == "claude_subscription::claude-sonnet-5-5"
     assert client.post("/api/continuity/model", json={"model": ""}).get_json()["model"] == ""
+
+
+# ─── Правка по находкам: только с выбранным правщиком ────────────────────────
+
+SOL = "chatgpt_subscription::gpt-6.1-sol@medium"
+SONNET = "claude_subscription::claude-sonnet-5-5"
+FIXED = "Вера поднялась на второй этаж к квартире вдовы"
+
+
+def _check_then_fix(seen, left_after_fix=()):
+    """Проверяющий: на исходном тексте — FLOOR, на правленом — left_after_fix; правщик — одна замена."""
+    def call(model, system, user, max_tokens=None):
+        seen.append(model)
+        if model == SONNET:
+            return json.dumps({"edits": [{"old": "Вера поднялась на третий этаж к квартире вдовы",
+                                          "new": FIXED}]}, ensure_ascii=False)
+        items = list(left_after_fix) if FIXED in user else FLOOR
+        return json.dumps({"contradictions": items}, ensure_ascii=False)
+    return call
+
+
+def _setup(project_id, fixer=SONNET):
+    from engine.db_projects import save_chapter
+    from engine.db_settings import set_setting
+    save_chapter(project_id, 3, CH3, "")
+    set_setting("continuity_model", SOL)
+    set_setting("continuity_fix_model", fixer)
+
+
+def test_fixer_edits_and_rechecks(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    seen = []
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix(seen))
+    assert FIXED in text and "третий этаж" not in text
+    assert seen == [SOL, SONNET, SOL]            # проверка → правка → перепроверка
+    assert len(sig) == 1 and "замен 1; не осталось" in sig[0]
+
+
+def test_what_fix_did_not_remove_stays_a_signal(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    scarf = [{"chapter_a": 3, "quote_a": "красно-чёрный клетчатый шарф",
+              "quote_b": "зелёно-сером шарфе", "what": "цвет шарфа"}]
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix([], scarf))
+    assert FIXED in text and "осталось 1" in sig[0] and "цвет шарфа" in sig[1]
+
+
+def test_no_fixer_signals_only(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id, fixer="")
+    seen = []
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix(seen))
+    assert text == CH4 and seen == [SOL] and sig[0].startswith("Противоречие с главой 3")
+
+
+def test_fixer_failure_keeps_text_and_signals(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    base = _check_then_fix([])
+
+    def call(model, system, user, max_tokens=None):
+        if model == SONNET:
+            raise RuntimeError("claude: limit")
+        return base(model, system, user, max_tokens)
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", call)
+    assert text == CH4 and sig[0].startswith("Противоречие с главой 3")
+
+
+def test_recheck_failure_keeps_fix_and_original_signals(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    base = _check_then_fix([])
+
+    def call(model, system, user, max_tokens=None):
+        if model == SOL and FIXED in user:
+            raise RuntimeError("codex: limit")
+        return base(model, system, user, max_tokens)
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", call)
+    assert FIXED in text and "перепроверка не удалась" in sig[0] and "этаж квартиры" in sig[1]
+
+
+def test_cross_check_signals_never_fixes(project_id):
+    from engine.continuity_checker import cross_check_signals
+    _setup(project_id)
+    seen = []
+    cross_check_signals(project_id, 4, CH4, "nano_gpt::x", _check_then_fix(seen))
+    assert seen == [SOL]
+
+
+def test_fix_settings_api(client):
+    r = client.post("/api/continuity/fix-model", json={"model": SONNET}).get_json()
+    assert r["model"] == SONNET
+    assert client.get("/api/continuity/fix-model").get_json()["model"] == SONNET
+    assert client.post("/api/continuity/fix-model", json={"model": ""}).get_json()["model"] == ""

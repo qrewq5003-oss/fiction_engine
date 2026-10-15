@@ -304,6 +304,17 @@ def continuity_model_api():
                     "note": same_family_note(get_setting("model") or "", model)})
 
 
+@app.route("/api/continuity/fix-model", methods=["GET", "POST"])
+def continuity_fix_model_api():
+    """Модель правки по находкам проверки непрерывности; «» — только сигналы."""
+    from engine.continuity_checker import CONTINUITY_FIX_MODEL_KEY, continuity_fix_model, continuity_model
+    from engine.db import set_setting
+    if request.method == "POST":
+        set_setting(CONTINUITY_FIX_MODEL_KEY, str((request.json or {}).get("model", "")).strip())
+    return jsonify({"ok": True, "model": continuity_fix_model(),
+                    "checker": continuity_model()})
+
+
 @app.route("/api/settings/prevalidation", methods=["GET"])
 def prevalidation_get():
     from engine.db import get_setting

@@ -199,11 +199,18 @@ def _execute_steps(
                           full_prompt, model_gen, sys_gen, step_call, results,
                           prefill=prefill)
             gen_text = str(results.get("generated_text", "") or "")
+            # Сверка с прошлыми главами и, если выбран правщик, правка на месте —
+            # отдельной итерацией, чтобы в истории прогона была видна и исходная глава
+            from .continuity_checker import continuity_fix_model, cross_check_and_fix
+            fixed, cross = cross_check_and_fix(project_id, chapter_num, gen_text, model_gen, step_call)
+            if fixed != gen_text:
+                from .db import save_pipeline_iteration
+                save_pipeline_iteration(run_id, iteration, "continuity_fix", continuity_fix_model(),
+                                        "", fixed)
+                results["generated_text"] = gen_text = fixed
             # Повторы относительно прошлых глав проекта — сигнал автору
             from .text_signals import previous_chapters, series_signals
-            series = series_signals(gen_text, previous_chapters(project_id, chapter_num))
-            from .continuity_checker import cross_check_signals
-            series += cross_check_signals(project_id, chapter_num, gen_text, model_gen, step_call)
+            series = series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
             if series:
                 results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,
