@@ -10,6 +10,10 @@ import re
 from collections import Counter
 
 
+# Потолки State в промпте — общие с конвейером (pipeline_context)
+from .pipeline_context import MEMORY_RAW_MAX_CHARS, PLOT_RAW_MAX_CHARS, STATE_RAW_MAX_CHARS  # noqa: E402
+
+
 def _trunc(text: str, limit: int) -> str:
     """Обрезать текст по лимиту символов, не разрывая слово на середине."""
     if len(text) <= limit:
@@ -387,10 +391,10 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 {next_context if next_context else "[заполни: 2-3 предложения где закончилась прошлая глава]"}
 
 ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:
-{_trunc(state['global_state'], 900)}
+{_trunc(state['global_state'], STATE_RAW_MAX_CHARS)}
 
 АКТИВНЫЕ СЮЖЕТНЫЕ ЛИНИИ:
-{_trunc(state['plot_matrix'], 600)}
+{_trunc(state['plot_matrix'], PLOT_RAW_MAX_CHARS)}
 
 ПЕРСОНАЖИ В ЭТОЙ ГЛАВЕ:
 {char_prefill}
@@ -453,13 +457,13 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 {next_context if next_context else "[заполни: что произошло в последних 1-2 главах]"}
 
 СОСТОЯНИЕ МИРА:
-{_trunc(state['global_state'], 900)}
+{_trunc(state['global_state'], STATE_RAW_MAX_CHARS)}
 
 АКТИВНЫЕ ЛИНИИ:
-{_trunc(state['plot_matrix'], 600)}
+{_trunc(state['plot_matrix'], PLOT_RAW_MAX_CHARS)}
 
 ЧТО ПЕРСОНАЖИ ЗНАЮТ:
-{_trunc(state['memory_graph'], 450)}
+{_trunc(state['memory_graph'], MEMORY_RAW_MAX_CHARS)}
 
 ПЕРСОНАЖИ НА СТАРТЕ ГЛАВЫ:
 {char_prefill}
@@ -507,10 +511,10 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 {state['global_state']}
 
 Что персонажи знают:
-{_trunc(state['memory_graph'], 650)}
+{_trunc(state['memory_graph'], MEMORY_RAW_MAX_CHARS)}
 
 Открытые линии:
-{_trunc(state['plot_matrix'], 600)}
+{_trunc(state['plot_matrix'], PLOT_RAW_MAX_CHARS)}
 
 {_cliche_block()}
 
