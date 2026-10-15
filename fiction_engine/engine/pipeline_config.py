@@ -488,6 +488,27 @@ DEFAULT_ROLE_MODELS = {
 }
 
 
+# Пишет по подписке, если она включена (решение владельца 15.10): Sonnet 5.5
+# и GPT-6.1 Sol сильнее DeepSeek на замере писателей и не тратят API.
+# Sonnet — первым: GPT-6.1 Sol судит устойчиво, а свой текст судить не
+# может, поэтому главы Sonnet есть кому оценить
+# (bench/ab-writers-gpt61-2026-10-15.json).
+SUBSCRIPTION_WRITERS = (
+    "claude_subscription::claude-sonnet-5-5",
+    "chatgpt_subscription::gpt-6.1-sol@medium",
+)
+
+
+def default_role_models() -> dict[str, str]:
+    """Умолчания по ролям; писатель — первый из включённых по подписке."""
+    from .api import chatgpt_subscription_enabled, claude_subscription_enabled
+    on = {"claude_subscription": claude_subscription_enabled(),
+          "chatgpt_subscription": chatgpt_subscription_enabled()}
+    gen = next((m for m in SUBSCRIPTION_WRITERS if on[m.split("::")[0]]),
+               DEFAULT_ROLE_MODELS["gen"])
+    return {**DEFAULT_ROLE_MODELS, "gen": gen}
+
+
 # ─── Порог принятия главы ────────────────────────────────────────────────────
 #
 # Было: ИТОГ >= 40 и каждый критерий >= 7. Этого не брал никто — ни одна

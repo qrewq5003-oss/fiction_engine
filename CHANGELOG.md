@@ -18,6 +18,11 @@ CI и документация, сверяемая с кодом автомат�
 
 ### Изменено
 
+- **Писатель по умолчанию — по подписке, если она включена.** Конвейер
+  предлагает Claude Sonnet 5.5 (`FE_CLAUDE_SUBSCRIPTION=1`), без неё — GPT-6.1 Sol
+  (`FE_CHATGPT_SUBSCRIPTION=1`), без обеих — как раньше. Оба сильнее DeepSeek на
+  замере писателей 15.10. Критик, редактор и судья не меняются: на судье
+  калиброван порог. `pipeline_config.default_role_models()`.
 - **Только Windows.** Проект переехал со Steam Deck на ПК с Windows (14.10):
   установка — `setup_windows.bat`, запуск — `start_all.bat`, перенос данных —
   `perenos.py`. Скрипты `setup.sh`, `run.sh`, `start_all.sh`, `planner/start.sh`

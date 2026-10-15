@@ -33,10 +33,10 @@ def pipeline_page():
     # Умолчания по ролям заданы в движке, а не «первая модель списка».
     # Главное в них — судья отличается от генератора: модель завышает
     # оценку собственному слогу (см. пояснение к DEFAULT_ROLE_MODELS).
-    from engine.pipeline_config import DEFAULT_ROLE_MODELS
+    from engine.pipeline_config import default_role_models
     return render_template("pipeline.html", current=current, runs=runs,
                            chapters=chapters, models=models,
-                           default_models=DEFAULT_ROLE_MODELS)
+                           default_models=default_role_models())
 
 
 @bp.route("/pipeline/start", methods=["POST"])
