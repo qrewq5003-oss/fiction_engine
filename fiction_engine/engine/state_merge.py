@@ -405,22 +405,107 @@ def _merge_plot(plot: dict, plot_text: str, ch: _Changes) -> str:
     return plot_text
 
 
+# Раздел «кто что знает»: сколько последних знаний держать на персонажа, и
+# заготовка шаблона, которую убирает первый настоящий раздел
+MEMORY_KNOWS_MAX = 15
+MEMORY_HEADER = "## КТО ЧТО ЗНАЕТ"
+_MEMORY_PLACEHOLDER = re.compile(r"###\s*\[Имя\]\s*\nЗНАЕТ:\s*\[\]\s*\nНЕ_ЗНАЕТ:\s*\[\]\s*\n"
+                                 r"(?:ДУМАЕТ_ЧТО_ЗНАЕТ:\s*\[\]\s*\n?)?")
+
+
 def _merge_memory(memory_changes: list, memory_text: str, ch: _Changes) -> str:
-    """ЗНАЕТ в memory_graph дополняется новыми знаниями персонажа."""
+    """
+    ЗНАЕТ в memory_graph дополняется новыми знаниями персонажа. Раздела
+    персонажа нет — он создаётся: раньше знания тогда отбрасывались, и
+    «кто что знает» оставался шаблоном с «### [Имя]» (проект автора, 16.10).
+    """
     for mem in memory_changes:
+        if not isinstance(mem, dict):
+            continue
         name = (mem.get("name") or "").strip()
-        knows_list = [k for k in (mem.get("knows") or []) if k and isinstance(k, str)]
+        knows_list = [k.strip() for k in (mem.get("knows") or []) if k and isinstance(k, str) and k.strip()]
         if not name or not knows_list:
             continue
-        pattern = rf"(###\s*{re.escape(name)}\nЗНАЕТ:\s*)(.*?)(?=\nНЕ_ЗНАЕТ|###|\Z)"
+        pattern = rf"(###\s*{re.escape(name)}\s*\nЗНАЕТ:[ \t]*)(.*?)(?=\nНЕ_ЗНАЕТ|\n###|\n## |\Z)"
         mem_m = re.search(pattern, memory_text, re.DOTALL | re.IGNORECASE)
         if mem_m:
             existing = mem_m.group(2).strip()
-            new_knows = (existing.rstrip() + "\n" if existing and existing != "[]" else "") + \
-                "\n".join(f"- {k}" for k in knows_list)
+            old = [l for l in existing.splitlines() if l.startswith("- ")]
+            seen = {l[2:].strip().lower() for l in old}
+            add = [f"- {k}" for k in knows_list if k.lower() not in seen]
+            if not add:
+                continue
+            new_knows = "\n" + "\n".join((old + add)[-MEMORY_KNOWS_MAX:])
             memory_text = memory_text[:mem_m.start(2)] + new_knows + memory_text[mem_m.end(2):]
-            ch.record(f"Память.{name}", existing, new_knows)
+            ch.record(f"Память.{name}", existing, new_knows.strip())
+            continue
+        block = (f"### {name}\nЗНАЕТ:\n" + "\n".join(f"- {k}" for k in knows_list[-MEMORY_KNOWS_MAX:])
+                 + "\nНЕ_ЗНАЕТ: []\n")
+        memory_text = _MEMORY_PLACEHOLDER.sub("", memory_text or "", count=1)
+        if MEMORY_HEADER in memory_text:
+            at = memory_text.index(MEMORY_HEADER) + len(MEMORY_HEADER)
+            rest = memory_text[at:].lstrip("\n")
+            memory_text = memory_text[:at] + "\n\n" + block + ("\n" + rest if rest else "")
+        else:
+            memory_text = f"{MEMORY_HEADER}\n\n{block}\n{memory_text}".rstrip() + "\n"
+        ch.record(f"Память.{name}", "", "\n".join(f"- {k}" for k in knows_list))
     return memory_text
+
+
+# Разделы сюжета, которые анализ главы раньше заполнял, а слияние отбрасывало
+OPEN_QUESTIONS_HEADER = "## ОТКРЫТЫЕ ВОПРОСЫ"
+SIDE_LINES_HEADER = "## ВТОРОСТЕПЕННЫЕ ЛИНИИ"
+SECTION_ITEMS_MAX = 12
+
+
+def _section_items(text: str, header: str) -> list[str]:
+    m = re.search(rf"{re.escape(header)}[ \t]*\n(.*?)(?=\n## |\Z)", text or "", re.S)
+    return [l[2:].strip() for l in m.group(1).splitlines() if l.startswith("- ")] if m else []
+
+
+def _set_section_items(text: str, header: str, items: list[str]) -> str:
+    """Заменить список раздела на месте; раздела нет — дописать его в конец."""
+    body = "\n".join(f"- {x}" for x in items)
+    pat = re.compile(rf"({re.escape(header)}[ \t]*\n)(.*?)(?=\n## |\Z)", re.S)
+    if pat.search(text or ""):
+        return pat.sub(lambda m: m.group(1) + body + "\n", text, count=1)
+    return (text or "").rstrip() + f"\n\n{header}\n{body}\n"
+
+
+def _merge_open_questions(questions: list, plot_text: str, chapter_num: int, ch: _Changes) -> str:
+    qs = [q.strip() for q in questions or [] if isinstance(q, str) and _is_real_value(q.strip())]
+    if not qs:
+        return plot_text
+    old = _section_items(plot_text, OPEN_QUESTIONS_HEADER)
+    known = {re.sub(r"^гл\.\d+:\s*", "", x).lower() for x in old}
+    new = [f"гл.{chapter_num}: {q}" if chapter_num else q for q in qs if q.lower() not in known]
+    if not new:
+        return plot_text
+    ch.add("Открытые вопросы", "", "; ".join(qs))
+    return _set_section_items(plot_text, OPEN_QUESTIONS_HEADER, (old + new)[-SECTION_ITEMS_MAX:])
+
+
+def _merge_side_lines(plot: dict, plot_text: str, chapter_num: int, ch: _Changes) -> str:
+    """Новые линии — в «ВТОРОСТЕПЕННЫЕ ЛИНИИ»; закрытые — помечаются там же."""
+    new_lines = [x.strip() for x in plot.get("новые_линии") or [] if isinstance(x, str) and _is_real_value(x.strip())]
+    closed = [x.strip() for x in plot.get("закрытые_линии") or [] if isinstance(x, str) and _is_real_value(x.strip())]
+    if not new_lines and not closed:
+        return plot_text
+    items = _section_items(plot_text, SIDE_LINES_HEADER)
+    base = lambda s: re.sub(r"\s*\((?:с гл\.|закрыта в гл\.)[^)]*\)\s*$", "", s).strip().lower()
+    for x in new_lines:
+        if all(base(i) != x.lower() for i in items):
+            items.append(f"{x} (с гл.{chapter_num})" if chapter_num else x)
+    for x in closed:
+        for i, it in enumerate(items):
+            if base(it) == x.lower() and "закрыта" not in it:
+                items[i] = re.sub(r"\s*\(с гл\.[^)]*\)\s*$", "", it) + \
+                    (f" (закрыта в гл.{chapter_num})" if chapter_num else " (закрыта)")
+    open_ = [i for i in items if "закрыта" not in i]
+    shut = [i for i in items if "закрыта" in i][-4:]       # закрытые — только последние
+    items = (shut + open_)[-SECTION_ITEMS_MAX:]
+    ch.add("Сюжетные линии", "", "; ".join([f"+{x}" for x in new_lines] + [f"−{x}" for x in closed]))
+    return _set_section_items(plot_text, SIDE_LINES_HEADER, items)
 
 
 def _merge_promises(resolved: list, project_id: int, chapter_num: int, ch: _Changes) -> None:
@@ -480,7 +565,10 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     if _is_real_value(world_moment):
         global_text = _apply_doc_field("момент", "МОМЕНТ", world_moment[:200],
                                        global_text, "Мир.момент", ch.record)
-    plot_text = _merge_plot(data.get("plot_changes", {}), state.get("plot_matrix", ""), ch)
+    plot = data.get("plot_changes") or {}
+    plot_text = _merge_plot(plot, state.get("plot_matrix", ""), ch)
+    plot_text = _merge_side_lines(plot if isinstance(plot, dict) else {}, plot_text, chapter_num, ch)
+    plot_text = _merge_open_questions(data.get("open_questions") or [], plot_text, chapter_num, ch)
     memory_text = _merge_memory(data.get("memory_changes", []), state.get("memory_graph", ""), ch)
     _merge_promises(data.get("resolved_promises", []), project_id, chapter_num, ch)
     plot_text = _merge_details(data.get("details") or [], plot_text, chapter_num, ch)
