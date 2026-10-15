@@ -8,10 +8,21 @@ from unittest.mock import patch
 import pytest
 
 
-def _proc(payload, code=0):
+def _proc(payload, code=0, turns=None):
+    """Вывод `claude -p --output-format stream-json`: сообщения модели и итог result.
+    turns — тексты сообщений модели по порядку (по умолчанию — один, как result)."""
+    texts = turns if turns is not None else ([payload["result"]] if not payload.get("is_error") else [])
+    lines = [{"type": "system", "subtype": "init"}]
+    for i, t in enumerate(texts):
+        if i:
+            lines.append({"type": "user", "message": {"content": [{"type": "text",
+                          "text": "Output token limit hit. Resume directly"}]}})
+        lines.append({"type": "assistant", "message": {"content": [{"type": "text", "text": t}]}})
+    lines.append(dict(payload, type="result"))
+
     class P:
         returncode = code
-        stdout = json.dumps(payload)
+        stdout = "\n".join(json.dumps(x, ensure_ascii=False) for x in lines)
         stderr = ""
     return P()
 
@@ -39,7 +50,8 @@ def test_enabled_calls_cli_without_tools_and_settings(monkeypatch):
     assert cmd[:2] == ["/usr/bin/claude", "-p"] and "--tools" in cmd and cmd[cmd.index("--tools") + 1] == ""
     assert "--setting-sources" in cmd and "--no-session-persistence" in cmd
     assert run.call_args.kwargs["input"] == "юзер"
-    assert run.call_args.kwargs["env"]["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "300"
+    # Не меньше CLAUDE_SUB_MIN_OUTPUT: иначе CLI режет ответ и продолжает с шва
+    assert run.call_args.kwargs["env"]["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "32000"
     assert get_last_usage()["reported_cost"] == 0.0
 
 
@@ -97,3 +109,36 @@ def test_settings_card_only_when_enabled(monkeypatch):
         page = client.get("/settings").get_data(as_text=True)
     assert "claude setup-token" in page
     logging.disable(logging.NOTSET)
+
+
+def test_continuation_after_output_limit_keeps_the_beginning(monkeypatch):
+    """CLI упёрся в лимит вывода и сам продолжил: result — только последнее
+    сообщение, а глава — всё подряд (раньше начало терялось: «ень.»)."""
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    out_payload = dict(OK, result="ень. Холод пошёл через рубашку.")
+    turns = ["Лукаш нырнул под мост. Наступила т", "ень. Холод пошёл через рубашку."]
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.subprocess.run", return_value=_proc(out_payload, turns=turns)) as run:
+        out = call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
+    assert out == "Лукаш нырнул под мост. Наступила тень. Холод пошёл через рубашку."
+    cmd = run.call_args.args[0]
+    assert cmd[cmd.index("--output-format") + 1] == "stream-json" and "--verbose" in cmd
+
+
+def test_output_limit_exhausted_returns_text_as_cut(monkeypatch):
+    """Продолжения кончились: написанное возвращается, причина — max_tokens (обрыв)."""
+    from engine.api import call_model, get_last_stop_reason
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    err = {"is_error": True, "api_error": "max_output_tokens", "stop_reason": "stop_sequence",
+           "result": "API Error: Claude's response exceeded the output token maximum."}
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.subprocess.run", return_value=_proc(err, turns=["Первая часть ", "вторая часть"])):
+        out = call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
+    assert out == "Первая часть вторая часть" and get_last_stop_reason() == "max_tokens"
+
+
+def test_old_single_json_output_still_parsed():
+    from engine.api import _parse_claude_stream
+    text, final = _parse_claude_stream(json.dumps(OK, ensure_ascii=False))
+    assert text == "Дождь шёл всю ночь." and final["stop_reason"] == "end_turn"
