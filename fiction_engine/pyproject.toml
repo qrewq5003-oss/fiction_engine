@@ -29,6 +29,7 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
+    "pytest-xdist>=3.0.0",
     "mypy>=1.8.0",
     "hypothesis>=6.0.0",
     "pyflakes>=3.0.0",

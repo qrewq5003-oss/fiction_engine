@@ -72,14 +72,14 @@ if not hasattr(sys.modules["openai"], "OpenAI"):
 @pytest.fixture(autouse=True)
 def use_temp_db(tmp_path):
     """
-    Каждый тест получает свою in-memory БД.
-    Патчим DB_PATH до импорта модулей движка.
+    Каждый тест получает свою БД в tmp_path — копию шаблона со схемой
+    (tests/db_template.py), а не init_db заново.
     """
+    from tests.db_template import fresh_db
     db_file = tmp_path / "test.db"
+    fresh_db(db_file)
     with patch("engine.db_core.DB_PATH", db_file), \
          patch.dict(os.environ, {"FE_SECRET_KEY_FILE": str(tmp_path / "secret.key")}):
-        from engine.db_core import init_db
-        init_db()
         yield db_file
 
 
