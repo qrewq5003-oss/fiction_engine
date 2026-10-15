@@ -74,6 +74,13 @@ def build_consolidated_voice(active_voice: dict | None,
 
 # ─── Релевантный State ────────────────────────────────────────────────────────
 
+# Потолок для State автора, когда он идёт сырым текстом. Раньше — 900
+# символов персонажей и 600 сюжета (с первого коммита, без замера): State в
+# 10 тыс. символов терял биографии, а сюжет — раздел «ДЕТАЛИ СЕРИИ».
+STATE_RAW_MAX_CHARS = 12000
+PLOT_RAW_MAX_CHARS = 4000
+MEMORY_RAW_MAX_CHARS = 2000
+
 def extract_relevant_state(state: dict, prompt_text: str,
                            api_call_fn=None) -> str:
     import re
@@ -95,9 +102,20 @@ def extract_relevant_state(state: dict, prompt_text: str,
         if ch.get("state"):    block.append(f"Состояние: {ch['state']}")
         if ch.get("location"): block.append(f"Локация: {ch['location']}")
         if ch.get("goal"):     block.append(f"Цель: {ch['goal']}")
+        if ch.get("deep_goal"): block.append(f"Цель глубинная: {ch['deep_goal']}")
         if ch.get("knows"):    block.append(f"Знает: {ch['knows']}")
         if ch.get("ignores"):  block.append(f"Не знает: {ch['ignores']}")
-        lines.append("\n".join(block))
+        if len(block) > 1:
+            lines.append("\n".join(block))
+    # Персонажи записаны не по ключам (СОСТОЯНИЕ:, ЦЕЛЬ_СЕЙЧАС: …), а свободным
+    # текстом — разбор находит «персонажей» вроде «Имя» и «Профессия» без
+    # единого поля. Раньше тогда до писателя доходил один заголовок «## Лукаш»,
+    # а 10 тыс. символов State автора терялись (проект 16.10). Теперь — текст
+    # персонажей как есть
+    if not lines:
+        raw = clip_profile(state.get("global_state", ""), STATE_RAW_MAX_CHARS)
+        if raw:
+            lines.append(raw)
 
     world = structured["world"]
     if world.get("moment"):    lines.append(f"МОМЕНТ: {world['moment']}")
