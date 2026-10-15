@@ -65,3 +65,81 @@ def test_signal_text():
     s = format_cross_signals([{"chapter_a": 3, "quote_a": "на втором этаже",
                                "quote_b": "на третий этаж", "what": "этаж квартиры"}])
     assert s == ["Противоречие с главой 3: этаж квартиры («на втором этаже» — здесь «на третий этаж»)."]
+
+
+# ─── Подключение к движку: только по выбору автора ───────────────────────────
+
+FLOOR = [{"chapter_a": 3, "quote_a": "Квартира вдовы была на втором этаже",
+          "quote_b": "Вера поднялась на третий этаж к квартире вдовы", "what": "этаж квартиры"}]
+
+
+def _checker(items, seen):
+    def call(model, system, user, max_tokens=None):
+        seen.append(model)
+        return json.dumps({"contradictions": items}, ensure_ascii=False)
+    return call
+
+
+def test_no_model_no_call(project_id):
+    from engine.continuity_checker import cross_check_signals
+    from engine.db_projects import save_chapter
+    save_chapter(project_id, 3, CH3, "")
+    seen = []
+    assert cross_check_signals(project_id, 4, CH4, "nano_gpt::deepseek/deepseek-v4-pro-0813",
+                               _checker(FLOOR, seen)) == []
+    assert seen == []
+
+
+def test_chosen_model_checks_against_previous_chapters(project_id):
+    from engine.continuity_checker import cross_check_signals
+    from engine.db_projects import save_chapter
+    from engine.db_settings import set_setting
+    save_chapter(project_id, 3, CH3, "")
+    set_setting("continuity_model", "chatgpt_subscription::gpt-6.1-sol@medium")
+    seen = []
+    got = cross_check_signals(project_id, 4, CH4, "nano_gpt::deepseek/deepseek-v4-pro-0813",
+                              _checker(FLOOR, seen))
+    assert seen == ["chatgpt_subscription::gpt-6.1-sol@medium"]
+    assert got == ["Противоречие с главой 3: этаж квартиры («Квартира вдовы была на втором этаже» — "
+                   "здесь «Вера поднялась на третий этаж к квартире вдовы»)."]
+
+
+def test_same_family_warned(project_id):
+    from engine.continuity_checker import cross_check_signals
+    from engine.db_projects import save_chapter
+    from engine.db_settings import set_setting
+    save_chapter(project_id, 3, CH3, "")
+    set_setting("continuity_model", "nano_gpt::deepseek/deepseek-v4-pro-0813")
+    got = cross_check_signals(project_id, 4, CH4, "nano_gpt::deepseek/deepseek-v4-pro-0813",
+                              _checker(FLOOR, []))
+    assert len(got) == 2 and "того же семейства" in got[0]
+
+
+def test_checker_failure_is_silent(project_id):
+    from engine.continuity_checker import cross_check_signals
+    from engine.db_projects import save_chapter
+    from engine.db_settings import set_setting
+    save_chapter(project_id, 3, CH3, "")
+    set_setting("continuity_model", "chatgpt_subscription::gpt-6.1-sol@medium")
+
+    def broken(model, system, user, max_tokens=None):
+        raise RuntimeError("codex: usage limit reached")
+    assert cross_check_signals(project_id, 4, CH4, "nano_gpt::x", broken) == []
+
+
+@pytest.fixture
+def client():
+    import logging
+    from web.app import app
+    app.config["TESTING"] = True
+    app.config["SECRET_KEY"] = "test-secret"
+    logging.disable(logging.CRITICAL)
+    yield app.test_client()
+    logging.disable(logging.NOTSET)
+
+
+def test_settings_api(client):
+    r = client.post("/api/continuity/model", json={"model": "claude_subscription::claude-sonnet-5-5"})
+    assert r.get_json()["model"] == "claude_subscription::claude-sonnet-5-5"
+    assert client.get("/api/continuity/model").get_json()["model"] == "claude_subscription::claude-sonnet-5-5"
+    assert client.post("/api/continuity/model", json={"model": ""}).get_json()["model"] == ""
