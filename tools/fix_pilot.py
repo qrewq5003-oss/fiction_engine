@@ -49,6 +49,9 @@ def _prev_for(row: dict) -> list[dict]:
 
 
 def phase_fix(a) -> None:
+    out = D / f"{a.out}.json"
+    if out.exists() and _state(out).get("base") and "fixer" not in _state(out):
+        return _fix_rows(a, _state(out))          # второй круг: строки уже собраны фазой next
     rows_in = json.load(open(D / a.check, encoding="utf-8"))["rows"]
     series = {}
     for f in a.series:
@@ -65,6 +68,11 @@ def phase_fix(a) -> None:
                      "task": ch.get("task", ""), "text_before": ch["text"],
                      "prev_chapters": [c for c in s["chapters"] if c["num"] < r["chapter"]],
                      "found_before": r["found"]})
+    _fix_rows(a, {"date": date.today().isoformat(), "check": a.check, "series": a.series, "rows": rows})
+
+
+def _fix_rows(a, st: dict) -> None:
+    rows = st["rows"]
 
     def run(row):
         try:
@@ -85,13 +93,34 @@ def phase_fix(a) -> None:
 
     with ThreadPoolExecutor(a.workers) as pool:
         rows = list(pool.map(run, rows))
-    st = {"date": date.today().isoformat(), "check": a.check, "series": a.series,
-          "fixer": a.fixer, "rows": rows}
+    st = dict(st, fixer=a.fixer, rows=rows)
     _save(D / f"{a.out}.json", st)
     ok = [r for r in rows if not r["fix_failed"]]
     print(f"\n  глав {len(ok)}/{len(rows)}, замен {sum(len(r['applied']) for r in ok)} "
           f"из {sum(len(r['edits']) for r in ok)}, изменено в среднем "
           f"{100 * sum(r['changed'] for r in ok) / max(1, len(ok)):.1f} % слов")
+
+
+def phase_next(a) -> None:
+    """
+    Второй круг: из прогона --base берётся правленая глава как исходная, а находки
+    перепроверки (оставшиеся и новые) — как находки для правки. Пишет новое
+    состояние --out; дальше фазы fix / recheck / judge как обычно (судья
+    сравнивает главу после первого круга с главой после второго).
+    """
+    st = _state(D / f"{a.base}.json")
+    rows = []
+    for r in st["rows"]:
+        if r.get("fix_failed") or "found_after" not in r:
+            continue
+        found = [{k: v for k, v in f.items() if k != "chapter_b"} for f in r["found_after"]]
+        if not found:
+            continue
+        rows.append({k: r[k] for k in ("side", "genre", "run", "chapter", "task", "prev_chapters")} |
+                    {"text_before": r["text_after"], "found_before": found})
+    _save(D / f"{a.out}.json", {"date": date.today().isoformat(), "base": a.base,
+                                "check": st.get("check"), "series": st.get("series"), "rows": rows})
+    print(f"  второй круг из {a.base}: глав с находками {len(rows)}, находок {sum(len(r['found_before']) for r in rows)}")
 
 
 def phase_reapply(a) -> None:
@@ -259,7 +288,8 @@ def phase_report(a) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("phase", choices=("fix", "reapply", "selfcheck", "recheck", "judge", "report"))
+    ap.add_argument("phase", choices=("next", "fix", "reapply", "selfcheck", "recheck", "judge", "report"))
+    ap.add_argument("--base", default="fix/sol61-sonnet", help="для next: прогон первого круга")
     ap.add_argument("--out", default="fix/sol61")
     ap.add_argument("--check", default="check3/sol61-med.json")
     ap.add_argument("--series", nargs="+", default=["testimony/with.json", "testimony/without.json"])
@@ -270,5 +300,5 @@ if __name__ == "__main__":
                                                  "check3/sol61-med-adj-claude-opus-5-5.json"])
     ap.add_argument("--workers", type=int, default=1)
     a = ap.parse_args()
-    {"fix": phase_fix, "reapply": phase_reapply, "selfcheck": phase_selfcheck,
+    {"next": phase_next, "fix": phase_fix, "reapply": phase_reapply, "selfcheck": phase_selfcheck,
      "recheck": phase_recheck, "judge": phase_judge, "report": phase_report}[a.phase](a)
