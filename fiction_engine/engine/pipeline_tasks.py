@@ -341,11 +341,15 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     # с выбранным правщиком найденное правится на месте. До сигналов по
     # тексту: они должны считаться по главе, которую получит автор
     from .continuity_checker import cross_check_and_fix
-    text, cross = cross_check_and_fix(project_id, chapter_num, text, model_value, _call)
-    # Сигналы по самому тексту — при любом генераторе (engine/text_signals.py)
+    continuity: dict = {}
+    text, cross = cross_check_and_fix(project_id, chapter_num, text, model_value, _call,
+                                      report=continuity)
+    # Сигналы по самому тексту — при любом генераторе (engine/text_signals.py).
+    # Итог проверки непрерывности автор видит карточкой главы (поле
+    # continuity), в общей строке предупреждений он не повторяется
     from .text_signals import chapter_signals, previous_chapters, series_signals
     signals = chapter_signals(text) + series_signals(
-        text, previous_chapters(project_id, chapter_num)) + cross
+        text, previous_chapters(project_id, chapter_num)) + ([] if continuity else cross)
     if signals:
         warning = (warning or "") + " " + " ".join(signals)
     word_count = len(text.split())
@@ -373,6 +377,7 @@ def run_generation(project: dict, chapter_num: int, mode: str,
         "truncated": cut["truncated"],
         "cut_reason": cut["reason"],
         "word_count": word_count,
+        "continuity": continuity or None,
     }
 
 

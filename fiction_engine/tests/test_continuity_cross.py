@@ -278,3 +278,47 @@ def test_rounds_are_capped(project_id):
         return json.dumps({"contradictions": FLOOR}, ensure_ascii=False)
     cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", call)
     assert calls.count(SONNET) == CROSS_FIX_ROUNDS
+
+
+def test_report_for_chapter_card(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id)
+    rep = {}
+    text, sig = cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix([]), report=rep)
+    assert rep["checker"] == SOL and rep["fixer"] == SONNET and rep["rounds"] == 1
+    assert rep["found"] == FLOOR and rep["left"] == [] and not rep["recheck_failed"]
+    assert rep["edits"] == [{"round": 1, "what": "этаж квартиры",
+                             "old": "Вера поднялась на третий этаж к квартире вдовы", "new": FIXED}]
+
+
+def test_report_without_fixer_lists_findings(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    _setup(project_id, fixer="")
+    rep = {}
+    cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix([]), report=rep)
+    assert rep["rounds"] == 0 and rep["left"] == FLOOR and rep["edits"] == []
+
+
+def test_no_checker_no_report(project_id):
+    from engine.continuity_checker import cross_check_and_fix
+    rep = {}
+    cross_check_and_fix(project_id, 4, CH4, "nano_gpt::x", _check_then_fix([]), report=rep)
+    assert rep == {}
+
+
+def test_run_generation_returns_card_and_keeps_warning_clean(project_id):
+    from unittest.mock import patch
+    from engine.pipeline import run_generation
+    _setup(project_id)
+    chapter = CH4 + " " + "Он вошёл в комнату и сел у окна. " * 400
+    base = _check_then_fix([])
+
+    def call(model, system, user, max_tokens=None, **kw):
+        if model in (SOL, SONNET):
+            return base(model, system, user, max_tokens)
+        return chapter                      # писатель и анализ главы
+    with patch("engine.pipeline._call", side_effect=call):
+        res = run_generation({"id": project_id, "genre": "детектив"}, 4, "quick", "m::x", "Задача.")
+    assert FIXED in res["text"]
+    assert res["continuity"]["rounds"] == 1 and res["continuity"]["edits"]
+    assert "Правка непрерывности" not in (res["warning"] or "")      # итог — в карточке

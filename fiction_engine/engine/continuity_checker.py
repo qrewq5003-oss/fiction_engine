@@ -519,13 +519,18 @@ def _budget(model: str, default: int) -> int:
 
 
 def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen: str,
-                        call_fn: Callable[..., str], fix: bool = True) -> tuple[str, list[str]]:
+                        call_fn: Callable[..., str], fix: bool = True,
+                        report: dict | None = None) -> tuple[str, list[str]]:
     """
     Сверка новой главы с прошлыми и, если выбран правщик, точечная правка по
     находкам с перепроверкой. Возвращает (текст, сигналы автору): после правки
     в сигналах — сколько исправлено и то, что осталось. Проверяющий не выбран,
     прошлых глав нет или проверка упала — текст как есть, сигналов нет; упала
     правка — текст как есть, сигналы по находкам.
+
+    report — для карточки главы: checker, fixer, rounds, found (первые
+    находки), edits ([{what, old, new}] — замены по кругам), left (что
+    осталось), recheck_failed. Заполняется, только если проверка прошла.
     """
     model = continuity_model()
     if not model or not project_id or not (text or "").strip():
@@ -548,6 +553,9 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
     note = same_family_note(model_gen, model)
     head = [note] if note and found else []
     fixer = continuity_fix_model() if fix else ""
+    rep: dict = report if report is not None else {}
+    rep.update(checker=model, fixer=fixer, rounds=0, found=found, edits=[], left=found,
+               recheck_failed=False, note=note if found else "")
     if not found or not fixer:
         return text, head + format_cross_signals(found)
 
@@ -565,15 +573,21 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
             break
         text, rounds = res["text"], rounds + 1
         total, edits = total + len(left), edits + len(res["applied"])
+        whats = "; ".join(f["what"] for f in left)
+        rep["edits"] += [{"round": rounds, "what": whats, "old": e["old"], "new": e["new"]}
+                         for e in res["applied"]]
+        rep["rounds"] = rounds
         try:
             left = against_previous(text)
         except Exception as e:
             handle_error(f"cross_check_signals (перепроверка) {where}", e, level=ErrorLevel.RECOVERABLE)
+            rep["recheck_failed"] = True
             done = _fix_summary(fixer, total, edits, rounds)
             return text, head + [done + "; перепроверка не удалась — проверь эти места:"] + \
                 format_cross_signals(left)
     if not rounds:
         return text, head + format_cross_signals(found)
+    rep["left"] = left
     done = _fix_summary(fixer, total, edits, rounds)
     return text, head + [done + (f"; осталось {len(left)}:" if left else "; не осталось.")] + \
         format_cross_signals(left)

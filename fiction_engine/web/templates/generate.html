@@ -160,6 +160,11 @@
     <!-- Предупреждение API -->
     <div id="api-warning" class="alert alert-warning" style="display:none;"></div>
 
+    <!-- Карточка главы: проверка непрерывности и правка по её находкам.
+         Раньше итог шёл одной строкой в предупреждении — правку нельзя было
+         проверить глазами: что именно заменено и на что. -->
+    <div id="continuity-card" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;"></div>
+
     <!-- Глава не дописана: обрыв по потолку токенов или объём ниже требуемого.
          Раньше это было видно только строчкой в предупреждении, и автор должен
          был сам заметить обрыв и нажать «✂️ Продолжить». -->
@@ -247,6 +252,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% include '_continuity_card.html' %}
 <script>
 let lastGeneratedText = '';
 let lastChapterNum = 1;
@@ -687,6 +693,7 @@ function _showGenerating() {
   btn.querySelector('span.btn-label') && (btn.querySelector('span.btn-label').textContent = 'Генерирую…');
   document.getElementById('api-warning').style.display = 'none';
   document.getElementById('truncation-banner').style.display = 'none';
+  document.getElementById('continuity-card').style.display = 'none';
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('result-block').style.display = 'none';
 }
@@ -719,6 +726,7 @@ function _onGenerationDone(result, chapterNum) {
   }
 
   showTruncationBanner(result);
+  showContinuityCard(result.continuity);
 
   lastGeneratedText = result.result;
   lastChapterNum = chapterNum;
