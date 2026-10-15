@@ -542,14 +542,43 @@ import threading
 
 _CLAUDE_SUB_LOCK = threading.Lock()
 CLAUDE_SUB_TIMEOUT = 900          # секунд: длинная глава пишется минутами
+CLAUDE_SUB_MIN_OUTPUT = 32000      # токенов: глава в 3–4 тыс. слов — около 12 тыс.
 
 
 def claude_subscription_enabled() -> bool:
     return os.environ.get("FE_CLAUDE_SUBSCRIPTION") == "1" and bool(shutil.which("claude"))
 
 
-def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
+def _parse_claude_stream(stdout: str) -> tuple[str, dict | None]:
+    """
+    Вывод `claude -p --output-format stream-json`: текст всех сообщений модели
+    подряд (продолжения после лимита вывода — с того же места, без
+    разделителя) и итоговое событие result. Итога нет — (текст, None).
+    Старый вывод одним JSON (--output-format json) тоже разбирается.
+    """
     import json as _json
+    parts: list[str] = []
+    final: dict | None = None
+    for line in (stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            ev = _json.loads(line)
+        except ValueError:
+            continue
+        if ev.get("type") == "assistant":
+            parts += [b.get("text") or "" for b in (ev.get("message") or {}).get("content") or []
+                      if isinstance(b, dict) and b.get("type") == "text"]
+        elif ev.get("type") == "result" or ("result" in ev and "is_error" in ev):
+            final = ev
+    text = "".join(parts)
+    if final is not None and not parts and not final.get("is_error"):
+        text = final.get("result") or ""          # одним JSON: текста в потоке нет
+    return text, final
+
+
+def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
     if not claude_subscription_enabled():
         raise ValueError("Claude через подписку выключен: нужен FE_CLAUDE_SUBSCRIPTION=1 "
                          "и залогиненный `claude` CLI")
@@ -560,10 +589,18 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
                   "=== УЖЕ НАПИСАНО ===\n" + prefill)
     # Полный путь: на Windows `claude` — это claude.cmd (npm), а subprocess
     # без shell находит только .exe
+    # stream-json, а не json: упёршись в CLAUDE_CODE_MAX_OUTPUT_TOKENS, CLI сам
+    # просит модель продолжить новым сообщением («Output token limit hit.
+    # Resume directly…»), а в итоговом result отдаёт только последнее. Глава
+    # теряла начало и открывалась обрывком слова («ень.») — 7 из 98 глав
+    # Sonnet в замерах, 15.10 у автора. Поток содержит все сообщения модели.
     cmd = [shutil.which("claude") or "claude", "-p", "--model", model_id, "--system-prompt", system or "",
-           "--tools", "", "--output-format", "json", "--no-session-persistence",
+           "--tools", "", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
            "--setting-sources", "", "--strict-mcp-config"]
-    env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max_tokens),
+    # Лимит вывода — не меньше CLAUDE_SUB_MIN_OUTPUT: по нему CLI режет ответ и
+    # просит продолжить, а на стыке продолжения слова слипаются или рвутся.
+    # Подписка за токены не берёт, длину главы задаёт промпт
+    env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max(max_tokens or 0, CLAUDE_SUB_MIN_OUTPUT)),
                MAX_THINKING_TOKENS="0")       # размышление съедает бюджет ответа (см. _call_anthropic)
     # Долгоживущий токен `claude setup-token`: из настроек приложения, иначе из
     # окружения; без него CLI берёт свой `claude login`
@@ -575,21 +612,22 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                               encoding="utf-8", errors="replace",
                               timeout=CLAUDE_SUB_TIMEOUT, env=env)
-    try:
-        data = _json.loads(proc.stdout)
-    except ValueError:
-        raise RuntimeError(f"claude CLI: не JSON (код {proc.returncode}): "
+    result, data = _parse_claude_stream(proc.stdout)
+    if data is None:
+        raise RuntimeError(f"claude CLI: нет итога (код {proc.returncode}): "
                            f"{(proc.stderr or proc.stdout)[:300]}")
-    if data.get("is_error"):
+    # Продолжения кончились, а лимит вывода снова исчерпан: написанное не
+    # выбрасываем — это обрыв, его дописывает «Продолжить главу»
+    cut = data.get("api_error") == "max_output_tokens" and bool(result.strip())
+    if data.get("is_error") and not cut:
         raise RuntimeError(f"claude CLI: {str(data.get('result') or data)[:300]}")
-    reason = data.get("stop_reason") or ""
+    reason = "max_tokens" if cut else (data.get("stop_reason") or "")
     _remember_stop_reason("max_tokens" if reason in ("max_tokens", "length") else reason)
     u = data.get("usage") or {}
     # Подписка не тарифицирует токены — стоимость 0, чтобы сводка расходов не врала
     _remember_usage(int(u.get("input_tokens", 0)) + int(u.get("cache_read_input_tokens", 0))
                     + int(u.get("cache_creation_input_tokens", 0)),
                     int(u.get("output_tokens", 0)), 0.0)
-    result = data.get("result") or ""
     if not prefill:
         return result
     # Стык: модель отдаёт продолжение без пробела в начале
