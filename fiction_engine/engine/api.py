@@ -57,6 +57,16 @@ MODELS = {
             {"id": "claude-haiku-5-5",          "name": "Claude Haiku 5.5 — через подписку Claude Code"},
         ]
     },
+    # Только при FE_CHATGPT_SUBSCRIPTION=1 — см. _call_chatgpt_subscription.
+    # После @ — глубина размышления (low, medium, high, xhigh, max)
+    "chatgpt_subscription": {
+        "label": "GPT (подписка ChatGPT, личное)",
+        "models": [
+            {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol — через подписку ChatGPT (Codex)"},
+            {"id": "gpt-6-astra@medium",  "name": "GPT-6 Astra — через подписку ChatGPT (Codex)"},
+            {"id": "gpt-6-luna@medium",   "name": "GPT-6 Luna — через подписку ChatGPT (Codex)"},
+        ]
+    },
     "anthropic_direct": {
         "label": "Anthropic (прямой)",
         "models": [
@@ -207,6 +217,8 @@ def get_all_models_flat():
     for provider_key, provider in MODELS.items():
         if provider_key == "claude_subscription" and not claude_subscription_enabled():
             continue
+        if provider_key == "chatgpt_subscription" and not chatgpt_subscription_enabled():
+            continue
         if provider_key == "nano_gpt":
             for group, models in provider.get("groups", {}).items():
                 for m in models:
@@ -283,6 +295,7 @@ def call_model(model_value: str, system: str, user: str,
         "deepseek_direct":  (_call_deepseek_direct, deepseek_key),
         "nano_gpt":         (_call_nanogpt,         nano_key),
         "claude_subscription": (_call_claude_subscription, None),
+        "chatgpt_subscription": (_call_chatgpt_subscription, None),
     }
     if provider not in dispatch:
         raise ValueError(f"Неизвестный провайдер: {provider}")
@@ -581,6 +594,126 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
     glue = "" if (not result or prefill[-1:].isspace() or result[:1].isspace()
                   or result[:1] in ",.;:!?…»)") else " "
     return prefill + glue + result
+
+
+# ─── GPT через подписку ChatGPT (Codex CLI) ──────────────────────────────────
+#
+# То же, что Claude через подписку, но через `codex exec`: расход — с подписки
+# ChatGPT Plus/Pro, вход — `codex login`. Выключено по умолчанию
+# (FE_CHATGPT_SUBSCRIPTION=1), риски условий те же, лимит общий с Codex.
+#
+# Codex — агент с инструментами. Поэтому: пустая временная папка, песочница
+# read-only, инструменты выключены, свой файл инструкций вместо агентских
+# (служебный промпт с 13.8 тыс. токенов падает до 7.6 тыс.), без чужого
+# config.toml и правил, сессия не сохраняется. Если модель всё же вызвала
+# инструмент — ошибка, а не ответ.
+#
+# Нет temperature и потолка ответа (max_tokens не передаётся); prefill — как
+# у Claude CLI, просьбой продолжить.
+
+_CHATGPT_SUB_LOCK = threading.Lock()
+CHATGPT_SUB_TIMEOUT = 900
+_CODEX_OFF = ("shell_tool", "unified_exec", "apps", "plugins", "view_image", "image_generation",
+              "browser_use", "computer_use", "in_app_browser", "multi_agent", "goals",
+              "skill_search", "tool_suggest", "sleep_tool", "hooks")
+
+
+def chatgpt_subscription_enabled() -> bool:
+    return os.environ.get("FE_CHATGPT_SUBSCRIPTION") == "1" and bool(shutil.which("codex"))
+
+
+def _codex_cmd() -> list[str]:
+    # npm ставит на Windows codex.cmd; через cmd.exe аргументы с кавычками и
+    # путями ломаются, поэтому — node и codex.js напрямую, если они рядом
+    exe = shutil.which("codex") or "codex"
+    js = os.path.join(os.path.dirname(exe), "node_modules", "@openai", "codex", "bin", "codex.js")
+    if exe.lower().endswith(".cmd") and os.path.exists(js):
+        return [shutil.which("node") or "node", js]
+    return [exe]
+
+
+def _call_chatgpt_subscription(model_id, system, user, api_key, max_tokens, prefill=""):
+    import json as _json
+    import tempfile
+    if not chatgpt_subscription_enabled():
+        raise ValueError("GPT через подписку выключен: нужен FE_CHATGPT_SUBSCRIPTION=1 "
+                         "и залогиненный `codex` CLI")
+    model, _, effort = model_id.partition("@")
+    prompt = user
+    if prefill:
+        prompt = (user + "\n\nТекст ниже оборван. Верни ТОЛЬКО его продолжение — со "
+                  "следующего слова, без повтора написанного и без пояснений.\n\n"
+                  "=== УЖЕ НАПИСАНО ===\n" + prefill)
+    with tempfile.TemporaryDirectory(prefix="fe-codex-") as tmp:
+        work = os.path.join(tmp, "work")
+        os.mkdir(work)
+        instr = os.path.join(tmp, "instructions.md").replace("\\", "/")
+        with open(instr, "w", encoding="utf-8") as f:
+            f.write((system or "") + "\n\nОтвечай только текстом. Инструментов нет.")
+        last = os.path.join(tmp, "last.txt")
+        cmd = _codex_cmd() + [
+            "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
+            "--ignore-rules", "-s", "read-only", "-C", work, "-m", model, "-o", last,
+            "-c", f"model_instructions_file='{instr}'"]
+        if effort:
+            cmd += ["-c", f"model_reasoning_effort={effort}"]
+        for feat in _CODEX_OFF:
+            cmd += ["--disable", feat]
+        cmd.append("-")
+        with _CHATGPT_SUB_LOCK:
+            proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace",
+                                  timeout=CHATGPT_SUB_TIMEOUT)
+        # --json пишет по событию в строку; прочие строки (предупреждения CLI) — не события
+        events = [_json.loads(line) for line in (proc.stdout or "").splitlines()
+                  if line.startswith("{") and line.rstrip().endswith("}")]
+        result = ""
+        if os.path.exists(last):
+            with open(last, encoding="utf-8") as f:
+                result = f.read()
+    tools = [e["item"].get("type") for e in events if e.get("type", "").startswith("item.")
+             and e.get("item", {}).get("type") not in ("agent_message", "reasoning")]
+    errors = [str(e.get("message") or e.get("error") or e) for e in events
+              if e.get("type") in ("error", "turn.failed")]
+    if errors or proc.returncode:
+        raise RuntimeError(f"codex: {(errors[-1] if errors else (proc.stderr or proc.stdout))[:300]}")
+    if tools:
+        raise RuntimeError(f"codex: модель вызвала инструмент ({', '.join(dict.fromkeys(tools))})")
+    u = next((e.get("usage") or {} for e in reversed(events) if e.get("type") == "turn.completed"), {})
+    _remember_stop_reason("stop")
+    _remember_usage(int(u.get("input_tokens", 0)), int(u.get("output_tokens", 0)), 0.0)
+    if not prefill:
+        return result
+    glue = "" if (not result or prefill[-1:].isspace() or result[:1].isspace()
+                  or result[:1] in ",.;:!?…»)") else " "
+    return prefill + glue + result
+
+
+def chatgpt_limits() -> dict:
+    """Остаток лимитов подписки ChatGPT: {"primary": {...}, "secondary": {...}, "plan": ...}.
+    Окна — 5 часов и неделя, usedPercent — сколько израсходовано, resetsAt — unix-время.
+    Читается у `codex app-server` (account/rateLimits/read); вызова модели нет."""
+    import json as _json
+    p = subprocess.Popen(_codex_cmd() + ["app-server"], stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         text=True, encoding="utf-8")
+    try:
+        def rpc(i, method, params):
+            p.stdin.write(_json.dumps({"jsonrpc": "2.0", "id": i, "method": method,
+                                       "params": params}) + "\n")
+            p.stdin.flush()
+            for line in p.stdout:
+                m = _json.loads(line)
+                if m.get("id") == i:
+                    return m
+            raise RuntimeError("codex app-server закрылся")
+        rpc(1, "initialize", {"clientInfo": {"name": "fiction-engine", "version": "1"}})
+        p.stdin.write(_json.dumps({"jsonrpc": "2.0", "method": "initialized"}) + "\n")
+        snap = (rpc(2, "account/rateLimits/read", {}).get("result") or {}).get("rateLimits") or {}
+    finally:
+        p.kill()
+    return {"primary": snap.get("primary"), "secondary": snap.get("secondary"),
+            "plan": snap.get("planType"), "reached": snap.get("rateLimitReachedType")}
 
 
 def _call_openai_direct(model_id, system, user, api_key, max_tokens, prefill=""):
