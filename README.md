@@ -236,6 +236,10 @@ codex.cmd login
 (вход — «Sign in with ChatGPT»). В имени модели после `@` — глубина
 размышления: `chatgpt_subscription::gpt-6.1-sol@high`.
 
+Как писатель GPT-6.1 Sol (medium) на замере 15.10 сильнее DeepSeek V4 Pro и
+почти вровень с Sonnet 5.5; глава — около 5 минут и ≈3 % окна 5 часов Plus
+(`bench/ab-writers-gpt61-2026-10-15.json`).
+
 - **Риски и лимит — как у Claude через подписку**: условия OpenAI, лимит
   общий с Codex (окно 5 часов и неделя; отсчёт — с первого вызова, а не
   по календарю). Остаток: `engine.api.chatgpt_limits()`. Вызовы — по одному.
