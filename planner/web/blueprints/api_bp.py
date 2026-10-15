@@ -380,6 +380,17 @@ def fe_projects():
         return jsonify({"error": str(e), "projects": []})
 
 
+@bp.route("/fe/models")
+def fe_models():
+    """Модели Fiction Engine — для AI-помощи в сцене (раньше модель вводилась вручную)."""
+    try:
+        import json as _json
+        with _fe_get("/api/models", timeout=5) as r:
+            return jsonify({"models": _json.loads(r.read())})
+    except Exception as e:
+        return jsonify({"error": str(e), "models": []})
+
+
 @bp.route("/fe/bible")
 def fe_bible():
     """Библия серии связанного проекта Fiction Engine."""

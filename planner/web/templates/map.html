@@ -20,8 +20,9 @@
 <div id="map-canvas"></div>
 {% endblock %}
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/vis-network.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/dist/vis-network.min.css">
+{# Сборка standalone: стили внутри. Прежний путь .../9.1.9/vis-network.min.js — 404,
+   граф не рисовался вовсе («vis is not defined») #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"></script>
 <script>
 const ACTS   = {{ acts | tojson }};
 const SCENES = {{ scenes | tojson }};

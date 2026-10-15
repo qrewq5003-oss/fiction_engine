@@ -110,7 +110,7 @@
 
     <div style="margin-top:12px;" class="form-group">
       <label>Модель FE</label>
-      <input type="text" id="ai-model" placeholder="deepseek_direct::deepseek-chat" style="font-size:11px;">
+      <select id="ai-model" style="font-size:11px;width:100%;"><option value="">— загрузка моделей FE… —</option></select>
     </div>
 
     <div id="ai-spinner" style="display:none;text-align:center;padding:12px;">
@@ -185,6 +185,8 @@ async function aiAction(action) {
   const spin   = document.getElementById('ai-spinner');
   const result = document.getElementById('ai-result');
   const model  = document.getElementById('ai-model').value.trim();
+  if (!model) { showToast('Выбери модель FE в поле «Модель FE»', 'error'); return; }
+  try { localStorage.setItem('planner_ai_model', model); } catch (e) {}
 
   spin.style.display = 'block';
   result.style.display = 'none';
@@ -201,6 +203,22 @@ async function aiAction(action) {
     showToast(r.error || 'Ошибка', 'error');
   }
 }
+
+// Модели FE для AI-помощи: раньше — пустое поле для ручного ввода с подсказкой
+// deepseek_direct::deepseek-chat, а без модели — «Нужны model и prompt»
+(async function loadAIModels() {
+  const sel = document.getElementById('ai-model');
+  const r = await fetch('/api/fe/models').then(x => x.json()).catch(() => ({models: []}));
+  const list = r.models || [];
+  if (!list.length) { sel.innerHTML = '<option value="">FE недоступен — запусти Fiction Engine</option>'; return; }
+  let saved = '';
+  try { saved = localStorage.getItem('planner_ai_model') || ''; } catch (e) {}
+  sel.innerHTML = '<option value="">— выбери модель —</option>' + list.map(m => {
+    const v = String(m.value).replace(/"/g, '&quot;');
+    const l = String(m.label).replace(/</g, '&lt;');
+    return `<option value="${v}"${m.value === saved ? ' selected' : ''}>${l}</option>`;
+  }).join('');
+})();
 
 // Автосохранение при уходе
 window.addEventListener('beforeunload', e => {
