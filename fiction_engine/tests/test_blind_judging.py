@@ -104,14 +104,17 @@ def test_all_roles_have_a_default():
 
 
 def test_writer_by_subscription_when_enabled(monkeypatch):
+    from unittest.mock import patch
     from engine.pipeline_config import DEFAULT_ROLE_MODELS, default_role_models
     monkeypatch.delenv("FE_CLAUDE_SUBSCRIPTION", raising=False)
     monkeypatch.delenv("FE_CHATGPT_SUBSCRIPTION", raising=False)
     assert default_role_models() == DEFAULT_ROLE_MODELS
-    monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
-    assert default_role_models()["gen"] == "chatgpt_subscription::gpt-6.1-sol@medium"
-    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
-    got = default_role_models()
+    # Подписка считается включённой только при установленном CLI — в CI его нет
+    with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
+        monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
+        assert default_role_models()["gen"] == "chatgpt_subscription::gpt-6.1-sol@medium"
+        monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+        got = default_role_models()
     assert got["gen"] == "claude_subscription::claude-sonnet-5-5"
     # Судья — тот, на котором калиброван порог, писатель его не сдвигает
     assert got["judge"] == DEFAULT_ROLE_MODELS["judge"]
