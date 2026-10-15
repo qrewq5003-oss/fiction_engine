@@ -25,6 +25,12 @@ jobs:
         shell: cmd
 
     steps:
+      # Defender на раннере проверяет каждый файл, а тесты создают сотни
+      # баз SQLite: проверка в реальном времени тормозит файловые операции
+      - name: Без проверки Defender в реальном времени
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v6
@@ -71,7 +77,7 @@ jobs:
           .venv\Scripts\python -m pytest tests -q -p no:cacheprovider -n auto
           --cov=engine --cov=web
           --cov-report=term-missing:skip-covered
-          --cov-fail-under=75
+          --cov-fail-under=75 --durations=15
 
       # Границы слоёв: web не лезет в приватные функции engine.
       - name: Архитектурные границы
