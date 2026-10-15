@@ -258,6 +258,29 @@
   <div id="resolver-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
 </div>
 
+<!-- Проверка непрерывности после главы -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">🔎 Проверка непрерывности</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+    После каждой главы — сверка с полным текстом трёх прошлых: до 8 противоречий парами цитат
+    (имя, одежда, вещь и где она, время, кто что знает). Цитаты проверяются по тексту — выдуманное отбрасывается.
+    Один дополнительный вызов на главу. Нужна сильная модель другого семейства, чем писатель:
+    на замере GPT-6.1 Sol — 84&nbsp;% находок настоящие, Sonnet — 70&nbsp;%, DeepSeek и GLM — 30–42&nbsp;%.
+    Не задана — проверки нет.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select id="input-continuity-model" class="key-input" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;">
+      <option value="">— не задана (проверки нет) —</option>
+      {% for m in models %}
+      <option value="{{ m.value }}">{{ m.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="key-btn key-btn-save" onclick="saveContinuityModel()">✓</button>
+    <button class="key-btn key-btn-delete" onclick="saveContinuityModel('')" title="Выключить">✕</button>
+  </div>
+  <div id="continuity-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+</div>
+
 <!-- UNIFIED ENGINE статус -->
 <div class="card" style="border-color:var(--accent);margin-top:20px;">
   <div class="card-title">⚙️ UNIFIED ENGINE</div>
@@ -474,6 +497,26 @@ async function clearResolverModel() {
 }
 
 loadResolverModel();
+
+// Модель проверки непрерывности
+function showContinuity(r) {
+  const hint = document.getElementById('continuity-model-hint');
+  document.getElementById('input-continuity-model').value = r.model || '';
+  hint.textContent = r.model ? '✓ Проверяет: ' + r.model + (r.note ? ' — ' + r.note : '')
+                             : 'Не задана — проверки нет';
+  hint.style.color = r.note ? 'var(--warning)' : (r.model ? 'var(--success)' : 'var(--text2)');
+}
+async function loadContinuityModel() {
+  showContinuity(await fetch('/api/continuity/model').then(x => x.json()));
+}
+async function saveContinuityModel(value) {
+  const model = value !== undefined ? value : document.getElementById('input-continuity-model').value;
+  const r = await apiPost('/api/continuity/model', {model});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showContinuity(r);
+  showToast(model ? 'Сохранено' : 'Проверка выключена', model ? 'success' : 'info');
+}
+loadContinuityModel();
 checkEngineStatus();
 
 </script>
