@@ -11,6 +11,11 @@ on:
 # русский текст ломается — у пользователя это задаёт start_all.bat.
 env:
   PYTHONUTF8: "1"
+  # setup_windows.bat собирает venv через `py -3`, а лаунчер без подсказки
+  # берёт самый новый Python раннера: при python-version 3.11 тесты шли на
+  # 3.14. Версия — как у пользователя
+  PY_PYTHON: "3.15"
+  PY_PYTHON3: "3.15"
 
 jobs:
   checks:
@@ -24,7 +29,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.15"
           cache: pip
           cache-dependency-path: fiction_engine/pyproject.toml
 
@@ -44,6 +49,7 @@ jobs:
       - name: Данные на месте
         shell: bash
         run: |
+          fiction_engine/.venv/Scripts/python -c "import sys; print(sys.version); sys.exit(sys.version_info[:2] != (3, 15))"
           test -f "$USERPROFILE/fiction_engine/projects.db"
           test -f fiction_engine/.env
 
@@ -54,15 +60,22 @@ jobs:
       # tests/ и четыре мёртвых tests_*.py в корне — одни и те же проверки
       # в двух-трёх реализациях, править приходилось синхронно.
       #
+      # Шаг шёл 17 минут из 19: init_db перед каждым тестом и в каждом
+      # примере Hypothesis — до секунды на диске раннера. Теперь БД — копия
+      # шаблона (tests/db_template.py), и тесты в несколько процессов
+      # (pytest-xdist). Проверка Defender в реальном времени ни при чём:
+      # без неё шаг шёл столько же. --durations — чтобы новый медленный
+      # тест был виден сразу.
+      #
       # Порог покрытия держит планку: на момент слияния 77.8%, запас на
       # колебания. Просадка ниже 75% роняет сборку.
       - name: Тесты с покрытием
         working-directory: fiction_engine
         run: >
-          .venv\Scripts\python -m pytest tests -q -p no:cacheprovider
+          .venv\Scripts\python -m pytest tests -q -p no:cacheprovider -n auto
           --cov=engine --cov=web
           --cov-report=term-missing:skip-covered
-          --cov-fail-under=75
+          --cov-fail-under=75 --durations=15
 
       # Границы слоёв: web не лезет в приватные функции engine.
       - name: Архитектурные границы
@@ -104,7 +117,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.15"
 
       # Свои AST-анализаторы: сигнатуры вызовов между модулями и
       # классические ловушки. Ловят класс багов, который юнит-тесты

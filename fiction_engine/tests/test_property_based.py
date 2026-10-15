@@ -52,10 +52,10 @@ closing_types = st.sampled_from(
 
 @pytest.fixture(autouse=True)
 def use_temp_db(tmp_path):
+    from tests.db_template import fresh_db
     db_file = tmp_path / "test.db"
+    fresh_db(db_file)
     with patch("engine.db_core.DB_PATH", db_file):
-        from engine.db_core import init_db
-        init_db()
         yield db_file
 
 
