@@ -341,6 +341,9 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     from .text_signals import chapter_signals, previous_chapters, series_signals
     signals = chapter_signals(text) + series_signals(
         text, previous_chapters(project_id, chapter_num))
+    # Сверка с текстом прошлых глав — только если автор выбрал проверяющего
+    from .continuity_checker import cross_check_signals
+    signals += cross_check_signals(project_id, chapter_num, text, model_value, _call)
     if signals:
         warning = (warning or "") + " " + " ".join(signals)
     word_count = len(text.split())
