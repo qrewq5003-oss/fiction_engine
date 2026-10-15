@@ -92,8 +92,13 @@ def stats():
         if missing:
             incomplete.append({"id": s["id"], "title": s["title"] or f"Сцена #{s['id']}", "missing": missing})
 
+    # Время в плане: сцены в порядке доски — акты по номеру, без акта в конце
+    from engine.timeline import check as check_timeline
+    order = {a["id"]: i for i, a in enumerate(acts)}
+    in_plan = sorted(scenes, key=lambda s: (order.get(s["act_id"], len(order)), s["position"] or 0))
+
     return render_template("stats.html",
-        scenes=scenes, by_act=by_act,
+        scenes=scenes, by_act=by_act, timeline=check_timeline(in_plan),
         chars_count=sorted(chars_count.items(), key=lambda x: -x[1]),
         loc_count=sorted(loc_count.items(), key=lambda x: -x[1]),
         emo_count=sorted(emo_count.items(), key=lambda x: -x[1]),
