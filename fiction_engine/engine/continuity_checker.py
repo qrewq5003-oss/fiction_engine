@@ -437,7 +437,7 @@ def same_family_note(model_gen: str, model_check: str) -> str:
 
 
 def cross_check_signals(project_id: int, chapter_num: int, text: str, model_gen: str,
-                        call_fn) -> list[str]:
+                        call_fn: Callable[..., str]) -> list[str]:
     """
     Сигналы автору по сверке новой главы с текстом прошлых: до CROSS_MAX
     противоречий парами цитат. call_fn(model, system, user, max_tokens=…) -> str.
