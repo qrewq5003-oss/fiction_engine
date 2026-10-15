@@ -113,7 +113,6 @@ label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px
     <!-- Status bar -->
   <div id="status-bar" style="margin-top:auto;padding:10px 12px;border-top:1px solid var(--border);font-size:11px;">
     <div style="margin-bottom:5px;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Статус</div>
-    <div id="st-fe-db"     class="st-row">⏳ FE база данных</div>
     <div id="st-fe-keys"   class="st-row">⏳ API ключи</div>
     <div id="st-fe-server" class="st-row">⏳ FE сервер</div>
   </div>
@@ -192,10 +191,6 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 async function loadStatus() {
   try {
     const r = await fetch('/api/status').then(x=>x.json());
-    const feDb = document.getElementById('st-fe-db');
-    if (r.fe_db) { feDb.className='st-row st-ok'; feDb.textContent='✅ FE база данных'; }
-    else { feDb.className='st-row st-err'; feDb.textContent='❌ FE база не найдена'; }
-
     const feKeys = document.getElementById('st-fe-keys');
     if (r.has_keys) {
       const active = Object.entries(r.keys).filter(([,v])=>v).map(([k])=>k).join(', ');
