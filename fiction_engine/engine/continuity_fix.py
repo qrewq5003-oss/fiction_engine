@@ -16,6 +16,8 @@ from typing import Callable
 
 LLMCaller = Callable[[str], str]
 
+SYS_FIX = "Ты писатель этой серии. Правишь только указанные места. Отвечаешь только JSON."
+
 _CTX_RADIUS = 300             # символов вокруг цитаты прошлой главы — чтобы было видно, как было
 
 _FIX_PROMPT = """Ниже глава {num} серии и список мест, где она противоречит прошлым главам.
@@ -171,5 +173,5 @@ def changed_share(before: str, after: str) -> float:
     return round(1 - same / max(len(a), len(b)), 4)
 
 
-__all__ = ["fix_contradictions", "apply_edits", "quote_context", "edits_summary",
+__all__ = ["SYS_FIX", "fix_contradictions", "apply_edits", "quote_context", "edits_summary",
            "changed_share"]

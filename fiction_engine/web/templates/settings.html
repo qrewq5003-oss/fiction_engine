@@ -279,6 +279,26 @@
     <button class="key-btn key-btn-delete" onclick="saveContinuityModel('')" title="Выключить">✕</button>
   </div>
   <div id="continuity-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+
+  <div style="font-size:12px;color:var(--text2);margin:16px 0 12px;">
+    <b>Правка по находкам.</b> Найденные противоречия модель исправляет на месте — заменяет только
+    фрагменты с неверным фактом, глава целиком не переписывается; затем проверка повторяется,
+    автору остаётся то, что не снялось. Ещё два вызова на главу с находками. На замере Sonnet 5.5:
+    противоречий 104&nbsp;→&nbsp;10, судья за правленую главу 11&nbsp;:&nbsp;5, изменено 1.3&nbsp;% слов.
+    DeepSeek как правщик доводит факт не по всей главе — судья за исходник 12&nbsp;:&nbsp;5.
+    Работает только вместе с проверкой. Не задана — правки нет, только сигналы.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select id="input-continuity-fix-model" class="key-input" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;">
+      <option value="">— не задана (только сигналы) —</option>
+      {% for m in models %}
+      <option value="{{ m.value }}">{{ m.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="key-btn key-btn-save" onclick="saveContinuityFixModel()">✓</button>
+    <button class="key-btn key-btn-delete" onclick="saveContinuityFixModel('')" title="Выключить">✕</button>
+  </div>
+  <div id="continuity-fix-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
 </div>
 
 <!-- UNIFIED ENGINE статус -->
@@ -517,6 +537,26 @@ async function saveContinuityModel(value) {
   showToast(model ? 'Сохранено' : 'Проверка выключена', model ? 'success' : 'info');
 }
 loadContinuityModel();
+
+// Модель правки по находкам проверки
+function showContinuityFix(r) {
+  const hint = document.getElementById('continuity-fix-model-hint');
+  document.getElementById('input-continuity-fix-model').value = r.model || '';
+  if (!r.model) { hint.textContent = 'Не задана — только сигналы'; hint.style.color = 'var(--text2)'; return; }
+  hint.textContent = '✓ Правит: ' + r.model + (r.checker ? '' : ' — проверка не задана, правки не будет');
+  hint.style.color = r.checker ? 'var(--success)' : 'var(--warning)';
+}
+async function loadContinuityFixModel() {
+  showContinuityFix(await fetch('/api/continuity/fix-model').then(x => x.json()));
+}
+async function saveContinuityFixModel(value) {
+  const model = value !== undefined ? value : document.getElementById('input-continuity-fix-model').value;
+  const r = await apiPost('/api/continuity/fix-model', {model});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showContinuityFix(r);
+  showToast(model ? 'Сохранено' : 'Правка выключена', model ? 'success' : 'info');
+}
+loadContinuityFixModel();
 checkEngineStatus();
 
 </script>

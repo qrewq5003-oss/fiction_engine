@@ -192,7 +192,7 @@ def pipeline_accept():
         # и judge_score из последнего вердикта.
         try:
             iters      = get_pipeline_iterations(run_id)
-            gen_iter   = next((i for i in reversed(iters) if i["stage"] in ("generate", "edit")), None)
+            gen_iter   = next((i for i in reversed(iters) if i["stage"] in ("generate", "continuity_fix", "edit")), None)
             judge_iter = next((i for i in reversed(iters) if i["stage"] == "judge"), None)
             orig_text  = gen_iter["output_text"] if gen_iter else ""
             j_score    = judge_iter["score"] if judge_iter else None
@@ -233,7 +233,7 @@ def pipeline_reject():
         try:
             data_r     = request.json or {}
             iters      = get_pipeline_iterations(run_id)
-            gen_iter   = next((i for i in reversed(iters) if i["stage"] in ("generate", "edit")), None)
+            gen_iter   = next((i for i in reversed(iters) if i["stage"] in ("generate", "continuity_fix", "edit")), None)
             judge_iter = next((i for i in reversed(iters) if i["stage"] == "judge"), None)
             orig_text  = gen_iter["output_text"] if gen_iter else ""
             j_score    = judge_iter["score"] if judge_iter else None

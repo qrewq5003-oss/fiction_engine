@@ -25,9 +25,8 @@ import ab_compare as ab
 ab._temp_db(ROOT / "fiction_engine")
 from engine.pipeline import _call
 from engine.continuity_checker import check_against_chapters
-from engine.continuity_fix import changed_share, edits_summary, fix_contradictions
+from engine.continuity_fix import SYS_FIX as FIX_SYSTEM, changed_share, edits_summary, fix_contradictions
 D = ROOT / ".ab_work"
-FIX_SYSTEM = "Ты писатель этой серии. Правишь только указанные места. Отвечаешь только JSON."
 
 
 def _mt(model: str, default: int) -> int:

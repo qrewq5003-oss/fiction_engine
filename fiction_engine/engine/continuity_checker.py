@@ -483,21 +483,83 @@ def cross_check_signals(project_id: int, chapter_num: int, text: str, model_gen:
     противоречий парами цитат. call_fn(model, system, user, max_tokens=…) -> str.
     Модель не выбрана, прошлых глав нет или вызов упал — пустой список.
     """
+    return cross_check_and_fix(project_id, chapter_num, text, model_gen, call_fn, fix=False)[1]
+
+
+# ─── Правка по находкам ──────────────────────────────────────────────────────
+#
+# Замер 15.10 (bench/ab-continuity-fix-2026-10-15.json, 24 главы DeepSeek,
+# находки Sol): правщик Sonnet 5.5 — находок 104 → 10, проза после правки
+# устойчиво лучше по судье GPT 11 : 5 (судья видит, что связность выросла,
+# а проза та же); изменено 1.3 % слов. DeepSeek как правщик снимает почти
+# столько же (104 → 11), но доводит факт не по всей главе — глава начинает
+# противоречить сама себе, и судья устойчиво за исходник 12 : 5. Поэтому
+# правщик — отдельная настройка, а не писатель главы. Не задан — правки нет,
+# автору идут сигналы, как раньше.
+
+CONTINUITY_FIX_MODEL_KEY = "continuity_fix_model"
+
+
+def continuity_fix_model() -> str:
+    """Модель правки по находкам проверки; «» — правки нет, только сигналы."""
+    from .db_settings import get_setting
+    return (get_setting(CONTINUITY_FIX_MODEL_KEY) or "").strip()
+
+
+def _budget(model: str, default: int) -> int:
+    # Подписка Claude тратит бюджет и на скрытое размышление, как у судей
+    return 32000 if model.startswith("claude_subscription::") else default
+
+
+def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen: str,
+                        call_fn: Callable[..., str], fix: bool = True) -> tuple[str, list[str]]:
+    """
+    Сверка новой главы с прошлыми и, если выбран правщик, точечная правка по
+    находкам с перепроверкой. Возвращает (текст, сигналы автору): после правки
+    в сигналах — сколько исправлено и то, что осталось. Проверяющий не выбран,
+    прошлых глав нет или проверка упала — текст как есть, сигналов нет; упала
+    правка — текст как есть, сигналы по находкам.
+    """
     model = continuity_model()
     if not model or not project_id or not (text or "").strip():
-        return []
+        return text, []
     from .text_signals import previous_chapters
     prev = previous_chapters(project_id, chapter_num, CROSS_LOOKBACK)
     if not prev:
-        return []
-    # Подписка Claude тратит бюджет и на скрытое размышление, как у судей
-    mt = 32000 if model.startswith("claude_subscription::") else 4000
+        return text, []
+
+    def against_previous(t: str) -> list[dict]:
+        return check_against_chapters(chapter_num, t, prev, lambda p: call_fn(
+            model, _SYS_CROSS, p, max_tokens=_budget(model, 4000)))
+
+    where = f"({project_id}, ch{chapter_num})"
     try:
-        found = check_against_chapters(chapter_num, text, prev,
-                                       lambda p: call_fn(model, _SYS_CROSS, p, max_tokens=mt))
+        found = against_previous(text)
     except Exception as e:
-        handle_error(f"cross_check_signals ({project_id}, ch{chapter_num})", e,
-                     level=ErrorLevel.RECOVERABLE)
-        return []
+        handle_error(f"cross_check_signals {where}", e, level=ErrorLevel.RECOVERABLE)
+        return text, []
     note = same_family_note(model_gen, model)
-    return ([note] if note and found else []) + format_cross_signals(found)
+    head = [note] if note and found else []
+    fixer = continuity_fix_model() if fix else ""
+    if not found or not fixer:
+        return text, head + format_cross_signals(found)
+
+    from .continuity_fix import SYS_FIX, fix_contradictions
+    try:
+        res = fix_contradictions(chapter_num, text, found, prev, lambda p: call_fn(
+            fixer, SYS_FIX, p, max_tokens=_budget(fixer, 8000)))
+    except Exception as e:
+        handle_error(f"continuity_fix {where}", e, level=ErrorLevel.RECOVERABLE)
+        return text, head + format_cross_signals(found)
+    if not res["applied"]:
+        return text, head + format_cross_signals(found)
+    done = (f"Правка непрерывности ({fixer.split('::')[-1]}): противоречий с прошлыми главами "
+            f"{len(found)}, замен {len(res['applied'])}")
+    try:
+        left = against_previous(res["text"])
+    except Exception as e:
+        handle_error(f"cross_check_signals (перепроверка) {where}", e, level=ErrorLevel.RECOVERABLE)
+        return res["text"], head + [done + "; перепроверка не удалась — проверь эти места:"] + \
+            format_cross_signals(found)
+    return res["text"], head + [done + (f"; осталось {len(left)}:" if left else "; не осталось.")] + \
+        format_cross_signals(left)
