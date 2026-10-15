@@ -664,12 +664,9 @@ def _call_chatgpt_subscription(model_id, system, user, api_key, max_tokens, pref
             proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                                   encoding="utf-8", errors="replace",
                                   timeout=CHATGPT_SUB_TIMEOUT)
-        events = []
-        for line in (proc.stdout or "").splitlines():
-            try:
-                events.append(_json.loads(line))
-            except ValueError:
-                pass
+        # --json пишет по событию в строку; прочие строки (предупреждения CLI) — не события
+        events = [_json.loads(line) for line in (proc.stdout or "").splitlines()
+                  if line.startswith("{") and line.rstrip().endswith("}")]
         result = ""
         if os.path.exists(last):
             with open(last, encoding="utf-8") as f:
