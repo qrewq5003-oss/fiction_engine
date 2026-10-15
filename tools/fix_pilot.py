@@ -148,6 +148,46 @@ def phase_recheck(a) -> None:
     _save(out, st)
 
 
+def phase_selfcheck(a) -> None:
+    """Правленая глава против самой себя (проверяющий), затем второй проход правщика по этим находкам."""
+    from engine.continuity_checker import check_self_contradictions
+    out = D / f"{a.out}.json"; st = _state(out)
+    st["selfchecker"] = a.checker; st["fixer2"] = a.fixer
+
+    def run(row):
+        if row["fix_failed"] or row["text_after"] == row["text_before"]:
+            row["self_found"] = []; return row
+        try:
+            row["self_found"] = check_self_contradictions(
+                row["chapter"], row["text_after"],
+                lambda p: _call(a.checker, ab.RATE_SYSTEM, p, max_tokens=_mt(a.checker, 4000)))
+        except Exception as e:
+            row["self_found"] = []; print(f"  сбой проверки: {str(e)[:80]}", flush=True)
+        row["text_after1"] = row["text_after"]
+        if row["self_found"]:
+            try:
+                res = fix_contradictions(row["chapter"], row["text_after"], row["self_found"],
+                                         [{"number": row["chapter"], "content": row["text_after"]}],
+                                         lambda p: _call(a.fixer, FIX_SYSTEM, p, max_tokens=_mt(a.fixer, 8000)))
+                row.update(text_after=res["text"], edits2=res["edits"], applied2=res["applied"],
+                           failed2=res["failed"], changed=changed_share(row["text_before"], res["text"]))
+            except Exception as e:
+                print(f"  сбой правки: {str(e)[:80]}", flush=True)
+        print(f"  {row['side']:8} #{row['run']} гл.{row['chapter']} внутренних {len(row['self_found'])}, "
+              f"замен {len(row.get('applied2', []))}, изменено всего {row['changed'] * 100:.1f} %", flush=True)
+        return row
+
+    with ThreadPoolExecutor(a.workers) as pool:
+        st["rows"] = list(pool.map(run, st["rows"]))
+    for r in st["rows"]:
+        for k in ("found_after", "remained", "new", "votes", "recheck_failed"):
+            r.pop(k, None)
+    st.pop("checker", None); st.pop("judge", None)
+    _save(out, st)
+    print(f"\n  внутренних противоречий найдено {sum(len(r['self_found']) for r in st['rows'])}, "
+          f"глав с ними {sum(1 for r in st['rows'] if r['self_found'])}")
+
+
 def phase_judge(a) -> None:
     out = D / f"{a.out}.json"; st = _state(out)
     st["judge"] = a.judge
@@ -220,7 +260,7 @@ def phase_report(a) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("phase", choices=("fix", "reapply", "recheck", "judge", "report"))
+    ap.add_argument("phase", choices=("fix", "reapply", "selfcheck", "recheck", "judge", "report"))
     ap.add_argument("--out", default="fix/sol61")
     ap.add_argument("--check", default="check3/sol61-med.json")
     ap.add_argument("--series", nargs="+", default=["testimony/with.json", "testimony/without.json"])
@@ -231,5 +271,5 @@ if __name__ == "__main__":
                                                  "check3/sol61-med-adj-claude-opus-5-5.json"])
     ap.add_argument("--workers", type=int, default=1)
     a = ap.parse_args()
-    {"fix": phase_fix, "reapply": phase_reapply, "recheck": phase_recheck,
-     "judge": phase_judge, "report": phase_report}[a.phase](a)
+    {"fix": phase_fix, "reapply": phase_reapply, "selfcheck": phase_selfcheck,
+     "recheck": phase_recheck, "judge": phase_judge, "report": phase_report}[a.phase](a)

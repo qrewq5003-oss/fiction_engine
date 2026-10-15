@@ -89,3 +89,15 @@ def test_unparsable_answer_raises():
 def test_changed_share():
     assert changed_share("а б в г", "а б в г") == 0.0
     assert changed_share("а б в г", "а б х г") == 0.25
+
+
+def test_self_contradictions_both_quotes_must_be_in_chapter():
+    from engine.continuity_checker import check_self_contradictions
+    text = ("Вера поднялась на третий этаж. Дверь была приоткрыта.\n\n"
+            "Через час она снова стояла у двери на втором этаже и слушала тишину.")
+    raw = json.dumps({"contradictions": [
+        {"quote_a": "поднялась на третий этаж", "quote_b": "у двери на втором этаже", "what": "Этаж сменился."},
+        {"quote_a": "этого в главе нет никак", "quote_b": "у двери на втором этаже", "what": "мимо"}]})
+    found = check_self_contradictions(5, text, lambda p: raw)
+    assert len(found) == 1 and found[0]["chapter_a"] == 5 and found[0]["what"] == "Этаж сменился."
+    assert check_self_contradictions(5, "", lambda p: pytest.fail("вызова быть не должно")) == []

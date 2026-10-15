@@ -398,6 +398,46 @@ def check_against_chapters(chapter_num: int, chapter_text: str, previous: list[d
     return out[:CROSS_MAX]
 
 
+_SELF_PROMPT = """Ниже глава {num}. Найди, где она противоречит САМОЙ СЕБЕ: факт, заданный в
+одном месте главы, нарушен в другом — имя, этаж, время, день, одежда, вещь и
+где она, кто где был, кто что знает или говорил, жив или мёртв. Не считай
+противоречием развитие (герой узнал новое, передумал), ложь персонажа, если
+текст её так и подаёт, и стиль. Цитаты точные, 5–15 слов, обе из этой главы:
+quote_a — раньше по тексту, quote_b — позже.
+
+=== ГЛАВА {num} ===
+{text}
+
+Ответь JSON без пояснений вокруг (нет противоречий — пустой список):
+{{"contradictions": [{{"quote_a": "…", "quote_b": "…", "what": "…"}}]}}"""
+
+
+def check_self_contradictions(chapter_num: int, chapter_text: str,
+                              api_call_fn: LLMCaller) -> list[dict]:
+    """
+    Противоречия главы с самой собой — после точечной правки, когда факт
+    исправлен не во всех местах. Формат как у check_against_chapters,
+    chapter_a = номер этой же главы; обе цитаты проверяются по тексту.
+    """
+    if not (chapter_text or "").strip():
+        return []
+    from .pipeline_config import CRITIC_TEXT_LIMIT
+    raw = api_call_fn(_SELF_PROMPT.format(num=chapter_num, text=chapter_text[:CRITIC_TEXT_LIMIT]))
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    items = data if isinstance(data, list) else \
+        data.get("contradictions") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        raise ValueError("проверка главы на себя: ответ модели не разобран")
+    out = []
+    for x in items:
+        if isinstance(x, dict) and quote_in(x.get("quote_a"), chapter_text) \
+                and quote_in(x.get("quote_b"), chapter_text):
+            out.append({"chapter_a": chapter_num, "quote_a": str(x["quote_a"]).strip(),
+                        "quote_b": str(x["quote_b"]).strip(), "what": str(x.get("what") or "").strip()})
+    return out[:CROSS_MAX]
+
+
 def format_cross_signals(found: list[dict]) -> list[str]:
     """Сигналы автору: «Противоречие с главой N: …»."""
     return [f"Противоречие с главой {x['chapter_a']}: {x['what']} («{x['quote_a']}» — "
