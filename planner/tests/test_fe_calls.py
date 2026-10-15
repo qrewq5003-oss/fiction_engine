@@ -166,6 +166,7 @@ class TestCallsCarryToken:
         fake_fe.responses["/api/inline_call"] = (200, {"ok": True, "result": "x"})
         with client.session_transaction() as sess:
             sess["project_id"] = project_id
+            sess["planner_auth"] = True       # FE_PASSWORD — и пароль планировщика
         client.get("/api/status")
         client.get("/api/fe/projects")
         client.post("/api/fe/import/7")

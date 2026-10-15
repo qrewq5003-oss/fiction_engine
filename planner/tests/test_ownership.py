@@ -123,7 +123,22 @@ def _proof_fe_bible_set(client, f):
     assert get_scene(f["scene_id"])["title"] == "ЧУЖАЯ-2", "чужая сцена изменена"
 
 
+def _proof_login(client, f):
+    """Вход меняет только сессию: ни проектов, ни сцен не трогает."""
+    import os
+    from engine.db import get_projects, get_scene
+    before = ([dict(p) for p in get_projects()], dict(get_scene(f["scene_id"])))
+    os.environ["PLANNER_PASSWORD"] = "секрет"
+    try:
+        client.post("/login", data={"password": "секрет"})
+        client.post("/login", data={"password": "не тот"})
+    finally:
+        del os.environ["PLANNER_PASSWORD"]
+    assert ([dict(p) for p in get_projects()], dict(get_scene(f["scene_id"]))) == before
+
+
 PROOFS = {
+    "/login":                     _proof_login,
     "/api/scenes/new":            _proof_scene_new,
     "/api/ai/assist":             _proof_ai_assist,
     "/api/fe/import/<int:fe_pid>": _proof_fe_import,

@@ -73,13 +73,15 @@ cd planner && ..\fiction_engine\.venv\Scripts\python app.py   &rem http://127.0.
 Порт 5000 на Windows бывает занят системой (Hyper-V, WSL — ошибка `10013`):
 тогда `set FE_PORT=5050` перед `start_all.bat`, планировщик найдёт FE сам.
 
-Оба сервера по умолчанию слушают только петлевой интерфейс. Fiction Engine
-наружу (например, для телефона через Tailscale) открывается только с паролем —
-без `FE_PASSWORD` на не-петлевом адресе он не запустится:
+Оба сервера по умолчанию слушают только петлевой интерфейс. Наружу (например,
+для телефона через Tailscale) они открываются только с паролем — без него на
+не-петлевом адресе не запустятся. Планировщик берёт `PLANNER_PASSWORD`, а если
+его нет — `FE_PASSWORD`, так что одного пароля хватает обоим:
 
 ```bat
 set FE_PASSWORD=длинный-пароль
 set FE_HOST=0.0.0.0
+set PLANNER_HOST=0.0.0.0
 start_all.bat
 ```
 
@@ -179,6 +181,7 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `FE_API_TOKEN_FILE` | Токен для планировщика (`X-FE-Token`), если `FE_PASSWORD` не задан | `%USERPROFILE%\fiction_engine\api_token` |
 | `FE_CSRF` | `0` — выключить проверку CSRF; только для тестов | включено |
 | `SECRET_KEY` | Подпись сессий планировщика | случайный при старте |
+| `PLANNER_PASSWORD` | Пароль входа в планировщик; обязателен, если `PLANNER_HOST` не петля | `FE_PASSWORD` |
 | `PLANNER_HOST` / `PLANNER_PORT` | Адрес планировщика | `127.0.0.1` / `5001` |
 | `PLANNER_DB` | Путь к базе планировщика | `planner\planner.db` |
 | `FICTION_DEBUG` | Подробный лог в консоль | выключено |
@@ -232,6 +235,10 @@ codex.cmd login
 
 (вход — «Sign in with ChatGPT»). В имени модели после `@` — глубина
 размышления: `chatgpt_subscription::gpt-6.1-sol@high`.
+
+Как писатель GPT-6.1 Sol (medium) на замере 15.10 сильнее DeepSeek V4 Pro и
+почти вровень с Sonnet 5.5; глава — около 5 минут и ≈3 % окна 5 часов Plus
+(`bench/ab-writers-gpt61-2026-10-15.json`).
 
 - **Риски и лимит — как у Claude через подписку**: условия OpenAI, лимит
   общий с Codex (окно 5 часов и неделя; отсчёт — с первого вызова, а не

@@ -62,7 +62,9 @@ MODELS = {
     "chatgpt_subscription": {
         "label": "GPT (подписка ChatGPT, личное)",
         "models": [
-            {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol — через подписку ChatGPT (Codex)"},
+            # Замер 15.10 (bench/ab-writers-gpt61-2026-10-15.json): лучше DeepSeek,
+            # почти вровень с Sonnet; ≈3 % окна 5 часов Plus на главу
+            {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol ★ через подписку ChatGPT (Codex) — сильнее DeepSeek, вровень с Sonnet"},
             {"id": "gpt-6-astra@medium",  "name": "GPT-6 Astra — через подписку ChatGPT (Codex)"},
             {"id": "gpt-6-luna@medium",   "name": "GPT-6 Luna — через подписку ChatGPT (Codex)"},
         ]
