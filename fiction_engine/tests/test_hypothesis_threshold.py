@@ -71,8 +71,9 @@ def _reference_bias(scores: list[float], median: float) -> float:
 def _setup_db_with_scores(scores: list[float]) -> tuple[int, pathlib.Path]:
     """Создать временную БД с принятыми главами по списку scores."""
     tmp = pathlib.Path(tempfile.mkdtemp()) / "test.db"
-    from engine.db_core import init_db, get_conn
-    init_db()
+    from engine.db_core import DB_PATH, get_conn
+    from tests.db_template import fresh_db
+    fresh_db(DB_PATH)
     from engine.db_projects import create_project
     pid = create_project("Hypothesis проект", "фэнтези")
     with get_conn() as conn:
