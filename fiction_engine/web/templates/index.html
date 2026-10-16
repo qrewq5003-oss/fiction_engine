@@ -110,6 +110,8 @@
           </button>
           <button class="btn btn-secondary btn-sm" onclick="rebuildL3({{ ch.number }})"
                   title="Пересоздать L3-саммари" style="padding:4px 6px;">🔄</button>
+          <button class="btn btn-secondary btn-sm" onclick="deleteChapter({{ ch.number }})"
+                  title="Удалить главу" style="padding:4px 6px;">🗑</button>
         </div>
         {% endfor %}
       </div>
@@ -429,6 +431,15 @@ async function showL3Summary(num) {
     r.mood && '🎭 ' + r.mood,
   ].filter(Boolean).join('\n');
   alert('L3 — Глава ' + num + ':\n\n' + msg);
+}
+
+async function deleteChapter(num) {
+  if (!confirm(`Удалить главу ${num}? Вместе с ней удалятся её L3-саммари и анализ.\n` +
+               'State не откатывается: то, что анализ главы внёс в State, останется.')) return;
+  const r = await apiPost(`/chapter/${num}/delete`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showToast(`Глава ${num} удалена`, 'success');
+  setTimeout(() => location.reload(), 600);
 }
 
 async function rebuildL3(num) {

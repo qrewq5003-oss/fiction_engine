@@ -53,6 +53,8 @@ from .db_projects import (
     save_chapter,
     get_chapter,
     get_chapters,
+    delete_chapter,
+    purge_orphan_chapter_data,
     get_last_chapters_content,
     # State Engine
     get_state,

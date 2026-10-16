@@ -18,6 +18,10 @@ from .generate_bp import bp
 from ..ownership import owned_run, deny
 from .helpers import (get_current_project, log_web_error)
 
+# Запуск без движения дольше этого — зависший (кнопка «🧹 Зависшие»).
+# Подписка пишет главу до десятка минут, правка непрерывности — ещё столько же
+STALE_MINUTES = 30
+
 
 @bp.route("/pipeline")
 def pipeline_page():
@@ -265,6 +269,14 @@ def pipeline_delete_history():
         return jsonify({"error": "Нет проекта"}), 400
     from engine.db_core import get_conn
     with get_conn() as conn:
+        # Правки автора ссылаются на запуск, но ценны сами по себе (на них
+        # учится судья): отвязываем, а не удаляем. Без этого внешний ключ
+        # ронял удаление, и кнопка «Удалить всё» молча не работала
+        conn.execute(
+            "UPDATE author_edits SET run_id=NULL WHERE run_id IN "
+            "(SELECT id FROM pipeline_runs WHERE project_id=?)",
+            (current["id"],)
+        )
         # Сначала удаляем итерации (дочерние записи)
         conn.execute(
             "DELETE FROM pipeline_iterations WHERE run_id IN "
@@ -282,7 +294,13 @@ def pipeline_delete_history():
 
 @bp.route("/pipeline/cleanup", methods=["POST"])
 def pipeline_cleanup():
-    """Сбросить все зависшие запуски (статус running → rejected)."""
+    """Сбросить зависшие запуски (статус running → rejected).
+
+    Статус running носит и дописанная глава, ждущая решения автора, и запуск,
+    который ещё идёт. Раньше кнопка сбрасывала все: только что дописанная
+    глава уходила в отклонённые. Зависшим считаем запуск без оценки судьи,
+    в котором ничего не происходило дольше STALE_MINUTES.
+    """
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
@@ -290,8 +308,13 @@ def pipeline_cleanup():
     with get_conn() as conn:
         conn.execute(
             "UPDATE pipeline_runs SET status='rejected', finished_at=datetime('now') "
-            "WHERE project_id=? AND status='running'",
-            (current["id"],)
+            "WHERE project_id=? AND status='running' "
+            "AND NOT EXISTS (SELECT 1 FROM pipeline_iterations i "
+            "                WHERE i.run_id=pipeline_runs.id AND i.stage='judge') "
+            "AND COALESCE((SELECT MAX(i.created_at) FROM pipeline_iterations i "
+            "              WHERE i.run_id=pipeline_runs.id), created_at) "
+            "    < datetime('now', ?)",
+            (current["id"], f"-{STALE_MINUTES} minutes")
         )
         affected = conn.execute("SELECT changes()").fetchone()[0]
     return jsonify({"ok": True, "cleaned": affected})

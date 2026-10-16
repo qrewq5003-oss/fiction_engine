@@ -301,7 +301,10 @@ async function apiPost(url, data) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
   });
-  return r.json();
+  // Ответ 500 приходит страницей, а не JSON: r.json() бросал исключение,
+  // и кнопка молча ничего не делала («Удалить всё» в истории запусков)
+  try { return await r.json(); }
+  catch (e) { return {error: `сервер ответил ${r.status} — подробности в логе`}; }
 }
 
 function copyToClipboard(text) {
