@@ -79,3 +79,9 @@ class TestHost:
         assert check_host("127.0.0.1") is None
         monkeypatch.setenv("FE_PASSWORD", "общий")
         assert check_host("0.0.0.0") is None
+
+
+def test_session_cookie_not_shared_with_fe():
+    """Fiction Engine на том же 127.0.0.1: общий cookie «session» затирал его сессию."""
+    from app import app
+    assert app.config["SESSION_COOKIE_NAME"] == "planner_session"

@@ -142,7 +142,9 @@ def symbols_page():
     from engine.db import get_symbols
     symbols = get_symbols(current["id"])
     chapters = get_chapters(current["id"])
-    return render_template("symbols.html", project=current, symbols=symbols, chapters=chapters)
+    # Без models список «Модель» был пуст, и «Анализировать» отвечал 400
+    return render_template("symbols.html", project=current, symbols=symbols, chapters=chapters,
+                           models=get_all_models_flat())
 
 
 @bp.route("/symbols/add", methods=["POST"])

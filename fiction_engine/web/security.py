@@ -97,6 +97,10 @@ border-radius:6px;cursor:pointer}.err{color:#f87171;font-size:14px}</style></hea
 def init_security(app: Flask) -> None:
     # FE_CSRF=0 — только для тестов движка, которые шлют POST без сессии
     app.config.setdefault("FE_CSRF", os.environ.get("FE_CSRF", "1") != "0")
+    # Своё имя cookie: планировщик работает на том же 127.0.0.1, а cookie порт не
+    # различают. С общим «session» открытая вкладка планировщика затирала
+    # сессию FE — и любой POST со страницы FE отклонялся «нет токена CSRF»
+    app.config["SESSION_COOKIE_NAME"] = "fe_session"
     app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
     app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
     app.jinja_env.globals["csrf_token"] = csrf_token

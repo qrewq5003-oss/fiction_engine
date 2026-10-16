@@ -92,18 +92,31 @@ def pick_model(requested: str = "") -> str:
     return ""
 
 
+NO_MODEL = "Нет модели с ключом: добавь ключ в «Настройки и ключи»"
+
+
+def page_model(requested: str = "", *prefer: str) -> str:
+    """
+    Модель для кнопки на странице без выбора модели («Обзор», страница главы,
+    «Идеи», импорт State): выбранная, затем настройки prefer (ключи settings),
+    затем последняя модель генерации, затем pick_model. Раньше такие кнопки
+    смотрели только на last_model — она появляется лишь после генерации
+    на странице «Генерация», и кнопки отвечали «Не задана модель».
+    """
+    from engine.db import get_setting
+    # Выбранную автором модель не подменяем: нет ключа — пусть вызов так и скажет
+    if (requested or "").strip():
+        return requested.strip()
+    for m in ((get_setting(k) or "").strip() for k in (*prefer, "last_model")):
+        if m and pick_model(m) == m:
+            return m
+    return pick_model()
+
+
 def get_cheap_model(fallback_model: str) -> str:
-    """Вернуть resolver_model из настроек или fallback."""
-    try:
-        with get_conn() as conn:
-            row = conn.execute(
-                "SELECT value FROM settings WHERE key='resolver_model'"
-            ).fetchone()
-        if row and row["value"]:
-            return row["value"]
-    except Exception as e:
-        log_web_error("get_cheap_model: не прочитать resolver_model", e)
-    return fallback_model
+    """Вернуть resolver_model из настроек, если к нему есть ключ, иначе fallback."""
+    from engine.pipeline_llm import _get_resolver_model
+    return _get_resolver_model(fallback_model)
 
 
 def _get_scorer_model(fallback: str) -> str:

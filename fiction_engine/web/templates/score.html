@@ -3,7 +3,7 @@
 
 <div class="page-header">
   <div class="page-title">🔍 Оценка текста</div>
-  <div class="page-sub">Подсветка по абзацам · Эталоны · История State Engine</div>
+  <div class="page-sub">Подсветка по абзацам · Эталоны</div>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;height:calc(100vh - 160px)">
@@ -50,7 +50,7 @@
     <div id="score-status" style="font-size:12px;color:var(--text-muted);min-height:16px"></div>
   </div>
 
-  <!-- Правая колонка: эталоны + история state -->
+  <!-- Правая колонка: эталоны -->
   <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
 
     <!-- Эталоны -->
@@ -61,20 +61,6 @@
       </div>
       <div id="exemplars-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:12px">
         <div style="color:var(--text-muted);font-style:italic">Загрузка...</div>
-      </div>
-    </div>
-
-    <!-- История State Engine -->
-    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;flex:1;overflow:hidden;display:flex;flex-direction:column">
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-        🕐 История State Engine
-        <button class="btn btn-secondary btn-sm" onclick="loadHistory()" style="font-size:11px;padding:2px 8px">↻</button>
-      </div>
-      <div id="history-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:12px">
-        <div style="color:var(--text-muted);font-style:italic">Загрузка...</div>
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
-        Хранится 20 последних версий. Откат создаёт снапшот текущего перед восстановлением.
       </div>
     </div>
 
@@ -289,41 +275,7 @@ async function confirmSaveExemplar() {
   }
 }
 
-// ─── История State Engine ────────────────────────────────────────────────────
-
-async function loadHistory() {
-  const data = await fetch('/api/state/history').then(r => r.json());
-  const list = document.getElementById('history-list');
-  if (!data.history.length) {
-    list.innerHTML = '<div style="color:var(--text-muted);font-style:italic">История пуста</div>';
-    return;
-  }
-  list.innerHTML = '';
-  data.history.forEach(h => {
-    const el = document.createElement('div');
-    el.style.cssText = 'padding:6px 8px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);display:flex;gap:6px;align-items:center';
-    const ts = h.saved_at ? h.saved_at.slice(0,16).replace('T',' ') : '';
-    el.innerHTML = `
-      <div style="flex:1;min-width:0">
-        <div style="color:var(--text-primary);font-size:11px">${ts}</div>
-        <div style="color:var(--text-muted);font-size:11px">${h.reason || 'изменение'}</div>
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick="restoreState(${h.id})"
-        style="font-size:11px;padding:2px 8px;flex-shrink:0">↩ Откат</button>`;
-    list.appendChild(el);
-  });
-}
-
-async function restoreState(snapshotId) {
-  if (!confirm('Откатить State Engine к этой версии?\n\nТекущая версия будет сохранена в историю.')) return;
-  const r = await fetch(`/api/state/restore/${snapshotId}`, {method:'POST'}).then(x => x.json());
-  if (r.ok) {
-    showToast('State Engine откатан', 'success');
-    loadHistory();
-  } else {
-    showToast('Ошибка: ' + (r.error||'?'), 'error');
-  }
-}
+// История State Engine с откатом — на странице State (_state_history.html)
 
 
 // ─── Сохранение состояния ────────────────────────────────────────────────────
@@ -349,6 +301,5 @@ window.addEventListener('beforeunload', () => PageState.save('score', SCORE_IDS)
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 loadExemplars();
-loadHistory();
 </script>
 {% endblock %}

@@ -470,8 +470,23 @@ class NarrativeIntelligence:
 
     def _extract_raw_promises(self, summaries: list) -> list[tuple[int, str]]:
         result = []
+        from .l3_memory import normalize_promises
         for s in summaries:
-            text = s.get("promises", "").strip()
+            raw = s.get("promises") or ""
+            if isinstance(raw, str) and raw.lstrip().startswith("["):
+                try:
+                    raw = json.loads(raw)
+                except ValueError as e:      # битый JSON — разбираем как текст
+                    log.warning("L3 promises: не JSON", str(e))
+            # Новый формат L3 — список обещаний с пометкой «выполнено». Здесь
+            # ждали строку, и анализ серии падал на «'list' has no attribute
+            # 'strip'», как только у главы появлялось свежее саммари
+            if isinstance(raw, list):
+                result += [(s["chapter_num"], p["text"])
+                           for p in normalize_promises(raw, s["chapter_num"])
+                           if not p["resolved"] and len(p["text"]) > 10]
+                continue
+            text = str(raw).strip()
             if not text or text in ("нет", "—", "-", "Нет"):
                 continue
             for part in re.split(r"[;;\n]", text):

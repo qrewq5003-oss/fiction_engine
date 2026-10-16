@@ -253,11 +253,10 @@ function setView(view) {
 
 async function loadChapter() {
   const num = document.getElementById('chapter-select').value;
-  const r = await fetch('/api/chapters').then(x => x.json()).catch(() => null);
-  if (!r) return;
-  const ch = r.find(c => c.number == num);
-  if (ch && ch.content) {
-    document.getElementById('edit-input').value = ch.content;
+  // /api/chapters отдаёт список без текста — кнопка не загружала ни одной главы
+  const r = await fetch(`/api/chapter/${num}/text`).then(x => x.json()).catch(() => null);
+  if (r && r.text) {
+    document.getElementById('edit-input').value = r.text;
     updateWordCount();
     showToast('Глава загружена', 'info');
   } else {
@@ -287,14 +286,17 @@ async function runEdit() {
 
   if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
 
-  currentResultText = result.text;
+  // Сервер отдаёт исправленный текст в поле result (/edit/run): страница
+  // читала result.text, падала на undefined и ничего не показывала
+  const fixed = typeof result.result === 'string' ? result.result : (result.text || '');
+  currentResultText = fixed;
   document.getElementById('original-display').textContent = text;
-  document.getElementById('result-display').textContent = result.text;
-  const rWords = result.text.trim().split(/\s+/).length;
+  document.getElementById('result-display').textContent = fixed;
+  const rWords = fixed.trim().split(/\s+/).length;
   const rwEl = document.getElementById('result-words');
   if (rwEl) rwEl.textContent = rWords + ' слов';
 
-  const { html, added, removed } = renderDiff(text, result.text);
+  const { html, added, removed } = renderDiff(text, fixed);
   document.getElementById('diff-display').innerHTML = html;
   document.getElementById('diff-stats').textContent =
     '+' + added + ' добавлено · -' + removed + ' убрано';

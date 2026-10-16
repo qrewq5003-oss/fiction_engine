@@ -50,7 +50,7 @@
         <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Модель</label>
         <select id="import-model" style="width:100%;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text-primary);font-size:13px">
           {% for m in models %}
-          <option value="{{ m.value }}">{{ m.name }}</option>
+          <option value="{{ m.value }}">{{ m.label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -193,6 +193,8 @@
     <a href="/" class="btn btn-secondary">Отмена</a>
   </div>
 </form>
+
+{% include "_state_history.html" %}
 
 <style>
 .format-hint-bar {

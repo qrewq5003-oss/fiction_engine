@@ -63,3 +63,13 @@ def test_env_key_overrides_file(tmp_path, monkeypatch):
     monkeypatch.setenv("FE_SECRET_KEY_FILE", str(tmp_path / "none.key"))
     assert secret_store.decrypt(secret_store.encrypt("x-key")) == "x-key"
     assert not (tmp_path / "none.key").exists()
+
+
+def test_private_file_waits_for_parallel_writer(tmp_path):
+    """Файл создан другим процессом, но ещё пуст: читаем его ключ, а не пустоту."""
+    import threading
+    from engine.secret_store import private_file
+    path = tmp_path / "key"
+    path.write_bytes(b"")                                     # создал, не дописал
+    threading.Timer(0.2, lambda: path.write_bytes(b"neighbour-key")).start()
+    assert private_file(path, lambda: b"mine") == b"neighbour-key"

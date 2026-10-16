@@ -212,53 +212,38 @@
     {% endif %}
 
     <nav class="nav">
-      <div class="section-label">Навигация</div>
-      <a href="/" {% if request.path == '/' %}class="active"{% endif %}>
-        <span class="icon">🏠</span> Обзор
+      {# Вкладки сгруппированы по делу автора: написать главу, материалы серии,
+         которые идут в контекст писателя, анализ написанного и работа через
+         внешний чат. Раньше — четырнадцать пунктов одним списком вперемешку. #}
+      {% macro item(href, icon, label, active) %}
+      <a href="{{ href }}" {% if active %}class="active"{% endif %}>
+        <span class="icon">{{ icon }}</span> {{ label }}{{ caller() if caller else '' }}
       </a>
-      <a href="/state" {% if '/state' in request.path %}class="active"{% endif %}>
-        <span class="icon">⚙️</span> State Engine
-        {% if pending_count and pending_count > 0 %}
-        <span class="badge-count">{{ pending_count }}</span>
-        {% endif %}
-      </a>
-      <a href="/stats" {% if '/stats' in request.path %}class="active"{% endif %}>
-        <span class="icon">📊</span> Статистика
-      </a>
-      <a href="/generate" {% if request.path == '/generate' %}class="active"{% endif %}>
-        <span class="icon">✍️</span> Генерация
-      </a>
-      <a href="/edit" {% if '/edit' in request.path %}class="active"{% endif %}>
-        <span class="icon">✂️</span> Редактор сцен
-      </a>
-      <a href="/pipeline" {% if '/pipeline' in request.path %}class="active"{% endif %}>
-        <span class="icon">⚡</span> Pipeline
-      </a>
-      <a href="/prep" {% if '/prep' in request.path %}class="active"{% endif %}>
-        <span class="icon">📋</span> Подготовка
-      </a>
-      <a href="/voice" {% if '/voice' in request.path %}class="active"{% endif %}>
-        <span class="icon">🎙️</span> Голос
-      </a>
-      <a href="/score" {% if '/score' in request.path %}class="active"{% endif %}>
-        <span class="icon">🔍</span> Оценка
-      </a>
-      <a href="/ideas" {% if '/ideas' in request.path %}class="active"{% endif %}>
-        <span class="icon">💡</span> Идеи
-      </a>
-      <a href="/knowledge" {% if '/knowledge' in request.path %}class="active"{% endif %}>
-        <span class="nav-icon">📚</span>
-        <span class="nav-label">База знаний</span>
-      </a>
-      <a href="/symbols" {% if '/symbols' in request.path %}class="active"{% endif %}>
-        <span class="icon">🔮</span> Символы
-      </a>
-      <a href="/narrative" {% if '/narrative' in request.path %}class="active"{% endif %}>
-        <span class="icon">🧠</span> Нарратив
-      </a>
-      <a href="/prompt" {% if '/prompt' in request.path %}class="active"{% endif %}>
-        <span class="icon">🔧</span> Промпты
-      </a>
+      {% endmacro %}
+      {% set p = request.path %}
+      {{ item('/', '🏠', 'Обзор', p == '/' or p.startswith('/chapter/')) }}
+
+      <div class="section-label" style="margin-top:12px">Писать</div>
+      {{ item('/pipeline', '⚡', 'Pipeline', p.startswith('/pipeline')) }}
+      {{ item('/generate', '✍️', 'Генерация', p == '/generate') }}
+      {{ item('/edit', '✂️', 'Редактор сцен', p == '/edit') }}
+
+      <div class="section-label" style="margin-top:12px">Материалы серии</div>
+      {% call item('/state', '⚙️', 'State Engine', p.startswith('/state')) %}{% if pending_count and pending_count > 0 %}
+        <span class="badge-count">{{ pending_count }}</span>{% endif %}{% endcall %}
+      {{ item('/prep', '📋', 'Подготовка', p.startswith('/prep')) }}
+      {{ item('/voice', '🎙️', 'Голос', p.startswith('/voice')) }}
+      {{ item('/knowledge', '📚', 'База знаний', p.startswith('/knowledge')) }}
+      {{ item('/symbols', '🔮', 'Символы', p.startswith('/symbols')) }}
+
+      <div class="section-label" style="margin-top:12px">Анализ</div>
+      {{ item('/score', '🔍', 'Оценка', p.startswith('/score')) }}
+      {{ item('/narrative', '🧠', 'Нарратив', p.startswith('/narrative')) }}
+      {{ item('/stats', '📊', 'Статистика', p.startswith('/stats')) }}
+
+      <div class="section-label" style="margin-top:12px">Внешний чат</div>
+      {{ item('/prompt', '🔧', 'Промпт для чата', p.startswith('/prompt')) }}
+      {{ item('/ideas', '💡', 'Разбор ответа', p.startswith('/ideas')) }}
 
       <div class="section-label" style="margin-top:16px">Проекты</div>
       {% for p in projects %}
@@ -275,9 +260,8 @@
       {% endfor %}
 
       <div class="section-label" style="margin-top:16px">Система</div>
-      <a href="/settings">
-        <span class="icon">🔑</span> API ключи
-      </a>
+      {# Там не только ключи: модели оценщика, проверки непрерывности, правщика #}
+      {{ item('/settings', '🔑', 'Настройки и ключи', p.startswith('/settings')) }}
     </nav>
   </aside>
 

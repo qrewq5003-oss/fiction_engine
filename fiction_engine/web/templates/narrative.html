@@ -20,6 +20,8 @@
     </select>
     <button class="btn" id="btnMetrics">Метрики (быстро)</button>
     <button class="btn btn-accent" id="btnReport">Полный анализ</button>
+    <button class="btn" id="btnL3"
+            title="Создать L3-саммари для глав, у которых его нет: на них строится весь анализ">🧠 Саммари глав</button>
     <button class="btn" id="btnPurge"
             title="Убрать показанный отчёт и анализ глав, которых в проекте больше нет">🧹 Очистить</button>
   </div>
@@ -178,6 +180,24 @@ document.getElementById("btnReport").addEventListener("click", async () => {
   } catch(e) {
     statusText.textContent = "Ошибка: " + e.message;
   }
+});
+
+// ── L3 для глав без саммари ──────────────────────────────────────────────────
+// Анализ серии строится только по L3-саммари. Создать их можно было лишь по
+// одной главе кнопкой 🔄 на «Обзоре», и без них отчёт был пуст.
+document.getElementById("btnL3").addEventListener("click", async () => {
+  const st = await fetch("/api/l3/status").then(r => r.json()).catch(() => ({summaries: {}}));
+  const have = new Set(Object.keys(st.summaries || {}).map(Number));
+  const todo = [...sel.options].map(o => Number(o.value)).filter(n => !have.has(n));
+  if (!todo.length) { showStatus("У всех глав уже есть саммари"); return; }
+  let ok = 0;
+  for (const [i, n] of todo.entries()) {
+    showStatus(`Саммари главы ${n} (${i + 1} из ${todo.length})…`);
+    const r = await apiPost(`/api/l3/${n}/generate`, {});
+    if (r.error) { showStatus(`Глава ${n}: ${r.error}`); return; }
+    ok++;
+  }
+  showStatus(`Готово: создано саммари — ${ok}. Теперь можно запускать анализ.`);
 });
 
 // ── Очистка ──────────────────────────────────────────────────────────────────

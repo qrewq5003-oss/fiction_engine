@@ -309,6 +309,16 @@ def test_extract_raw_promises_skips_short():
     texts = [t for _, t in result]
     assert not any(len(t) <= 10 for t in texts)
 
+def test_extract_raw_promises_list_format():
+    """Новый формат L3: список обещаний (и он же строкой JSON из базы)."""
+    import json
+    nil = _make_nil([])
+    items = [{"id": "3_0", "text": "Под полом лаборатории — старая печь", "resolved": False},
+             {"id": "3_1", "text": "Павел узнает о телах в подвале", "resolved": True}]
+    for promises in (items, json.dumps(items, ensure_ascii=False)):
+        result = nil._extract_raw_promises([_make_summary(3, promises=promises)])
+        assert result == [(3, "Под полом лаборатории — старая печь")]
+
 def test_extract_raw_promises_chapter_num_preserved():
     nil = _make_nil([])
     summaries = [_make_summary(7, promises="Герой вернётся в деревню")]

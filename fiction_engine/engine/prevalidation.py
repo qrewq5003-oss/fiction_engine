@@ -174,17 +174,9 @@ def _check_state_contradictions(
     if not global_state and not memory:
         return []
 
-    # Дешёвая модель из настроек
-    try:
-        from .db import get_conn
-        with get_conn() as conn:
-            row = conn.execute(
-                "SELECT value FROM settings WHERE key='resolver_model'"
-            ).fetchone()
-        cheap = row["value"] if row and row["value"] else model_value
-    except Exception as e:
-        log.error("_check_state_contradictions get resolver_model", exc=e)
-        cheap = model_value
+    # Дешёвая модель из настроек — если к ней есть ключ
+    from .pipeline_llm import _get_resolver_model
+    cheap = _get_resolver_model(model_value)
 
     keys = _get_api_keys()
 
