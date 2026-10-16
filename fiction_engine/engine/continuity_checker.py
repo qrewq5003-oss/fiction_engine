@@ -93,7 +93,7 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
             parts.append(f"НЕЛЬЗЯ ДОПУСТИТЬ (из State Engine): {forbidden}")
 
         from .db_state import series_details
-        details = series_details(state.get("plot_matrix", ""))
+        details = series_details(state.get("plot_matrix", ""), chapter_num)
         if details:
             parts.append("ДЕТАЛИ СЕРИИ (вещи, места, время, числа):\n"
                          + "\n".join(f"  {d}" for d in details[-30:]))
@@ -113,7 +113,7 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
 
     try:
         from .series_bible import bible_block
-        b = bible_block(project_id)
+        b = bible_block(project_id, before_chapter=chapter_num)
         if b:
             parts.append(b)
     except Exception as e:

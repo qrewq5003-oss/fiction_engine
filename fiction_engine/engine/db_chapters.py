@@ -57,14 +57,41 @@ def _delete_derived(conn: sqlite3.Connection, project_id: int, where: str, args:
     return n
 
 
+def _drop_chapter_facts(project_id: int, chapters: set[int]) -> int:
+    """Детали серии (State) и библия глав, которых больше нет. Записи автора остаются.
+
+    Иначе писатель новой главы 1 получал факты удалённых глав 1–2 как
+    «не противоречь им». State меняется со снимком в истории — откатывается.
+    """
+    if not chapters:
+        return 0
+    from .db_state import drop_series_details, get_state, series_details, update_state
+    n = 0
+    plot = get_state(project_id).get("plot_matrix", "") or ""
+    new_plot = drop_series_details(plot, chapters)
+    if new_plot != plot:
+        n += len(series_details(plot)) - len(series_details(new_plot))
+        update_state(project_id, plot_matrix=new_plot,
+                     _snapshot_reason="детали удалённых глав " + ", ".join(map(str, sorted(chapters))))
+    marks = ",".join("?" * len(chapters))
+    from .series_bible import _ensure          # таблица создаётся при первом обращении
+    _ensure()
+    with get_conn() as conn:
+        n += conn.execute(f"DELETE FROM series_bible WHERE project_id=? AND status != 'автор' "
+                          f"AND chapter_num IN ({marks})", (project_id, *sorted(chapters))).rowcount
+    return n
+
+
 def delete_chapter(project_id: int, number: int) -> bool:
-    """Удалить главу и производное от её текста. State не откатывается."""
+    """Удалить главу и производное от её текста. State не откатывается, но
+    детали серии и библия этой главы из него убираются."""
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM chapters WHERE project_id=? AND number=?",
                            (project_id, number))
         if not cur.rowcount:
             return False
         _delete_derived(conn, project_id, "chapter_num=?", (number,))
+    _drop_chapter_facts(project_id, {number})
     return True
 
 
@@ -75,11 +102,21 @@ def purge_orphan_chapter_data(project_id: int) -> int:
     и от проанализированных, но не принятых вариантов. Нарративный анализ
     читал их как настоящие главы.
     """
+    from .series_bible import _ensure
+    _ensure()
     with get_conn() as conn:
-        return _delete_derived(
+        n = _delete_derived(
             conn, project_id,
             "chapter_num NOT IN (SELECT number FROM chapters WHERE project_id=?)",
             (project_id,))
+        have = {r[0] for r in conn.execute("SELECT number FROM chapters WHERE project_id=?",
+                                           (project_id,))}
+        in_bible = {r[0] for r in conn.execute(
+            "SELECT DISTINCT chapter_num FROM series_bible WHERE project_id=? AND chapter_num > 0",
+            (project_id,))}
+    from .db_state import detail_chapters, get_state
+    gone = (in_bible | detail_chapters(get_state(project_id).get("plot_matrix", ""))) - have
+    return n + _drop_chapter_facts(project_id, gone)
 
 
 def get_chapters(project_id: int) -> list[dict]:

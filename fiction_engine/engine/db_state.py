@@ -17,7 +17,7 @@ from .db_core import get_conn, _default_global, _default_plot, _default_memory
 from .error_policy import handle_error, ErrorLevel
 from .state_merge import (  # noqa: F401 — прежние точки входа
     SERIES_DETAILS_HEADER, SERIES_DETAILS_MAX, merge_analysis_into_state,
-    merge_series_details, series_details,
+    merge_series_details, series_details, drop_series_details, detail_chapters,
 )
 
 
