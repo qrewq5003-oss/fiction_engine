@@ -47,3 +47,26 @@ def test_pipeline_context_carries_chapter_plan(project_id):
     assert DIRECTOR_MARKER in ctx and "СЦЕНА 1: Визит к вдове" in ctx
     full = build_context(project_id, 2, build_prompt(project_id, 2, "quick", get_project(project_id)), "quick")
     assert full.count(DIRECTOR_MARKER) == 1          # в обычной генерации — без дубля
+
+
+def test_prompt_assist_uses_model_from_page_and_sees_state(project_id, monkeypatch):
+    """«Подготовить промт»: модель — со страницы (настройку «model» нигде не задать), State — в контексте."""
+    import json as _json
+    from unittest.mock import patch
+    from web.app import app
+    from engine.db_state import update_state
+    monkeypatch.setenv("NANO_GPT_API_KEY", "test-key")
+    app.config.update(TESTING=True, FE_CSRF=False)
+    from engine.db_settings import set_active_project
+    set_active_project(project_id)
+    update_state(project_id, "[ЛУКАШ]\nСтатус: единственный выживший", "## ОСНОВНАЯ ЛИНИЯ\nСТАТУС: активна", "")
+    seen = {}
+
+    def fake(model, system, user, **kw):
+        seen["model"], seen["user"] = model, user
+        return "ЗАДАЧА: Лукаш ищет Павла по больницам.\nСЦЕНЫ:\n1. Приёмный покой — дежурная не пускает"
+    with patch("engine.pipeline.call_llm", side_effect=fake):
+        r = app.test_client().post("/api/prompt-assist", json={"chapter_num": 2, "model": "nano_gpt::x/y"})
+    body = r.get_json()
+    assert r.status_code == 200 and "error" not in body, body
+    assert seen["model"] == "nano_gpt::x/y" and "единственный выживший" in seen["user"]

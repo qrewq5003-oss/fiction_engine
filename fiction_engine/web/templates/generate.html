@@ -966,7 +966,8 @@ async function assistPrompt() {
   statusEl.textContent = '⏳ Собираю контекст...';
   panelEl.style.display = 'none';
 
-  const r = await apiPost('/api/prompt-assist', { chapter_num: chNum });
+  const r = await apiPost('/api/prompt-assist', { chapter_num: chNum,
+                                                 model: document.getElementById('gen-model').value });
 
   if (r.error) {
     statusEl.textContent = '❌ ' + r.error;

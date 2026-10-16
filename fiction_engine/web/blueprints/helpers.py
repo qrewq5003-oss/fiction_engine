@@ -76,6 +76,22 @@ def read_uploaded_text(file: "FileStorage") -> str:
     raise ValueError("Поддерживаются только .txt и .docx")
 
 
+def pick_model(requested: str = "") -> str:
+    """
+    Модель для вспомогательного вызова: выбранная на странице, иначе
+    настройка «model», иначе писатель по умолчанию, если к нему есть ключ.
+    Раньше брали только настройку «model» — её нигде в интерфейсе не задать,
+    и «Подготовить промт» отвечал «Не задана модель в настройках».
+    """
+    from engine.db import get_api_key, get_setting
+    from engine.pipeline_config import default_role_models
+    for m in ((requested or "").strip(), (get_setting("model") or "").strip(),
+              default_role_models()["gen"]):
+        if m and "::" in m and get_api_key(m.split("::")[0]):
+            return m
+    return ""
+
+
 def get_cheap_model(fallback_model: str) -> str:
     """Вернуть resolver_model из настроек или fallback."""
     try:
