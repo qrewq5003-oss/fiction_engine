@@ -225,8 +225,6 @@ def narrative_report(chapter_num):
         from web.blueprints.helpers import pick_model
         project_id  = current["id"]
         model_value = pick_model((request.get_json(silent=True) or {}).get("model", ""))
-        if not model_value:
-            return jsonify({"error": "Нет модели с ключом для анализа"}), 400
         report = run_narrative_analysis(project_id, chapter_num, model_value)
         return jsonify({
             "ok":             report.ok,
