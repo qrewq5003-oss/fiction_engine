@@ -103,7 +103,7 @@ def test_extension_prompt_says_last_paragraph_is_not_the_end():
 def test_ui_continue_note_carries_the_marker():
     """Кнопка «Продолжить главу» пишет director note с маркером — по нему
     движок узнаёт вторую часть главы и не дописывает её до полной."""
-    html = (Path(__file__).resolve().parents[1] / "web/templates/generate.html").read_text(encoding="utf-8")
+    html = (Path(__file__).resolve().parents[1] / "web/templates/pipeline.html").read_text(encoding="utf-8")
     assert CONTINUATION_MARKER in html
 
 

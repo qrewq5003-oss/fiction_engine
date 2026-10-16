@@ -150,7 +150,7 @@ def test_api_roundtrip(client, project_id):
     assert client.get("/api/chapter_tone/5").get_json()["tone"] == "noir"
 
 
-@pytest.mark.parametrize("page,input_id", [("/generate", "gen-chapter"), ("/pipeline", "pl-chapter")])
+@pytest.mark.parametrize("page,input_id", [("/pipeline", "pl-chapter")])   # «Генерация» слита в «Мастерскую»
 def test_pages_have_tone_selector(client, project_id, page, input_id):
     from engine.db import set_active_project
     set_active_project(project_id)

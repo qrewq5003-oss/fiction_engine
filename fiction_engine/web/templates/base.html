@@ -224,8 +224,8 @@
       {{ item('/', '🏠', 'Обзор', p == '/' or p.startswith('/chapter/')) }}
 
       <div class="section-label" style="margin-top:12px">Писать</div>
-      {{ item('/pipeline', '⚡', 'Pipeline', p.startswith('/pipeline')) }}
-      {{ item('/generate', '✍️', 'Генерация', p == '/generate') }}
+      {# «Генерация» и «Pipeline» слиты в «Мастерскую»: /generate ведёт сюда #}
+      {{ item('/pipeline', '✍️', 'Мастерская', p.startswith('/pipeline')) }}
       {{ item('/edit', '✂️', 'Редактор сцен', p == '/edit') }}
 
       <div class="section-label" style="margin-top:12px">Материалы серии</div>

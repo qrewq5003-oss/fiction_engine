@@ -78,6 +78,13 @@ PIPELINE_WITH_PREVALIDATE: list[PipelineStep] = [
     PipelineStep("judge"),
 ]
 
+# «Мастерская» с выключенными критиком и судьёй — прежняя страница
+# «Генерация»: только писатель. Разбор и оценку можно запросить потом
+# (REVIEW_ONLY по готовому тексту).
+WRITER_ONLY: list[PipelineStep] = [PipelineStep("generate")]
+REVIEW_ONLY: list[PipelineStep] = [PipelineStep("critique"), PipelineStep("judge")]
+ENGINE_MODES = ("quick", "quality", "master")
+
 
 # ─── API-обёртки ─────────────────────────────────────────────────────────────
 
@@ -130,8 +137,10 @@ def _execute_steps(
     previous_text: str | None = None,
     previous_critique: str | None = None,
     prefill: str = "",
+    engine_mode: str | None = None,
 ) -> dict:
     results: dict = {"iteration": iteration}
+    engine_mode = engine_mode if engine_mode in ENGINE_MODES else PIPELINE_ENGINE_MODE
     enabled_steps = [s for s in steps if s.enabled]
 
     # Загружаем проект один раз — жанр нужен нескольким шагам.
@@ -182,7 +191,7 @@ def _execute_steps(
                 # собирался по умолчанию: бюджет модели «default», а без
                 # задачи не подбирались разделы ремесла и паттерны сцен.
                 full_prompt = _build_context(project_id, chapter_num, clean_prompt,
-                                             PIPELINE_ENGINE_MODE, model_gen,
+                                             engine_mode, model_gen,
                                              task_text=clean_prompt)
             if issues:
                 results["engine_issues"] = engine_issues_note(issues)
@@ -264,6 +273,7 @@ def run_pipeline_step(
     previous_critique: str = None,
     steps: list[PipelineStep] | None = None,
     prefill: str = "",
+    engine_mode: str | None = None,
 ) -> dict:
     if steps is None:
         steps = PIPELINE_WITH_EDIT if (previous_text and previous_critique) else DEFAULT_PIPELINE
@@ -274,7 +284,7 @@ def run_pipeline_step(
         model_gen=model_gen, model_critic=model_critic,
         model_editor=model_editor, model_judge=model_judge,
         previous_text=previous_text, previous_critique=previous_critique,
-        prefill=prefill,
+        prefill=prefill, engine_mode=engine_mode,
     )
 
 
@@ -311,13 +321,15 @@ def start_pipeline(
     steps: list[PipelineStep] | None = None,
     config: PipelineConfig | None = None,
     prefill: str = "",
+    writer_only: bool = False,
+    engine_mode: str | None = None,
 ) -> dict:
     with log.context(project_id=project_id, chapter_num=chapter_num) as ctx:
         ctx.info("pipeline start", model=model_gen)
 
     run_id = create_pipeline_run(project_id, chapter_num,
                                   model_gen, model_critic, model_editor, model_judge)
-    resolved_steps = _resolve_pipeline_steps(steps, config)
+    resolved_steps = list(WRITER_ONLY) if writer_only else _resolve_pipeline_steps(steps, config)
 
     result = run_pipeline_step(
         run_id=run_id, iteration=1,
@@ -327,6 +339,7 @@ def start_pipeline(
         model_editor=model_editor, model_judge=model_judge,
         steps=resolved_steps,
         prefill=prefill,
+        engine_mode=engine_mode,
     )
     result["run_id"] = run_id
 
@@ -380,6 +393,18 @@ def start_pipeline(
     if bias:
         result["judge_warning"] = bias
     return result
+
+
+def preview_writer_prompt(project: dict, chapter_num: int, task: str,
+                          engine_mode: str | None = None, model_gen: str = "") -> dict:
+    """Промпт писателя целиком, как его соберёт шаг generate (для «👁 Промпт писателя»)."""
+    from .state import strip_empty_placeholders
+    from .unified_engine import project_genre_key
+    mode = engine_mode if engine_mode in ENGINE_MODES else PIPELINE_ENGINE_MODE
+    clean = strip_empty_placeholders(task)
+    prompt = _build_context(project["id"], chapter_num, clean, mode, model_gen, task_text=clean)
+    system = _build_sys_generator(project_genre_key(project) or "")
+    return {"prompt": prompt, "system": system, "chars": len(prompt) + len(system)}
 
 
 def continue_pipeline(
