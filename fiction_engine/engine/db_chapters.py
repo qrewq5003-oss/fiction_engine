@@ -3,6 +3,7 @@ db_chapters.py — главы, история генераций, анализ �
 """
 
 import json
+import sqlite3
 from .db_core import get_conn
 from .error_policy import error_boundary, handle_error, ErrorLevel
 
@@ -35,6 +36,50 @@ def get_chapter(project_id: int, number: int) -> dict | None:
             (project_id, number)
         ).fetchone()
         return dict(row) if row else None
+
+
+# Производное от текста главы: без самой главы оно врёт (саммари L3 попадает
+# в контекст писателя, анализ — в нарративный отчёт). Остальное остаётся:
+# история запусков и правки автора (на них учится судья), план и тон главы,
+# заметки режиссёра — это работа автора, а не следствие текста.
+_CHAPTER_DERIVED = ("l3_memory", "chapter_analysis", "chapter_scores",
+                    "voice_drift_log")
+
+
+def _delete_derived(conn: sqlite3.Connection, project_id: int, where: str, args: tuple) -> int:
+    n = 0
+    for table in _CHAPTER_DERIVED:
+        n += conn.execute(f"DELETE FROM {table} WHERE project_id=? AND {where}",
+                          (project_id, *args)).rowcount
+    # Непримененный анализ главы применять уже не к чему
+    n += conn.execute(f"DELETE FROM state_updates WHERE project_id=? AND {where} "
+                      "AND applied=0", (project_id, *args)).rowcount
+    return n
+
+
+def delete_chapter(project_id: int, number: int) -> bool:
+    """Удалить главу и производное от её текста. State не откатывается."""
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM chapters WHERE project_id=? AND number=?",
+                           (project_id, number))
+        if not cur.rowcount:
+            return False
+        _delete_derived(conn, project_id, "chapter_num=?", (number,))
+    return True
+
+
+def purge_orphan_chapter_data(project_id: int) -> int:
+    """Удалить анализ и саммари глав, которых в проекте нет.
+
+    Такие записи остаются от глав, удалённых до появления delete_chapter,
+    и от проанализированных, но не принятых вариантов. Нарративный анализ
+    читал их как настоящие главы.
+    """
+    with get_conn() as conn:
+        return _delete_derived(
+            conn, project_id,
+            "chapter_num NOT IN (SELECT number FROM chapters WHERE project_id=?)",
+            (project_id,))
 
 
 def get_chapters(project_id: int) -> list[dict]:

@@ -16,6 +16,11 @@
     🔗 Проверить непрерывность
   </button>
   <span id="continuity-status" style="font-size:12px;color:var(--text2);align-self:center;"></span>
+  <span style="flex:1;"></span>
+  <button class="btn btn-secondary btn-sm" id="btn-edit" onclick="startEdit()">✏️ Редактировать</button>
+  <button class="btn btn-success btn-sm" id="btn-save-edit" onclick="saveEdit()" style="display:none;">💾 Сохранить</button>
+  <button class="btn btn-secondary btn-sm" id="btn-cancel-edit" onclick="cancelEdit()" style="display:none;">Отмена</button>
+  <button class="btn btn-secondary btn-sm" onclick="deleteChapter()" title="Удалить главу">🗑 Удалить</button>
 </div>
 
 <div id="continuity-result" style="display:none;" class="card" style="border-color:var(--warning);">
@@ -24,7 +29,8 @@
 </div>
 
 <div class="card">
-  <div style="white-space:pre-wrap;font-size:14px;line-height:1.8;
+  <div id="chapter-text" spellcheck="true"
+       style="white-space:pre-wrap;font-size:14px;line-height:1.8;outline:none;
               font-family:'Georgia',serif;color:var(--text);max-width:700px;">{{ chapter.content }}</div>
 </div>
 
@@ -32,6 +38,46 @@
 
 {% block scripts %}
 <script>
+// Правка главы прямо на странице
+const CHAPTER_NUM = {{ chapter.number }};
+let _chapterOriginal = null;
+function _editButtons(editing) {
+  document.getElementById('btn-edit').style.display = editing ? 'none' : '';
+  document.getElementById('btn-save-edit').style.display = editing ? '' : 'none';
+  document.getElementById('btn-cancel-edit').style.display = editing ? '' : 'none';
+}
+function startEdit() {
+  const el = document.getElementById('chapter-text');
+  _chapterOriginal = el.innerText;
+  el.contentEditable = 'plaintext-only';
+  el.style.border = '1px dashed var(--accent)'; el.style.padding = '8px';
+  el.focus();
+  _editButtons(true);
+}
+function cancelEdit() {
+  const el = document.getElementById('chapter-text');
+  if (_chapterOriginal !== null) el.innerText = _chapterOriginal;
+  el.contentEditable = 'false'; el.style.border = ''; el.style.padding = '';
+  _editButtons(false);
+}
+async function saveEdit() {
+  const el = document.getElementById('chapter-text');
+  const r = await apiPost(`/chapter/${CHAPTER_NUM}/save`, { text: el.innerText });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  _chapterOriginal = el.innerText;
+  el.contentEditable = 'false'; el.style.border = ''; el.style.padding = '';
+  _editButtons(false);
+  showToast(`Глава сохранена · ${r.word_count} слов`, 'success');
+}
+
+async function deleteChapter() {
+  if (!confirm(`Удалить главу ${CHAPTER_NUM}? Вместе с ней удалятся её L3-саммари и анализ.\n` +
+               'State не откатывается: то, что анализ главы внёс в State, останется.')) return;
+  const r = await apiPost(`/chapter/${CHAPTER_NUM}/delete`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  location.href = '/';
+}
+
 async function checkContinuity() {
   const statusEl = document.getElementById('continuity-status');
   const resultEl = document.getElementById('continuity-result');
@@ -40,7 +86,7 @@ async function checkContinuity() {
 
   const r = await apiPost('/api/continuity/check', {
     chapter_num: {{ chapter.number }},
-    text: {{ chapter.content | tojson }}
+    text: document.getElementById('chapter-text').innerText
   });
 
   if (r.error) {

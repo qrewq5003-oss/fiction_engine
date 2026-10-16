@@ -1,6 +1,6 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
-from engine.db import get_chapter, get_chapters, save_chapter
+from engine.db import delete_chapter, get_chapter, get_chapters, save_chapter
 from .helpers import (attachment_header, get_current_project, get_cheap_model,
                       log_web_error, read_uploaded_text)
 
@@ -49,6 +49,38 @@ def chapter_view(num):
         return redirect(url_for("index"))
     ch = get_chapter(current["id"], num)
     return render_template("chapter.html", chapter=ch, current=current)
+
+
+@bp.route("/chapter/<int:num>/save", methods=["POST"])
+def chapter_save(num):
+    """
+    Правка текста главы автором прямо на странице главы. Раньше главу можно
+    было только перезаписать целиком через «Обзор → Текст» с копированием.
+    State не пересчитывается: правка обычно точечная, а анализ — вызов модели;
+    обновить State по главе можно на странице State.
+    """
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    ch = get_chapter(current["id"], num)
+    if not ch:
+        return jsonify({"error": "Глава не найдена"}), 404
+    text = ((request.json or {}).get("text") or "").strip()
+    if len(text) < 100:
+        return jsonify({"error": "Текст главы пуст или слишком короткий"}), 400
+    save_chapter(current["id"], num, text, ch.get("title") or f"Глава {num}")
+    return jsonify({"ok": True, "word_count": len(text.split())})
+
+
+@bp.route("/chapter/<int:num>/delete", methods=["POST"])
+def chapter_delete(num):
+    """Удалить главу. Удалить её раньше было нельзя ни из одного места."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    if not delete_chapter(current["id"], num):
+        return jsonify({"error": "Глава не найдена"}), 404
+    return jsonify({"ok": True})
 
 
 @bp.route("/export/txt")

@@ -140,9 +140,13 @@
         </button>
       </div>
       <div id="pl-continuity-card" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;"></div>
-      <div id="result-text"
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">
+        ✏️ Текст можно править прямо здесь — «Принять» сохранит главу с правками.
+      </div>
+      <div id="result-text" contenteditable="plaintext-only" spellcheck="true"
+           oninput="state.currentText = this.innerText"
            style="white-space:pre-wrap;font-family:'Georgia',serif;font-size:14px;
-                  line-height:1.8;max-height:500px;overflow-y:auto;
+                  line-height:1.8;max-height:500px;overflow-y:auto;outline:none;
                   border:1px solid var(--border);border-radius:8px;padding:16px;
                   background:var(--surface2);"></div>
     </div>
@@ -226,6 +230,8 @@
             {% else %}background:var(--surface);color:var(--text2);border:1px solid var(--border);{% endif %}">
         {{ r.status }}
       </span>
+      <button class="btn btn-secondary btn-sm" onclick="openRun({{ r.id }})"
+              title="Вернуть текст, оценки и кнопки «Принять / Отклонить»">📂 Открыть</button>
       {% if r.iterations and r.iterations > 1 %}
       <a href="/pipeline/{{ r.id }}/compare" class="btn btn-secondary btn-sm">🔍 Сравнить</a>
       {% endif %}
@@ -504,6 +510,49 @@ async function nextIteration() {
   showResults(result);
 }
 
+// Открыть прогон из истории. Результат жил только в памяти страницы: стоило
+// уйти на «Обзор» — незаконченный прогон было не вернуть, хотя он целиком
+// лежит в базе (pipeline_iterations).
+async function openRun(runId) {
+  const r = await fetch(`/pipeline/${runId}/history`).then(x => x.json()).catch(() => null);
+  if (!r || !r.run) { showToast('Запуск не найден', 'error'); return; }
+  const its = r.iterations || [];
+  const last = Math.max(0, ...its.map(i => i.iteration));
+  const mine = its.filter(i => i.iteration === last);
+  const textIt = [...mine].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage))
+              || [...its].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage));
+  if (!textIt) { showToast('В запуске нет текста главы', 'error'); return; }
+  const critique = [...mine].reverse().find(i => i.stage === 'critique');
+  const judge    = [...mine].reverse().find(i => i.stage === 'judge');
+  const gen      = its.find(i => i.stage === 'generate');
+
+  state.runId = runId;
+  state.chapterNum = r.run.chapter_num;
+  state.prompt = (gen && gen.input_text) || state.prompt || '';
+  state.currentText = textIt.output_text || '';
+  state.currentCritique = critique ? critique.output_text : '';
+  state.iteration = last;
+  document.getElementById('pl-chapter').value = r.run.chapter_num;
+  for (const role of ['gen', 'critic', 'editor', 'judge']) {
+    const sel = document.getElementById(`pl-model-${role}`);
+    const v = r.run[`model_${role}`];
+    if (sel && v && [...sel.options].some(o => o.value === v)) sel.value = v;
+  }
+  document.getElementById('iter-num').textContent = last;
+  // Весь блок запуска скрыт, пока на странице ничего не запускали
+  document.getElementById('pipeline-active').style.display = 'block';
+  showResults({
+    generated_text: state.currentText,
+    critique: state.currentCritique,
+    judgment: judge ? judge.output_text : '',
+    verdict: judge ? (judge.verdict || '') : '',
+    critic_score: critique ? critique.score : 0,
+    judge_score: judge ? judge.score : 0,
+  });
+  document.getElementById('iteration-results').scrollIntoView({behavior: 'smooth', block: 'start'});
+  showToast(`Открыт запуск главы ${r.run.chapter_num}` + (r.run.status === 'accepted' ? ' (уже принят)' : ''), 'info');
+}
+
 async function acceptResult() {
   const modelGen = document.getElementById('pl-model-gen').value;
   const r = await apiPost('/pipeline/accept', {
@@ -512,6 +561,7 @@ async function acceptResult() {
     final_text: state.currentText,
     model_value: modelGen,
   });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   if (!r.state_job) {
     showToast('Глава принята и сохранена', 'success');
     setTimeout(() => location.reload(), 2000);

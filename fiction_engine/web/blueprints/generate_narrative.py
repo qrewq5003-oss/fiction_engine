@@ -240,6 +240,16 @@ def narrative_report(chapter_num):
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route("/narrative/purge", methods=["POST"])
+def narrative_purge():
+    """Убрать из анализа серии главы, которых больше нет."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет активного проекта"}), 400
+    from engine.db import purge_orphan_chapter_data
+    return jsonify({"ok": True, "deleted": purge_orphan_chapter_data(current["id"])})
+
+
 @bp.route("/narrative")
 def narrative_page():
     """Страница нарративного анализа серии."""
