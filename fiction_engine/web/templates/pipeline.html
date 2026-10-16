@@ -290,6 +290,15 @@ let state = {
 
 // Восстановить сохранённые модели
 function initModelSelects() {
+  // Умолчания ролей сменились (16.10: судья — другая семья, критик ≠ судья).
+  // Запомненный выбор перебивал их, поэтому один раз сбрасываем его
+  const ROLES_V = '2';
+  try {
+    if (localStorage.getItem('pl_roles_v') !== ROLES_V) {
+      ['gen','critic','editor','judge'].forEach(r => localStorage.removeItem(`pl_model_${r}`));
+      localStorage.setItem('pl_roles_v', ROLES_V);
+    }
+  } catch (e) { /* без хранилища — просто умолчания */ }
   ['gen','critic','editor','judge'].forEach(role => {
     const saved = localStorage.getItem(`pl_model_${role}`);
     const sel = document.getElementById(`pl-model-${role}`);

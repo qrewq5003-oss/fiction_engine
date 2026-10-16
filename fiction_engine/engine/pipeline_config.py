@@ -499,6 +499,16 @@ SUBSCRIPTION_WRITERS = (
 )
 
 
+# Роли при подписках (решение владельца 16.10). Судья — подписка ДРУГОГО
+# семейства, чем писатель: GPT-6.1 Sol на замере 15.10 — самый устойчивый
+# судья (порядок 8/8, длина выбор не решает), Claude узнаёт свой текст 16/16.
+# Редактор переписывает главу по критике — той же моделью, что писала, чтобы
+# не сменить голос. Критик — третья модель, не судья: судья видит разбор
+# критика и, будь это одна модель, повторял его балл (у автора 39/39).
+# Оговорка: порог «ПРИНЯТЬ» калиброван на Haiku, на Sol не выверен.
+CRITIC_MODEL = "nano_gpt::moonshotai/kimi-k2.5"
+
+
 def default_role_models() -> dict[str, str]:
     """Умолчания по ролям; писатель — первый из включённых по подписке."""
     from .api import chatgpt_subscription_enabled, claude_subscription_enabled
@@ -506,7 +516,26 @@ def default_role_models() -> dict[str, str]:
           "chatgpt_subscription": chatgpt_subscription_enabled()}
     gen = next((m for m in SUBSCRIPTION_WRITERS if on[m.split("::")[0]]),
                DEFAULT_ROLE_MODELS["gen"])
-    return {**DEFAULT_ROLE_MODELS, "gen": gen}
+    roles = {**DEFAULT_ROLE_MODELS, "gen": gen}
+    if gen in SUBSCRIPTION_WRITERS:
+        roles["editor"] = gen
+        judge = next((m for m in SUBSCRIPTION_WRITERS
+                      if on[m.split("::")[0]] and model_family(m) != model_family(gen)), "")
+        if judge:
+            roles["judge"] = judge
+        if _has_key(CRITIC_MODEL):
+            roles["critic"] = CRITIC_MODEL
+    return roles
+
+
+def _has_key(model_value: str) -> bool:
+    try:
+        from .db import get_api_key
+        return bool(get_api_key(model_value.split("::")[0]))
+    except Exception as e:                  # нет базы (вызов до init_db)
+        from .error_policy import ErrorLevel, handle_error
+        handle_error("default_role_models: ключ критика", e, level=ErrorLevel.RECOVERABLE)
+        return False
 
 
 # ─── Порог принятия главы ────────────────────────────────────────────────────

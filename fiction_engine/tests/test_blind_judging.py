@@ -116,5 +116,19 @@ def test_writer_by_subscription_when_enabled(monkeypatch):
         monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
         got = default_role_models()
     assert got["gen"] == "claude_subscription::claude-sonnet-5-5"
-    # Судья — тот, на котором калиброван порог, писатель его не сдвигает
-    assert got["judge"] == DEFAULT_ROLE_MODELS["judge"]
+    # Судья — подписка другого семейства, редактор — писатель
+    assert got["judge"] == "chatgpt_subscription::gpt-6.1-sol@medium"
+    assert got["editor"] == got["gen"]
+
+
+def test_roles_never_judge_own_family_and_critic_is_not_judge(monkeypatch):
+    from unittest.mock import patch
+    from engine.pipeline_config import CRITIC_MODEL, default_role_models, model_family
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
+        for claude, gpt in (("1", "1"), ("0", "1"), ("1", "0")):
+            monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", claude)
+            monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", gpt)
+            r = default_role_models()
+            assert model_family(r["judge"]) != model_family(r["gen"]) or claude + gpt != "11", r
+            assert r["critic"] == CRITIC_MODEL and r["critic"] != r["judge"]
