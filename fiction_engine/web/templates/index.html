@@ -9,7 +9,10 @@
 <!-- Предупреждение о необработанных обновлениях -->
 {% if pending_updates %}
 <div class="alert alert-warning">
-  ⚠️ Есть {{ pending_updates|length }} необработанных обновлений State Engine —
+  {% set n = pending_updates|length %}
+  ⚠️ Есть {{ n }} {{ 'необработанное обновление' if n % 10 == 1 and n % 100 != 11
+       else ('необработанных обновления' if n % 10 in [2, 3, 4] and n % 100 not in [12, 13, 14]
+       else 'необработанных обновлений') }} State Engine —
   <a href="/state" style="color:inherit;font-weight:600;">открыть</a>
 </div>
 {% endif %}

@@ -57,6 +57,23 @@ def get_current_project():
     return get_project(pid) if pid else None
 
 
+@app.context_processor
+def _sidebar_context():
+    """
+    Текущий проект и список проектов — в каждый шаблон: боковая панель и
+    заголовок base.html читают их на любой странице. Раньше их передавали
+    только главная и «Идеи»: на остальных список «Проекты» был пуст, а на
+    «Оценке», «Символах», «Настройках» не было и карточки проекта.
+    Аргументы render_template этого маршрута важнее.
+    """
+    try:
+        return {"current": get_current_project(), "projects": get_projects()}
+    except Exception as e:
+        from web.blueprints.helpers import log_web_error
+        log_web_error("контекст боковой панели", e)
+        return {}
+
+
 # ─── Регистрация blueprints ──────────────────────────────────────────────────
 
 from web.blueprints.chapters  import bp as chapters_bp
@@ -223,10 +240,15 @@ def settings_page():
 
 @app.route("/api/keys/status")
 def api_keys_status():
-    from engine.db_settings import api_keys_plain
+    from engine.db_settings import api_keys_plain, get_api_key
     result = {}
     for provider, k in api_keys_plain().items():
         result[provider] = k[:8] + "\u00b7" * 8 + k[-4:] if len(k) > 12 else "***"
+    # \u041a\u043b\u044e\u0447 \u0438\u0437 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f (NANO_GPT_API_KEY \u0438 \u0442. \u043f.) \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u0442\u043e\u0436\u0435 \u0431\u0435\u0440\u0451\u0442, \u0430
+    # \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0449\u0438\u043a \u043f\u043e \u044d\u0442\u043e\u043c\u0443 \u0441\u043f\u0438\u0441\u043a\u0443 \u043f\u0438\u0441\u0430\u043b \u00ab\u041d\u0435\u0442 API \u043a\u043b\u044e\u0447\u0435\u0439\u00bb
+    for provider in ("anthropic_direct", "nano_gpt", "openai_direct", "gemini_direct", "deepseek_direct"):
+        if provider not in result and get_api_key(provider):
+            result[provider] = "\u0438\u0437 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f"
     return jsonify(result)
 
 

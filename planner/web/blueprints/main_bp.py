@@ -117,7 +117,8 @@ def export():
     act_map = {a["id"]: a for a in acts}
     for s in scenes:
         s["act_title"] = act_map.get(s["act_id"], {}).get("title", "") if s["act_id"] else ""
-    return render_template("export.html", acts=acts, scenes=scenes)
+    loose = [s for s in scenes if s["act_id"] not in act_map]
+    return render_template("export.html", acts=acts, scenes=scenes, loose=loose)
 
 
 @bp.route("/bible")

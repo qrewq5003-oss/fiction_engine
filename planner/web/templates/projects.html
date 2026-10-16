@@ -45,3 +45,57 @@
 </div>
 
 {% endblock %}
+
+{% block scripts %}
+<script>
+// Импорт из FE. Окно было, а функций — нет (с первого коммита): кнопка
+// «Импорт из FE» падала с «openFEImport is not defined».
+const CURRENT_PLANNER_PROJECT = {{ (current.name if current else '')|tojson }};
+
+function _escFE(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function openFEImport() {
+  openModal('modal-fe-import');
+  const sel = document.getElementById('fe-proj-select');
+  const st = document.getElementById('fe-import-status');
+  sel.innerHTML = '<option value="">— загрузка... —</option>';
+  st.style.display = 'block';
+  st.textContent = CURRENT_PLANNER_PROJECT
+    ? `Контекст запишется в описание проекта планировщика «${CURRENT_PLANNER_PROJECT}».`
+    : 'Проекта в планировщике нет — будет создан с именем проекта FE.';
+  const r = await fetch('/api/fe/projects').then(x => x.json()).catch(e => ({error: e.message, projects: []}));
+  const list = r.projects || [];
+  if (!list.length) {
+    sel.innerHTML = `<option value="">${r.error ? 'FE недоступен — запусти Fiction Engine' : 'В FE нет проектов'}</option>`;
+    return;
+  }
+  sel.innerHTML = list.map(p => `<option value="${p.id}" data-name="${_escFE(p.name)}">` +
+    `${_escFE(p.name)}${p.genre ? ' — ' + _escFE(p.genre) : ''}</option>`).join('');
+}
+
+async function doFEImport() {
+  const sel = document.getElementById('fe-proj-select');
+  const feId = sel.value;
+  if (!feId) { showToast('Выбери проект FE', 'error'); return; }
+  const spin = document.getElementById('fe-import-spin');
+  spin.style.display = 'inline-block';
+  try {
+    if (!CURRENT_PLANNER_PROJECT) {
+      // Импорт пишет в текущий проект планировщика — на пустом создаём его
+      const name = sel.options[sel.selectedIndex].dataset.name || 'Проект из FE';
+      const c = await apiPost('/projects/new', {name, genre: '', description: ''});
+      if (!c.ok) { showToast(c.error || 'Не удалось создать проект', 'error'); return; }
+    }
+    const r = await apiPost(`/api/fe/import/${feId}`, {});
+    if (!r.ok) { showToast(r.error || 'Импорт не удался', 'error'); return; }
+    const i = r.imported || {};
+    showToast(`Импортировано: ${i.has_state ? 'State, ' : ''}обещаний ${i.promises || 0}`, 'success');
+    setTimeout(() => location.href = '/board', 700);
+  } finally {
+    spin.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

@@ -78,6 +78,9 @@ def build_consolidated_voice(active_voice: dict | None,
 # символов персонажей и 600 сюжета (с первого коммита, без замера): State в
 # 10 тыс. символов терял биографии, а сюжет — раздел «ДЕТАЛИ СЕРИИ».
 STATE_RAW_MAX_CHARS = 12000
+
+# Заголовок заметки к главе — тот же, что у build_prompt (state_prompts._director_block)
+DIRECTOR_MARKER = "ЗАМЕТКА ДЛЯ ЭТОЙ ГЛАВЫ (от редактора после предыдущей):"
 PLOT_RAW_MAX_CHARS = 4000
 MEMORY_RAW_MAX_CHARS = 2000
 
@@ -350,8 +353,22 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
             handle_error("build_context prev_chapter_analysis", e,
                          level=ErrorLevel.RECOVERABLE)
 
-    full_context = f"""{base_prompt}
+    # Заметка к главе — план из планировщика (/api/chapter_plan) или заметка
+    # редактора после прошлой главы. Шла только обычной генерации (build_prompt
+    # кладёт её в промпт), а конвейер собирает контекст из промпта автора — и
+    # план главы из планировщика до писателя не доходил (проверка 16.10).
+    director_block = ""
+    if DIRECTOR_MARKER not in base_prompt:
+        try:
+            from .db import get_director_note
+            note = (get_director_note(project_id, chapter_num) or "").strip()
+            if note:
+                director_block = f"\n{DIRECTOR_MARKER}\n{note}\n"
+        except Exception as e:
+            handle_error("build_context director_note", e, level=ErrorLevel.RECOVERABLE)
 
+    full_context = f"""{base_prompt}
+{director_block}
 ---
 КОНТЕКСТ СЕРИИ:
 

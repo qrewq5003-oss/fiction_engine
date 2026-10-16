@@ -150,15 +150,17 @@ def prompt_assist():
                 f"НЕЗАКРЫТЫЕ ЛИНИИ: {prev_l3.get('promises', '')}"
             )
 
-        # 3. State Engine — current character states
-        state = get_state(project_id)
-        state_text = state.get("content", "").strip()[:1500] if state else ""
+        # 3. State Engine — персонажи и сюжет. Раньше читался ключ «content»,
+        # которого у State нет, — ассистент не видел State никогда
+        state = get_state(project_id) or {}
+        state_text = "\n\n".join(x for x in ((state.get("global_state") or "").strip()[:3000],
+                                            (state.get("plot_matrix") or "").strip()[:1500]) if x)
 
-        # 4. Get model
-        from engine.db import get_setting
-        model_value = get_setting("model") or ""
+        # 4. Модель — выбранная на странице генерации
+        from web.blueprints.helpers import pick_model
+        model_value = pick_model(data.get("model", ""))
         if not model_value:
-            return jsonify({"error": "Не задана модель в настройках"}), 400
+            return jsonify({"error": "Нет модели с ключом: выбери модель в поле «Модель»"}), 400
 
         # 5. Build LLM prompt
         sys_prompt = (
@@ -189,7 +191,7 @@ def prompt_assist():
             context_parts.append(f"САММАРИ ПРЕДЫДУЩЕЙ ГЛАВЫ:\n{prev_l3_text}")
 
         if state_text:
-            context_parts.append(f"ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:\n{state_text[:800]}")
+            context_parts.append(f"ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:\n{state_text}")
 
         user_prompt = (
             "\n\n---\n\n".join(context_parts) +
