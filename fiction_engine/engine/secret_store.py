@@ -19,6 +19,7 @@ secret_store.py — шифрование API-ключей в БД (ROADMAP, эт
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -45,7 +46,14 @@ def private_file(path: Path, make: Callable[[], bytes]) -> bytes:
         if fd is not None:
             with os.fdopen(fd, "wb") as f:
                 f.write(make())
-    return path.read_bytes().strip()
+    # Параллельный процесс мог создать файл и ещё не дописать: пустое чтение
+    # давало «Fernet key must be 32 url-safe base64-encoded bytes» (CI, xdist)
+    for _ in range(100):
+        data = path.read_bytes().strip()
+        if data:
+            return data
+        time.sleep(0.05)
+    return data
 
 
 def _raw_key() -> bytes:
