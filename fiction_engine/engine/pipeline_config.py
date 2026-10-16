@@ -499,14 +499,98 @@ SUBSCRIPTION_WRITERS = (
 )
 
 
+# Роли при подписках (решение владельца 16.10). Судья — подписка ДРУГОГО
+# семейства, чем писатель: GPT-6.1 Sol на замере 15.10 — самый устойчивый
+# судья (порядок 8/8, длина выбор не решает), Claude узнаёт свой текст 16/16.
+# Редактор переписывает главу по критике — той же моделью, что писала, чтобы
+# не сменить голос. Критик — третья модель, не судья: судья видит разбор
+# критика и, будь это одна модель, повторял его балл (у автора 39/39).
+# Оговорка: порог «ПРИНЯТЬ» калиброван на Haiku, на Sol не выверен.
+CRITIC_MODEL = "nano_gpt::moonshotai/kimi-k2.5"
+
+
 def default_role_models() -> dict[str, str]:
-    """Умолчания по ролям; писатель — первый из включённых по подписке."""
+    """Умолчания по ролям: выбранный набор (ROLE_PRESETS), иначе писатель —
+    первый из включённых по подписке."""
+    try:
+        preset = active_role_preset()
+    except Exception as e:                  # нет базы (вызов до init_db)
+        from .error_policy import ErrorLevel, handle_error
+        handle_error("default_role_models: набор ролей", e, level=ErrorLevel.RECOVERABLE)
+        preset = ""
+    if preset and all(_has_key(m) for m in ROLE_PRESETS[preset]["roles"].values()):
+        return dict(ROLE_PRESETS[preset]["roles"])
     from .api import chatgpt_subscription_enabled, claude_subscription_enabled
     on = {"claude_subscription": claude_subscription_enabled(),
           "chatgpt_subscription": chatgpt_subscription_enabled()}
     gen = next((m for m in SUBSCRIPTION_WRITERS if on[m.split("::")[0]]),
                DEFAULT_ROLE_MODELS["gen"])
-    return {**DEFAULT_ROLE_MODELS, "gen": gen}
+    roles = {**DEFAULT_ROLE_MODELS, "gen": gen}
+    if gen in SUBSCRIPTION_WRITERS:
+        roles["editor"] = gen
+        judge = next((m for m in SUBSCRIPTION_WRITERS
+                      if on[m.split("::")[0]] and model_family(m) != model_family(gen)), "")
+        if judge:
+            roles["judge"] = judge
+        if _has_key(CRITIC_MODEL):
+            roles["critic"] = CRITIC_MODEL
+    return roles
+
+
+# ─── Наборы ролей «пишет Sonnet» / «пишет GPT» ───────────────────────────────
+#
+# Одна кнопка вместо восьми списков (решение владельца 16.10). Правило одно:
+# ни судья, ни проверяющий непрерывности, ни оценщик не той семьи, что
+# писатель (Claude узнаёт свой текст 16/16, GPT свой — тоже не судит).
+# Правщик по находкам в обоих — Sonnet: на пилоте 15.10 104 → 10, DeepSeek
+# ломал связность; GPT-правщик не замерен. Анализ (L3, модули) — Haiku по
+# подписке: короткие вызовы, судейства в них нет.
+SONNET = "claude_subscription::claude-sonnet-5-5"
+SOL = "chatgpt_subscription::gpt-6.1-sol@medium"
+HAIKU_SUB = "claude_subscription::claude-haiku-5-5"
+ROLE_PRESET_KEY = "role_preset"
+ROLE_PRESETS: dict[str, dict] = {
+    "sonnet": {
+        "label": "Пишет Sonnet",
+        "roles": {"gen": SONNET, "editor": SONNET, "critic": CRITIC_MODEL, "judge": SOL},
+        "settings": {"continuity_model": SOL, "continuity_fix_model": SONNET,
+                     "scorer_model": SOL, "resolver_model": HAIKU_SUB},
+    },
+    "gpt": {
+        "label": "Пишет GPT",
+        "roles": {"gen": SOL, "editor": SOL, "critic": CRITIC_MODEL, "judge": SONNET},
+        "settings": {"continuity_model": SONNET, "continuity_fix_model": SONNET,
+                     "scorer_model": SONNET, "resolver_model": HAIKU_SUB},
+    },
+}
+
+
+def apply_role_preset(name: str) -> dict:
+    """Записать набор в настройки. → {"roles", "missing": модели без ключа}."""
+    from .db_settings import set_setting
+    preset = ROLE_PRESETS[name]
+    for key, model in preset["settings"].items():
+        set_setting(key, model)
+    set_setting(ROLE_PRESET_KEY, name)
+    every = {*preset["roles"].values(), *preset["settings"].values()}
+    return {"roles": dict(preset["roles"]), "label": preset["label"],
+            "missing": sorted(m for m in every if not _has_key(m))}
+
+
+def active_role_preset() -> str:
+    from .db_settings import get_setting
+    name = (get_setting(ROLE_PRESET_KEY) or "").strip()
+    return name if name in ROLE_PRESETS else ""
+
+
+def _has_key(model_value: str) -> bool:
+    try:
+        from .db import get_api_key
+        return bool(get_api_key(model_value.split("::")[0]))
+    except Exception as e:                  # нет базы (вызов до init_db)
+        from .error_policy import ErrorLevel, handle_error
+        handle_error("default_role_models: ключ критика", e, level=ErrorLevel.RECOVERABLE)
+        return False
 
 
 # ─── Порог принятия главы ────────────────────────────────────────────────────

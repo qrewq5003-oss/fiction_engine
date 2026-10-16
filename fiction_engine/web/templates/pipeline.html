@@ -20,6 +20,21 @@
     {% with chapter_input_id = 'pl-chapter' %}{% include '_chapter_tone.html' %}{% endwith %}
   </div>
 
+  <!-- Набор ролей: одна кнопка ставит все роли и модели настроек -->
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+    <span style="font-size:12px;color:var(--text2);">Набор ролей:</span>
+    {% for key, p in presets.items() %}
+    <button type="button" class="btn btn-sm {{ 'btn-primary' if key == active_preset else 'btn-secondary' }}"
+            id="preset-{{ key }}" onclick="applyPreset('{{ key }}')"
+            title="Генератор {{ p.roles.gen.split('::')[1] }} · судья {{ p.roles.judge.split('::')[1] }} · критик {{ p.roles.critic.split('::')[1] }}; в настройках — проверка непрерывности, правщик, оценщик, анализ">
+      ✍️ {{ p.label }}
+    </button>
+    {% endfor %}
+    <span id="preset-note" style="font-size:11px;color:var(--text2);">
+      судья, проверка и оценщик — всегда другой семьи, чем писатель
+    </span>
+  </div>
+
   <!-- Выбор моделей -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
     <div class="form-group">
@@ -290,6 +305,15 @@ let state = {
 
 // Восстановить сохранённые модели
 function initModelSelects() {
+  // Умолчания ролей сменились (16.10: судья — другая семья, критик ≠ судья).
+  // Запомненный выбор перебивал их, поэтому один раз сбрасываем его
+  const ROLES_V = '2';
+  try {
+    if (localStorage.getItem('pl_roles_v') !== ROLES_V) {
+      ['gen','critic','editor','judge'].forEach(r => localStorage.removeItem(`pl_model_${r}`));
+      localStorage.setItem('pl_roles_v', ROLES_V);
+    }
+  } catch (e) { /* без хранилища — просто умолчания */ }
   ['gen','critic','editor','judge'].forEach(role => {
     const saved = localStorage.getItem(`pl_model_${role}`);
     const sel = document.getElementById(`pl-model-${role}`);
@@ -302,6 +326,28 @@ function initModelSelects() {
       localStorage.setItem(`pl_model_${role}`, sel.value);
     });
   });
+}
+
+async function applyPreset(name) {
+  const r = await apiPost('/pipeline/preset', {name});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  const absent = [];
+  for (const [role, model] of Object.entries(r.roles)) {
+    const sel = document.getElementById(`pl-model-${role}`);
+    if (!sel) continue;
+    if ([...sel.options].some(o => o.value === model)) {
+      sel.value = model;
+      try { localStorage.setItem(`pl_model_${role}`, model); } catch (e) { /* без хранилища */ }
+    } else absent.push(model);
+  }
+  document.querySelectorAll('[id^="preset-"]').forEach(b => {
+    if (b.tagName !== 'BUTTON') return;
+    b.classList.toggle('btn-primary', b.id === `preset-${name}`);
+    b.classList.toggle('btn-secondary', b.id !== `preset-${name}`);
+  });
+  const miss = [...new Set([...r.missing, ...absent])];
+  if (miss.length) showToast(`Набор «${r.label}» поставлен, но нет доступа к: ${miss.map(m => m.split('::')[1]).join(', ')} — включи подписку или ключ`, 'warning', 9000);
+  else showToast(`Набор «${r.label}»: роли и модели настроек поставлены`, 'success');
 }
 
 function setStep(step) {

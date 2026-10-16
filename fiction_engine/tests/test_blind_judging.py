@@ -116,5 +116,48 @@ def test_writer_by_subscription_when_enabled(monkeypatch):
         monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
         got = default_role_models()
     assert got["gen"] == "claude_subscription::claude-sonnet-5-5"
-    # Судья — тот, на котором калиброван порог, писатель его не сдвигает
-    assert got["judge"] == DEFAULT_ROLE_MODELS["judge"]
+    # Судья — подписка другого семейства, редактор — писатель
+    assert got["judge"] == "chatgpt_subscription::gpt-6.1-sol@medium"
+    assert got["editor"] == got["gen"]
+
+
+def test_roles_never_judge_own_family_and_critic_is_not_judge(monkeypatch):
+    from unittest.mock import patch
+    from engine.pipeline_config import CRITIC_MODEL, default_role_models, model_family
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
+        for claude, gpt in (("1", "1"), ("0", "1"), ("1", "0")):
+            monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", claude)
+            monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", gpt)
+            r = default_role_models()
+            assert model_family(r["judge"]) != model_family(r["gen"]) or claude + gpt != "11", r
+            assert r["critic"] == CRITIC_MODEL and r["critic"] != r["judge"]
+
+
+def test_role_presets_never_judge_own_family():
+    """В обоих наборах судья, проверяющий и оценщик — не семья писателя."""
+    from engine.pipeline_config import ROLE_PRESETS, model_family
+    for name, p in ROLE_PRESETS.items():
+        writer = model_family(p["roles"]["gen"])
+        for m in (p["roles"]["judge"], p["settings"]["continuity_model"], p["settings"]["scorer_model"]):
+            assert model_family(m) != writer, (name, m)
+        assert p["roles"]["critic"] != p["roles"]["judge"]
+        assert p["roles"]["editor"] == p["roles"]["gen"]
+
+
+def test_apply_preset_sets_settings_and_defaults(project_id, monkeypatch):
+    from unittest.mock import patch
+    from engine.db import get_setting
+    from web.app import app
+    from engine.pipeline_config import ROLE_PRESETS, default_role_models
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    app.config.update(TESTING=True, FE_CSRF=False)
+    with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
+        monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+        monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
+        r = app.test_client().post("/pipeline/preset", json={"name": "gpt"}).get_json()
+        assert r["ok"] and r["missing"] == []
+        assert default_role_models() == ROLE_PRESETS["gpt"]["roles"]
+    for key, model in ROLE_PRESETS["gpt"]["settings"].items():
+        assert get_setting(key) == model
+    assert app.test_client().post("/pipeline/preset", json={"name": "x"}).status_code == 400

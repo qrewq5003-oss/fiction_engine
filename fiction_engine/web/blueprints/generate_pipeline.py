@@ -37,10 +37,21 @@ def pipeline_page():
     # Умолчания по ролям заданы в движке, а не «первая модель списка».
     # Главное в них — судья отличается от генератора: модель завышает
     # оценку собственному слогу (см. пояснение к DEFAULT_ROLE_MODELS).
-    from engine.pipeline_config import default_role_models
+    from engine.pipeline_config import ROLE_PRESETS, active_role_preset, default_role_models
     return render_template("pipeline.html", current=current, runs=runs,
                            chapters=chapters, models=models,
-                           default_models=default_role_models())
+                           default_models=default_role_models(),
+                           presets=ROLE_PRESETS, active_preset=active_role_preset())
+
+
+@bp.route("/pipeline/preset", methods=["POST"])
+def pipeline_preset():
+    """Набор ролей «пишет Sonnet» / «пишет GPT»: роли Pipeline и модели настроек."""
+    from engine.pipeline_config import ROLE_PRESETS, apply_role_preset
+    name = ((request.json or {}).get("name") or "").strip()
+    if name not in ROLE_PRESETS:
+        return jsonify({"error": "Нет такого набора"}), 400
+    return jsonify({"ok": True, **apply_role_preset(name)})
 
 
 @bp.route("/pipeline/start", methods=["POST"])
