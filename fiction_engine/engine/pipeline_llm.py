@@ -23,14 +23,22 @@ def _call(*args, **kwargs):
 
 
 def _get_resolver_model(fallback_model: str) -> str:
+    """Дешёвая модель вспомогательных задач («Модель анализа задачи»), если к ней
+    есть ключ; иначе fallback_model.
+
+    Ключ раньше не проверялся: настройка указывала на провайдера без ключа
+    (у автора — прямой Anthropic), и L3-саммари, подбор модулей и проверка
+    противоречий падали на «Нет API ключа» в каждом прогоне.
+    """
     try:
-        from .db import get_conn
+        from .db import get_api_key, get_conn
         with get_conn() as conn:
             row = conn.execute(
                 "SELECT value FROM settings WHERE key='resolver_model'"
             ).fetchone()
-        if row and row["value"]:
-            return row["value"]
+        value = (row["value"] if row else "") or ""
+        if "::" in value and get_api_key(value.split("::")[0]):
+            return value
     except Exception as e:
         handle_error("_get_resolver_model", e, level=ErrorLevel.RECOVERABLE)
     return fallback_model

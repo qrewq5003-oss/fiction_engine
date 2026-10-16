@@ -1,0 +1,52 @@
+{# История State Engine с откатом. Жила на странице «Оценка», хотя к оценке
+   текста отношения не имеет: откатить State автор ищет на странице State. #}
+<details class="card" id="state-history-card" style="margin-top:16px;">
+  <summary class="card-title" style="cursor:pointer;margin-bottom:0;">
+    🕐 История и откат
+    <span style="font-size:11px;color:var(--text2);font-weight:400;">
+      — 20 последних версий; откат сначала сохраняет текущую
+    </span>
+  </summary>
+  <div id="history-list" style="display:flex;flex-direction:column;gap:6px;margin-top:12px;
+                                max-height:360px;overflow-y:auto;font-size:12px;">
+    <div style="color:var(--text2);font-style:italic">Загрузка...</div>
+  </div>
+</details>
+<script>
+async function loadStateHistory() {
+  const data = await fetch('/api/state/history').then(r => r.json()).catch(() => ({history: []}));
+  const list = document.getElementById('history-list');
+  if (!data.history || !data.history.length) {
+    list.innerHTML = '<div style="color:var(--text2);font-style:italic">История пуста</div>';
+    return;
+  }
+  list.innerHTML = '';
+  data.history.forEach(h => {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);display:flex;gap:8px;align-items:center';
+    const ts = h.saved_at ? h.saved_at.slice(0, 16).replace('T', ' ') : '';
+    el.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <span style="color:var(--text)">${ts}</span>
+        <span style="color:var(--text2);margin-left:8px">${h.reason || 'изменение'}</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="restoreState(${h.id})">↩ Откат</button>`;
+    list.appendChild(el);
+  });
+}
+
+async function restoreState(snapshotId) {
+  if (!confirm('Откатить State Engine к этой версии?\n\nТекущая версия будет сохранена в историю.')) return;
+  const r = await apiPost(`/api/state/restore/${snapshotId}`, {});
+  if (r.ok) {
+    showToast('State Engine откатан', 'success');
+    setTimeout(() => location.reload(), 600);     // поля State на странице — старые
+  } else {
+    showToast('Ошибка: ' + (r.error || '?'), 'error');
+  }
+}
+
+document.getElementById('state-history-card').addEventListener('toggle', e => {
+  if (e.target.open) loadStateHistory();
+});
+</script>

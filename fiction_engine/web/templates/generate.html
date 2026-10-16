@@ -466,6 +466,8 @@ async function loadHistory() {
 }
 
 async function deleteHistory(id) {
+  // Одним промахом мимо «⇔» терялся текст главы целиком
+  if (!confirm('Удалить эту генерацию из истории? Текст не восстановить.')) return;
   const el = document.getElementById('hist-' + id);
   if (el) el.style.opacity = '0.4';
   await fetch(`/api/generation/${id}/delete`, {method:'POST'}).catch(() => null);
@@ -956,7 +958,8 @@ loadHistory();
 let _assistPromptText = '';
 
 async function assistPrompt() {
-  const chNum = parseInt(document.getElementById('prompt-chapter-num').value || '0');
+  // Пустое поле «№ гл.» — берём номер главы из настроек генерации
+  const chNum = parseInt(document.getElementById('prompt-chapter-num').value || document.getElementById('gen-chapter').value || '0');
   if (!chNum) { showToast('Укажи номер главы', 'error'); return; }
 
   const statusEl = document.getElementById('prompt-assist-status');

@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="page-header">
-  <div class="page-title">💡 Рабочий стол идей</div>
+  <div class="page-title">💡 Разбор ответа из чата</div>
   <div class="page-sub">Вставь ответ из внешнего чата — напиши <strong>принято</strong> чтобы разобрать</div>
 </div>
 
@@ -16,7 +16,7 @@
       <select id="model-select"
         style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:13px">
         {% for m in models %}
-        <option value="{{ m.value }}">{{ m.name }}</option>
+        <option value="{{ m.value }}">{{ m.label }}</option>
         {% endfor %}
       </select>
 

@@ -26,7 +26,8 @@
       <div class="card-title">
         📖 Главы
         <span class="badge">{{ chapters|length }}</span>
-        <a href="/prompt" class="btn btn-primary btn-sm" style="margin-left:auto;">✍️ Генерировать</a>
+        {# Вела на «Промпт для чата» — сборку промпта для внешнего чата, а не на генерацию #}
+        <a href="/pipeline" class="btn btn-primary btn-sm" style="margin-left:auto;">⚡ Новая глава</a>
       </div>
 
       <!-- Загрузка главы -->
@@ -244,7 +245,8 @@
       <div class="card-title">⚡ Быстрые действия</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <a href="/state" class="btn btn-secondary btn-full">⚙️ Открыть State Engine</a>
-        <a href="/prompt" class="btn btn-secondary btn-full">✍️ Создать промпт</a>
+        <a href="/pipeline" class="btn btn-secondary btn-full">⚡ Новая глава в Pipeline</a>
+        <a href="/prompt" class="btn btn-secondary btn-full">🔧 Промпт для внешнего чата</a>
       </div>
     </div>
 
@@ -421,13 +423,17 @@ async function loadL3Status() {
 }
 
 async function showL3Summary(num) {
-  const r = await fetch('/api/l3/' + num).then(x => x.json()).catch(() => null);
-  if (!r || r.error) { showToast('Нет саммари', 'warning'); return; }
+  let r = await fetch('/api/l3/' + num).then(x => x.json()).catch(() => null);
+  // Ответ — {summary: {...}}: поля читались с верхнего уровня, окно было пустым
+  r = r && r.summary;
+  if (!r) { showToast('Нет саммари', 'warning'); return; }
   const msg = [
     r.events && '📌 ' + r.events,
     r.characters && '👤 ' + r.characters,
     r.conflicts && '⚡ ' + r.conflicts,
-    r.promises && '🔮 ' + r.promises,
+    // Обещания в новом формате — список объектов: выводился «[object Object]»
+    r.promises && '🔮 ' + (Array.isArray(r.promises)
+      ? r.promises.map(p => (p.resolved ? '✓ ' : '') + p.text).join('; ') : r.promises),
     r.mood && '🎭 ' + r.mood,
   ].filter(Boolean).join('\n');
   alert('L3 — Глава ' + num + ':\n\n' + msg);

@@ -27,8 +27,10 @@ def ideas_accept():
     genre     = (data.get("genre") or "").strip()
     if not text:
         return jsonify({"error": "Нет текста"}), 400
+    from .helpers import NO_MODEL, page_model
+    model_v = page_model(model_v)
     if not model_v:
-        return jsonify({"error": "Не задана модель"}), 400
+        return jsonify({"error": NO_MODEL}), 400
 
     prompt = f"""Структурируй идеи для художественного проекта. Только JSON.
 ТЕКСТ:\n{text[:35000]}

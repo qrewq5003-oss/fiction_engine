@@ -6,6 +6,7 @@ db_narrative.py — нарративные данные проекта.
 """
 
 import json
+import re
 from .db_core import get_conn
 from .error_policy import error_boundary, ErrorLevel
 
@@ -532,7 +533,11 @@ def kb_delete(article_id: int, project_id: int) -> bool:
 def kb_search(project_id: int, query: str, max_results: int = 3) -> list[dict]:
     if not query or not query.strip():
         return []
-    words = [w.lower().strip() for w in query.split() if len(w) > 2]
+    # Основа без окончания: задача главы пишется в падежах («в больнице»),
+    # а заголовок и теги — в начальной форме («Больница»), и подстрока целого
+    # слова статью не находила
+    words = [w if len(w) <= 5 else w[:max(5, len(w) - 2)]
+             for w in (re.sub(r"[^\w-]", "", t.lower()) for t in query.split()) if len(w) > 2]
     if not words:
         return []
     all_articles = kb_get_all(project_id)

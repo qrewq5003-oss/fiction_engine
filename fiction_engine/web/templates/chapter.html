@@ -94,6 +94,10 @@ async function checkContinuity() {
     return;
   }
 
+  if (r.skipped) {                       // модель не вызывалась — не «чисто»
+    statusEl.textContent = 'ℹ ' + r.skipped;
+    return;
+  }
   if (!r.violations || r.violations.length === 0) {
     statusEl.textContent = '✓ Нарушений не найдено';
     statusEl.style.color = 'var(--success)';

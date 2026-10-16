@@ -343,6 +343,14 @@ class TestKnowledgeBase:
         assert len(results) >= 1
         assert results[0]["title"] == "Магия огня"
 
+    def test_kb_search_matches_inflected_words(self, project_id):
+        """Задача главы — в падежах, тег — в начальной форме."""
+        from engine.db_projects import kb_save, kb_search
+        kb_save(project_id, "Больница на Летной", "травматология", tags="больница, Летна")
+        kb_save(project_id, "Мост", "Карлов мост", tags="мост")
+        found = kb_search(project_id, "Лукаш просыпается в больнице.")
+        assert [a["title"] for a in found] == ["Больница на Летной"]
+
     def test_kb_search_empty_query(self, project_id):
         from engine.db_projects import kb_search
         assert kb_search(project_id, "") == []

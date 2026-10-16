@@ -188,6 +188,20 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
     return "\n\n".join(parts)
 
 
+def skip_reason(project_id: int, chapter_num: int) -> str:
+    """Почему check_continuity проверять не станет; «» — проверит.
+
+    Пустой список нарушений означал и «проверено, чисто», и «не с чем
+    сравнивать»: страница главы 1 отвечала «✓ Нарушений не найдено», не
+    вызвав модель.
+    """
+    if _has_enough_data(project_id, chapter_num):
+        return ""
+    if chapter_num < 3:
+        return "Проверять не с чем: нужны минимум две прошлые главы"
+    return "Проверять не с чем: прошлые главы не проанализированы (⚙️ Анализ на «Обзоре»)"
+
+
 def _has_enough_data(project_id: int, chapter_num: int) -> bool:
     """Есть ли достаточно данных для проверки (минимум 2 прошлые главы)."""
     if chapter_num < 3:

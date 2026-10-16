@@ -1,8 +1,8 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
 from engine.db import delete_chapter, get_chapter, get_chapters, save_chapter
-from .helpers import (attachment_header, get_current_project, get_cheap_model,
-                      log_web_error, read_uploaded_text)
+from .helpers import (NO_MODEL, attachment_header, get_current_project, get_cheap_model,
+                      page_model, read_uploaded_text)
 
 bp = Blueprint("chapters", __name__)
 
@@ -252,24 +252,21 @@ def continuity_check():
     data = request.json or {}
     chapter_num = data.get("chapter_num")
     text = data.get("text", "").strip()
-    model_value = data.get("model", "")
+    # На странице главы выбора модели нет: проверяющий из «Настроек →
+    # Проверка непрерывности», иначе последняя или любая модель с ключом
+    model_value = page_model(data.get("model", ""), "continuity_model")
 
     if not chapter_num or not text:
         return jsonify({"error": "Нужны chapter_num и text"}), 400
     if not model_value:
-        try:
-            from engine.db import get_conn
-            with get_conn() as conn:
-                row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
-            model_value = row["value"] if row else ""
-        except Exception as e:
-            log_web_error("не прочитать last_model из настроек", e)
-    if not model_value:
-        return jsonify({"error": "Не задана модель"}), 400
+        return jsonify({"error": NO_MODEL}), 400
 
     try:
-        from engine.continuity_checker import check_continuity
+        from engine.continuity_checker import check_continuity, skip_reason
         from engine.pipeline import call_llm as llm_call
+        why = skip_reason(current["id"], int(chapter_num))
+        if why:
+            return jsonify({"ok": True, "violations": [], "count": 0, "skipped": why})
 
         def api_fn(prompt):
             return llm_call(model_value,
@@ -309,17 +306,9 @@ def l3_generate(chapter_num):
     ch = get_chapter(current["id"], chapter_num)
     if not ch:
         return jsonify({"error": "Глава не найдена"}), 404
-    model_value = (request.json or {}).get("model", "")
+    model_value = page_model((request.json or {}).get("model", ""))
     if not model_value:
-        try:
-            from engine.db import get_conn
-            with get_conn() as conn:
-                row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
-            model_value = row["value"] if row else ""
-        except Exception as e:
-            log_web_error("не прочитать last_model из настроек", e)
-    if not model_value:
-        return jsonify({"error": "Не задана модель"}), 400
+        return jsonify({"error": NO_MODEL}), 400
     from engine.pipeline import generate_l3
     summary = generate_l3(current["id"], chapter_num, ch["content"],
                           get_cheap_model(model_value))

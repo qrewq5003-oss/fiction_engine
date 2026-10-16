@@ -42,17 +42,10 @@ def state_import():
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
-    model_value = (request.form or request.json or {}).get("model", "")
+    from .helpers import NO_MODEL, page_model
+    model_value = page_model((request.form or request.json or {}).get("model", ""))
     if not model_value:
-        try:
-            from engine.db import get_conn
-            with get_conn() as conn:
-                row = conn.execute("SELECT value FROM settings WHERE key='last_model'").fetchone()
-            model_value = row["value"] if row else ""
-        except Exception as e:
-            log_web_error("не прочитать last_model из настроек", e)
-    if not model_value:
-        return jsonify({"error": "Не задана модель"}), 400
+        return jsonify({"error": NO_MODEL}), 400
     raw_text = ""
     if "file" in request.files:
         try:
