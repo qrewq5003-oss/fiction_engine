@@ -104,8 +104,10 @@ def page_model(requested: str = "", *prefer: str) -> str:
     на странице «Генерация», и кнопки отвечали «Не задана модель».
     """
     from engine.db import get_setting
-    for m in ((requested or "").strip(),
-              *((get_setting(k) or "").strip() for k in (*prefer, "last_model"))):
+    # Выбранную автором модель не подменяем: нет ключа — пусть вызов так и скажет
+    if (requested or "").strip():
+        return requested.strip()
+    for m in ((get_setting(k) or "").strip() for k in (*prefer, "last_model")):
         if m and pick_model(m) == m:
             return m
     return pick_model()

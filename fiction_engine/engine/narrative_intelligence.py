@@ -476,8 +476,8 @@ class NarrativeIntelligence:
             if isinstance(raw, str) and raw.lstrip().startswith("["):
                 try:
                     raw = json.loads(raw)
-                except ValueError:
-                    pass
+                except ValueError as e:      # битый JSON — разбираем как текст
+                    log.warning("L3 promises: не JSON", str(e))
             # Новый формат L3 — список обещаний с пометкой «выполнено». Здесь
             # ждали строку, и анализ серии падал на «'list' has no attribute
             # 'strip'», как только у главы появлялось свежее саммари
