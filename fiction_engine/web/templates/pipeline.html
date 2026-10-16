@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{# «Мастерская» — одна страница вместо двух: «Генерация» (только писатель)
+   и «Pipeline» (писатель → критик → судья) писали главу по-разному и с
+   разными инструментами. Теперь это переключатель «Критик и судья». #}
 <div class="page-header">
-  <div class="page-title">⚡ Pipeline</div>
-  <div class="page-sub">Генерация → Критика → Редактура → Оценка → Твоё решение</div>
+  <div class="page-title">✍️ Мастерская</div>
+  <div class="page-sub">Писатель → критик → судья → твоё решение. Без критика и судьи — только писатель.</div>
 </div>
 
 <!-- ── Настройка нового pipeline ── -->
@@ -35,6 +38,15 @@
     </span>
   </div>
 
+  <!-- Критик и судья: выключены — только писатель (прежняя «Генерация») -->
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;margin-bottom:10px;">
+    <input type="checkbox" id="pl-review" checked style="width:auto;" onchange="onReviewToggle()">
+    ⚖️ Критик и судья
+    <span id="pl-review-note" style="font-size:11px;color:var(--text2);">
+      — после текста критик разбирает главу, судья ставит оценку
+    </span>
+  </label>
+
   <!-- Выбор моделей -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
     <div class="form-group">
@@ -63,8 +75,50 @@
     </div>
   </div>
 
+  <details style="margin-bottom:12px;" id="pl-advanced">
+    <summary style="cursor:pointer;font-size:12px;color:var(--text2);">Дополнительно: режим движка</summary>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px;">
+      {% for m, label in [('quick','quick — по умолчанию'),('quality','quality'),('master','master')] %}
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin:0;color:var(--text);">
+        <input type="radio" name="pl-mode" value="{{ m }}" {% if m == 'quick' %}checked{% endif %}
+               style="width:auto;" onchange="loadEngineModules()"> {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px;">
+      quality и master добавляют писателю больше правил ремесла. На замере 03.10 quality
+      против quick разницы в оценке не дал при +25 тыс. символов контекста.
+    </div>
+    <div id="engine-modules-list" style="font-size:11px;line-height:1.8;margin-top:6px;"></div>
+  </details>
+
+  <!-- План главы из планировщика / заметка к главе -->
+  <div id="director-note-block" style="display:none;background:rgba(100,80,180,.12);border:1px solid rgba(120,100,200,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+    <div style="font-size:11px;color:var(--accent2);font-weight:600;margin-bottom:4px;">📋 План главы — уходит писателю вместе с задачей</div>
+    <div id="director-note-text" style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;max-height:180px;overflow-y:auto;"></div>
+  </div>
+
   <div class="form-group">
-    <label>Промпт для генератора <span style="color:var(--text2);font-size:10px;">задача главы, сцены, тональность</span></label>
+    <label style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span>Задача главы <span style="color:var(--text2);font-size:10px;">сцены, тональность, чем кончается</span></span>
+      <span style="display:flex;gap:6px;align-items:center;">
+        <button type="button" class="btn btn-secondary btn-sm" id="task-history-btn" style="display:none;"
+                onclick="showTaskHistory()">↺ Прошлые задачи</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="assistPrompt()"
+                title="Черновик задачи по плану серии, прошлой главе и State">🧠 Подготовить промт</button>
+        <span id="prompt-assist-status" style="font-size:11px;color:var(--text2);"></span>
+      </span>
+    </label>
+    <div id="task-history-list" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;max-height:160px;overflow-y:auto"></div>
+    <div id="prompt-assist-panel" style="display:none;margin-bottom:10px;padding:10px;
+         background:var(--surface2);border:1px solid var(--accent);border-radius:8px;font-size:12px;">
+      <div style="color:var(--accent2);font-weight:600;margin-bottom:8px;">🧠 Черновик задачи — отредактируй и используй</div>
+      <div id="prompt-assist-text" style="white-space:pre-wrap;color:var(--text);line-height:1.6;max-height:250px;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="useAssistPrompt()">← Вставить в поле задачи</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('prompt-assist-panel').style.display='none'">Закрыть</button>
+      </div>
+    </div>
     <textarea id="pl-prompt" rows="8"
               placeholder="Напиши главу 5.
 
@@ -80,10 +134,32 @@
 Объём: 2500-3000 слов."></textarea>
   </div>
 
-  <button class="btn btn-primary" id="btn-start" onclick="startPipeline()">
-    <span id="start-spinner" class="spinner" style="display:none;"></span>
-    ⚡ Запустить pipeline
-  </button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-secondary" onclick="previewPrompt()"
+            title="Весь промпт писателя: план, State, подготовка, движок — как его соберёт запуск">👁 Промпт писателя</button>
+    <button type="button" class="btn btn-secondary" id="btn-validate" onclick="runValidate()"
+            title="Не противоречит ли задача State и прошлым главам — до запуска">
+      <span class="spinner" id="validate-spinner" style="display:none;"></span>
+      🔍 Проверить задачу
+    </button>
+    <button class="btn btn-primary" id="btn-start" onclick="startPipeline()" style="flex:1;justify-content:center;">
+      <span id="start-spinner" class="spinner" style="display:none;"></span>
+      ⚡ Запустить
+    </button>
+  </div>
+  <div id="prep-warning" style="display:none;margin-top:10px;padding:8px 10px;background:#78350f33;
+       border:1px solid #92400e;border-radius:6px;font-size:12px;color:var(--warning);"></div>
+  <div id="validation-result" style="display:none;margin-top:12px;"></div>
+  <div id="prompt-preview" style="display:none;margin-top:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:12px;color:var(--text2);" id="prompt-preview-size"></span>
+      <span style="display:flex;gap:6px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyToClipboard(document.getElementById('prompt-preview-text').textContent)">📋 Копировать</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('prompt-preview').style.display='none'">Закрыть</button>
+      </span>
+    </div>
+    <div id="prompt-preview-text" class="text-mono" style="max-height:420px;"></div>
+  </div>
 
 </div>
 
@@ -166,8 +242,15 @@
                   background:var(--surface2);"></div>
     </div>
 
+    <!-- Голос: соответствие активному профилю голоса (из прежней «Генерации») -->
+    <div class="card" id="voice-check-block" style="display:none;">
+      <div class="card-title" style="font-size:13px;">🎙 Голос <span id="voice-check-name" style="font-size:11px;color:var(--text2);"></span>
+        <span id="voice-check-score" style="margin-left:auto;font-weight:700;"></span></div>
+      <div id="voice-check-result" style="font-size:12px;color:var(--text);white-space:pre-wrap;"></div>
+    </div>
+
     <!-- Критика -->
-    <div class="card" style="border-color:#92400e33;">
+    <div class="card" style="border-color:#92400e33;" id="critique-card">
       <div class="card-title" style="color:var(--warning);">🔍 Критика</div>
       <div id="result-critique" class="text-mono" style="color:var(--text);"></div>
     </div>
@@ -206,8 +289,18 @@
         <button class="btn btn-success" onclick="acceptResult()" style="flex:1;justify-content:center;">
           ✅ Принять главу
         </button>
-        <button class="btn btn-primary" onclick="nextIteration()" style="flex:1;justify-content:center;">
+        <button class="btn btn-primary" id="btn-review" onclick="reviewText()" style="flex:1;justify-content:center;display:none;"
+                title="Критик разберёт текст (с твоими правками), судья поставит оценку">
+          <span class="spinner" id="review-spinner" style="display:none;"></span>
+          ⚖️ Разбор и оценка
+        </button>
+        <button class="btn btn-primary" id="btn-next-iter" onclick="nextIteration()" style="flex:1;justify-content:center;">
           🔄 Ещё круг редактуры
+        </button>
+        <button class="btn btn-secondary btn-sm" id="btn-voice-check" onclick="checkVoice()"
+                title="Насколько текст звучит голосом из профиля «Голос»">
+          <span class="spinner" id="voice-check-spinner" style="display:none;"></span>
+          🎙 Проверка голоса
         </button>
         <button class="btn btn-danger btn-sm" onclick="rejectResult()">
           ✕ Отклонить
@@ -255,6 +348,22 @@
   </div>
 </div>
 {% endif %}
+
+<!-- ── Прежняя «Генерация»: её история, только посмотреть и скопировать ── -->
+<details class="card" id="old-gen-card" style="margin-top:16px;display:none;">
+  <summary class="card-title" style="cursor:pointer;margin-bottom:0;">
+    📜 История прежней «Генерации» <span id="old-gen-count" style="font-size:11px;color:var(--text2);font-weight:400;"></span>
+  </summary>
+  <div id="old-gen-list" style="display:flex;flex-direction:column;gap:6px;margin-top:12px;"></div>
+  <div id="old-gen-view" style="display:none;margin-top:12px;">
+    <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="copyToClipboard(document.getElementById('old-gen-text').textContent)">📋 Копировать</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('old-gen-view').style.display='none'">Закрыть</button>
+    </div>
+    <div id="old-gen-text" style="white-space:pre-wrap;font-family:'Georgia',serif;font-size:13px;line-height:1.7;
+         max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface2);"></div>
+  </div>
+</details>
 
 <style>
 .step-indicator {
@@ -350,6 +459,201 @@ async function applyPreset(name) {
   else showToast(`Набор «${r.label}»: роли и модели настроек поставлены`, 'success');
 }
 
+// ─── Критик и судья: вкл / выкл ──────────────────────────────────────────────
+function onReviewToggle() {
+  const on = document.getElementById('pl-review').checked;
+  ['critic', 'editor', 'judge'].forEach(r => {
+    const g = document.getElementById(`pl-model-${r}`)?.closest('.form-group');
+    if (g) g.style.opacity = on ? '1' : '0.45';
+  });
+  document.getElementById('pl-review-note').textContent = on
+    ? '— после текста критик разбирает главу, судья ставит оценку'
+    : '— только писатель; разбор и оценку можно запросить потом кнопкой «⚖️ Разбор и оценка»';
+}
+
+function engineMode() {
+  return document.querySelector('input[name="pl-mode"]:checked')?.value || 'quick';
+}
+
+// ─── Инструменты задачи (перенесены из прежней «Генерации») ──────────────────
+async function loadDirectorNote(chapterNum) {
+  const r = await fetch(`/api/director_note/${chapterNum}`).then(x => x.json()).catch(() => null);
+  const block = document.getElementById('director-note-block');
+  if (r && r.note) {
+    document.getElementById('director-note-text').textContent = r.note;
+    block.style.display = 'block';
+  } else block.style.display = 'none';
+}
+
+async function loadTaskHistory(chapterNum) {
+  const r = await fetch(`/api/generation/tasks/${chapterNum}`).then(x => x.json()).catch(() => null);
+  const btn = document.getElementById('task-history-btn');
+  const list = document.getElementById('task-history-list');
+  list.style.display = 'none';
+  if (!r || !r.tasks || !r.tasks.length) { btn.style.display = 'none'; list._tasks = []; return; }
+  btn.style.display = 'inline-flex';
+  list._tasks = r.tasks;
+}
+
+function showTaskHistory() {
+  const list = document.getElementById('task-history-list');
+  if (list.style.display === 'block') { list.style.display = 'none'; return; }
+  list.innerHTML = '';
+  (list._tasks || []).forEach((t, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);';
+    row.textContent = t.slice(0, 160) + (t.length > 160 ? '…' : '');
+    row.onclick = () => { document.getElementById('pl-prompt').value = t; list.style.display = 'none'; };
+    list.appendChild(row);
+  });
+  list.style.display = 'block';
+}
+
+let _assistPromptText = '';
+async function assistPrompt() {
+  const chNum = parseInt(document.getElementById('pl-chapter').value || '0');
+  if (!chNum) { showToast('Укажи номер главы', 'error'); return; }
+  const statusEl = document.getElementById('prompt-assist-status');
+  const panelEl = document.getElementById('prompt-assist-panel');
+  statusEl.textContent = '⏳ Собираю контекст...';
+  panelEl.style.display = 'none';
+  const r = await apiPost('/api/prompt-assist', {chapter_num: chNum,
+                                                 model: document.getElementById('pl-model-gen').value});
+  if (r.error) { statusEl.textContent = '❌ ' + r.error; showToast(r.error, 'error'); return; }
+  _assistPromptText = r.prompt;
+  document.getElementById('prompt-assist-text').textContent = r.prompt;
+  panelEl.style.display = 'block';
+  statusEl.textContent = '';
+}
+
+function useAssistPrompt() {
+  if (!_assistPromptText) return;
+  document.getElementById('pl-prompt').value = _assistPromptText;
+  document.getElementById('prompt-assist-panel').style.display = 'none';
+  showToast('Задача вставлена — отредактируй перед запуском', 'info');
+}
+
+async function previewPrompt() {
+  const chapter = parseInt(document.getElementById('pl-chapter').value);
+  const task = document.getElementById('pl-prompt').value.trim();
+  if (!chapter || !task) { showToast('Заполни номер главы и задачу', 'error'); return; }
+  const r = await apiPost('/pipeline/preview', {chapter_num: chapter, task, engine_mode: engineMode(),
+                                                model_gen: document.getElementById('pl-model-gen').value});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  document.getElementById('prompt-preview-text').textContent =
+    '=== СИСТЕМНАЯ РОЛЬ ===\n' + r.system + '\n\n=== ПРОМПТ ===\n' + r.prompt;
+  document.getElementById('prompt-preview-size').textContent =
+    `Писатель получит ${r.chars.toLocaleString('ru-RU')} символов`;
+  document.getElementById('prompt-preview').style.display = 'block';
+}
+
+async function runValidate() {
+  const chapter = parseInt(document.getElementById('pl-chapter').value);
+  const task = document.getElementById('pl-prompt').value.trim();
+  if (!task) { showToast('Сначала заполни задачу главы', 'error'); return; }
+  const btn = document.getElementById('btn-validate'), spin = document.getElementById('validate-spinner');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  const r = await apiPost('/generate/validate', {chapter_num: chapter, task,
+                                                 model: document.getElementById('pl-model-gen').value});
+  btn.disabled = false; spin.style.display = 'none';
+  const block = document.getElementById('validation-result');
+  const esc = s => String(s || '').replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+  let html = '';
+  if (r.error && !r.blocking) html = `<div style="font-size:12px;color:var(--text2);">Проверка недоступна: ${esc(r.error)}</div>`;
+  else if (r.skipped) html = `<div style="font-size:12px;color:var(--text2);">State Engine пуст — проверка пропущена.</div>`;
+  else {
+    const box = (bg, bd, title, items, fmt) => items && items.length
+      ? `<div style="background:${bg};border:1px solid ${bd};border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+           <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${title} (${items.length})</div>${items.map(fmt).join('')}</div>` : '';
+    html += box('#7f1d1d33', '#991b1b', '🚫 Блокирующие проблемы', r.blocking,
+      b => `<div style="margin-bottom:6px;font-size:12px;">${esc(b.issue)}<div style="font-size:11px;color:var(--text2);">${esc(b.detail)}</div>${b.fix ? `<div style="font-size:11px;color:var(--success);">→ ${esc(b.fix)}</div>` : ''}</div>`);
+    html += box('#78350f33', '#92400e', '⚠ Предупреждения', r.warnings,
+      w => `<div style="margin-bottom:6px;font-size:12px;">${esc(w.issue)}<div style="font-size:11px;color:var(--text2);">${esc(w.detail)}</div></div>`);
+    html += box('var(--surface2)', 'var(--border)', '💡 Можно улучшить', r.suggestions,
+      s => `<div style="font-size:11px;color:var(--text2);">· ${esc(s)}</div>`);
+    if (!r.blocking?.length && !r.warnings?.length)
+      html = `<div style="background:#14532d33;border:1px solid #166534;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--success);">✅ Задача главы прошла проверку — противоречий не найдено.</div>`;
+  }
+  block.innerHTML = html;
+  block.style.display = 'block';
+}
+
+async function checkPrepSize() {
+  const r = await fetch('/api/prep/size').then(x => x.json()).catch(() => null);
+  const el = document.getElementById('prep-warning');
+  if (r && r.warning) { el.textContent = '⚠ Подготовка: ' + r.message; el.style.display = 'block'; }
+  else el.style.display = 'none';
+}
+
+async function loadEngineModules() {
+  const model = document.getElementById('pl-model-gen')?.value || '';
+  const r = await fetch(`/api/engine/modules?mode=${engineMode()}&model=${encodeURIComponent(model)}`)
+    .then(x => x.json()).catch(() => null);
+  const el = document.getElementById('engine-modules-list');
+  if (!r || !r.available || !r.modules?.length) { el.innerHTML = ''; return; }
+  el.innerHTML = 'Модули движка: ' + r.modules.map(m =>
+    `<span style="display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin:2px;color:var(--accent2);">${m.split('_').slice(1).join(' ')}</span>`).join('');
+}
+
+async function checkVoice() {
+  const text = (state.currentText || '').trim();
+  if (!text) return;
+  const btn = document.getElementById('btn-voice-check'), spin = document.getElementById('voice-check-spinner');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  document.getElementById('voice-check-block').style.display = 'block';
+  document.getElementById('voice-check-result').textContent = 'Проверяю...';
+  const r = await apiPost('/voice/check', {text, model: document.getElementById('pl-model-critic').value});
+  btn.disabled = false; spin.style.display = 'none';
+  if (r.error) { document.getElementById('voice-check-result').textContent = r.error; return; }
+  const sc = document.getElementById('voice-check-score');
+  sc.textContent = r.score ? r.score + '/10' : '';
+  sc.style.color = r.score >= 8 ? 'var(--success)' : r.score >= 6 ? 'var(--warning)' : 'var(--error)';
+  document.getElementById('voice-check-name').textContent = r.voice_name || '';
+  document.getElementById('voice-check-result').textContent = r.analysis || '';
+}
+
+async function loadOldGenerations() {
+  const items = await fetch('/api/generation/history').then(x => x.json()).catch(() => []);
+  if (!Array.isArray(items) || !items.length) return;
+  document.getElementById('old-gen-card').style.display = '';
+  document.getElementById('old-gen-count').textContent = `(${items.length})`;
+  const list = document.getElementById('old-gen-list');
+  list.innerHTML = '';
+  items.forEach(h => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;';
+    const info = document.createElement('span');
+    info.style.flex = '1';
+    info.textContent = `Гл.${h.chapter_num} · ${(h.mode || '').toUpperCase()} · ${h.word_count || 0} слов · ${(h.created_at || '').slice(0, 16)} — ${h.task_preview || ''}`;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary btn-sm'; btn.type = 'button'; btn.textContent = 'Открыть';
+    btn.onclick = async () => {
+      const g = await fetch(`/api/generation/${h.id}`).then(x => x.json()).catch(() => null);
+      document.getElementById('old-gen-text').textContent = (g && (g.result_text || g.text)) || 'Текст не найден';
+      document.getElementById('old-gen-view').style.display = 'block';
+    };
+    row.append(info, btn);
+    list.appendChild(row);
+  });
+}
+
+// Разбор и оценка готового текста — для запуска без критика и судьи или
+// после правок в тексте
+async function reviewText() {
+  const text = (state.currentText || '').trim();
+  if (!state.runId || !text) { showToast('Нет текста главы', 'error'); return; }
+  const btn = document.getElementById('btn-review'), spin = document.getElementById('review-spinner');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  const r = await apiPost('/pipeline/review', {run_id: state.runId, chapter_num: state.chapterNum,
+                                               text, generation_prompt: state.prompt || ''});
+  btn.disabled = false; spin.style.display = 'none';
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  state.currentCritique = r.critique;
+  state.iteration = r.iteration || state.iteration + 1;
+  document.getElementById('iter-num').textContent = state.iteration;
+  showResults(r);
+}
+
 function setStep(step) {
   // step: 'gen' | 'critique' | 'judge' | 'done'
   const order = ['gen','critique','judge'];
@@ -412,19 +716,30 @@ function showResults(data) {
   }
   document.getElementById('result-critique').textContent = data.critique || '';
   document.getElementById('result-judgment').textContent = data.judgment || '';
+  // Без критика и судьи — только писатель: разборов нет, есть «Разбор и оценка»
+  const reviewed = !!(data.critique || data.judgment);
+  document.getElementById('critique-card').style.display = data.critique ? '' : 'none';
+  document.getElementById('judge-card').style.display = data.judgment ? '' : 'none';
+  document.getElementById('btn-next-iter').style.display = data.critique ? '' : 'none';
+  document.getElementById('btn-review').style.display = '';
+  document.getElementById('btn-review').lastChild.textContent = reviewed ? ' ⚖️ Переоценить' : ' ⚖️ Разбор и оценка';
 
   if (data.judgment) renderScoreBars(data.judgment);
 
   // Вердикт
   const verdict = data.verdict || '';
   const vEl = document.getElementById('iter-verdict');
-  if (verdict === 'ПРИНЯТЬ') {
+  if (!reviewed) {
+    vEl.innerHTML = '<span style="color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;">только писатель</span>';
+  } else if (verdict === 'ПРИНЯТЬ') {
     vEl.innerHTML = '<span style="color:var(--success);border:1px solid #166534;border-radius:20px;padding:2px 8px;">ПРИНЯТЬ</span>';
   } else {
     vEl.innerHTML = '<span style="color:var(--warning);border:1px solid #92400e;border-radius:20px;padding:2px 8px;">НА ДОРАБОТКУ</span>';
   }
 
-  const scores = `Критик: ${data.critic_score || 0}/50 · Судья: ${data.judge_score || 0}/50`;
+  const words = (data.generated_text || '').split(/\s+/).filter(Boolean).length;
+  const scores = reviewed ? `${words} слов · Критик: ${data.critic_score || 0}/50 · Судья: ${data.judge_score || 0}/50`
+                          : `${words} слов`;
   document.getElementById('iter-scores').textContent = scores;
 
   // Глава не дописана — предложить продолжение одной кнопкой.
@@ -477,6 +792,7 @@ async function startPipeline() {
   const modelCritic = document.getElementById('pl-model-critic').value;
   const modelEditor = document.getElementById('pl-model-editor').value;
   const modelJudge  = document.getElementById('pl-model-judge').value;
+  const review      = document.getElementById('pl-review').checked;
 
   if (!chapter || !prompt) {
     showToast('Заполни номер главы и промпт', 'error'); return;
@@ -492,7 +808,7 @@ async function startPipeline() {
   document.getElementById('step-status').style.display = 'flex';
   document.getElementById('iter-num').textContent = '1';
 
-  setStep('gen'); setStatus('Генерирую текст главы...');
+  setStep('gen'); setStatus(review ? 'Пишу главу, потом критик и судья...' : 'Пишу главу...');
 
   const result = await apiPost('/pipeline/start', {
     chapter_num: chapter,
@@ -501,9 +817,17 @@ async function startPipeline() {
     model_critic: modelCritic,
     model_editor: modelEditor,
     model_judge: modelJudge,
+    review,
+    engine_mode: engineMode(),
   });
 
-  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
+  if (result.error) {
+    showToast('Ошибка: ' + result.error, 'error');
+    // Вернуть форму: раньше она оставалась скрытой, и запуск было не повторить
+    document.getElementById('setup-card').style.display = '';
+    document.getElementById('pipeline-active').style.display = 'none';
+    return;
+  }
 
   state.runId = result.run_id;
   state.currentText = result.generated_text;
@@ -666,6 +990,22 @@ async function deleteHistory() {
 })();
 
 initModelSelects();
+
+// Переключатель «Критик и судья» включён при каждом открытии: выключенный
+// по запомненному выбору, он оставлял главы без судьи незаметно для автора
+onReviewToggle();
+
+// План главы и прошлые задачи — по номеру главы
+(function () {
+  const ch = document.getElementById('pl-chapter');
+  const load = () => { const n = parseInt(ch.value); if (n) { loadDirectorNote(n); loadTaskHistory(n); } };
+  ch.addEventListener('change', load);
+  load();
+  checkPrepSize();
+  loadEngineModules();
+  loadOldGenerations();
+  document.getElementById('pl-model-gen').addEventListener('change', loadEngineModules);
+})();
 
 // ─── Продолжение и склейка для Pipeline ──────────────────────────────────────
 async function plSetContinue() {

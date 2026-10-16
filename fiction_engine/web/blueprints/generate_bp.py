@@ -1,8 +1,7 @@
 """Blueprint: генерация, pipeline, prep, prompt, edit, validate."""
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from engine.db import (get_chapters, save_chapter, get_api_key,
+from flask import Blueprint, request, jsonify, redirect, url_for
+from engine.db import (save_chapter, get_api_key,
                        get_generation_history, get_generation_by_id)
-from engine.api import get_all_models_flat
 from engine.pipeline import score_text  # публичный API скоринга
 from ..ownership import owned_generation, deny
 from .helpers import get_current_project, after_chapter_saved, log_web_error
@@ -55,13 +54,9 @@ def _cleanup_old_jobs():
 
 @bp.route("/generate")
 def generate_page():
-    current = get_current_project()
-    if not current:
-        flash("Сначала выбери проект", "error")
-        return redirect(url_for("index"))
-    models = get_all_models_flat()
-    chapters = get_chapters(current["id"])
-    return render_template("generate.html", current=current, models=models, chapters=chapters)
+    """Страница слита с Pipeline в «Мастерскую» (переключатель «Критик и судья»).
+    Адрес оставлен: закладки и старые ссылки ведут туда."""
+    return redirect(url_for("generate.pipeline_page"))
 
 
 @bp.route("/generate/run", methods=["POST"])

@@ -39,19 +39,27 @@ def generation_clear():
 
 @bp.route("/api/generation/tasks/<int:chapter_num>")
 def generation_tasks(chapter_num):
-    """Последние 5 задач для данного номера главы."""
+    """Последние 5 задач для данного номера главы — из запусков «Мастерской»
+    и из прежней «Генерации»."""
     current = get_current_project()
     if not current:
         return jsonify({"tasks": []})
     from engine.db import get_conn
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT DISTINCT task FROM generation_history
-               WHERE project_id=? AND chapter_num=? AND task IS NOT NULL AND task != ''
-               ORDER BY id DESC LIMIT 5""",
-            (current["id"], chapter_num)
+            """SELECT task FROM (
+                 SELECT i.input_text AS task, i.created_at AS at FROM pipeline_iterations i
+                   JOIN pipeline_runs r ON r.id = i.run_id
+                  WHERE r.project_id=? AND r.chapter_num=? AND i.stage='generate'
+                 UNION ALL
+                 SELECT task, created_at FROM generation_history
+                  WHERE project_id=? AND chapter_num=?)
+               WHERE task IS NOT NULL AND task != ''
+               ORDER BY at DESC""",
+            (current["id"], chapter_num, current["id"], chapter_num)
         ).fetchall()
-    return jsonify({"tasks": [r["task"] for r in rows]})
+    tasks = list(dict.fromkeys(r["task"] for r in rows))[:5]
+    return jsonify({"tasks": tasks})
 
 
 @bp.route("/api/director_note/<int:chapter_num>")

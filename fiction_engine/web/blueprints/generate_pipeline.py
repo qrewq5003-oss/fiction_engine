@@ -66,12 +66,64 @@ def pipeline_start():
     try:
         from engine.pipeline import start_pipeline
         prefill = data.get("prefill", "")
+        # «Критик и судья» выключены — только писатель (прежняя «Генерация»)
         result = start_pipeline(project_id=current["id"], prefill=prefill,
+                                writer_only=data.get("review") is False,
+                                engine_mode=data.get("engine_mode"),
                                 **{k: data[k] for k in required})
         # start_pipeline кладёт truncated/cut_reason в results на шаге generate
         return jsonify({"ok": True, **result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/pipeline/review", methods=["POST"])
+def pipeline_review():
+    """Разбор критика и оценка судьи по готовому тексту запуска (с правками автора)."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    data = request.json or {}
+    if not data.get("run_id") or not owned_run(data["run_id"]):
+        return deny("Запуск")
+    text = (data.get("text") or "").strip()
+    if len(text) < 100:
+        return jsonify({"error": "Нет текста главы"}), 400
+    try:
+        from engine.pipeline import REVIEW_ONLY, continue_pipeline
+        result = continue_pipeline(run_id=data["run_id"], project_id=current["id"],
+                                   chapter_num=data.get("chapter_num"),
+                                   generation_prompt=data.get("generation_prompt", ""),
+                                   previous_text=text, previous_critique="",
+                                   steps=list(REVIEW_ONLY))
+        return jsonify({"ok": True, **result, "generated_text": text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/pipeline/preview", methods=["POST"])
+def pipeline_preview():
+    """Что получит писатель: промпт целиком, как его соберёт шаг generate."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    data = request.json or {}
+    task = (data.get("task") or "").strip()
+    try:
+        chapter_num = int(data.get("chapter_num") or 0)
+    except (TypeError, ValueError):
+        chapter_num = 0
+    if not task or not chapter_num:
+        return jsonify({"error": "Нужны номер главы и задача"}), 400
+    from engine.pipeline import ENGINE_MODES, PIPELINE_ENGINE_MODE, _build_context, _build_sys_generator
+    from engine.state import strip_empty_placeholders
+    mode = data.get("engine_mode") if data.get("engine_mode") in ENGINE_MODES else PIPELINE_ENGINE_MODE
+    clean = strip_empty_placeholders(task)
+    prompt = _build_context(current["id"], chapter_num, clean, mode, data.get("model_gen") or "",
+                            task_text=clean)
+    from engine.unified_engine import project_genre_key
+    system = _build_sys_generator(project_genre_key(current) or "")
+    return jsonify({"ok": True, "prompt": prompt, "system": system, "chars": len(prompt) + len(system)})
 
 
 @bp.route("/pipeline/continue", methods=["POST"])

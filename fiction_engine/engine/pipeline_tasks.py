@@ -508,7 +508,8 @@ def find_symbols_in_chapter(chapter_text: str, existing_names: list[str],
     known  = ', '.join(existing_names) if existing_names else 'нет'
     SYS    = "Ты редактор-аналитик. Ищешь символы в тексте. Только JSON."
     prompt = (
-        f"Найди символы в главе. УЖЕ ИЗВЕСТНЫ: {known}\n"
+        f"Найди символы в главе — не больше 8 самых значимых, context и potential_meaning "
+        f"до 25 слов каждый. УЖЕ ИЗВЕСТНЫ: {known}\n"
         f"ТЕКСТ:\n{chapter_text[:SYMBOLS_TEXT_LIMIT]}\n"
         '{"found":[{"name":"...","type":"...","context":"...","potential_meaning":"...","is_new":true}],"note":"..."}'
     )

@@ -174,3 +174,44 @@ def test_tone_layer_has_no_file_comments():
     for key in ("suspense", "action"):
         s = load_chapter_tone_section(key)
         assert s and "<!--" not in s and "-->" not in s and "замер 28.09" not in s
+
+
+def test_generate_page_leads_to_workshop(client):
+    """«Генерация» слита с Pipeline в «Мастерскую»: старый адрес ведёт туда."""
+    r = client.get("/generate", follow_redirects=False)
+    assert r.status_code in (301, 302) and r.headers["Location"].endswith("/pipeline")
+    html = client.get("/pipeline").get_data(as_text=True)
+    assert "Мастерская" in html and 'id="pl-review"' in html and "/generate\"" not in html
+
+
+def test_writer_only_run_has_no_review_then_review_on_demand(project_id, client, monkeypatch):
+    """Критик и судья выключены — только писатель; «Разбор и оценка» — потом, по тексту."""
+    from unittest.mock import patch
+    from engine.db import get_pipeline_iterations
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    text = "Лукаш спустился в подвал. " * 400
+    judged = "ГОЛОС: 7\nСТРУКТУРА: 7\nПЕРСОНАЖИ: 7\nСЦЕНЫ: 7\nДИАЛОГ: 7\nИТОГ: 35\nВЕРДИКТ: ПРИНЯТЬ"
+    calls = []
+
+    def fake(model, system, user, **kw):
+        calls.append(model)
+        return judged if "вердикт" in system.lower() or "ИТОГ" in user[-200:] else text
+    with patch("engine.pipeline._call", side_effect=fake):
+        r = client.post("/pipeline/start", json={
+            "chapter_num": 1, "generation_prompt": "Задача главы 1.", "review": False,
+            "model_gen": "nano_gpt::w/w", "model_critic": "nano_gpt::c/c",
+            "model_editor": "nano_gpt::w/w", "model_judge": "nano_gpt::j/j"}).get_json()
+        assert r["ok"] and not r.get("critique") and not r.get("judgment"), r
+        stages = [i["stage"] for i in get_pipeline_iterations(r["run_id"])]
+        assert "critique" not in stages and "judge" not in stages
+        rv = client.post("/pipeline/review", json={"run_id": r["run_id"], "chapter_num": 1,
+                                                   "text": "Правленый текст. " * 200}).get_json()
+    assert rv["ok"] and rv["critique"] and rv["judge_score"] == 35
+    stages = [i["stage"] for i in get_pipeline_iterations(r["run_id"])]
+    assert stages.count("critique") == 1 and stages.count("judge") == 1
+    assert "nano_gpt::j/j" in calls and "nano_gpt::c/c" in calls
+
+
+def test_preview_shows_writer_prompt(project_id, client):
+    r = client.post("/pipeline/preview", json={"chapter_num": 1, "task": "ЗАДАЧА: Лукаш в подвале."}).get_json()
+    assert r["ok"] and "Лукаш в подвале" in r["prompt"] and r["chars"] > len(r["prompt"])

@@ -80,11 +80,11 @@ def test_redirect_target_resolves_without_project():
     Именно здесь ломался url_for («main.index»): BuildError → 500.
     """
     app, client = _make_client(with_project=False)
-    resp = client.get("/generate", follow_redirects=False)
+    resp = client.get("/pipeline", follow_redirects=False)
     assert resp.status_code in (301, 302), resp.status_code
     assert resp.headers["Location"].endswith("/")
 
-    followed = client.get("/generate", follow_redirects=True)
+    followed = client.get("/pipeline", follow_redirects=True)
     assert followed.status_code == 200
 
 
