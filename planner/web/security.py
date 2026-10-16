@@ -67,6 +67,9 @@ border-radius:6px;cursor:pointer}.err{color:#f87171;font-size:14px}</style></hea
 def init_security(app: Flask) -> None:
     # PLANNER_CSRF=False — только для тестов, которые шлют POST без сессии
     app.config.setdefault("PLANNER_CSRF", True)
+    # Своё имя cookie: Fiction Engine на том же 127.0.0.1, а cookie порт не
+    # различают — общий «session» приложения затирали друг другу
+    app.config["SESSION_COOKIE_NAME"] = "planner_session"
     app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
     app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
     app.jinja_env.globals["csrf_token"] = csrf_token
