@@ -115,15 +115,10 @@ def pipeline_preview():
         chapter_num = 0
     if not task or not chapter_num:
         return jsonify({"error": "Нужны номер главы и задача"}), 400
-    from engine.pipeline import ENGINE_MODES, PIPELINE_ENGINE_MODE, _build_context, _build_sys_generator
-    from engine.state import strip_empty_placeholders
-    mode = data.get("engine_mode") if data.get("engine_mode") in ENGINE_MODES else PIPELINE_ENGINE_MODE
-    clean = strip_empty_placeholders(task)
-    prompt = _build_context(current["id"], chapter_num, clean, mode, data.get("model_gen") or "",
-                            task_text=clean)
-    from engine.unified_engine import project_genre_key
-    system = _build_sys_generator(project_genre_key(current) or "")
-    return jsonify({"ok": True, "prompt": prompt, "system": system, "chars": len(prompt) + len(system)})
+    from engine.pipeline import preview_writer_prompt
+    return jsonify({"ok": True, **preview_writer_prompt(current, chapter_num, task,
+                                                         data.get("engine_mode"),
+                                                         data.get("model_gen") or "")})
 
 
 @bp.route("/pipeline/continue", methods=["POST"])

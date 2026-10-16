@@ -395,6 +395,18 @@ def start_pipeline(
     return result
 
 
+def preview_writer_prompt(project: dict, chapter_num: int, task: str,
+                          engine_mode: str | None = None, model_gen: str = "") -> dict:
+    """Промпт писателя целиком, как его соберёт шаг generate (для «👁 Промпт писателя»)."""
+    from .state import strip_empty_placeholders
+    from .unified_engine import project_genre_key
+    mode = engine_mode if engine_mode in ENGINE_MODES else PIPELINE_ENGINE_MODE
+    clean = strip_empty_placeholders(task)
+    prompt = _build_context(project["id"], chapter_num, clean, mode, model_gen, task_text=clean)
+    system = _build_sys_generator(project_genre_key(project) or "")
+    return {"prompt": prompt, "system": system, "chars": len(prompt) + len(system)}
+
+
 def continue_pipeline(
     run_id: int, project_id: int, chapter_num: int,
     generation_prompt: str, previous_text: str, previous_critique: str,
