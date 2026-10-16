@@ -23,7 +23,7 @@
     <button class="btn" id="btnL3"
             title="Создать L3-саммари для глав, у которых его нет: на них строится весь анализ">🧠 Саммари глав</button>
     <button class="btn" id="btnPurge"
-            title="Убрать показанный отчёт и анализ глав, которых в проекте больше нет">🧹 Очистить</button>
+            title="Убрать показанный отчёт, а также анализ, саммари, детали серии и библию глав, которых в проекте больше нет (State — со снимком для отката)">🧹 Очистить</button>
   </div>
 </div>
 
@@ -208,8 +208,8 @@ document.getElementById("btnPurge").addEventListener("click", async () => {
     const r = await fetch("/narrative/purge", {method: "POST"});
     const d = await r.json();
     if (d.error) throw new Error(d.error);
-    showStatus(d.deleted ? `Удалено записей анализа несуществующих глав: ${d.deleted}`
-                         : "Отчёт убран. Анализа несуществующих глав нет.");
+    showStatus(d.deleted ? `Удалено записей о несуществующих главах (анализ, саммари, детали серии, библия): ${d.deleted}`
+                         : "Отчёт убран. Записей о несуществующих главах нет.");
   } catch(e) {
     showStatus("Ошибка: " + e.message);
   }

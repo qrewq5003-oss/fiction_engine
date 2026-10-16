@@ -163,6 +163,9 @@ def _modifier_body(key: str) -> list[str]:
         text = p.read_text(encoding="utf-8")
     except OSError:
         return []
+    # Комментарии файла — пометки для разработчика («<!-- замер 28.09 … -->»):
+    # шли писателю строками инструкции
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     out: list[str] = []
     # Суть у тонов — строкой «**Суть:** …» под заголовком файла
     core = re.search(r"^\*\*Суть:\*\*\s*(.+)$", text, re.M)

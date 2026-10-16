@@ -331,13 +331,16 @@ def known_for_analysis(project_id: int) -> str:
     return "\n".join(lines)
 
 
-def bible_block(project_id: int, focus_text: str = "") -> str:
+def bible_block(project_id: int, focus_text: str = "", before_chapter: int | None = None) -> str:
     """
     Блок генератору: текущие факты, сначала тех сущностей, что упомянуты в
     задаче или плане главы. Недавно изменённые — с пометкой, чтобы генератор
-    не откатился к старому значению.
+    не откатился к старому значению. before_chapter — только факты глав раньше
+    этой и записанные без главы: факты будущих глав писатель выдавал за
+    предвидение.
     """
-    facts = current(project_id)
+    facts = [r for r in current(project_id)
+             if before_chapter is None or (r["chapter_num"] or 0) < before_chapter]
     if not facts:
         return ""
     focus = _key(focus_text)

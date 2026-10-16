@@ -594,12 +594,45 @@ SERIES_DETAILS_HEADER = "## ДЕТАЛИ СЕРИИ"
 SERIES_DETAILS_MAX = 60
 
 
-def series_details(plot_text: str) -> list[str]:
-    """Строки раздела «ДЕТАЛИ СЕРИИ» («гл.N: деталь»), по порядку добавления."""
-    m = re.search(rf"{re.escape(SERIES_DETAILS_HEADER)}\n(.*?)(?=\n## |\Z)", plot_text or "", re.S)
+_DETAIL_CHAPTER = re.compile(r"^гл\.(\d+):")
+_DETAILS_SECTION = rf"{re.escape(SERIES_DETAILS_HEADER)}\n(.*?)(?=\n## |\Z)"
+
+
+def detail_chapter(line: str) -> int | None:
+    m = _DETAIL_CHAPTER.match(line)
+    return int(m.group(1)) if m else None
+
+
+def series_details(plot_text: str, before_chapter: int | None = None) -> list[str]:
+    """Строки раздела «ДЕТАЛИ СЕРИИ» («гл.N: деталь»), по порядку добавления.
+
+    before_chapter — только детали глав раньше этой. Писатель главы 1 получал
+    детали глав 1–2 прошлой версии книги («красный источник: четыре, три, две
+    с половиной секунды») и вставлял их в главу как предвидение. Строки без
+    номера главы (записаны автором) идут всегда.
+    """
+    m = re.search(_DETAILS_SECTION, plot_text or "", re.S)
     if not m:
         return []
-    return [l[2:].strip() for l in m.group(1).splitlines() if l.startswith("- ")]
+    out = [l[2:].strip() for l in m.group(1).splitlines() if l.startswith("- ")]
+    if before_chapter is None:
+        return out
+    return [d for d in out if (detail_chapter(d) or 0) < before_chapter]
+
+
+def detail_chapters(plot_text: str) -> set[int]:
+    """Номера глав, у которых есть детали в разделе."""
+    return {n for n in map(detail_chapter, series_details(plot_text)) if n}
+
+
+def drop_series_details(plot_text: str, chapters: set[int]) -> str:
+    """Убрать из раздела детали этих глав (глава удалена). Остальной текст — как был."""
+    m = re.search(_DETAILS_SECTION, plot_text or "", re.S)
+    if not m:
+        return plot_text
+    kept = [l for l in m.group(1).splitlines()
+            if not (l.startswith("- ") and detail_chapter(l[2:].strip()) in chapters)]
+    return plot_text[:m.start(1)] + "\n".join(kept) + plot_text[m.end(1):]
 
 
 def merge_series_details(plot_text: str, details: list[str], chapter_num: int) -> str:

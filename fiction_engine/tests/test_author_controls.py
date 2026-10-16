@@ -103,3 +103,74 @@ def test_cleanup_spares_judged_and_fresh_runs(project_id, client):
     assert get_pipeline_run(stale)["status"] == "rejected"
     assert get_pipeline_run(judged)["status"] == "running"
     assert get_pipeline_run(fresh)["status"] == "running"
+
+
+PLOT = ("## ОСНОВНАЯ ЛИНИЯ\nСТАТУС: активна\n\n## ДЕТАЛИ СЕРИИ\n"
+        "- гл.1: Каска Томаша — наклейка с утёнком\n"
+        "- гл.2: Красный источник — вспышки четыре, три, две с половиной секунды\n"
+        "- Лукаш левша (записал автор)\n")
+
+
+def test_writer_gets_only_details_of_earlier_chapters():
+    from engine.state_merge import series_details
+    assert series_details(PLOT, 1) == ["Лукаш левша (записал автор)"]
+    assert [d[:4] for d in series_details(PLOT, 2)] == ["гл.1", "Лука"]
+    assert len(series_details(PLOT)) == 3
+
+
+def test_bible_block_skips_future_chapters(project_id):
+    from engine.db_core import get_conn
+    from engine.series_bible import _ensure, bible_block
+    _ensure()
+    with get_conn() as conn:
+        for ch, val, st in ((1, "сорок метров", "введено"), (2, "красный", "введено"), (0, "левша", "автор")):
+            conn.execute("INSERT INTO series_bible (project_id,kind,name,attr,value,chapter_num,status,reason) "
+                         "VALUES (?,?,?,?,?,?,?,?)", (project_id, "вещь", f"имя{ch}", "признак", val, ch, st, ""))
+    b = bible_block(project_id, before_chapter=2)
+    assert "сорок метров" in b and "левша" in b and "красный" not in b
+
+
+def test_delete_chapter_drops_its_details_and_bible(project_id, client):
+    from engine.db import save_chapter
+    from engine.db_core import get_conn
+    from engine.db_state import get_state, update_state
+    save_chapter(project_id, 1, "Текст первой главы. " * 10, "Глава 1")
+    save_chapter(project_id, 2, "Текст второй главы. " * 10, "Глава 2")
+    update_state(project_id, "", PLOT, "")
+    from engine.series_bible import _ensure
+    _ensure()
+    with get_conn() as conn:
+        for ch, st in ((2, "введено"), (2, "автор")):
+            conn.execute("INSERT INTO series_bible (project_id,kind,name,attr,value,chapter_num,status,reason) "
+                         "VALUES (?,?,?,?,?,?,?,?)", (project_id, "вещь", "источник", "цвет", "красный", ch, st, ""))
+    assert client.post("/chapter/2/delete", json={}).status_code == 200
+    plot = get_state(project_id)["plot_matrix"]
+    assert "гл.2:" not in plot and "гл.1: Каска" in plot and "левша" in plot and "СТАТУС: активна" in plot
+    with get_conn() as conn:
+        left = [r[0] for r in conn.execute("SELECT status FROM series_bible WHERE project_id=?", (project_id,))]
+        snap = conn.execute("SELECT reason FROM state_history WHERE project_id=? ORDER BY id DESC",
+                            (project_id,)).fetchone()[0]
+    assert left == ["автор"] and "детали удалённых глав 2" in snap
+
+
+def test_purge_drops_details_of_missing_chapters(project_id, client):
+    from engine.db_state import get_state, update_state
+    update_state(project_id, "", PLOT, "")                  # глав нет совсем
+    r = client.post("/narrative/purge", json={}).get_json()
+    assert r["deleted"] == 2
+    assert get_state(project_id)["plot_matrix"].count("гл.") == 0
+
+
+def test_author_notes_never_reach_models(project_id):
+    from engine.db_settings import get_prep_context, save_prep
+    save_prep(project_id, "world", "Прага, ордены")
+    save_prep(project_id, "notes", "ЛИЧНАЯ ЗАМЕТКА АВТОРА")
+    ctx = get_prep_context(project_id)
+    assert "Прага, ордены" in ctx and "ЛИЧНАЯ ЗАМЕТКА" not in ctx
+
+
+def test_tone_layer_has_no_file_comments():
+    from engine.genre_mix import load_chapter_tone_section
+    for key in ("suspense", "action"):
+        s = load_chapter_tone_section(key)
+        assert s and "<!--" not in s and "-->" not in s and "замер 28.09" not in s

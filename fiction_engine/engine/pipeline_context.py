@@ -85,7 +85,7 @@ PLOT_RAW_MAX_CHARS = 4000
 MEMORY_RAW_MAX_CHARS = 2000
 
 def extract_relevant_state(state: dict, prompt_text: str,
-                           api_call_fn=None) -> str:
+                           api_call_fn=None, before_chapter: int | None = None) -> str:
     import re
     from .db import parse_structured_state_smart
 
@@ -131,7 +131,7 @@ def extract_relevant_state(state: dict, prompt_text: str,
 
     # Детали серии — вещи, приметы мест, время, числа: их нельзя нарушить
     from .db_state import series_details
-    details = series_details(state.get("plot_matrix", ""))
+    details = series_details(state.get("plot_matrix", ""), before_chapter)
     if details:
         lines.append("ДЕТАЛИ СЕРИИ (не противоречь им):\n"
                      + "\n".join(f"- {d}" for d in details[-30:]))
@@ -310,7 +310,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     if chapter_num > 1:
         try:
             from .series_bible import bible_block
-            b = bible_block(project_id, f"{task_text}\n{base_prompt[-3000:]}")
+            b = bible_block(project_id, f"{task_text}\n{base_prompt[-3000:]}", chapter_num)
             if b:
                 bible_ctx = f"\n{b}\n"
         except Exception as e:
@@ -324,7 +324,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     if any(m in base_prompt for m in state_markers):
         state_block = ""
     else:
-        smart_state = extract_relevant_state(state, base_prompt, api_call_fn)
+        smart_state = extract_relevant_state(state, base_prompt, api_call_fn, chapter_num)
         state_block = f"\n{STATE_HEADER}\n{smart_state}\n"
 
     # ── ChapterAnalysis предыдущей главы — замыкаем петлю ────────────────────

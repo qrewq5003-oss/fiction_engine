@@ -90,7 +90,10 @@ def prevalidate_chapter(
 
     prep_parts = []
     from .db import PREP_SECTIONS, PREP_DEFAULTS
+    from .db_settings import PREP_PRIVATE
     for section, label in PREP_SECTIONS.items():
+        if section in PREP_PRIVATE:
+            continue
         content = prep.get(section, "").strip()
         if content and content != PREP_DEFAULTS.get(section, "").strip():
             prep_parts.append(f"{label}: {content[:300]}")

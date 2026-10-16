@@ -246,11 +246,19 @@ def save_prep(project_id: int, section: str, content: str) -> None:
         )
 
 
+# Разделы только для автора: моделям не уходят никуда (решение владельца
+# 16.10). У автора «Заметки» дословно повторяли «Мир и магию» — 7 тыс.
+# символов писатель получал дважды.
+PREP_PRIVATE = frozenset({"notes"})
+
+
 def get_prep_context(project_id: int) -> str:
-    """Собрать весь prep в единый контекстный блок для генерации."""
+    """Собрать prep в единый контекстный блок для генерации (без PREP_PRIVATE)."""
     prep = get_prep(project_id)
     parts = []
     for section, label in PREP_SECTIONS.items():
+        if section in PREP_PRIVATE:
+            continue
         content = prep[section].strip()
         if content and content != PREP_DEFAULTS[section].strip():
             parts.append(f"=== {label.upper()} ===\n{content}")
