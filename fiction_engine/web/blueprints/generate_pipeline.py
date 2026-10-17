@@ -174,10 +174,25 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                     project_id, raw, u.get("chapter_num", chapter_num)
                 )
                 mark_update_applied(project_id, auto_id)
+                _drop_draft_updates(project_id, int(chapter_num), auto_id)
                 return bool(res.get("changed"))
     except Exception as e:
         _log_state_update_failure(project_id, chapter_num, e)
     return False
+
+
+def _drop_draft_updates(project_id: int, chapter_num: int, keep_id: int) -> None:
+    """Убрать неприменённые анализы этой главы — они по черновикам.
+
+    Каждый прогон ставит в очередь анализ своего черновика (queue_state_update),
+    а «Принять» анализирует итоговый текст и применяет. Черновые оставались
+    висеть «Необработанным обновлением», и «Применить» вписал бы в State
+    черновик поверх принятой главы (у автора 17.10: «ноготь левой руки»).
+    """
+    from engine.db_core import get_conn
+    with get_conn() as conn:
+        conn.execute("DELETE FROM state_updates WHERE project_id=? AND chapter_num=? "
+                     "AND applied=0 AND id != ?", (project_id, chapter_num, keep_id))
 
 
 # ─── Обновление State после принятия — в фоне ─────────────────────────────
@@ -192,7 +207,8 @@ _state_jobs: dict[str, dict] = {}
 _state_lock = threading.Lock()
 
 
-def _start_state_update(project_id: int, chapter_num: int, model_value: str) -> str:
+def _start_state_update(project_id: int, chapter_num: int, model_value: str,
+                        text: str = "") -> str:
     job_id = str(uuid.uuid4())
     with _state_lock:
         for k in list(_state_jobs)[:-50]:          # держим последние 50
@@ -204,6 +220,13 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str) -> 
         updated = _try_state_update_after_accept(project_id, chapter_num, model_value)
         with _state_lock:
             _state_jobs[job_id].update(status="done", state_updated=updated)
+        # Шаги после сохранения главы — L3, дрейф голоса, заметка, оценка. Их
+        # делала только «Сохранить как главу» прежней «Генерации»: глава,
+        # принятая в Pipeline / «Мастерской», оставалась без L3 (у автора
+        # 17.10), и анализ серии был пуст. После State — по одному вызову за раз
+        if text:
+            from .helpers import after_chapter_saved
+            after_chapter_saved(project_id, chapter_num, text, model_value)
 
     threading.Thread(target=worker, daemon=True).start()
     return job_id
@@ -247,7 +270,7 @@ def pipeline_accept():
     if current and chapter_num and final_text:
         save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
         if model_value:
-            state_job = _start_state_update(current["id"], chapter_num, model_value)
+            state_job = _start_state_update(current["id"], chapter_num, model_value, final_text)
 
         # ── Записываем правку автора для DATA_DRIVEN_LEARNING ──────────────
         # Находим оригинальный текст (последняя итерация generate/edit)

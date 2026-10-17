@@ -44,6 +44,11 @@ def generate_director_note(
     Сохраняет в БД и возвращает текст заметки.
     """
     try:
+        # Заметка к следующей главе уже есть — план из планировщика или
+        # запись автора: не перезаписывать (сохранение было безусловным)
+        from engine.db import get_director_note
+        if get_director_note(project_id, chapter_num + 1):
+            return None
         tail = chapter_text[-800:].strip()
         global_state = (state.get("global_state") or "")[:400]
 
