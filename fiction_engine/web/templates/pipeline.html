@@ -290,9 +290,22 @@
                     style="font-size:13px;font-family:inherit;"
                     placeholder="Скорректируй задачу главы перед следующим кругом..."></textarea>
           <div style="font-size:11px;color:var(--text2);margin-top:4px;">
-            Оставь пустым чтобы использовать оригинальный промпт.
+            Оставь пустым чтобы использовать оригинальный промпт. Редактор видит задачу — напиши, что поправить.
           </div>
         </div>
+        <!-- Режим круга редактуры (engine/point_edit): точечно — правки по
+             критике, остальной текст слово в слово; целиком — переписать главу -->
+        <div style="font-size:12px;color:var(--text2);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+          <span>Ещё круг редактуры:</span>
+          <label style="display:flex;gap:4px;align-items:center;cursor:pointer;">
+            <input type="radio" name="edit-mode" value="points" style="width:auto;" onchange="setEditMode(this.value)" checked>
+            точечные правки</label>
+          <label style="display:flex;gap:4px;align-items:center;cursor:pointer;"
+                 title="Для главы, которую не спасти правками: структура, порядок сцен">
+            <input type="radio" name="edit-mode" value="rewrite" style="width:auto;" onchange="setEditMode(this.value)">
+            переписать целиком</label>
+        </div>
+        <div id="edit-report" style="display:none;font-size:12px;margin-top:8px;color:var(--text2);"></div>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -759,9 +772,32 @@ function renderScoreBars(judgeText) {
   document.getElementById('score-bars').innerHTML = html;
 }
 
+async function setEditMode(mode) {
+  const r = await apiPost('/api/settings/edit_mode', {mode});
+  if (r.error) showToast(r.error, 'error');
+}
+(async function loadEditMode() {
+  const r = await fetch('/api/settings/edit_mode').then(x => x.json()).catch(() => null);
+  const el = r && document.querySelector(`input[name="edit-mode"][value="${r.mode}"]`);
+  if (el) el.checked = true;
+})();
+
+// Итог круга редактуры: сколько правок легло, какие не нашлись, доля изменённого
+function showEditReport(rep) {
+  const el = document.getElementById('edit-report');
+  if (!rep) { el.style.display = 'none'; return; }
+  const pct = Math.round((rep.changed || 0) * 100);
+  el.textContent = rep.mode === 'points'
+    ? `Редактура: правок ${rep.applied}, изменено ${pct}% текста` +
+      (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
+    : `Редактура целиком: изменено ${pct}% текста`;
+  el.style.display = 'block';
+}
+
 function showResults(data) {
   document.getElementById('step-status').style.display = 'none';
   document.getElementById('iteration-results').style.display = 'block';
+  showEditReport(data && data.edit_report);
   document.getElementById('plan-check-block').style.display = 'none';   // сверка — по прошлому тексту
   if (state.chapterNum) loadDirectorNote(state.chapterNum);              // кнопка сверки — если у главы есть план
 

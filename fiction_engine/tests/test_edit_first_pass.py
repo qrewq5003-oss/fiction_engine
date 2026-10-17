@@ -36,6 +36,13 @@ EDITED    = "Он встал и пошёл, потому что больше н�
 CRITIQUE  = "ГОЛОС: 5/10\nИТОГ: 25/50\nГЛАВНЫЕ ПРОБЛЕМЫ:\n- рубленый ритм"
 
 
+@pytest.fixture(autouse=True)
+def rewrite_mode(monkeypatch):
+    """Здесь — редактура целиком (режим «переписать»); точечная — test_point_edit.py."""
+    import engine.point_edit as pe
+    monkeypatch.setattr(pe, "edit_mode", lambda: "rewrite")
+
+
 @pytest.fixture
 def project(monkeypatch):
     import engine.db_core as dbc

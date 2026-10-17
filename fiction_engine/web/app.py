@@ -324,6 +324,19 @@ def excerpts_setting_api():
     return jsonify({"ok": True, "enabled": excerpts_enabled()})
 
 
+@app.route("/api/settings/edit_mode", methods=["GET", "POST"])
+def edit_mode_api():
+    """«Ещё круг редактуры»: points — точечные правки (по умолчанию), rewrite — целиком."""
+    from engine.db import set_setting
+    from engine.point_edit import EDIT_MODE_KEY, EDIT_MODES, edit_mode
+    if request.method == "POST":
+        mode = str((request.json or {}).get("mode", ""))
+        if mode not in EDIT_MODES:
+            return jsonify({"error": f"Режим: {', '.join(EDIT_MODES)}"}), 400
+        set_setting(EDIT_MODE_KEY, mode)
+    return jsonify({"ok": True, "mode": edit_mode()})
+
+
 @app.route("/api/l3/model", methods=["GET", "POST"])
 def l3_model_api():
     """Модель L3-саммари (память серии); «» — модель анализа задачи."""
