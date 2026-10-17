@@ -373,6 +373,15 @@ def quote_in(quote: str, text: str) -> bool:
     return bool(parts) and all(p in t for p in parts)
 
 
+def plan_block(plan: str) -> str:
+    """План главы для правщика: что он велит раскрыть или изменить — не ошибка, не исправлять."""
+    plan = (plan or "").strip()
+    if not plan:
+        return ""
+    return ("\nПЛАН ЭТОЙ ГЛАВЫ (от автора): что в нём раскрывается, меняется или "
+            "признаётся — задумано, это не противоречие:\n" + plan[:3000] + "\n")
+
+
 def check_against_chapters(chapter_num: int, chapter_text: str, previous: list[dict],
                            api_call_fn: LLMCaller) -> list[dict]:
     """
@@ -553,6 +562,19 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
     prev = previous_chapters(project_id, chapter_num, CROSS_LOOKBACK)
     if not prev:
         return text, []
+    # План главы — правщику: в книге-прогоне 17.10 признание убийцы по плану
+    # главы 12 было принято за противоречие с её ложью в главе 10, и правщик
+    # переписал признание в отрицание. Проверяющему план и правило о
+    # разоблачениях не даются: замер на Sol (24 главы, 98 размеченных
+    # противоречий) — с ними найдено 56 из 98 против 91–98, слишком много
+    # настоящих противоречий в репликах пропадало. Разоблачение остаётся
+    # сигналом автору, но текст правщик не трогает
+    try:
+        from .db_narrative import get_director_note
+        plan = get_director_note(project_id, chapter_num) or ""
+    except Exception as e:
+        handle_error("cross_check_and_fix: план главы", e, level=ErrorLevel.RECOVERABLE)
+        plan = ""
 
     def against_previous(t: str) -> list[dict]:
         return check_against_chapters(chapter_num, t, prev, lambda p: call_fn(
@@ -579,7 +601,7 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
     while left and rounds < CROSS_FIX_ROUNDS:
         try:
             res = fix_contradictions(chapter_num, text, left, prev, lambda p: call_fn(
-                fixer, SYS_FIX, p, max_tokens=_budget(fixer, 8000)))
+                fixer, SYS_FIX, p, max_tokens=_budget(fixer, 8000)), plan=plan)
         except Exception as e:
             handle_error(f"continuity_fix {where}", e, level=ErrorLevel.RECOVERABLE)
             break

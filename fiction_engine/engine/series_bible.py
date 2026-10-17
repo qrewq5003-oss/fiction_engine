@@ -40,7 +40,7 @@ def _ensure() -> None:
                 attr        TEXT NOT NULL,
                 value       TEXT NOT NULL,
                 chapter_num INTEGER NOT NULL DEFAULT 0,
-                status      TEXT NOT NULL DEFAULT 'введено',   -- введено | уточнено | изменено | противоречие | автор
+                status      TEXT NOT NULL DEFAULT 'введено',   -- введено | уточнено | дополнено | изменено | противоречие | автор
                 reason      TEXT NOT NULL DEFAULT '',
                 created_at  TEXT DEFAULT (datetime('now'))
             )""")
@@ -198,6 +198,28 @@ def same_or_refined(old: str, new: str) -> bool:
     return len(wo & wn) * 2 >= min(len(wo), len(wn))
 
 
+_DESCRIPTION_WORDS = 5     # от стольких слов значение — описание, а не одно значение признака
+
+
+def _content_stems(value: str) -> set[str]:
+    return {w.lower().replace("ё", "е")[:5] for w in re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", value or "")}
+
+
+def complements(old: str, new: str) -> bool:
+    """
+    Новое значение дополняет прежнее, а не спорит с ним: оба — описания (от
+    пяти слов) и не делят ни одного значимого слова. Короткие значения
+    («третий» / «пятый», «красный шарф» / «синий шарф») и описания с общими
+    словами («белая башня, 84 ступени» / «кирпичная башня, 60 ступеней»)
+    сравниваются как раньше — там расхождение и есть противоречие.
+    """
+    if len(old.split()) < _DESCRIPTION_WORDS or len(new.split()) < _DESCRIPTION_WORDS:
+        return False
+    if re.search(r"\d", old) and re.search(r"\d", new):
+        return False                     # числа в обоих — сравниваем как факты
+    return not (_content_stems(old) & _content_stems(new))
+
+
 def _fact_key(name: str, attr: str) -> tuple[str, str]:
     return _key(name), attr_key(attr)
 
@@ -269,6 +291,13 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
                 _add(project_id, e, chapter_num, "уточнено", f"было «{old['value']}» (гл.{old['chapter_num']})")
                 now[k] = {"name": e["name"], "attr": e["attr"], "value": e["value"], "chapter_num": chapter_num}
             return "same"
+        elif not e["changed"] and complements(old["value"], e["value"]):
+            # Два разных описания одной вещи, а не два значения одного признака:
+            # «держится на одной петле» и «скоба недавно отогнута» (книга-прогон
+            # 17.10, единственный конфликт библии за 12 глав — ложный)
+            e = dict(e, value=f"{old['value']}; {e['value']}")
+            _add(project_id, e, chapter_num, "дополнено", f"к гл.{old['chapter_num']}")
+            result = "added"
         elif e["changed"]:
             _add(project_id, e, chapter_num, "изменено", e["changed"])
             out["changed"].append(dict(e, was=old["value"], was_chapter=old["chapter_num"]))

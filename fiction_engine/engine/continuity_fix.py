@@ -30,6 +30,12 @@ _FIX_PROMPT = """Ниже глава {num} серии и список мест, 
 всё, что не касается противоречия. Если текст подаёт расхождение как ложь или
 догадку персонажа и это видно читателю — замену не давай.
 
+Признания, разоблачения и раскрытие тайн не трогай никогда: если в прошлой
+главе персонаж утверждал одно, а в этой выясняется правда — это сюжет, и
+«исправлять» правду обратно во ложь нельзя. Так же — всё, что велит план главы.
+По такой находке замену не давай.
+{plan}
+
 Потом перечитай главу с учётом замен: всё, что опиралось на старый факт, —
 этаж, время, одежда, кто где был, кто что знал, живой или мёртвый, что лежит
 где, — тоже должно сойтись, иначе глава станет противоречить сама себе. На такие
@@ -130,7 +136,7 @@ def apply_edits(text: str, edits: list[dict]) -> tuple[str, list[dict], list[dic
 
 
 def fix_contradictions(chapter_num: int, text: str, found: list[dict],
-                       previous: list[dict], api_call_fn: LLMCaller) -> dict:
+                       previous: list[dict], api_call_fn: LLMCaller, plan: str = "") -> dict:
     """
     Правка главы по находкам проверки. found — [{chapter_a, quote_a, quote_b, what}],
     previous — [{number, content}]. Возвращает {text, edits, applied, failed}.
@@ -145,7 +151,9 @@ def fix_contradictions(chapter_num: int, text: str, found: list[dict],
         lines.append(f"{i}. {f['what']}\n   Глава {f['chapter_a']}: «{f['quote_a']}»"
                      + (f"\n   Как это было в главе {f['chapter_a']}: …{ctx}…" if ctx else "")
                      + f"\n   Глава {chapter_num}: «{f['quote_b']}»")
-    raw = api_call_fn(_FIX_PROMPT.format(num=chapter_num, items="\n".join(lines), text=text))
+    from .continuity_checker import plan_block
+    raw = api_call_fn(_FIX_PROMPT.format(num=chapter_num, items="\n".join(lines), text=text,
+                                         plan=plan_block(plan)))
     from .pipeline_llm import parse_json
     data = parse_json(raw)
     edits = data.get("edits") if isinstance(data, dict) else data
