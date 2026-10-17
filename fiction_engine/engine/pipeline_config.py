@@ -70,6 +70,39 @@ from typing import Callable
 ACCEPT_TOTAL         = 35    # из 50
 ACCEPT_MIN_CRITERION = 4     # из 10, по каждому из пяти
 
+# Свой порог у судьи (калибровка 16–17.10, bench/judges-2026-10-17.json).
+# Шкала у каждого своя: Sol ставит живым главам 19–38 (медиана 31,5), Sonnet
+# — 25–39 (медиана 30). Порог — чуть выше медианы живых глав («лучше
+# обычного», как у Haiku) и выше испорченных копий (перемешанные абзацы,
+# обратный порядок, дубль куска). Замер — с судьёй, не видящим балл критика
+# (critique_for_judge). При 35 Sol принимал 2 главы из 12.
+#     Sol    порог 32: живые 5 из 12, испорченные 0 из 12
+#     Sonnet порог 33: живые 5 из 12, испорченные 1 из 12 — дубль куска,
+#                      его ловит арифметика (detect_truncation и повторы)
+JUDGE_ACCEPT_TOTAL: dict[str, int] = {
+    "gpt-6.1-sol": 32,
+    "claude-sonnet-5": 33,
+}
+
+
+def accept_total_for(model_judge: str = "") -> int:
+    """Порог ИТОГА для этого судьи; не калиброван — ACCEPT_TOTAL."""
+    m = (model_judge or "").split("::")[-1]
+    return next((v for k, v in JUDGE_ACCEPT_TOTAL.items() if k in m), ACCEPT_TOTAL)
+
+
+# Модули ремесла писателю (решение владельца 17.10, bench/judges-2026-10-17.json).
+# GPT-6.1 Sol: без модулей не хуже (Sonnet-судья 3:2 устойчивых, nano 7.74 против
+# 7.75), промпт 17 тыс. символов вместо 44. Sonnet: модули оставлены — без них
+# сравнений «словно/будто» на ~20% больше (1.85 против 1.47 на 1000 слов),
+# пары Sol 5:7 в пределах шума.
+CRAFT_MODULES_OFF = ("gpt-6.1-sol",)
+
+
+def craft_modules_on(model_value: str = "") -> bool:
+    m = (model_value or "").split("::")[-1]
+    return not any(k in m for k in CRAFT_MODULES_OFF)
+
 @dataclass
 class StepConfig:
     """
@@ -627,7 +660,7 @@ def _has_key(model_value: str) -> bool:
 CALIBRATED_JUDGE = "anthropic_direct::claude-haiku-4-5-20251001"
 
 
-def verdict_rule_for_prompt() -> str:
+def verdict_rule_for_prompt(model_judge: str = "") -> str:
     """
     Правило вердикта для судьи — ровно то, по которому считает код.
 
@@ -646,7 +679,7 @@ def verdict_rule_for_prompt() -> str:
     ещё абсолютным вето — «ни одного нарушения» не выполняется почти
     никогда.
     """
-    return (f"ПРАВИЛО ВЕРДИКТА: ПРИНЯТЬ, если ИТОГ ≥ {ACCEPT_TOTAL} "
+    return (f"ПРАВИЛО ВЕРДИКТА: ПРИНЯТЬ, если ИТОГ ≥ {accept_total_for(model_judge)} "
             f"И каждый из 5 критериев ≥ {ACCEPT_MIN_CRITERION}. "
             f"Иначе — НА ДОРАБОТКУ. Нарушения Scene Health уже учтены в "
             f"оценках СТРУКТУРЫ и СЦЕН — отдельным условием их не считай.")

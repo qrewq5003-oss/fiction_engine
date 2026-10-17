@@ -200,7 +200,8 @@ class TestStepJudge:
         with patch("engine.pipeline_steps.save_pipeline_iteration"), \
              patch("engine.pipeline_steps.handle_error"):
             step_judge(run_id, 1, 1, "model",
-                      lambda *a, **kw: self._make_judgment(verdict="НА ДОРАБОТКУ"),
+                      # ниже порога: вердикт теперь считает код по баллам
+                      lambda *a, **kw: self._make_judgment(score=30, verdict="НА ДОРАБОТКУ"),
                       results)
 
         assert results["verdict"] == "НА ДОРАБОТКУ"

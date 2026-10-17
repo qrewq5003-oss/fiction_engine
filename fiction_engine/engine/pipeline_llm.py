@@ -183,6 +183,32 @@ def parse_first_item(text: str, header: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+_CRITERIA = ("ГОЛОС", "СТРУКТУРА", "ПЕРСОНАЖИ", "СЦЕНЫ", "ДИАЛОГ")
+_CRITERION_SCORE = re.compile(
+    r"(?m)^\s*(" + "|".join(_CRITERIA) + r")\s*:\s*\[?\d+(?:[.,]\d+)?\]?\s*(?:/\s*10)?\s*[—–-]?\s*")
+
+
+def critique_for_judge(critique: str) -> str:
+    """Разбор критика без его баллов — судье.
+
+    Видя ИТОГ критика, судья его повторял: замер 16.10, Sol — в 14 главах
+    из 24 тот же балл, что у Kimi-критика. Без чисел — в 2 из 24, и испорченные
+    главы он отличает не хуже (bench/judges-2026-10-17.json). Доводы критика
+    остаются: судья читает их, но оценку ставит сам.
+    """
+    text = _CRITERION_SCORE.sub(lambda m: m.group(1) + ": ", critique or "")
+    text = re.sub(r"(?m)^\s*ИТОГ\s*:.*$", "", text)
+    return re.sub(r"\d+(?:[.,]\d+)?\s*/\s*(?:50|10)\b", "", text)
+
+
+def parse_criteria(text: str) -> dict[str, float]:
+    """Оценки по пяти критериям из ответа критика или судьи."""
+    out: dict[str, float] = {}
+    for name, val in re.findall(r"(" + "|".join(_CRITERIA) + r")\s*:\s*\[?(\d+(?:[.,]\d+)?)", _plain(text)):
+        out.setdefault(name, float(val.replace(",", ".")))
+    return out
+
+
 def parse_verdict(text: str) -> str:
     m = re.search(r'ВЕРДИКТ:\s*(ПРИНЯТЬ|НА ДОРАБОТКУ)', _plain(text), re.IGNORECASE)
     return m.group(1).upper() if m else "НА ДОРАБОТКУ"

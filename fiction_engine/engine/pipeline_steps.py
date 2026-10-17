@@ -554,7 +554,9 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     import re
 
     current_text = results.get("generated_text", previous_text or "")
-    critique     = results.get("critique", "")
+    # Разбор критика — без его баллов: иначе судья повторял его ИТОГ
+    from .pipeline_llm import critique_for_judge
+    critique     = critique_for_judge(results.get("critique", ""))
 
     # ── История оценок для контекста судьи ──────────────────────────────────
     score_context = ""
@@ -582,9 +584,11 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         )
 
     # Добавляем историю оценок и calibration hint в системную роль судьи
-    sys_judge = SYS_JUDGE
+    # Правило вердикта — с порогом этого судьи (pipeline_config.accept_total_for)
+    from .pipeline_config import verdict_rule_for_prompt
+    sys_judge = SYS_JUDGE.replace(_verdict_rule, verdict_rule_for_prompt(model_judge))
     if score_context:
-        sys_judge = SYS_JUDGE + f"\n\nИСТОРИЯ ОЦЕНОК ПРОЕКТА: {score_context}"
+        sys_judge += f"\n\nИСТОРИЯ ОЦЕНОК ПРОЕКТА: {score_context}"
 
     # ── Жанровый чеклист из 10_VALIDATION ───────────────────────────────────
     try:
@@ -663,6 +667,17 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     from .pipeline_llm import parse_score, parse_verdict
     judge_score = parse_score(judgment)
     verdict     = parse_verdict(judgment)
+    # Вердикт — по баллам и порогу этого судьи, а не по слову модели: правило
+    # в промпте модель выполняет не всегда, а порог откалиброван под судью
+    from .pipeline_llm import parse_criteria, set_verdict
+    from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for
+    crit = parse_criteria(judgment)
+    if judge_score and len(crit) == 5:
+        by_rule = ("ПРИНЯТЬ" if judge_score >= accept_total_for(model_judge)
+                   and min(crit.values()) >= ACCEPT_MIN_CRITERION else "НА ДОРАБОТКУ")
+        if by_rule != verdict:
+            verdict = by_rule
+            judgment = set_verdict(judgment, verdict)
 
     # ── Вторая линия книги: конкретные вопросы о её ремесле (secondary_check) ──
     if project_id:
