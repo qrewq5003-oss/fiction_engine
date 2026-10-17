@@ -258,6 +258,27 @@
   <div id="resolver-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
 </div>
 
+<!-- Модель L3-саммари -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">📝 Модель L3-саммари</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+    Пересказ главы после «Принять» — память серии: его читает писатель следующих глав
+    и нарративный анализ. Нужна сильная модель — лёгкая теряет главное и путает факты.
+    Не задана — модель анализа задачи.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select id="input-l3-model" class="key-input" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;">
+      <option value="">— не задана (модель анализа задачи) —</option>
+      {% for m in models %}
+      <option value="{{ m.value }}">{{ m.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="key-btn key-btn-save" onclick="saveL3Model()">✓</button>
+    <button class="key-btn key-btn-delete" onclick="saveL3Model('')" title="Сбросить">✕</button>
+  </div>
+  <div id="l3-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
+</div>
+
 <!-- Проверка непрерывности после главы -->
 <div class="card" style="margin-top:20px;">
   <div class="card-title">🔎 Проверка непрерывности</div>
@@ -517,6 +538,24 @@ async function clearResolverModel() {
 }
 
 loadResolverModel();
+
+async function loadL3Model() {
+  const r = await fetch('/api/l3/model').then(x => x.json()).catch(() => ({}));
+  document.getElementById('input-l3-model').value = r.model || '';
+  const hint = document.getElementById('l3-model-hint');
+  hint.textContent = r.model ? '✓ Задана: ' + r.model : 'Не задана — модель анализа задачи';
+  hint.style.color = r.model ? 'var(--success)' : 'var(--text2)';
+}
+
+async function saveL3Model(value) {
+  const model = value !== undefined ? value : document.getElementById('input-l3-model').value;
+  const r = await apiPost('/api/l3/model', {model});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  await loadL3Model();
+  showToast(model ? 'Сохранено' : 'Сброшено', model ? 'success' : 'info');
+}
+
+loadL3Model();
 
 // Модель проверки непрерывности
 function showContinuity(r) {

@@ -587,13 +587,13 @@ ROLE_PRESETS: dict[str, dict] = {
         "label": "Пишет Sonnet",
         "roles": {"gen": SONNET, "editor": SONNET, "critic": CRITIC_MODEL, "judge": SOL},
         "settings": {"continuity_model": SOL, "continuity_fix_model": SONNET,
-                     "scorer_model": SOL, "resolver_model": HAIKU_SUB},
+                     "scorer_model": SOL, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
     },
     "gpt": {
         "label": "Пишет GPT",
         "roles": {"gen": SOL, "editor": SOL, "critic": CRITIC_MODEL, "judge": SONNET},
         "settings": {"continuity_model": SONNET, "continuity_fix_model": SONNET,
-                     "scorer_model": SONNET, "resolver_model": HAIKU_SUB},
+                     "scorer_model": SONNET, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
     },
 }
 

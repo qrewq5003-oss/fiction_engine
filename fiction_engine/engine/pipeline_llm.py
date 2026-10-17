@@ -44,6 +44,35 @@ def _get_resolver_model(fallback_model: str) -> str:
     return fallback_model
 
 
+# L3-саммари — память серии: его читает писатель следующих глав. Лёгкая
+# «модель анализа задачи» (Haiku) писала его с ошибками: глава 1 автора 17.10 —
+# потеряна гибель всей команды, отговорка «ожог» выдана за факт, вспышка
+# «подстраивается под пульс», закрытая в главе нить — открытым обещанием.
+L3_MODEL_KEY = "l3_model"
+
+
+def get_l3_model(fallback_model: str) -> str:
+    """Модель L3-саммари из настроек, если к ней есть ключ; иначе модель анализа задачи."""
+    try:
+        from .db import get_api_key, get_setting
+        value = (get_setting(L3_MODEL_KEY) or "").strip()
+        if "::" in value and get_api_key(value.split("::")[0]):
+            return value
+    except Exception as e:
+        handle_error("get_l3_model", e, level=ErrorLevel.RECOVERABLE)
+    return _get_resolver_model(fallback_model)
+
+
+def make_l3_caller(model_value: str, max_tokens: int):
+    """Вызыватель для L3 — по get_l3_model, а не по модели анализа задачи."""
+    l3_model = get_l3_model(model_value)
+
+    def caller(prompt: str) -> str:
+        return _call(l3_model, "Ты помощник писателя. Отвечай точно и кратко.",
+                     prompt, max_tokens=max_tokens)
+    return caller
+
+
 def _make_module_resolver(model_value: str):
     resolver_model = _get_resolver_model(model_value)
     def api_call_fn(prompt: str) -> str:
