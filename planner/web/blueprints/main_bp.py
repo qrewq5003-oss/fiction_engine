@@ -118,7 +118,21 @@ def export():
     for s in scenes:
         s["act_title"] = act_map.get(s["act_id"], {}).get("title", "") if s["act_id"] else ""
     loose = [s for s in scenes if s["act_id"] not in act_map]
-    return render_template("export.html", acts=acts, scenes=scenes, loose=loose)
+    return render_template("export.html", acts=acts, scenes=scenes, loose=loose,
+                           next_chapter=_next_chapter(p))
+
+
+def _next_chapter(project: dict) -> int:
+    """Глава после последней написанной в связанном проекте FE; FE молчит — 1."""
+    if not project.get("fe_project_id"):
+        return 1
+    import json
+    from .api_bp import _fe_get
+    try:
+        with _fe_get(f"/api/project/context?pid={project['fe_project_id']}", timeout=2) as r:
+            return int(json.loads(r.read()).get("last_chapter") or 0) + 1
+    except Exception:
+        return 1
 
 
 @bp.route("/bible")

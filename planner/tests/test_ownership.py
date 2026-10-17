@@ -216,6 +216,9 @@ def _probes(f: dict) -> dict:
         "/api/export/send":
             ("POST", "/api/export/send",
              {"scene_ids": [f["scene_id"]], "chapter_num": 1}),
+        "/api/export/preview":
+            ("POST", "/api/export/preview",
+             {"scene_ids": [f["scene_id"]], "chapter_num": 1}),
     }
 
 

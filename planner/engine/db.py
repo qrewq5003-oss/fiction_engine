@@ -193,18 +193,20 @@ def create_scene(project_id: int, act_id: int | None = None) -> int:
         return cur.lastrowid
 
 
-def update_scene(scene_id: int, data: dict, reason: str = "изменена"):
+def update_scene(scene_id: int, data: dict, reason: str = "изменена", snapshot: bool = True):
     """Обновляет сцену и создаёт снапшот."""
     fields = ["title", "location", "time_of_day", "characters",
               "what_happens", "emotion", "notes", "act_id", "position"]
-    old = get_scene(scene_id)
-    if old:
-        _create_snapshot(scene_id, old, reason)
-
     sets = ", ".join(f"{f}=?" for f in fields if f in data)
     vals = [data[f] for f in fields if f in data]
     if not sets:
         return
+    old = get_scene(scene_id)
+    # Снапшот — только если что-то меняется. Автосохранение при уходе со
+    # страницы писало копию на каждый уход, и десять одинаковых копий
+    # вытесняли из истории настоящие версии
+    if snapshot and old and any(_norm(old.get(f)) != _norm(data[f]) for f in fields if f in data):
+        _create_snapshot(scene_id, old, reason)
     vals.append(scene_id)
     with get_conn() as conn:
         conn.execute(
@@ -267,6 +269,12 @@ def delete_link(link_id: int):
 # ─── Snapshots ───────────────────────────────────────────────────────────────
 
 import json
+
+
+def _norm(v) -> str:
+    """Значение поля для сравнения: None и «», 3 и «3» — одно и то же."""
+    return "" if v is None else str(v).strip()
+
 
 def _create_snapshot(scene_id: int, data: dict, reason: str):
     with get_conn() as conn:

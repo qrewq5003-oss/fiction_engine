@@ -6,7 +6,7 @@
 <span style="color:var(--text2);font-size:13px;">{{ scene.title or 'Без названия' }}</span>
 <div style="margin-left:auto;display:flex;gap:8px;">
   <button class="btn btn-primary btn-sm" onclick="saveScene()">💾 Сохранить</button>
-  <button class="btn btn-secondary btn-sm" id="btn-history" onclick="toggleHistory()">🕒 История</button>
+  {% if scene.id %}<button class="btn btn-secondary btn-sm" id="btn-history" onclick="toggleHistory()">🕒 История</button>{% endif %}
 </div>
 {% endblock %}
 
@@ -23,9 +23,9 @@
 .snap-reason { font-size: 12px; font-weight: 600; }
 .snap-date { font-size: 11px; color: var(--text2); }
 
+/* Телефон: AI-помощь под формой, а не скрыта */
 @media (max-width: 640px) {
-  .scene-layout { grid-template-columns: 1fr; }
-  .ai-panel { display: none; }
+  .scene-layout { grid-template-columns: 1fr; height: auto; }
 }
 </style>
 {% endblock %}
@@ -86,7 +86,9 @@
         <div style="font-size:13px;font-weight:600;margin-bottom:10px;">🕒 История изменений</div>
         {% if snapshots %}
         {% for s in snapshots %}
-        <div class="snap-item" onclick="previewSnap({{ s.id }}, {{ s.data | tojson }})">
+        {# Одинарные кавычки: в JSON двойные, и в onclick="…" они обрывали
+           атрибут — окно версии не открывалось ни разу #}
+        <div class="snap-item" onclick='previewSnap({{ s.id }}, {{ s.data | tojson }})'>
           <div class="snap-reason">{{ s.reason }}</div>
           <div class="snap-date">{{ s.created_at }}</div>
           {% if s.data.title %}<div style="font-size:11px;color:var(--text2);">{{ s.data.title }}</div>{% endif %}
@@ -135,7 +137,8 @@
 
 {% block scripts %}
 <script>
-const SCENE_ID = {{ scene.id }};
+// null — карточка ещё не сохранена (/scene/new): запись появится при первом сохранении
+let SCENE_ID = {{ scene.id | tojson }};
 let currentSnapId = null;
 
 function getFormData() {
@@ -151,8 +154,22 @@ function getFormData() {
   };
 }
 
+function formEmpty(d) {
+  return !['title','location','time_of_day','characters','what_happens','emotion','notes'].some(k => d[k]);
+}
+
 async function saveScene() {
-  const r = await apiPost(`/scene/${SCENE_ID}/save`, getFormData());
+  const d = getFormData();
+  if (!SCENE_ID) {
+    if (formEmpty(d)) { showToast('Карточка пустая — нечего сохранять', 'error'); return; }
+    const r = await apiPost('/api/scenes/new', d);
+    if (!r.ok) { showToast(r.error || 'Ошибка', 'error'); return; }
+    SCENE_ID = r.id;
+    history.replaceState(null, '', '/scene/' + r.id);
+    showToast('Сцена создана');
+    return;
+  }
+  const r = await apiPost(`/scene/${SCENE_ID}/save`, d);
   if (r.ok) showToast('Сохранено');
   else showToast(r.error || 'Ошибка', 'error');
 }
@@ -166,11 +183,18 @@ function previewSnap(snapId, data) {
   currentSnapId = snapId;
   const fields = ['title','location','time_of_day','characters','what_happens','emotion','notes'];
   const labels = ['Название','Локация','Время','Персонажи','Что происходит','Эмоция','Заметки'];
-  let html = '';
+  const box = document.getElementById('snap-preview');
+  box.replaceChildren();
   fields.forEach((f, i) => {
-    if (data[f]) html += `<div style="margin-bottom:8px;"><b>${labels[i]}:</b> ${data[f]}</div>`;
+    if (!data[f]) return;
+    const row = document.createElement('div');
+    row.style.marginBottom = '8px';
+    const b = document.createElement('b');
+    b.textContent = labels[i] + ': ';
+    row.append(b, String(data[f]));
+    box.append(row);
   });
-  document.getElementById('snap-preview').innerHTML = html || 'Нет данных';
+  if (!box.childElementCount) box.textContent = 'Пустая карточка';
   openModal('modal-snap');
 }
 
@@ -220,10 +244,16 @@ async function aiAction(action) {
   }).join('');
 })();
 
-// Автосохранение при уходе
-window.addEventListener('beforeunload', e => {
-  // не блокируем, просто тихое сохранение
-  apiPost(`/scene/${SCENE_ID}/save`, getFormData());
+// Автосохранение при уходе: тихо, keepalive — чтобы запрос пережил уход со
+// страницы. Пустую несохранённую карточку не создаём
+window.addEventListener('beforeunload', () => {
+  const d = getFormData();
+  if (!SCENE_ID && formEmpty(d)) return;
+  fetch(SCENE_ID ? `/scene/${SCENE_ID}/save` : '/api/scenes/new', {
+    method: 'POST', keepalive: true,
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken()},
+    body: JSON.stringify(d)
+  }).catch(() => {});
 });
 </script>
 {% endblock %}

@@ -127,6 +127,14 @@ class TestProjectContext:
         assert data["project"]["id"] == other
         assert data["project"]["name"] == "Другая серия"
 
+    def test_last_chapter_for_export_default(self, client, project):
+        """Планировщик предлагает план главы last_chapter + 1."""
+        from engine.db import save_chapter
+        assert json.loads(client.get(f"/api/project/context?pid={project}").data)["last_chapter"] == 0
+        save_chapter(project, 1, "Текст.", "1")
+        save_chapter(project, 3, "Текст.", "3")
+        assert json.loads(client.get(f"/api/project/context?pid={project}").data)["last_chapter"] == 3
+
     def test_unknown_pid_is_404(self, client, project):
         assert client.get("/api/project/context?pid=99999").status_code == 404
 
