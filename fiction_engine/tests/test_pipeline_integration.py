@@ -372,6 +372,8 @@ class TestContinuePipeline:
     def test_edit_round_is_checked_for_continuity(self, pid, monkeypatch):
         """Круг редактуры переписывает главу — её снова сверяют с прошлыми и правят."""
         import engine.continuity_checker as cc
+        import engine.point_edit as pe
+        monkeypatch.setattr(pe, "edit_mode", lambda: "rewrite")
         checked = []
 
         def fake_check(project_id, chapter_num, text, model_gen, call_fn, fix=True, report=None):

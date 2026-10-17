@@ -410,13 +410,35 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     if not (text and critique):
         return
     rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
+    if rhythm_hint:
+        critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
+    # Задача главы — с правкой автора («Изменить промпт для следующей
+    # итерации»). Раньше редактор её не видел вовсе: правка задачи на круг
+    # редактуры не действовала
+    from .point_edit import SYS_POINT_EDITOR, edit_mode, point_edit
+    mode = edit_mode()
+    if mode == "points":
+        rep = point_edit(text, critique, generation_prompt,
+                         lambda p: call_fn(model_editor, SYS_POINT_EDITOR, p))
+        edited_text = rep["text"]
+        results["edit_report"] = {"mode": mode, "applied": len(rep["applied"]),
+                                  "failed": [f"{(f.get('old') or f.get('after') or '')[:60]} — {f['why']}"
+                                             for f in rep["failed"]][:8],
+                                  "changed": rep["changed"]}
+        save_pipeline_iteration(run_id, iteration, "edit", model_editor,
+                                generation_prompt, edited_text)
+        results["generated_text"] = edited_text
+        results["stage"]          = "edit"
+        return
     edit_prompt = (
+        f"ЗАДАЧА ГЛАВЫ:\n{generation_prompt}\n\n"
         f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{text}\n\n"
         f"КРИТИКА РЕДАКТОРА:\n{critique}\n\n"
-        + (f"ЗАМЕРЕНО: {rhythm_hint}\n\n" if rhythm_hint else "")
-        + "Перепиши текст, исправив все указанные проблемы. Сохрани сюжет и персонажей."
+        "Перепиши текст, исправив все указанные проблемы. Сохрани сюжет и персонажей."
     )
     edited_text = call_fn(model_editor, SYS_EDITOR, edit_prompt)
+    from .continuity_fix import changed_share
+    results["edit_report"] = {"mode": mode, "changed": round(changed_share(text, edited_text), 3)}
     save_pipeline_iteration(run_id, iteration, "edit", model_editor,
                              generation_prompt, edited_text)
     results["generated_text"] = edited_text

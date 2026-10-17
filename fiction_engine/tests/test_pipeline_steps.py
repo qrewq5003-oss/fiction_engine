@@ -114,7 +114,9 @@ class TestStepEdit:
 
         assert called == []
 
-    def test_edits_and_writes_result(self, project_id):
+    def test_edits_and_writes_result(self, project_id, monkeypatch):
+        import engine.point_edit as pe
+        monkeypatch.setattr(pe, "edit_mode", lambda: "rewrite")     # точечная — test_point_edit.py
         from engine.pipeline_steps import step_edit
         run_id = _make_run(project_id)
         results = {}
