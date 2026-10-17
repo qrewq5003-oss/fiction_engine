@@ -474,8 +474,9 @@ def _l3_summary_budget() -> int:
 def generate_l3(project_id: int, chapter_num: int,
                 text: str, model_value: str) -> object:
     from .l3_memory import generate_l3_summary, SUMMARY_MAX_TOKENS
+    from .pipeline_llm import make_l3_caller
     return generate_l3_summary(project_id, chapter_num, text,
-                                _make_model_caller(model_value, SUMMARY_MAX_TOKENS))
+                                make_l3_caller(model_value, SUMMARY_MAX_TOKENS))
 
 
 def generate_director_note_for_chapter(project_id: int, chapter_num: int,
@@ -563,6 +564,11 @@ def get_active_promises_for_project(project_id: int,
     return [p.get("text", "") for p in get_active_promises(collected) if p.get("text")]
 
 
+def _l3_caller(model_value: str, max_tokens: int):
+    from .pipeline_llm import make_l3_caller
+    return make_l3_caller(model_value, max_tokens)
+
+
 def run_batch_l3(project_id: int, model_value: str,
                  chapter_nums: list[int] | None = None,
                  progress_callback=None) -> dict:
@@ -576,7 +582,7 @@ def run_batch_l3(project_id: int, model_value: str,
     return batch_generate_l3(
         project_id=project_id,
         # Тот же бюджет, что и у одиночной генерации: пакет делает ровно то же.
-        api_call_fn=_make_model_caller(model_value, _l3_summary_budget()),
+        api_call_fn=_l3_caller(model_value, _l3_summary_budget()),
         chapter_nums=chapter_nums,
         progress_callback=progress_callback,
     )

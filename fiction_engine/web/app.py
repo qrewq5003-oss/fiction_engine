@@ -314,6 +314,16 @@ def resolver_model_set():
     return jsonify({"ok": True})
 
 
+@app.route("/api/l3/model", methods=["GET", "POST"])
+def l3_model_api():
+    """Модель L3-саммари (память серии); «» — модель анализа задачи."""
+    from engine.db import get_setting, set_setting
+    from engine.pipeline_llm import L3_MODEL_KEY
+    if request.method == "POST":
+        set_setting(L3_MODEL_KEY, str((request.json or {}).get("model", "")).strip())
+    return jsonify({"ok": True, "model": (get_setting(L3_MODEL_KEY) or "").strip()})
+
+
 @app.route("/api/continuity/model", methods=["GET", "POST"])
 def continuity_model_api():
     """Модель проверки непрерывности после главы; «» — выключено."""
