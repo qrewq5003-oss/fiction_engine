@@ -84,7 +84,11 @@
         <input type="text" id="f-emotion" value="{{ scene.emotion or '' }}" placeholder="напряжение, облегчение, страх...">
       </div>
       <div class="form-group">
-        <label>Заметки</label>
+        <label>Пока не раскрывать <span style="font-size:10px;">— уходит писателю запретом; разгадку он при этом не видит</span></label>
+        <textarea id="f-hold" rows="2" placeholder="кто был у маяка ночью; связь Кравец с журналом">{{ scene.hold or '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Заметки <span style="font-size:10px;">— только тебе, в план не идут</span></label>
         <textarea id="f-notes" rows="3" placeholder="Детали, вопросы, идеи...">{{ scene.notes or '' }}</textarea>
       </div>
     </div>
@@ -160,12 +164,13 @@ function getFormData() {
     characters:  document.getElementById('f-characters').value.trim(),
     what_happens:document.getElementById('f-what').value.trim(),
     emotion:     document.getElementById('f-emotion').value.trim(),
+    hold:        document.getElementById('f-hold').value.trim(),
     notes:       document.getElementById('f-notes').value.trim(),
   };
 }
 
 function formEmpty(d) {
-  return !['title','location','day','time_of_day','characters','what_happens','emotion','notes'].some(k => d[k]);
+  return !['title','location','day','time_of_day','characters','what_happens','emotion','hold','notes'].some(k => d[k]);
 }
 
 async function saveScene() {
@@ -191,8 +196,8 @@ function toggleHistory() {
 
 function previewSnap(snapId, data) {
   currentSnapId = snapId;
-  const fields = ['title','location','day','time_of_day','characters','what_happens','emotion','notes'];
-  const labels = ['Название','Локация','День','Время','Персонажи','Что происходит','Эмоция','Заметки'];
+  const fields = ['title','location','day','time_of_day','characters','what_happens','emotion','hold','notes'];
+  const labels = ['Название','Локация','День','Время','Персонажи','Что происходит','Эмоция','Пока не раскрывать','Заметки'];
   const box = document.getElementById('snap-preview');
   box.replaceChildren();
   fields.forEach((f, i) => {

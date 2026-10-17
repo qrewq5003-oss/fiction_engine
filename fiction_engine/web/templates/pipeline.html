@@ -308,6 +308,17 @@
         <div id="edit-report" style="display:none;font-size:12px;margin-top:8px;color:var(--text2);"></div>
       </div>
 
+      <!-- Сверка с планом — перед решением: судья оценивает прозу, а не план,
+           и главы с пунктами плана «частично» проходили незаметно (книга на
+           Sonnet 18.10: главы 7, 9, 12) -->
+      <div id="plan-accept-line" style="display:none;font-size:12px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="plan-accept-sum"></span>
+        <label style="display:flex;gap:4px;align-items:center;cursor:pointer;color:var(--text2);"
+               title="Сверять главу с планом сразу после каждого круга (проверяющий непрерывности, ~1 вызов)">
+          <input type="checkbox" id="plan-auto" style="width:auto;" onchange="setPlanAuto(this.checked)">
+          сверять с планом сам</label>
+      </div>
+
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn btn-success" onclick="acceptResult()" style="flex:1;justify-content:center;">
           ✅ Принять главу
@@ -512,6 +523,33 @@ async function loadDirectorNote(chapterNum) {
   block.style.display = has ? 'block' : 'none';
   // Сверять есть с чем — только когда у главы есть план
   document.getElementById('btn-plan-check').style.display = has ? '' : 'none';
+  if (document.getElementById('iteration-results').style.display === 'block') showPlanAccept();
+}
+
+// Сверять с планом сам — по умолчанию да; выбор помнится в браузере
+function planAuto() {
+  try { return localStorage.getItem('fe_plan_auto') !== '0'; } catch (e) { return true; }
+}
+function setPlanAuto(on) {
+  try { localStorage.setItem('fe_plan_auto', on ? '1' : '0'); } catch (e) {}
+  if (on && !state.planItems && state.currentText) checkPlan();
+}
+
+// Строка над «Принять»: что из плана есть в главе
+function showPlanAccept() {
+  const line = document.getElementById('plan-accept-line');
+  const hasPlan = document.getElementById('btn-plan-check').style.display !== 'none';
+  line.style.display = hasPlan ? 'flex' : 'none';
+  document.getElementById('plan-auto').checked = planAuto();
+  const sum = document.getElementById('plan-accept-sum');
+  const items = state.planItems;
+  if (!items) { sum.textContent = '📋 План: не сверен'; sum.style.color = 'var(--text2)'; return; }
+  const done = items.filter(x => x.status === 'есть').length;
+  const short = items.filter(x => x.status !== 'есть')
+    .map(x => (x.status === 'нет' ? '❌ ' : '◐ ') + x.item.split('\n')[0].replace(/^СЦЕНА \d+:\s*/, ''));
+  sum.textContent = `📋 План: ${done} из ${items.length}` + (short.length ? ' — ' + short.join('; ') : ' ✅');
+  sum.style.color = done === items.length ? 'var(--success)'
+    : items.some(x => x.status === 'нет') ? 'var(--error)' : 'var(--warning)';
 }
 
 async function checkPlan() {
@@ -526,6 +564,8 @@ async function checkPlan() {
                                                    model_gen: document.getElementById('pl-model-gen').value});
   btn.disabled = false; spin.style.display = 'none';
   if (r.error) { box.textContent = r.error; return; }
+  state.planItems = r.items;
+  showPlanAccept();
   const icon = {'есть': '✅', 'частично': '◐', 'нет': '❌'};
   const done = r.items.filter(x => x.status === 'есть').length;
   sum.textContent = `выполнено ${done} из ${r.items.length} · проверял ${r.checker}`;
@@ -799,7 +839,12 @@ function showResults(data) {
   document.getElementById('iteration-results').style.display = 'block';
   showEditReport(data && data.edit_report);
   document.getElementById('plan-check-block').style.display = 'none';   // сверка — по прошлому тексту
-  if (state.chapterNum) loadDirectorNote(state.chapterNum);              // кнопка сверки — если у главы есть план
+  state.planItems = null;
+  showPlanAccept();
+  if (state.chapterNum) loadDirectorNote(state.chapterNum).then(() => {  // кнопка сверки — если у главы есть план
+    if (data.generated_text && planAuto() &&
+        document.getElementById('btn-plan-check').style.display !== 'none') checkPlan();
+  });
 
   document.getElementById('result-text').textContent = data.generated_text || '';
   if (data.generated_text) {
@@ -1017,6 +1062,10 @@ async function openRun(runId) {
 }
 
 async function acceptResult() {
+  // Пункта плана нет в главе — спросить: судья его не проверяет
+  const missing = (state.planItems || []).filter(x => x.status === 'нет');
+  if (missing.length && !confirm('В главе нет пунктов плана:\n' +
+      missing.map(x => '— ' + x.item.split('\n')[0]).join('\n') + '\n\nВсё равно принять?')) return;
   const modelGen = document.getElementById('pl-model-gen').value;
   const r = await apiPost('/pipeline/accept', {
     run_id: state.runId,
