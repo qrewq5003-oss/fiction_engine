@@ -565,6 +565,17 @@ def get_active_promises_for_project(project_id: int,
     return [p.get("text", "") for p in get_active_promises(collected) if p.get("text")]
 
 
+def get_story_so_far(project_id: int, through_chapter: int, n: int = 3) -> str:
+    """
+    Что уже случилось в книге — блок L3 последних n глав до through_chapter
+    включительно; публичная замена импорту l3_memory в web-слое (планировщик).
+    """
+    if through_chapter < 1:
+        return ""
+    from .l3_memory import get_l3_context
+    return get_l3_context(project_id, through_chapter + 1, n)
+
+
 def _l3_caller(model_value: str, max_tokens: int):
     from .pipeline_llm import make_l3_caller
     return make_l3_caller(model_value, max_tokens)

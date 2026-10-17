@@ -312,8 +312,8 @@ def project_context():
     # планировщика предлагает сцены, не споря с книгой. Только до последней
     # написанной главы: L3 непринятой главы — не история книги
     try:
-        from engine.l3_memory import get_l3_context
-        story = get_l3_context(pid, last + 1, 3) if last else ""
+        from engine.pipeline import get_story_so_far
+        story = get_story_so_far(pid, last)
     except Exception as e:
         log_web_error("project/context: L3", e, project_id=pid)
         story = ""
