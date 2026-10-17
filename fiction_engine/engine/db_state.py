@@ -28,6 +28,20 @@ from .state_merge import (  # noqa: F401 — прежние точки вход�
 # произвольным. id (AUTOINCREMENT) даёт устойчивый вторичный ключ —
 # без него «последнее обновление» и «свежие правки» врали при любой
 # паре записей внутри одной секунды.
+STATE_FIELDS = ("global_state", "plot_matrix", "memory_graph")
+
+
+def _lf(text: str | None) -> str | None:
+    """
+    Переводы строк Windows → \\n. State, поправленный в окне браузера,
+    приходит с \\r\\n, и поиск заголовков в слиянии (`^### Имя$`) на таком
+    тексте не срабатывал: каждый персонаж считался новым и дописывался
+    дублем, разделы повторялись (у автора 17.10 — четыре персонажа дважды
+    и по два «ОТКРЫТЫХ ВОПРОСА» и «ДЕТАЛИ СЕРИИ» после глав 2 и 3).
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n") if isinstance(text, str) else text
+
+
 def get_state(project_id: int) -> dict:
     with get_conn() as conn:
         row = conn.execute(
@@ -37,7 +51,11 @@ def get_state(project_id: int) -> dict:
             return {"global_state": _default_global(),
                     "plot_matrix":  _default_plot(),
                     "memory_graph": _default_memory()}
-        return dict(row)
+        d = dict(row)
+        # Уже сохранённый с \r\n State читается нормальным — без миграции
+        for k in STATE_FIELDS:
+            d[k] = _lf(d.get(k))
+        return d
 
 
 def update_state(project_id: int, global_state: str | None = None,
@@ -51,9 +69,9 @@ def update_state(project_id: int, global_state: str | None = None,
         handle_error(f"update_state({project_id}) snapshot", e, level=ErrorLevel.RECOVERABLE)
 
     state = get_state(project_id)
-    new_global = global_state if global_state is not None else state["global_state"]
-    new_plot   = plot_matrix  if plot_matrix  is not None else state["plot_matrix"]
-    new_memory = memory_graph if memory_graph is not None else state["memory_graph"]
+    new_global = _lf(global_state if global_state is not None else state["global_state"])
+    new_plot   = _lf(plot_matrix  if plot_matrix  is not None else state["plot_matrix"])
+    new_memory = _lf(memory_graph if memory_graph is not None else state["memory_graph"])
     with get_conn() as conn:
         conn.execute(
             """INSERT INTO state_engine (project_id, global_state, plot_matrix, memory_graph, updated_at)

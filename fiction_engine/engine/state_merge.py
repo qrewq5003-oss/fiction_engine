@@ -47,6 +47,7 @@ FIELD_ALIASES: dict[str, list[str]] = {
     "момент":    ["МОМЕНТ", "Момент", "Текущий момент"],
     "статус":    ["СТАТУС", "Статус"],
     "след_шаг":  ["СЛЕДУЮЩИЙ_ШАГ", "Следующий шаг", "СЛЕДУЮЩИЙ ШАГ"],
+    "где":       ["ГДЕ_СЕЙЧАС", "Где сейчас", "ГДЕ СЕЙЧАС"],
 }
 
 
@@ -396,7 +397,11 @@ def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str
 
 
 def _merge_plot(plot: dict, plot_text: str, ch: _Changes) -> str:
+    # ГДЕ_СЕЙЧАС раньше не обновлялся вовсе: у автора после глав 2 и 3 в
+    # нём так и стояло «на подножке скорой» из главы 1, и писатель главы 4
+    # получил бы его как нынешнее положение дел
     for json_key, field_key, regex_key, label in (
+            ("где_сейчас", "где", "ГДЕ_СЕЙЧАС", "Сюжет.где_сейчас"),
             ("следующий_шаг", "след_шаг", "СЛЕДУЮЩИЙ_ШАГ", "Сюжет.следующий_шаг"),
             ("статус", "статус", "СТАТУС", "Сюжет.статус")):
         val = (plot.get(json_key) or "").strip()
@@ -472,12 +477,21 @@ def _set_section_items(text: str, header: str, items: list[str]) -> str:
     return (text or "").rstrip() + f"\n\n{header}\n{body}\n"
 
 
+_CH_PREFIX = re.compile(r"^(?:гл\.\s*\d+:\s*)+", re.I)
+
+
+def _strip_ch(s: str) -> str:
+    """Без метки главы в начале: модель повторяет «гл.N:» за списком State,
+    и в State выходило «гл.2: гл.2: …»."""
+    return _CH_PREFIX.sub("", s.strip())
+
+
 def _merge_open_questions(questions: list, plot_text: str, chapter_num: int, ch: _Changes) -> str:
-    qs = [q.strip() for q in questions or [] if isinstance(q, str) and _is_real_value(q.strip())]
+    qs = [_strip_ch(q) for q in questions or [] if isinstance(q, str) and _is_real_value(_strip_ch(q))]
     if not qs:
         return plot_text
     old = _section_items(plot_text, OPEN_QUESTIONS_HEADER)
-    known = {re.sub(r"^гл\.\d+:\s*", "", x).lower() for x in old}
+    known = {_strip_ch(x).lower() for x in old}
     new = [f"гл.{chapter_num}: {q}" if chapter_num else q for q in qs if q.lower() not in known]
     if not new:
         return plot_text
@@ -638,9 +652,10 @@ def drop_series_details(plot_text: str, chapters: set[int]) -> str:
 def merge_series_details(plot_text: str, details: list[str], chapter_num: int) -> str:
     """Добавить детали главы в раздел, без повторов, не больше SERIES_DETAILS_MAX строк."""
     old = series_details(plot_text)
-    known = {re.sub(r"^гл\.\d+:\s*", "", x).lower() for x in old}
+    known = {_strip_ch(x).lower() for x in old}
+    details = [_strip_ch(d) for d in details]
     new = [f"гл.{chapter_num}: {d}" if chapter_num else d
-           for d in details if d.lower() not in known]
+           for d in details if d and d.lower() not in known]
     if not new:
         return plot_text
     lines = (old + new)[-SERIES_DETAILS_MAX:]
