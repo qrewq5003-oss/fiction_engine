@@ -17,6 +17,7 @@ import re
 from typing import Callable
 
 PLAN_MAX_ITEMS = 12
+HOLD_MARK = "ПОКА НЕ РАСКРЫВАТЬ"      # блок запретов в плане из планировщика (planner api_bp.HOLD_HEADER)
 PLAN_ITEM_MAX = 700
 STATUSES = ("есть", "частично", "нет")
 
@@ -29,7 +30,8 @@ def plan_items(plan: str) -> list[str]:
     Пункты плана: блоки «СЦЕНА N: …» планировщика, иначе нумерованные или
     маркированные строки, иначе вся заметка одним пунктом.
     """
-    text = (plan or "").strip()
+    # «Пока не раскрывать» из планировщика — запрет, а не пункт плана
+    text = (plan or "").split(HOLD_MARK)[0].strip()
     if not text:
         return []
     if _SCENE.search(text):

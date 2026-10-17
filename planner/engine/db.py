@@ -209,7 +209,7 @@ def create_scene(project_id: int, act_id: int | None = None) -> int:
 def update_scene(scene_id: int, data: dict, reason: str = "изменена", snapshot: bool = True):
     """Обновляет сцену и создаёт снапшот."""
     fields = ["title", "location", "day", "time_of_day", "characters",
-              "what_happens", "emotion", "notes", "act_id", "position"]
+              "what_happens", "emotion", "hold", "notes", "act_id", "position"]
     sets =", ".join(f"{f}=?" for f in fields if f in data)
     vals = [data[f] for f in fields if f in data]
     if not sets:

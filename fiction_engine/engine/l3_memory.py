@@ -185,6 +185,15 @@ def generate_l3_summary(project_id: int, chapter_num: int,
         raw = api_call_fn(prompt)
 
         summary = _parse_summary_json(raw)
+        if summary is None and not _truncation_reason():
+            # Один повтор: брак JSON бывает случайным — у книги на Sonnet
+            # 18.10 L3 главы 12 не разобрался, тот же запрос вторым разом
+            # дал чистый JSON. Без повтора глава оставалась без памяти серии.
+            # Обрыв по лимиту повтором не лечится — его не повторяем
+            log.warning("generate_l3_summary: ответ не разобран, повтор",
+                        project_id=project_id, chapter_num=chapter_num)
+            raw = api_call_fn(prompt)
+            summary = _parse_summary_json(raw)
         if summary is None:
             # Обрыв по лимиту токенов и брак модели выглядят одинаково —
             # оба дают нерабочий JSON. Причину система знает: stop_reason
