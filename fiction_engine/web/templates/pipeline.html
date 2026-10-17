@@ -252,6 +252,13 @@
       <div id="voice-check-result" style="font-size:12px;color:var(--text);white-space:pre-wrap;"></div>
     </div>
 
+    <!-- Сверка с планом главы (engine/plan_check) -->
+    <div class="card" id="plan-check-block" style="display:none;">
+      <div class="card-title" style="font-size:13px;">📋 Сверка с планом
+        <span id="plan-check-sum" style="margin-left:auto;font-size:12px;font-weight:600;"></span></div>
+      <div id="plan-check-result" style="font-size:12px;color:var(--text);"></div>
+    </div>
+
     <!-- Критика -->
     <div class="card" style="border-color:#92400e33;" id="critique-card">
       <div class="card-title" style="color:var(--warning);">🔍 Критика</div>
@@ -304,6 +311,11 @@
                 title="Насколько текст звучит голосом из профиля «Голос»">
           <span class="spinner" id="voice-check-spinner" style="display:none;"></span>
           🎙 Проверка голоса
+        </button>
+        <button class="btn btn-secondary btn-sm" id="btn-plan-check" onclick="checkPlan()" style="display:none;"
+                title="Что из плана главы есть в тексте, что сделано наполовину, чего нет — проверяющий другого семейства">
+          <span class="spinner" id="plan-check-spinner" style="display:none;"></span>
+          📋 Сверить с планом
         </button>
         <button class="btn btn-danger btn-sm" onclick="rejectResult()">
           ✕ Отклонить
@@ -482,10 +494,50 @@ function engineMode() {
 async function loadDirectorNote(chapterNum) {
   const r = await fetch(`/api/director_note/${chapterNum}`).then(x => x.json()).catch(() => null);
   const block = document.getElementById('director-note-block');
-  if (r && r.note) {
-    document.getElementById('director-note-text').textContent = r.note;
-    block.style.display = 'block';
-  } else block.style.display = 'none';
+  const has = !!(r && r.note);
+  if (has) document.getElementById('director-note-text').textContent = r.note;
+  block.style.display = has ? 'block' : 'none';
+  // Сверять есть с чем — только когда у главы есть план
+  document.getElementById('btn-plan-check').style.display = has ? '' : 'none';
+}
+
+async function checkPlan() {
+  const text = (state.currentText || '').trim();
+  if (!text) return;
+  const btn = document.getElementById('btn-plan-check'), spin = document.getElementById('plan-check-spinner');
+  const box = document.getElementById('plan-check-result'), sum = document.getElementById('plan-check-sum');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  document.getElementById('plan-check-block').style.display = 'block';
+  box.textContent = 'Сверяю...'; sum.textContent = '';
+  const r = await apiPost('/pipeline/plan_check', {chapter_num: state.chapterNum, text,
+                                                   model_gen: document.getElementById('pl-model-gen').value});
+  btn.disabled = false; spin.style.display = 'none';
+  if (r.error) { box.textContent = r.error; return; }
+  const icon = {'есть': '✅', 'частично': '◐', 'нет': '❌'};
+  const done = r.items.filter(x => x.status === 'есть').length;
+  sum.textContent = `выполнено ${done} из ${r.items.length} · проверял ${r.checker}`;
+  sum.style.color = done === r.items.length ? 'var(--success)' : 'var(--warning)';
+  box.replaceChildren(...r.items.map(x => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:8px 10px;margin-bottom:6px;background:var(--surface2);border-radius:6px;';
+    const head = document.createElement('div');
+    head.style.cssText = 'white-space:pre-wrap;';
+    head.textContent = `${icon[x.status] || '❔'} ${x.item.split('\n')[0]}`;
+    row.append(head);
+    if (x.note) {
+      const n = document.createElement('div');
+      n.style.cssText = 'color:var(--warning);margin-top:4px;';
+      n.textContent = x.note;
+      row.append(n);
+    }
+    if (x.quote) {
+      const q = document.createElement('div');
+      q.style.cssText = 'color:var(--text2);margin-top:4px;font-style:italic;';
+      q.textContent = '«' + x.quote + '»' + (x.quote_ok ? '' : ' — в тексте не найдено, проверь сам');
+      row.append(q);
+    }
+    return row;
+  }));
 }
 
 async function loadTaskHistory(chapterNum) {
@@ -710,6 +762,8 @@ function renderScoreBars(judgeText) {
 function showResults(data) {
   document.getElementById('step-status').style.display = 'none';
   document.getElementById('iteration-results').style.display = 'block';
+  document.getElementById('plan-check-block').style.display = 'none';   // сверка — по прошлому тексту
+  if (state.chapterNum) loadDirectorNote(state.chapterNum);              // кнопка сверки — если у главы есть план
 
   document.getElementById('result-text').textContent = data.generated_text || '';
   if (data.generated_text) {
