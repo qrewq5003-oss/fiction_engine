@@ -101,6 +101,41 @@ def pipeline_review():
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route("/pipeline/plan_check", methods=["POST"])
+def pipeline_plan_check():
+    """Сверка текста главы с планом главы (engine/plan_check) — по кнопке автора."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    data = request.json or {}
+    try:
+        chapter_num = int(data.get("chapter_num") or 0)
+    except (TypeError, ValueError):
+        chapter_num = 0
+    text = (data.get("text") or "").strip()
+    if not chapter_num or len(text) < 100:
+        return jsonify({"error": "Нужны номер главы и текст"}), 400
+    from engine.db import get_director_note
+    plan = (get_director_note(current["id"], chapter_num) or "").strip()
+    if not plan:
+        return jsonify({"error": f"У главы {chapter_num} нет плана — его присылает планировщик "
+                                 f"или пишет движок после прошлой главы"}), 400
+    from engine.plan_check import check_plan, plan_checker_model
+    model, why = plan_checker_model(data.get("model_gen") or "")
+    if not model:
+        return jsonify({"error": why}), 400
+    from engine.pipeline import call_llm
+    budget = 32000 if model.startswith("claude_subscription::") else 4000
+    try:
+        items = check_plan(chapter_num, plan, text,
+                           lambda p: call_llm(model, "Ты внимательный редактор. Отвечай только JSON.",
+                                              p, max_tokens=budget))
+    except Exception as e:
+        log_web_error("pipeline/plan_check", e, project_id=current["id"])
+        return jsonify({"error": f"Сверка не удалась: {str(e)[:200]}"}), 502
+    return jsonify({"ok": True, "items": items, "checker": model.split("::")[-1]})
+
+
 @bp.route("/pipeline/preview", methods=["POST"])
 def pipeline_preview():
     """Что получит писатель: промпт целиком, как его соберёт шаг generate."""
