@@ -233,9 +233,12 @@ class TestRunGeneration:
         assert result["warning"] and "промпт" in result["warning"].lower()
 
     def test_large_prep_triggers_warning(self, project_id):
-        """Если prep > 8000 символов — предупреждение."""
+        """Если prep больше PREP_WARN_CHARS — предупреждение; 22 тыс. автора — без него."""
         from engine.pipeline import run_generation
-        big_prep = "X" * 9000
+        from engine.pipeline_config import PREP_WARN_CHARS
+        with patch("engine.pipeline._call", return_value=CHAPTER_TEXT),              patch("engine.pipeline.get_prep_context", return_value="X" * 22_000):
+            assert "большая" not in (run_generation(self._project(project_id), 1, "quick", MODEL, "Задача.")["warning"] or "")
+        big_prep = "X" * (PREP_WARN_CHARS + 1000)
         with patch("engine.pipeline._call", return_value=CHAPTER_TEXT), \
              patch("engine.pipeline.get_prep_context", return_value=big_prep):
             result = run_generation(self._project(project_id), 1, "quick", MODEL, "Задача.")
