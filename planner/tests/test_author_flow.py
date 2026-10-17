@@ -94,7 +94,7 @@ def test_plan_text_skips_notes_and_empty_time(project_id):
     a, b = _scenes(project_id)
     t = plan_text([get_scene(a), get_scene(b)], 2)
     assert t.startswith("ПЛАН ГЛАВЫ 2")
-    assert "Локация: палата / Утро" in t and "Время: День" in t
+    assert "Локация: палата" in t and "Когда: Утро" in t and "Когда: День" in t
     assert "черновик" not in t and "Заметки" not in t
 
 

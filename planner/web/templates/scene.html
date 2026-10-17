@@ -39,17 +39,26 @@
         <label>Название сцены</label>
         <input type="text" id="f-title" value="{{ scene.title or '' }}" placeholder="Что-то происходит...">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label>Локация</label>
+        <input type="text" id="f-location" value="{{ scene.location or '' }}" placeholder="Где?">
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
         <div class="form-group">
-          <label>Локация</label>
-          <input type="text" id="f-location" value="{{ scene.location or '' }}" placeholder="Где?">
+          <label>День <span style="font-size:10px;">— «пятница, 24 октября», «на следующий день», «через неделю»</span></label>
+          <input type="text" id="f-day" value="{{ scene.day or '' }}" placeholder="Когда по календарю книги">
         </div>
         <div class="form-group">
           <label>Время суток</label>
+          {% set times = ['', 'Утро', 'День', 'Вечер', 'Ночь'] %}
           <select id="f-time">
-            {% for t in ['', 'Утро', 'День', 'Вечер', 'Ночь'] %}
+            {% for t in times %}
             <option value="{{ t }}" {% if scene.time_of_day == t %}selected{% endif %}>{{ t or '— не указано —' }}</option>
             {% endfor %}
+            {# Прежнее свободное значение («утро понедельника») не теряется при сохранении #}
+            {% if scene.time_of_day and scene.time_of_day not in times %}
+            <option value="{{ scene.time_of_day }}" selected>{{ scene.time_of_day }}</option>
+            {% endif %}
           </select>
         </div>
       </div>
@@ -145,6 +154,7 @@ function getFormData() {
   return {
     title:       document.getElementById('f-title').value.trim(),
     location:    document.getElementById('f-location').value.trim(),
+    day:         document.getElementById('f-day').value.trim(),
     time_of_day: document.getElementById('f-time').value,
     act_id:      document.getElementById('f-act').value || null,
     characters:  document.getElementById('f-characters').value.trim(),
@@ -155,7 +165,7 @@ function getFormData() {
 }
 
 function formEmpty(d) {
-  return !['title','location','time_of_day','characters','what_happens','emotion','notes'].some(k => d[k]);
+  return !['title','location','day','time_of_day','characters','what_happens','emotion','notes'].some(k => d[k]);
 }
 
 async function saveScene() {
@@ -181,8 +191,8 @@ function toggleHistory() {
 
 function previewSnap(snapId, data) {
   currentSnapId = snapId;
-  const fields = ['title','location','time_of_day','characters','what_happens','emotion','notes'];
-  const labels = ['Название','Локация','Время','Персонажи','Что происходит','Эмоция','Заметки'];
+  const fields = ['title','location','day','time_of_day','characters','what_happens','emotion','notes'];
+  const labels = ['Название','Локация','День','Время','Персонажи','Что происходит','Эмоция','Заметки'];
   const box = document.getElementById('snap-preview');
   box.replaceChildren();
   fields.forEach((f, i) => {

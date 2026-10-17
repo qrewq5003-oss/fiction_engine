@@ -78,6 +78,13 @@ def parse(text: str) -> dict:
     return out
 
 
+def scene_when(s: dict) -> str:
+    """Когда сцена: день («пятница, 24 октября») и время суток — одной строкой."""
+    day = (s.get("day") or "").strip()
+    tod = (s.get("time_of_day") or "").strip()
+    return f"{day}, {tod.lower()}" if day and tod else day or tod
+
+
 def _day_of_year(date: tuple[int, int]) -> int:
     month, day = date
     return sum(_MONTH_DAYS[:month - 1]) + day
@@ -104,11 +111,12 @@ def check(scenes: list[dict]) -> list[dict]:
         out.append({"scene_id": s.get("id"), "title": s.get("title") or "без названия", "message": msg})
 
     for s in scenes:
-        cur = parse(s.get("time_of_day", ""))
+        when = scene_when(s)
+        cur = parse(when)
         if cur["flashback"]:
             continue
         cur["title"] = s.get("title") or "без названия"
-        cur["text"] = s.get("time_of_day", "")
+        cur["text"] = when
         explicit = cur["weekday"] is not None or cur["date"] is not None
         if last is not None and explicit:
             pw, cw, pd, cd = last["weekday"], cur["weekday"], last["date"], cur["date"]
