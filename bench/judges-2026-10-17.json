@@ -1,0 +1,5214 @@
+{
+ "date": "2026-10-16..17",
+ "question": "1) Нужны ли модули ремесла GPT-6.1 Sol и Sonnet 5.5 на новой версии; 2) порог «ПРИНЯТЬ» для судей Sol и Sonnet; 3) повторяет ли судья балл критика",
+ "setup": "Главы: ab_compare generate, 4 жанра × 3 прогона, режим quality; вариант без модулей — --without _load_module. Калибровка: критик Kimi K2.5 → судья (step_critique/step_judge движка), 12 живых глав не своей семьи + 12 испорченных копий (перемешанные абзацы / обратный порядок / дубль середины), набор 0 и набор 1 (вторые прогоны тех же жанров).",
+ "result": {
+  "modules_gpt": "Sonnet-судья, пары в обоих порядках: устойчиво без модулей 3, с модулями 2 из 12; nano rate 7.74 (с) против 7.75 (без), шум 0.4; nano пары 48/48 за первую позицию — не годятся. Контекст 44 тыс. → 17 тыс. символов. Решение: у Sol выключить.",
+  "modules_sonnet": "Sol-судья, 12/12 устойчивы: без модулей 7, с модулями 5. Сравнений «словно/будто» без модулей 1.85 против 1.47 на 1000 слов (p=0.21). Решение владельца: у Sonnet оставить.",
+  "judge_copies_critic": "Sol с баллом критика: тот же ИТОГ в 14/24 (27/48 по двум наборам); без балла — 2/24. Sonnet: 4/24 → 3/24.",
+  "thresholds_with_score": "Sol (48 глав): 31 — живые 19/24, испорченные 1/24; 33 — 11/24 и 1/24; 35 — 4/24 и 0. Sonnet (48): 33 — 9/24 и 1/24; 34 — 9/24 и 0; 35 — 6/24 и 0.",
+  "thresholds_no_score": "Sol (24): 31 — 8/12, 0/12; 32 — 5/12, 0/12. Sonnet (24): 33 — 5/12, 1/12 (дубль); 34 — 3/12, 0.",
+  "decision": "Судья не видит балл критика (critique_for_judge); порог Sol 32, Sonnet 33 (JUDGE_ACCEPT_TOTAL), остальным 35; вердикт пересчитывает код по баллам; модули ремесла выключены для gpt-6.1-sol (CRAFT_MODULES_OFF)."
+ },
+ "calibration": {
+  "sol_with_score_set0": {
+   "date": "2026-10-16",
+   "judge": "chatgpt_subscription::gpt-6.1-sol@medium",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 28.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 35.0,
+     "judge_score": 35.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 40
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 42
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 26.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 27.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 35
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 44
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 30.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 26.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 48
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 28.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 25.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 38.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 34
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 50
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 29.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 52
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 36.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 48
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 21.0,
+     "judge_score": 21.0,
+     "criteria": {
+      "ГОЛОС": 4.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 36
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 27.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 35
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 25.0,
+     "judge_score": 22.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 42
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 29.0,
+     "judge_score": 29.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 26.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 38
+    }
+   ]
+  },
+  "sol_with_score_set1": {
+   "date": "2026-10-16",
+   "judge": "chatgpt_subscription::gpt-6.1-sol@medium",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 28.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 40.0,
+     "judge_score": 39.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 8.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 41
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 25.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 46
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 49
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 29.0,
+     "judge_score": 29.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 46
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 28.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 36
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 37.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 27.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 29.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 35
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 29.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 24.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 37
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 25.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 39
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 42
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 37.0,
+     "judge_score": 37.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 39
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 38.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 46
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 30.0,
+     "judge_score": 24.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 45
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 25.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 38
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 34.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 39
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 34.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 16.0,
+     "judge_score": 16.0,
+     "criteria": {
+      "ГОЛОС": 3.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 36.0,
+     "judge_score": 29.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    }
+   ]
+  },
+  "sol_no_score_set0": {
+   "date": "2026-10-17",
+   "judge": "chatgpt_subscription::gpt-6.1-sol@medium",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 28.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 38.0,
+     "judge_score": 38.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 8.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 26
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 34.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 26.0,
+     "judge_score": 18.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 29.0,
+     "judge_score": 21.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 37
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 27.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 1.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 39
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 35.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 28
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 24.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "claude",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 30.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 24
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 29.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 27.0,
+     "judge_score": 20.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 54
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 24.0,
+     "judge_score": 21.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 28
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "claude",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 36.0,
+     "judge_score": 36.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 8.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 28
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "claude",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 29.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 36.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 24.0,
+     "judge_score": 18.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "claude",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 28.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 27.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 1.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 29.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 25
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    }
+   ]
+  },
+  "sonnet_with_score_set0": {
+   "date": "2026-10-17",
+   "judge": "claude_subscription::claude-sonnet-5-5",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 22.0,
+     "judge_score": 20.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 43.0,
+     "judge_score": 41.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 9.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 8.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 27
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 34.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 26.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 26.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 31.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 22
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 38.0,
+     "judge_score": 38.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 26
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 28.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 26.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 31.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 25.0,
+     "judge_score": 18.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 41.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 9.0,
+      "ДИАЛОГ": 8.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 27
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 34.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 38.0,
+     "judge_score": 30.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 21.0,
+     "judge_score": 21.0,
+     "criteria": {
+      "ГОЛОС": 4.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 34.0,
+     "judge_score": 30.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 27.0,
+     "judge_score": 21.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 29.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 38
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 35.0,
+     "judge_score": 26.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    }
+   ]
+  },
+  "sonnet_with_score_set1": {
+   "date": "2026-10-17",
+   "judge": "claude_subscription::claude-sonnet-5-5",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 30.0,
+     "judge_score": 30.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 37
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 40.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 9.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 36
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 34.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 23.0,
+     "judge_score": 18.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 30.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 36.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 35
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 32.0,
+     "judge_score": 20.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 28
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 26.0,
+     "judge_score": 34.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 39
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 31.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 25.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 31.0,
+     "judge_score": 24.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 25
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 34.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 29.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 36
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 26.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 24
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 34.0,
+     "judge_score": 39.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 30
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 29.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 28
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 33.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 29.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 37.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 27.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    }
+   ]
+  },
+  "sonnet_no_score_set0": {
+   "date": "2026-10-17",
+   "judge": "claude_subscription::claude-sonnet-5-5",
+   "critic": "nano_gpt::moonshotai/kimi-k2.5",
+   "items": [
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "reverse",
+     "critic_score": 28.0,
+     "judge_score": 19.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 4.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 39.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 8.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 26
+    },
+    {
+     "family": "deepseek",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 39.0,
+     "judge_score": 32.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 32
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 23.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 28
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 29.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 34.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "shuffle",
+     "critic_score": 29.0,
+     "judge_score": 20.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "real",
+     "critic_score": 35.0,
+     "judge_score": 36.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 28
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 36.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 7.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 33
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "duplicate",
+     "critic_score": 31.0,
+     "judge_score": 24.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 25
+    },
+    {
+     "family": "gpt",
+     "genre": "detective_classic",
+     "kind": "shuffle",
+     "critic_score": 31.0,
+     "judge_score": 27.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "shuffle",
+     "critic_score": 34.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 29
+    },
+    {
+     "family": "kimi",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 29.0,
+     "judge_score": 25.0,
+     "criteria": {
+      "ГОЛОС": 5.0,
+      "СТРУКТУРА": 4.0,
+      "ПЕРСОНАЖИ": 5.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 34
+    },
+    {
+     "family": "deepseek",
+     "genre": "thriller_psychological",
+     "kind": "shuffle",
+     "critic_score": 25.0,
+     "judge_score": 16.0,
+     "criteria": {
+      "ГОЛОС": 4.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 27
+    },
+    {
+     "family": "kimi",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 31.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "gpt",
+     "genre": "fantasy_dark",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 38.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 8.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 8.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "ПРИНЯТЬ",
+     "seconds": 26
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 38.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 6.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 35
+    },
+    {
+     "family": "gpt",
+     "genre": "thriller_psychological",
+     "kind": "duplicate",
+     "critic_score": 36.0,
+     "judge_score": 33.0,
+     "criteria": {
+      "ГОЛОС": 7.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 7.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 38
+    },
+    {
+     "family": "kimi",
+     "genre": "realism_psychological",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 5.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 36
+    },
+    {
+     "family": "kimi",
+     "genre": "thriller_psychological",
+     "kind": "reverse",
+     "critic_score": 17.0,
+     "judge_score": 17.0,
+     "criteria": {
+      "ГОЛОС": 4.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 4.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 31
+    },
+    {
+     "family": "gpt",
+     "genre": "realism_psychological",
+     "kind": "reverse",
+     "critic_score": 41.0,
+     "judge_score": 30.0,
+     "criteria": {
+      "ГОЛОС": 8.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 7.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 41
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "reverse",
+     "critic_score": 26.0,
+     "judge_score": 16.0,
+     "criteria": {
+      "ГОЛОС": 4.0,
+      "СТРУКТУРА": 2.0,
+      "ПЕРСОНАЖИ": 4.0,
+      "СЦЕНЫ": 3.0,
+      "ДИАЛОГ": 3.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 26
+    },
+    {
+     "family": "deepseek",
+     "genre": "realism_psychological",
+     "kind": "duplicate",
+     "critic_score": 28.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 3.0,
+      "ПЕРСОНАЖИ": 7.0,
+      "СЦЕНЫ": 6.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 30
+    },
+    {
+     "family": "deepseek",
+     "genre": "detective_classic",
+     "kind": "real",
+     "critic_score": 32.0,
+     "judge_score": 28.0,
+     "criteria": {
+      "ГОЛОС": 6.0,
+      "СТРУКТУРА": 5.0,
+      "ПЕРСОНАЖИ": 6.0,
+      "СЦЕНЫ": 5.0,
+      "ДИАЛОГ": 6.0
+     },
+     "verdict": "НА ДОРАБОТКУ",
+     "seconds": 40
+    }
+   ]
+  }
+ },
+ "pairs_sonnet_judges_gpt": {
+  "date": "2026-10-17",
+  "old": "b0e1da0",
+  "new": "b0e1da0",
+  "model": "chatgpt_subscription::gpt-6.1-sol@medium",
+  "judges": [
+   "claude_subscription::claude-sonnet-5-5"
+  ],
+  "pairs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "words_old": 2841,
+    "words_new": 2750,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "В B улика (сцена с колоколом, снятая с вечера) ясна и проверяется по журналу спектакля, а развязка с ключом и финальным образом, где ключ ложится поперёк подписи Лаптева, держит напряжение и закрывает главу. Проза чище, а диалоги оформлены читаемо. У A находка с огнём и разорванным письмом остроумна, но глава раздута, логика местами путается (билетёрша и помощник, билет Ирины), а реплики слиплись с повествованием, что мешает чтению."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B противоречие — вкладыш-поправка о замене горящего письма на разрываемое — конкретная, наглядная деталь, которая логично рождает улику (Лаптев описывает сцену по рецензии), а затем сцена с Ириной раскрывает билет и ложь и даёт сильный финальный жест. Версия A перегружена бытовыми деталями и процедурными повторами, её ключевая улика (отменённая сцена с колоколом) запутанно объясняется, а логика с ключом и вывод размыты; в B ясность, напряжение и подтекст держатся лучше, хотя и там много однотипных «жестов» и немного расползающаяся концовка со звонком Ларионовой."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "words_old": 2628,
+    "words_new": 2734,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "В версии A деталь (треугольный прокол и голубая карточка выхода) выстроена как улика, а противоречие с алиби проверяется по нескольким источникам: билетёрша, Нина, соседка, корешки. Конфронтация с Лаптевым и срыв Ирины дают напряжение и подтекст, а финал с исправленной графой «по распоряжению Гордеева» на фамилию Лаптева ёмок и вытекает из сцены. Версия B чище в начале, но ближе к концу расползается в побочную линию с завещанием, и концовка с неподписанной распиской слабее. У обеих версий есть шероховатости: канцелярит, логические нестыковки и перегруз бытовыми жестами."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В A улика читается чётко и честно разыграна: фиолетовый оттиск повторного входа, лист дежурной с выходом в 21:04 и возвращением в 21:43, перечёркнутая карточка №17. Затем следует проверка времени по датеру и маршрута до Литейного, и сцена с Лаптевым вытекает из найденной детали. В B та же идея (прокол, карточки, корешок) запутана: круглый и треугольный проколы, противоречивые показания Нины и Кругловой, невнятная роль соседки. Из-за этого противоречие алиби теряется в деталях, хотя финал с вписанной фамилией Лаптева эффектнее. Проза A суховата и слегка однообразна, но логика и работа сцены в ней надёжнее."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 2,
+    "words_old": 2729,
+    "words_new": 2636,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "В A противоречие выстроено остроумно: рухнувшая лепнина делает второе кресло непригодным, а Лаптев после антракта жалуется на колонну и рисует схему ложи. Это ловит его на лжи, и дальше ведёт к признанию Ирины. Проза суше и местами рваная, сцена тянется за рамки задачи, а в хронологии есть путаница. Но в B диалоги оформлены неряшливо, логика с надрезом на билете и признаниями Беловой и Лаптева путается, а финал смазан."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В версии B ключевая улика (обрушенная лепнина в ложе, опровергающая рассказ Лаптева) конкретна, наглядна и логично выстроена: журнал, колонна, рисунок ложи, затем цепочка с Ириной, сумочкой и ключом, а финал с ключом на нарисованном кресле — сильный образ. В версии A сюжет перегружен и запутан: билет с надрезом, ножницы, подкуп, лекарство, а в конце неожиданно всплывает Ирина, из-за чего деталь, противоречащая алиби, теряется, а проза тяжёлая, с множеством бытовых жестов (платки, стаканы, шнурки) без подтекста. B тоже не лишена шероховатостей и лишних поворотов (приходная книга), но держит напряжение и ясность лучше и больше соответствует жанру классического детектива."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "words_old": 2738,
+    "words_new": 2929,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "слабо",
+      "reason": "В A сцена у библиотеки напряжённее: сотрудница называет Михаила по имени и придерживает его место, и Людмила видит, что он здесь свой, а подтекст держится на вещах (бутерброд с сыром, листок с мастерскими, пароль, сообщение Дениса). Концовка с открытой крышкой контейнера и вопросом «Тебе сколько на завтра?» тише и точнее, чем выключенный будильник в B, который читается как привычный жест. Но и у A есть сбои: путаница с «шестого» и недоговорённость в реплике про кран. B чище в бытовой логике и хорошо ведёт разговор с Денисом, однако вечерние разговоры в нём ровнее, а детали вроде 18 дней и приказа в августе сбивают хронологию."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B встреча у библиотеки сразу выходит в действие: сотрудница называет Михаила по имени-отчеству и выдаёт его привычное место, Людмила входит следом, а он прячет листок с адресами. Вечерний разговор держится на подтексте: «Шестого числа тебя уже уволили?», рубашки, калькулятор в магазине, деньги для Дениса. Концовка тихая и без нажима: «Тебе сколько на завтра?», Михаил придерживает открытой крышку контейнера. Версия A перегружена бытовыми мелочами, поэтому темп вязнет и сцены повторяют друг друга. Её финал со сброшенным будильником более предсказуем."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "words_old": 3020,
+    "words_new": 2627,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "В B встреча у библиотеки подкреплена бытовым поводом (тёткины книги), диалоги звучат естественнее, а подтекст держится на предметах: масло из контейнера, расчётный листок, подставка с расшатанной планкой. Концовка со склеиванием подставки мягко намекает на починку без объяснений. В A много сильных деталей, в том числе финал со стиранием подписи «На смену». Но в нём больше логических сбоев и неловких фраз («смотрела ему в рот», путаница с датами, «при чём здесь сыновья поездка»), а сцена на улице растянута и местами повторяется. В B тоже есть неровности (время в пути, «третьего» при двадцать первом), но их меньше."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B встреча на улице держится на нарастающей лжи Михаила (электричество, рыба вместо утренних котлет), а сотрудница с шарфом разоблачает его, не называя прямо. Дома признание вырастает из бытового действия: он чистит картошку, путается в датах, и вина уходит в предметы. Концовка с будильником и стёртой подписью «На смену» точная и без пафоса. Недостатки есть: опечатки («залом на картоне», «сыновья поездка») и переход на тире в диалогах к финалу. Версия A перегружена предметными деталями, местами запутана по логике (приход Людмилы с книгами, «сорок минут автобусом», два часа за свой счёт), и подтекст теряется в мелких жестах. Её финал с подставкой хорош, но слабее по силе."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 2,
+    "words_old": 2776,
+    "words_new": 2680,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В версии B подтекст держится на точных бытовых деталях (сломанная защёлка контейнера, бутерброды, которые нельзя ни съесть, ни выбросить, расчётный листок, зашитая рубашка, «Ты ел») и на недосказанности: Людмила знала о сокращении раньше и молчала, что придаёт сцене настоящий психологический поворот. Концовка с защёлкой, которую он прижимает пальцем, работает как сдержанный образ без пояснений. Версия A содержательна, но перегружена мелкими жестами (молния, резинка, салфетки, крошки), которые дробят напряжение и местами повторяются, а финал с резинкой слабее по смыслу и повторяет приём версии B."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "слабо",
+      "reason": "В версии B тоньше подтекст и точнее психологическая линия: ложь про справочник и таблицы, микроволновка и отбивная («А я спрашивала, вкусно ли»), резинка в крышке контейнера как финальный образ, реакция Дениса, который сразу переходит к практическому. Сцена у библиотеки и вечер развиваются органично, без перегруза. Версия A хороша деталями (защёлка, набойки, шов на рубашке), но перегружена бытовыми мелочами и пересказом, сцена у библиотеки затянута, а развязка с долгой бухгалтерией и тетрадью местами механична."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "words_old": 2665,
+    "words_new": 2884,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B сильнее подтекст и параноидальная логика газлайтинга: белый осадок в кофе, фото очков, присланное «до» их пропажи, разрезанная карта, подготовленная на завтра госпитализация, а ключевая деталь про чемодан, о котором Мельник знать не мог, работает как точный поворот сцены. Конец тревожный и открытый — Олег складывает вырванную страницу в карман, — тогда как версия A разрастается в боевик с разводным ключом, полицией, камерами и модемами, теряет камерность триллера и тонет в процедурных деталях. У B тоже есть шероховатости (сбивчивый кусок про запись в гараже и квартиру, пара нелогичных мест), но по напряжению, экономии и целостности жанровой задачи она выигрывает."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "B сохраняет ключевой для жанра эффект ненадёжного рассказчика: находки в гараже, камера, заблокированная сестра и неоднозначная финальная фотография оставляют читателя в сомнении, кто прав, а детали вроде следа от наклейки на ноутбуке и откидной пластинки на замке точны и работают на подтекст. Диалоги по телефону с Олегом и Мельником выстроены напряжённо, а концовка с окровавленным пальцем на фотографии звучит как настоящий психологический удар. A перегружена нагромождением улик и совпадений (очки, карта, билет, видео, микроавтобус), быстро скатывается в экшен с запертой дверью и выбрасыванием телефона в вентиляцию, а её развязка обрывается на механике, а не на психологическом эффекте."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "words_old": 2700,
+    "words_new": 2598,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B сюжетные повороты точнее и убедительнее: Анна находит собственное видео от двенадцатого числа, Мельник выдаёт себя тем, что не спрашивает адрес, а приезд Олега оказывается слишком быстрым. Финал с принудительно дописанным словом «Сегодня» страшен и подтекстуален, он закрепляет тему подмены памяти. В версии A много неловких формулировок и путаной физики борьбы, события перегружены, а концовка (Олег забирает ключ) слабее и не добавляет новой мысли."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B яснее сквозная логика: тетрадь с графами «реакция», доверенность на деньги и видео с «Я завтра иду в банк» дают реальный мотив газлайтинга, а датчик на воротах и сообщение «Ты выходила?» держат напряжение. Финал сильнее: скрытая запись, неожиданное открытие, что дневниковая подсказка сделана самой Анной, и жуткий жест с гаражным ключом без излишней мелодрамы. В A много путаницы (двойные часы, неясные даты на пакетах, внезапное появление Мельника без адреса, слишком похожий на штамп финал с насильственным писанием дневника) и избыток механических бытовых деталей, которые размывают подтекст."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 2,
+    "words_old": 2715,
+    "words_new": 2533,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A держит нарастающее напряжение и строится на конкретных вещественных деталях: подменённый ключ, банка с чаем, диктофоны с подписанными кнопками, паспорт в чемодане. Подтекст газлайтинга передан через предметы и бытовые подробности. Развязка остаётся двусмысленной и в жанре: Анна, возможно, уже проходила этот круг, а на доске её собственной рукой выцарапано «Не отдавай рукав». Версия B запутаннее: двери, кирпич и порядок действий в пространстве сбиваются, ножницы и «обручальная серьга» выглядят натянуто, а сцена с телефонами и Мельником теряет ясность. Её ход «вчерашняя Анна уже всё находила» интересен, но в исполнении механичнее и менее убедителен, чем в A."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В версии B сюжет ясен и последователен: газлайтинг показан через конкретные детали вроде переставленных цифр в номере сестры, чая в банке, диктофонов с подписанными кнопками и карты памяти в шве рукава. Напряжение растёт по логике сцены, а концовка со словами «Не отдавай рукав» и выцарапанной датой даёт точный образ ненадёжной памяти и сопротивления. Версия A перегружена и местами путает: непонятные ключи и серьги, нелогичный эпизод с ножницами и кровью, множество повторяющихся телефонных звонков, из-за чего подтекст тонет в механике действий, хотя финальный образ с каплей на полотенце неплох."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "words_old": 2626,
+    "words_new": 2570,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В A сцена держится на конкретных деталях (голоса погибших, ложка-заточка, слова «ОТВЕЧАЛА», медное кольцо брата, ложный смех Кайры), а выбор героини логично вытекает из её вины: она сама ответила голосу брата. Концовка тихая и сильная: ремни, воск вместо речи, перестук костяшек и кружки через стену. В B больше событий и эффектный «ЖГИ», но логика местами рвётся (добила Рута или вытаскивала, ножи и гвозди появляются и исчезают, финальные мотивы размыты), а диалоги с тире и пересказом ощущаются менее цельно."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В версии B задача главы решена цельно: Кайра отвечала голосу брата, поэтому её выбор принять голоса на себя даёт сцене цену и личный подтекст. Диалоги живее, у капитана есть своя тайна (сестра, лист с записями), концовка с перестукиванием через стену сдержанная и сильная. В версии A много путаных деталей и нелогичных действий (нож, гвоздь, мел, рот, который то закрыт, то открыт), хронология и мотивации размыты, а финал неясен и теряет напряжение."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "words_old": 2576,
+    "words_new": 2801,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "Версия A держит напряжение по нарастающей и опирается на конкретные детали: надпись в извести, мыши в хлебном сундуке, лодочка в колоде, вмятина на миске. Решение Кайры оплачено телесно (она теряет язык), а финал «ЕСЛИ ЗАГОВОРЮ» вместе с полоской полотна работает как тихий и страшный аккорд. Версия B логичнее по мотивам (колодец, водозабор, плата), но механика одержимости в ней расплывчата, а сцены на помосте и торг размазаны. Концовка с монетами тоже слабее. При этом A местами перегружена действием и путает имена (Данек/Данька), так что перевес небольшой."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия B держит единую линию сцены: голос Ярта, личная вина Кайры, конкретные детали (Данек и мыши, ложка, надписи на пыли) и жёсткий, цельный финал с отрезанным языком и словами «ЕСЛИ ЗАГОВОРЮ» — цена решения ощутима, концовка работает. Версия A богаче по деталям, но рыхлая: песок во рту, путаница с голосами, неясная логика водозабора и обмена, и сцена расползается, а финал с монетами слабее связан с центральным выбором. В B больше подтекста и последовательного нарастания напряжения, хотя местами она тоже перегружена действиями."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 2,
+    "words_old": 2843,
+    "words_new": 2557,
+    "votes": [
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В версии B сильнее задана задача главы: чужие голоса разные (костоправ Гедд, дочь Ольста), они бьют по персонажам, а у капитана личная ставка — отсутствующие пальцы, дочь, «не знаю». Кайра принимает решение с ценой (теряет голос ради Брама), а финал с девчачьим свистом и засовом даёт настоящий крючок. Версия A тоже атмосферна и конкретна, но растянута, местами путана (носилки, водосток, воск, язык), а ее эмоциональная концовка с «Без соли» сентиментальнее и слабее по напряжению; у B встречаются шероховатости (например, «на левой такого же пальца не было»), но они не перевешивают."
+     },
+     {
+      "judge": "claude-sonnet-5-5",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B сцена выстроена связно: Брам говорит чужим голосом, потом своим, Кайра принимает решение и платит за него языком. Диалоги скупые, подтекст держится на предметах (точильный камень с выемкой Харта, корка хлеба, ремень), а финал «Без соли» с коркой под дверью тихо и точно закрывает арку. В A много сильных деталей (зелёный ноготь, зола, голос дочери), но действие разрастается, местами путается (руки Ольста, логика ритуала и условий выхода), а повторяющиеся жесты и «хитрые» ходы размывают выбор Кайры; хук с девчачьим свистом в конце эффектен, но на связность B не тянет."
+     }
+    ]
+   }
+  ],
+  "score": {
+   "new": 13,
+   "old": 11,
+   "tie": 0,
+   "?": 0
+  },
+  "order_stable": "5/12",
+  "first_position_wins": 7
+ },
+ "pairs_sol_judges_sonnet": {
+  "date": "2026-10-17",
+  "old": "c99ee81",
+  "new": "c99ee81",
+  "model": "claude_subscription::claude-sonnet-5-5",
+  "judges": [
+   "chatgpt_subscription::gpt-6.1-sol@medium"
+  ],
+  "pairs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "words_old": 2920,
+    "words_new": 3272,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B проверка алиби последовательнее превращается в сценическое действие: показания билетёрши обнаруживают ложь, гардеробщик уточняет время ухода, разговор с Ириной раскрывает давление Лаптева; у свидетелей различимы собственные голоса и интересы. В A напряжение рассеивается между случайными находками и авторскими объяснениями, а вывод, будто описание заимствованной актёрской манеры доказывает присутствие Лаптева, логически несостоятелен. Однако B тоже требует правки: расчёты времени противоречат друг другу, а эффектный финал с жетоном пока не объясняет, как после выдачи пальто он остался у владельца."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A убедительнее голоса свидетелей и предметные детали: связка ключей, гардеробная тетрадь и осторожность билетёрши работают на сцену, а не просто украшают её. Противоречие между рассказом Лаптева и заменой актёра создаёт ясный детективный поворот; в B его сначала обесценивают, затем подменяют цепочкой натянутых улик и недоказательным финалом со свежим маслом. A тоже требует сокращения объясняющих реплик и исправления логики гардеробного жетона, но её сценическое напряжение и основа расследования крепче."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "words_old": 2898,
+    "words_new": 3245,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A противоречие в алиби предметнее и убедительнее: выдуманный эпизод с веером опровергается заменой актрисы и реквизита, тогда как B перегружает доказательство сомнительными выводами из сгиба программки. Диалоги и сцена чаепития в A лучше передают скрытое давление Лаптева; в B голос чаще подменяется нарочитыми сравнениями и афоризмами о следовательской работе. A тоже нуждается в сокращении повторных рассуждений, а финальный намёк на слежку шаблонен, но по напряжению и убедительности детективной сцены она сильнее."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B театральная улика предметнее: рассказ о веере противоречит замене актрисы и реквизита, тогда как A перегружает расследование ненадёжными выводами по сгибам программки. Возвращение Лаптева и чаепитие создают настоящее напряжение: власть и страх проявляются в репликах и действиях, а не только в пояснениях рассказчика. Обе версии злоупотребляют сравнениями; у B также требуют правки категоричный вывод по телефонному шуму и шаблонный финал со слежкой, но сцены и диалоги здесь убедительнее."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 2,
+    "words_old": 3268,
+    "words_new": 3133,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B точнее устроена проверка алиби: замена актрисы противоречит конкретному воспоминанию Лаптева, а разговор с ним превращает находку в напряжённую сцену; признание секретарши получает внятную человеческую мотивировку. В A выразительные бытовые детали тонут в повторных объяснениях, а выводы Веры о пожаре, пальто и перемещениях Лаптева противоречат уже сообщённым обстоятельствам. B тоже требует правки хронологии и билетного поворота в концовке, но её детективная основа убедительнее."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "слабо",
+      "reason": "В A убедительнее основная детективная зацепка: восторженный рассказ Лаптева о Верховской опровергается конкретной заменой актрисы, а разговор позволяет наблюдать, как он меняет защиту. В B напряжённее заключительная сцена, но логика алиби серьёзно нарушена: герой, якобы покинувший театр при эвакуации, почему-то не знает об отмене спектакля; история возвращённого ключа тоже противоречива. Преимущество A ограничено: путаница в хронологии, перегруженность сравнениями и недостаточно подготовленный финальный поворот требуют редактуры."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "words_old": 2955,
+    "words_new": 3109,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "слабо",
+      "reason": "В A точнее выстроен подтекст диалогов: бытовые реплики одновременно поддерживают ложь Михаила и показывают, что Людмила всё понимает. Финальное снятие пропуска убедительнее меняет отношения героев, чем перекладывание карточки в B, где психологическое напряжение размывают искусственная загадка с салфеткой и авторские расшифровки переживаний. Впрочем, A тоже требует редактуры: повторяет эмоциональные ходы и путается в непрерывности деталей."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B напряжение лучше развивается через взаимодействие: вопрос Дениса, рассказ о Вите и несостоявшиеся признания обоих супругов постепенно меняют смысл бытового разговора. Людмила самостоятельнее и психологически объёмнее, а жест с пропуском в финале соединяет заботу с поддержанием мучительной лжи. Обе версии перегружены сравнениями и объяснениями чувств, но A чаще расшифровывает уже понятный подтекст и повторно завершает сцену; особенно искусственной выглядит загадка с салфеткой."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "words_old": 2928,
+    "words_new": 3193,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B вечерний разговор действительно меняет отношения: забота Людмилы не отменяет её обиды, а стыд Михаила проявляется в уклонениях и попытках сохранить отцовский авторитет. При общей перегруженности сравнений B психологически объёмнее: в A повторяющиеся следы на ладонях, семейные жесты и появление Людмилы у остановки слишком старательно складываются в примирительную композицию, тогда как финальное действие с хлебом в B оставляет героям возможность сближения, не объявляя конфликт разрешённым."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A вечерний разговор сильнее драматургически: забота Людмилы не отменяет обиды, а стыд Михаила проявляется в уклонениях, денежных обещаниях и сопротивлении помощи — супруги сохраняют отдельные, убедительные голоса. В B психологическое напряжение чаще объясняется автором, а финальная встреча с сыном, повторяющиеся следы на ладонях и появление наблюдающей матери слишком явно организованы ради примирения. Концовка A с нарезанным для Людмилы хлебом тоже символична, но оставляет больше недоговорённости и не изображает кризис разрешённым."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 2,
+    "words_old": 3091,
+    "words_new": 2998,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B бытовые действия становятся взаимными пробами заговорить: диалог меняет отношения, а у Людмилы за заботой слышны усталость и раздражение — это даёт психологический объём. В A сильна предметная конкретность, но повторные отсрочки признания и финальный пропуск под ножкой стола слишком явно подчиняют персонажей авторской символике. Концовка B с починкой контейнера тоже подготовлена, но сохраняет неоднозначность заботы, не превращая её в окончательный приговор мужу."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A убедительнее вечерний разговор: признание рождается из уклонений и бытовых реплик, а привычная забота оказывается одновременно поддержкой и способом не говорить о болезненном. Михаил и Людмила получают возможность изменить отношения, не переставая быть собой; в B повторные разоблачения сильнее выдают авторскую конструкцию. Хотя A местами избыточно объясняет чувства, её финал с починкой контейнера психологически неоднозначнее, чем демонстративное превращение пропуска с фотографией в подпорку для стола."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "words_old": 3075,
+    "words_new": 3102,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "слабо",
+      "reason": "В A точнее предметные детали и убедительнее бытовая речь Олега: заботливые реплики работают как угрозы, а подмена дневника превращает находку в непосредственную опасность. B чаще объясняет уже понятное, использует готовые тревожные сравнения и слишком удобно вводит наследство и знакомого юриста. Перевес небольшой: A тоже перегружена подтверждениями заговора, а упоминание крючка у «д» в имени Анны — явный редакторский сбой."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B убедительнее предметные детали и психологическое движение: часы с вытянутой головкой, постепенное освоение чужого почерка, спрятанный под пяткой лист превращают открытие в действие, а не в объяснение заговора. Диалоги лучше удерживают двойное дно заботы и контроля; в A напряжение чаще разъясняется готовыми формулами и перегруженными сравнениями. Хотя открытое признание Мельника в финале B упрощает интригу, запертая дверь завершает сцену ощутимой угрозой, тогда как концовка A сильнее зависит от эффектно подготовленного документа."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "words_old": 3079,
+    "words_new": 2739,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B напряжение развивается через действия и подтекст: забота Олега становится способом контроля, а запись под диктовку убедительнее раскрывает присвоение чужого голоса, чем дополнительные разоблачения в A. При отдельных штампах и логических натяжках B лучше удерживает психологический поединок; A перегружает его объяснениями и каскадом поворотов, которые ослабляют достоверность. Финальный ключ в B — конкретный остаток сопротивления, связывающий концовку со сценой, а не очередная загадка ради следующего шока."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В A убедительнее бытовой голос и диалог: заботливые реплики Олега работают как давление, а Анна пытается перехватить навязанную ей роль — напряжение возникает из взаимодействия, не только из находок. При общей склонности к пояснениям A точнее связывает предметные детали с переживанием; в B проза чаще форсирует эффект, а последовательные разоблачения перегружают сцену и требуют слишком многих допущений. Финал A с исчезнувшими фотографиями и оставшимся ключом лучше подготовлен и психологически весомее очередной загадочной фигуры в B."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 2,
+    "words_old": 3305,
+    "words_new": 3015,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A убедительнее выстроено движение от находки к сопротивлению: Анна фотографирует доказательства, проверяет собеседников ложью и успевает передать сведения наружу; бытовые реплики работают как инструменты контроля. Проза тоже перегружена объяснениями и знакомыми триллерными образами, но предметные детали чаще поддерживают действие, тогда как B слишком часто проговаривает страх и расшифровывает подтекст. Финал A избыточно демонстративен, однако подготовлен сценой; в B интригу подрывают прямые противоречия во времени, особенно утреннее посещение гаража, внезапно отнесённое к 17:42, поэтому последняя неопределённость выглядит скорее авторской путаницей, чем ненадёжностью восприятия героини."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B предметные детали работают на сцену: пропавшие вещи, часы и подписанный пакет связывают обнаружение улик с последующим противостоянием; диалоги убедительнее передают контроль под видом заботы. Проза тоже местами шаблонна, но меньше разъясняет уже понятный страх, тогда как A перегружена сравнениями, повторными разоблачениями и противоречиями во времени. Финал B чрезмерно прямолинеен, однако подготовлен лучше, чем новые загадки A с чужой правкой заметки и непослушной рукой."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "words_old": 2903,
+    "words_new": 2872,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В B напряжение строится вокруг поступка Кайры: её прежний выбор с верёвкой становится основой нового, а диалоги превращают чужие голоса в средство давления на конкретные слабости людей. Телесные детали и поведение второстепенных персонажей делают сцену живой, хотя афористичность и обилие сравнений местами избыточны. Финал убедительно обесценивает страшную жертву и раскрывает уязвимость Ольста; в A напряжение рассеивают повторные развороты решения, объяснения и явные логические сбои вроде хруста уже снятой цепи."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "В A напряжение убедительнее вырастает из личной вины Кайры: чужой голос становится орудием давления, а её решение — необратимым поступком, не просто реакцией на угрозу. Телесные детали и сдержанные реплики поддерживают тёмное фэнтези, а финал с Ольстом, выковыривающим раствор, страшнее прямого объяснения. В B сцену ослабляют логический сбой со снятой цепью, противоречивая мотивация капитана и недостаточно подготовленный переход Кайры к финальному «Я слушаю»."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "words_old": 2929,
+    "words_new": 2929,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B напряжение сцены собирается в конкретный нравственный выбор: Кайра спасает Брама, сознательно подставляя стражника, и концовка показывает цену поступка без отменяющего его сюжетного переворота. Диалог работает как торг и манипуляция, а телесные детали поддерживают ужас; в A выразительные голоса мёртвых и вина героини постепенно уступают запутанной интриге с капитаном, чьи мотивы и связь с прорывом остаются неубедительными. Обе версии перегружены сравнениями и пояснениями, но B цельнее выполняет задачу главы и убедительнее выдерживает нравственную мрачность жанра."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В A напряжение держится на личном торге с чужим голосом, а решение Кайры становится действием с ясной ценой: спасая Брама, она сознательно подставляет стражника. Телесные детали и ласковая манера существа делают ужас убедительным, хотя проза местами перегружена сравнениями и объяснениями. В B сильная предыстория с отрубленными пальцами, но финальные разоблачения запутывают мотивы Ольста и правила угрозы; концовка A точнее завершает нравственный конфликт сцены."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 2,
+    "words_old": 3377,
+    "words_new": 3137,
+    "votes": [
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В A напряжение приводит к нравственно значимому выбору: Кайра не просто защищает Брама, а допускает его использование ради побега, и финальный разговор делает цену этого решения ощутимой. Чужой голос убедительнее индивидуализирован, диалоги меняют соотношение сил, а концовка завершает внутреннее движение героини, одновременно оставляя внешнюю угрозу. В B атмосферу ослабляют объяснительные монологи, неубедительная отсрочка казни и выпадающий из мира «выключатель»; финал скорее добавляет загадку, чем обостряет сделанный выбор."
+     },
+     {
+      "judge": "gpt-6.1-sol@medium",
+      "order": "new/old",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "В B решение Кайры становится поступком с нравственной ценой: спасая Брама, она позволяет использовать его страдание как плату за свободу, а его «Поэтому не остановила» вскрывает подтекст без пояснений. Диалоги меняют расстановку сил, бытовая реплика матери страшнее отвлечённых угроз, а финал связывает внешний риск с внутренним превращением героини. Обе версии перегружают прозу сравнениями и объяснениями, но A сильнее проседает из-за немотивированной отсрочки казни и цепочки разоблачений, оттесняющих выбор Кайры ради очередной загадки."
+     }
+    ]
+   }
+  ],
+  "score": {
+   "new": 14,
+   "old": 10,
+   "tie": 0,
+   "?": 0
+  },
+  "order_stable": "12/12",
+  "first_position_wins": 12
+ },
+ "pairs_nano_judge_gpt": {
+  "date": "2026-10-16",
+  "old": "b0e1da0",
+  "new": "b0e1da0",
+  "model": "chatgpt_subscription::gpt-6.1-sol@medium",
+  "judges": [
+   "nano_gpt::moonshotai/kimi-k2.5",
+   "nano_gpt::deepseek/deepseek-v4-pro-0813"
+  ],
+  "pairs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "words_old": 2841,
+    "words_new": 2750,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A существенно предпочтительнее по живости прозы и детктивной логике. Противоречие выстроено через механически проверимую деталь (отсутствие свечи в новой версии спектакля), что создаёт классическое пуантильное напряжение — читатель опережает героиню в понимании ловушки. Версия B полагается на удачную случайность (поломка механизма), что ослабляет интеллектуальную игру. Диалоги в A точнее выстраивают подтекст подозрения; концовка с билетом в руках Ирины и остановленной рукой Лаптева обладает кинематографической завершённостью, тогда как B размывается в процедурных деталях."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает детективную сцену через физическое пространство и материальные детали, создавая нарастающее напряжение через рабочий ритм театра; версия B разряжает интригу преждевременным раскрытием ложного свидетельства и упирает в диалоговую конфронтацию, лишённую подтекста. Диалоги в A точны и лаконичны, концовка с ключом — жёсткая и открытая; в B фигуры говорят слишком прямо, а развязка с билетом выглядит схематичной."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A держит детективный нерв точнее: напряжение строится через сдвиг показаний и недоговорённости, а не через проговаривание всего. Диалоги в ней экономичнее и несут больше подтекста, а концовка с ключом на подписи Лаптева работает символически и сильнее завершает главу. Версия B местами объясняет лишнее и проговаривает мотивы персонажей, что ослабляет саспенс и голос."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A точнее строит интригу: противоречие с письмом и свечой подано через вещную улику и последовательное сужение алиби, а не через лобовое разоблачение. Диалоги в A живее и содержат подтекст, тогда как B местами объясняет читателю уже понятное и проговаривает мотивы напрямую. Концовка A сильнее символична и острее завершает главу."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "words_old": 2628,
+    "words_new": 2734,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A выстроена как цепочка маленьких открытий, где каждая деталь (круглый прокол, голубая карточка, срезанный угол) имеет следственное значение. Диалоги насыщены подтекстом: Круглова защищает себя, Нина даёт показания, не сознавая их важности. Финал с перевернутой фразой Ирины — сильнейший детективный поворот, выросший из предыдущего. Версия B рассказывает ту же историю прямолинейнее: дежурная слишком охотно подтверждает, Лаптев сдаётся быстро, а открытие с завещанием соседствует со следственной схемой, а не вытекает из неё."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A строит расследование через физические детали и временнýю логику, создавая напряжение методичным накоплением фактов — штамп «опоздал» перечёркивается ровной чертой, салфетка складывается «совмещая уже продавленные края». Версия B разрушает собственную интригу: ключевое открытие о 45-минутном отсутствии даётся слишком рано, диалоги превращаются в судебную перепалку с лишними персонажами, а финал глашатает мотивы вместо того, чтобы расставить фигуры для следующего хода."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A значительно сильнее по стилю: проза точнее, чище и образнее, без клише и сдержанного «женского» надрыва Версии B. Сцена движется через детали и подтекст, реплики естественнее, а концовка рождает подлинное напряжение без мелодраматических заявлений и манипулятивной паузы."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A работает как зрелый детектив: алиби рушится через материальные детали (треугольный прокол, карточка №17), напряжение строится на умолчаниях и сдержанности героев, а концовка с исправлением записи Ириной — точный драматический ход. Версия B слабее: она информативна, но статична, изобилует уточнениями вместо саспенса, а ключевой поворот (завещание Ларионовой) всплывает в финале как отчёт, а не как развязка, к которой подводит вся глава."
+     }
+    ]
+   },
+   {
+    "genre": "detective_classic",
+    "run": 2,
+    "words_old": 2729,
+    "words_new": 2636,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A мастерски строит саспенс через физические детали (ножницы, выщербленное лезвие, перфорация билетов), создавая детективное расследование без подсказок. Версия B разваливается на диалоговые сцены с признаниями, где подозреваемый сам раскрывает обман, что разрушает напряжение и превращает инспектора в пассивного регистратора чужих признаний."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A строит детективное расследование через физические детали и постепенное накопление противоречий (лепнина, подстаканник, ключ), создавая напряжение без прямого обвинения. Голос Веры — сдержанный, профессиональный, без психологизирования. Версия B разрушается преждевременной развязкой (Лаптев сразу признаётся в посещении Ларионовой), инсценировкой с ножницами и психологически неубедительным поведением Ирины; финал с ключом в почтовом ящике в A работает как подготовленная загадка, тогда как в B — как случайная неосторожность."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A демонстрирует более зрелое письмо с точной предметностью, сдержанной детективной напряженностью и подлинным подтекстом, тогда как версия B перегружена пояснительными отступлениями и страдает от внешних, механических решений сцены. Концовка в A работает через накопление умолчаний и точную жестовую деталь, что сильнее удерживает интригу. Версия B больше полагается на информационные повороты и бытовые комментарии, теряя жанровую сухость и живую пластику персонажей."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A значительно точнее в деталях и психологической работе: улика с лепниной опровергает алиби изнутри, а не через внешнюю догадку. Диалоги живее и убедительнее, концовка работает на раскрытие Ирины и ключа, а проза избегает штампов и ИИ-клише, которые заметны в версии B."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "words_old": 2738,
+    "words_new": 2929,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A строит напряжение через физические детали (пакет, режущие ручки, след на крышке), которые становятся носителями скрытого. Сцена в библиотеке — мастерски выдержанная: персонажи говорят об обеде и книгах, пока читатель чувствует катастрофу. Концовка с будильником точная и горькая. В B диалог избыточен, действие размазано по разным локациям, а ключевые откровения (о сокращении, о деньгах) происходят слишком рано и прямо, лишая финальную сцену накопленного веса. Плюс B грешит объяснительностью — персонажи озвучивают то, что в A остаётся важным молчанием."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A выстраивает напряжение через физические детали, которые становятся носителями скрытого: контейнер с бутербродом, квитанция под носком, карточка с паролем как объект, щёлкающий замок. Подтекст выросает из жизни вещей, а не из объяснений. Версия B разжёвывает значения: герои называют свои тайны вслух, конфликт идёт по поверхности диалога. В A финал с контейнером и приоткрытой крышкой — жест о неокончательности, в B — функциональная уборка. A сохраняет жанровую требовательность психологической прозы: показывать, а не говорить, оставлять трещины."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A выстроена на точных бытовых деталях и удержанном подтексте: напряжение передано через предметы, жесты и неловкие паузы, а не объяснено словами. Диалог работает на утаивание и сбой ритма, концовка с будильником и гаснущей отметкой смены сильнее и точнее по драматургии. В версии B больше лобовых мотивировок, объясняющих реплик и почти ИИ-гладкости, из-за чего сцена теряет сдержанность и психологическую достоверность."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A точнее в деталях, живее в прозе и глубже держит подтекст: сцена строится на предметах и уклончивых жестах, без давящих объяснений героев. Диалоги естественнее, концовка сходится в достоинстве и недоговорённости, тогда как версия B чаще проговаривает эмоции и заметнее буксует в ритме."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "words_old": 3020,
+    "words_new": 2627,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A выстроена через физическую конкретность и накопляющееся напряжение: масло на пальцах, отстающие часы, прихваченный ногтем край пропуска — каждая деталь несёт груз непроговорённого. Ложь обнажается постепенно, через вещи, а не объяснения. Версия B слишком прямолинейна: диалоги фиксируют раскрытие, а не скрывают его, а шарф и расстёгнутая пуговица остаются декоративными символами. В A подтекст работает до последней строки; в B конфликт оформлен явно, что разряжает психологическое напряжение жанра."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает нарастающее психологическое напряжение через детали, которые становятся значимыми ретроспективно (расстёгнутый ремешок, ненужный шарф, котлеты вместо рыбы). Молчание и ложь Михаила создают подтекст, читаемый в каждом жесте. Финал с будильником — точная метафору утраты идентичности. Версия B слишком явно выкладывает информацию и конфликты, лишая читателя открытия; библиотекарь функциональна, домашняя сцена похожа на допрос с ответами на прямые вопросы."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A превосходит B по всем ключевым параметрам: точность и подтекст деталей (аптечная сумка, шарф, часы), внутренний ритм и сдержанность диалогов, отказ от объясняющих фраз и мелодраматических вставок. Концовка с будильником и стираемой подписью «На смену» работает сильнее и глубже, чем починка подставки в B, оставляя эмоциональное послевкусие без прямого комментария."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A плотнее работает с подтекстом и предметным миром: напряжение растёт через детали (часы, квитанция, справочник, крошки), а не через прямые объяснения. Диалоги сдержанны и точны, концовка с починкой подставки даёт сильный психологический образ вместо сентиментальности, версия B местами перегружена случайными подробностями и ускоренными узнаваниями."
+     }
+    ]
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 2,
+    "words_old": 2776,
+    "words_new": 2680,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A строит напряжение через физические детали и пространственную логику, где каждый предмет (контейнер, коробка, вилка) несёт эмоциональную нагрузку. Подтекст развода через неудобное молчание органичнее: Людмила узнаёт правду из документов, а не спрашивает напрямую. Концовка с отключением будильника и переставленной вилкой работает как инвентарь разрушенной жизни. Версия B разрушает напряжение преждевременной репликой «Тебя сократили?», превращая сцену в разговорное расследование; финал с резинкой от контейнера остаётся иллюстрацией без накопленного эмоционального веса."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A выстроена через точные физические детали и подтекст: непростая дверь, заевшая молния, отпечаток пальца на бумаге — все эти мелочи несут эмоциональную нагрузку без пояснений. Структура сдвинута: встреча днём, а правда вскрывается вечером, что создаёт напряжение откладывания. В B конфликт разворачивается слишком прямолинейно, диалоги ближе к инвентаризации проблемы, а символика (синяя полоска, сломанная защёлка) насажена явно. У A сильнее концовка: резинка контейнера, которую он прижимает сантиметр за сантиметром, — непроизнесённое признание в том, что утрачено больше, чем работа."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A точнее в прозе, без декларативных подпорок и штампов, с более живой сценической пластикой и подтекстом: детали (заевшая молния, влажный отпечаток на документе, резинка контейнера, кружки в газете) работают на внутреннее напряжение, а не просто информируют. Версия B многое проговаривает вслух и логически, часто сбиваясь на пересказ. Концовка A сильнее: она не закрывает тему утешением, а оставляет героя в тихом, предметном стыде и неловкости, что соответствует психологической прозе."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A плотнее, точнее по деталям и глубже по подтексту: бытовые мелочи работают на нерв сцены, а умолчания держат напряжение до конца. В версии B много объяснений и внешних событий, которые сглаживают остроту, тогда как A даёт переживание стыда, страха и лжи через предметы и жесты. Концовка A остаётся резкой и необъяснённой до конца, что соответствует жанру психологической прозы."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "words_old": 2665,
+    "words_new": 2884,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия А выстраивает психологическое напряжение через телесность и детали, которые Анна фиксирует, пока её реальность расползается: осадок в кофе, зацепившийся кардиган, белая заплатка на воротах. Поворот с Мельником — триллерный мастер-класс: доктор, который должен спасти, оказывается сообщником, причём подтверждение приходит не диалогом, а через то, что он знает о чемодане, о котором она не говорила. Версия В избыточно объясняет (камера в вентиляции, датчики на дверях), превращая психологический кошмар в техническую загадку; финал с фотографией из прошлого — штамп петлёй времени, который разрушает накопленное напряжение реальностью, а не её искажением. В А зловещий остаток — Олег складывает её запись в карман, и это сильнее любого диалога."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия А выстраивает параанойянное напряжение через детали и пространство: Анна документирует саму себя, время, движение — это органичная психология выживания. Концовка с фотографией апрельской даты создаёт холодный удар, разрушающий линейное время. Версия Б перегружена прецедентными событиями (микроавтобус, клиника, Мельник-соучастник), превращая триллер в бытовой детектив; финал с вырванной страницей предсказуем и мелодраматичен. Голос А — наблюдательность, голос Б — тревожное объяснение. У А нет диалога-катарсиса, зато есть тишина материала, которая говорит громче."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A плотнее по сценарию, точнее по деталям и саспенсу, ведёт к жёсткому кольцевому финалу. Версия B размывает напряжение длиннотами, уходит в объяснительность и теряет жанровую динамику."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A плотнее, точнее и острее: конкретные детали работают на саспенс и подтекст, а проза свободна от ИИ-клише и штампов. Концовка с выброшенным телефоном, вырванной страницей и перекрытым обзором куда сильнее и тревожнее, чем финал B с подходом полиции и нарочитой сентиментальной нотой. Голос героини в A более живой и психологически достоверный, а напряжение наращивается через поступки, а не через объяснения."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "words_old": 2700,
+    "words_new": 2598,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия А строит напряжение через физику действия и систему вещественных деталей (нитка в кармане, датчик на воротах, порванная куртка), которые работают как триггеры памяти и тревоги одновременно. Откровение приходит через последовательное накопление улик, а не озарение — Анна проверяет, фотографирует, сравнивает даты, что создаёт интеллектуальную вовлечённость читателя. Финал с прибытием Мельника и закрытием воротов двойных агентов превращает сцену в капкан, где каждый предыдущий ход (сигнализация, запись на телефоне, конверт) получает последствие. Версия Б теряет напряжение на диалогах-объяснениях и даёт Анне слишком много опор внешнего мира (свидетельница, открытые ворота), размывая клаустрофобию и принуждение. Плюс логическая слабость: Мельник знает адрес без номера гаража, но приезжает точно вовремя, а видео-запись в А несёт эмоциональный удар собственным голосом героини, тогда как в Б это просто информационный триггер."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает напряжение через физическую конкретику и откладываемое раскрытие: читатель вместе с Анной собирает пазл из таблиц, пакетов с датами, видео с прошлого 'я'. Финал с Мельником — клинический, он не кричит, он работает методично, что страшнее. Версия B теряет силу в финале: конфликт становится физическим штурмом, диалоги утрируются ('Уберите ногу'), а доктор и Олег сливаются в функцию 'злодеи'. В A подтекст сохраняется до последнего кадра — запись 'Сегодня' под диктовку мужа и доктора."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A острее и психологически точнее: подлинное напряжение строится через детали и двусмысленность, а не через прямое насилие, и Анна действует как живой человек, а не носитель улик. Концовка бьёт сильнее — лист с фразой «Больше не говорить» под ногой Олега и снятый с кольца ключ завершают сцену символически, без лишней суеты. Версия B теряет в подтексте и перегружает действие громкой борьбой, снижая достоверность и триллерный саспенс."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A плотнее, точнее и психологичнее: каждая деталь работает на напряжение и подтекст, концовка с принудительным письмом неожиданна и мучительна. Версия B содержит заметные логические и речевые шероховатости, такие как внутренние монологи, наигранные детали и клишированные формулировки. Однако победа не разгромная: в B есть отдельные сильные бытовые детали, но A выдерживает жанр и сцену ровнее."
+     }
+    ]
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 2,
+    "words_old": 2715,
+    "words_new": 2533,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A строит пространство из деталей с тактильной достоверностью (содранная полоска кожи, ключ в замке без внутренней ручки), создавая клаустрофобию через физику, а не декларацию. Подтекст вырастает из противоречий памяти и документов, кульминация — внешний контроль, который Анна пытается обмануть умнее, чем ей позволяют. Версия B разрушает напряжение предсказуемым обнаружением камеры и прибегает к штампу 'муж-манипулятор против жены, не верящей себе'; финал с подготовленными подписями и датами превращает психологический триллер в процедурный детектив без внутренней загадки."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает более ощутимое психологическое давление через детали, которые становятся угрожающими только в ретроспективе (чай, серьга, упаковочная бумага), и держит Анну как активную расшифровщицу собственной жизни, а не только собирателя улик. Финал с датами, выцарапанными под столом, даёт осязаемый язык сопротивления, тогда как у B развязка на болтах вентиляционной решётки ощущается механически. У A также точнее работает дыхание подтекста: молчание Олега при виде кирпича, кровь, которую он стирает плечом, — без объяснений становится понятно, кем он себя считает в этой истории."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A держит напряжение через точные детали, внутренний голос героини и постепенную расплату с реальностью, избегая объяснительных повторов. Концовка выстроена на подтексте и физическом действии, а не на прямой драке, что больше соответствует психологическому триллеру."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A держит единый психологический нерв и достоверность: каждая деталь работает на тему газлайтинга без перегрузки, вскрытие находок идёт по нарастающей и приводит к сильной, тревожной концовке. В версии B много механических повторов, натяжек и пояснений, сцена перенасыщена предметами и действиями, из-за чего напряжение рассыпается, а действия Анны временами выглядят неправдоподобно. Голос A точнее и сдержаннее, без растолковывания эмоций и без ставки на количество улик вместо качества саспенса."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "words_old": 2626,
+    "words_new": 2570,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A выстроена через конкретные предметы (гвоздь, лошадка, обруч) как якоря смысла и движения сцены. Подтекст развивается через действия, а не объяснения. Версия B теряет напряжение в диалоговых абзацах, где персонажи рассуждают о механике проклятия вместо того, чтобы её демонстрировать. Финал A с отказом от собственного голоса решён телеснее и жёстче; финал B размывается сантиментальностью обмена кольцом и прощальными репликами."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает убедительный археологический подтекст через физические детали (ложка с отломанным черенком, медное кольцо, ведро с резьбой), превращая реквизит в носителей памяти. Конфликт развивается через молчаливые переговоры, где каждый жест Кайры — одновременно защита и подготовка к жертве. Финал с обменом голосом превращён в эротику боли: кровь, язык, привкус шерсти создают тактильный максимализм без пояснений. Версия B теряется в механике — железный обруч, дощечка с мелом, лошадка Рута работают как функциональные триггеры, но не накапливают эмоциональный осадок. Голоса в B звучат как информационный шум, в A — как вторжение, требующее телесной платы."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A точнее в деталях и подтексте: ритуал, торг с капитаном и финал с кольцом и воском работают на тему цены и памяти, а проза плотнее и меньше полагается на экспозицию. Версия B стремится к тому же, но чаще объясняет читателю мотивы и перегружает сцену, из-за чего теряется тихий ужас и остаётся больше жанровой атрибутики."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A выстроена плотнее и страшнее: выбор Кайры не в том, чтобы кого-то спасти, а в том, чтобы принять чужое зло ценой собственного голоса. Проза здесь точнее физически, диалоги работают на подтекст, а концовка с костяной лошадкой, повёрнутой к воротам, даёт сцене настоящее завершение. Версия B перегружена предысториями и быстрыми поворотами, из-за чего напряжение размазывается, а финал не собирает ставки в единый узел."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "words_old": 2576,
+    "words_new": 2801,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A выстраивает пространство тюрьмы с телесной точностью: песок под языком, костяная игла, шкура перчатки вонзившаяся в пальцы. Конфликт движется через детали, не через объяснения — Кайра изучает Брама тактильно, как выжившая, а не как детектив. Версия B разрушает напряжение преждевременной экспозицией: существо сразу объясняет правила игры ('пусть другой назовётся'), лишая сцену подводного тягучего ужаса. Финал A — неизбежный обмен телами, где оба персонажа активны; финал B — пассивное принятие лекарской операции, лишённое выбора."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия А превосходит в живости прозы (лоскутные детали — ложка, известь, сломанный ноготь), точной драматургии напряжения (пошаговая эскалация к финалу) и страшной логике мифологии, где голоса работают по жёстким правилам. Версия Б размывает угрозу: переход голоса — волюнтаристическая сделка, сущность легко обманывает, ликвидация требует операции, а не жертвы; финал с исцелением Брама разряжает stakes. Концовка А — инвалидизация рассказчицы, сохраняющая тревогу — верна жанру; у Б риторический вопрос «кого отдашь первым» остаётся нерешённым, а сцена мучений превращается в функциональный обмен информацией."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A точнее в деталях и живее в ритме: песок вместо слюны, игла, игра с монетами — всё работает на жуткую органику мира. Голос и подтекст яснее, концовка сильнее — Кайра теряет память в обмен на знание, и сцена с медяками замыкает эмоциональную дугу. Версия B энергична, но перегружена экшеном и теряет атмосферу, а её диалоги и ходы ближе к боевику, чем к тёмному фэнтези."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "сильно",
+      "reason": "Версия A точнее в деталях, мрачнее по атмосфере и сильнее в подтексте — голос, телесность, ритуал сожжения работают на жанр и напряжение. Финал ощущается неизбежным и страшным, тогда как B разжижает сцену объяснениями и теряет ритм."
+     }
+    ]
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 2,
+    "words_old": 2843,
+    "words_new": 2557,
+    "votes": [
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "заметно",
+      "reason": "Версия A строит напряжение через физические детали и нарастающую опасность без излишних объяснений, сохраняя загадочность механизма одержимости. Концовка с добровольной потерей голоса Кайрой — более сильный женский выбор, чем вынужденная передача духу в B. Версия B расточительна с мотивациями Ольста и механикой 'перехода', превращая ужас в инструкцию; финал с подарком бумажкой снижает ставки до детской иллюстрации."
+     },
+     {
+      "judge": "moonshotai/kimi-k2.5",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A строит пространство через конкретные предметы-символы (зелёный ноготь, черепок, упаковочная бумага), мотивации раскрываются через действие, а финал оставляет героя в активной позиции выбора. Версия B тяжелее: логика передачи голоса запутанней, сцена с удалением языка размывает фокус с Брама, кульминация теряется в медицинских деталях, а эмоциональный пик — принятие Кайрой безмолвия — дан готовым, не заработанным."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "new/old",
+      "winner": "new",
+      "margin": "заметно",
+      "reason": "Версия A точнее в деталях, у неё плотнее подтекст и сильнее концовка — свист девочки и шаг Ольста к засову дают реальное напряжение. Диалоги и голос живее, меньше объяснений и швов, чем в B, где текст провисает на прямой информации."
+     },
+     {
+      "judge": "deepseek/deepseek-v4-pro-0813",
+      "order": "old/new",
+      "winner": "old",
+      "margin": "сильно",
+      "reason": "Версия A плотнее и точнее в деталях: порезы, жесты, запахи, звяканье цепей создают живое физическое напряжение без лишней экспликации. Голоса выверены, подтекст работает через действия, а концовка с дощечкой «Без соли» сильнее и суше, чем мелодраматичная записка в версии B. Версия B перегружена лором, повторами и объяснениями, из-за чего сцена провисает и звучит как ИИ-черновик с клише тёмного фэнтези."
+     }
+    ]
+   }
+  ],
+  "score": {
+   "new": 24,
+   "old": 24,
+   "tie": 0,
+   "?": 0
+  },
+  "order_stable": "0/24",
+  "first_position_wins": 48
+ },
+ "rate_nano_gpt": {
+  "date": "2026-10-16",
+  "old": "b0e1da0",
+  "new": "b0e1da0",
+  "model": "chatgpt_subscription::gpt-6.1-sol@medium",
+  "judges": [
+   "nano_gpt::moonshotai/kimi-k2.5",
+   "nano_gpt::deepseek/deepseek-v4-pro-0813"
+  ],
+  "repeats": 2,
+  "summary": {
+   "old": {
+    "total": 7.74,
+    "prose": 7.71,
+    "voice": 7.29,
+    "rhythm": 7.56,
+    "scene": 8.31,
+    "genre": 8.35,
+    "clean": 7.19
+   },
+   "new": {
+    "total": 7.75,
+    "prose": 7.79,
+    "voice": 7.35,
+    "rhythm": 7.54,
+    "scene": 8.23,
+    "genre": 8.27,
+    "clean": 7.29
+   }
+  },
+  "by_judge": {
+   "moonshotai/kimi-k2.5": {
+    "old": 7.69,
+    "new": 7.69
+   },
+   "deepseek/deepseek-v4-pro-0813": {
+    "old": 7.78,
+    "new": 7.8
+   }
+  },
+  "pair_diffs": [
+   {
+    "genre": "detective_classic",
+    "run": 0,
+    "diff": 0.63
+   },
+   {
+    "genre": "detective_classic",
+    "run": 1,
+    "diff": -0.17
+   },
+   {
+    "genre": "detective_classic",
+    "run": 2,
+    "diff": -0.12
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 0,
+    "diff": -0.46
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 1,
+    "diff": 0.42
+   },
+   {
+    "genre": "fantasy_dark",
+    "run": 2,
+    "diff": 0.04
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 0,
+    "diff": -0.04
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 1,
+    "diff": 0.0
+   },
+   {
+    "genre": "thriller_psychological",
+    "run": 2,
+    "diff": -0.04
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 0,
+    "diff": 0.54
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 1,
+    "diff": -0.33
+   },
+   {
+    "genre": "realism_psychological",
+    "run": 2,
+    "diff": -0.33
+   }
+  ],
+  "repeat_noise": 0.4,
+  "failed": 0,
+  "ratings": [
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.33,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 9.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.33,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 9.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 9.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.33,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 7.0,
+     "clean": 8.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 7.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 9.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 7.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 6.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 6.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 9.0,
+     "voice": 8.0,
+     "rhythm": 9.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 7.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 6.0,
+     "voice": 6.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 6.0,
+     "scene": 7.0,
+     "genre": 7.0,
+     "clean": 6.0
+    },
+    "total": 6.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 9.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 7.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 9.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 7.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 6.0,
+     "scene": 7.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 7.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 9.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 8.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 8.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 6.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 9.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 7.0,
+     "clean": 7.0
+    },
+    "total": 7.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 7.33,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 9.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 8.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 9.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 6.0,
+     "scene": 7.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 6.83,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 6.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 6.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.33,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 9.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 6.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 7.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 6.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 9.0,
+     "voice": 8.0,
+     "rhythm": 9.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 9.0
+    },
+    "total": 8.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 8.0
+    },
+    "total": 8.33,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 7.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 2,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "detective_classic",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 9.0
+    },
+    "total": 8.0,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 9.0,
+     "clean": 7.0
+    },
+    "total": 8.17,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "detective_classic",
+    "run": 2,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 1,
+    "scores": {
+     "prose": 8.0,
+     "voice": 8.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.67,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 1,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 7.0,
+     "clean": 6.0
+    },
+    "total": 7.17,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "fantasy_dark",
+    "run": 1,
+    "voice": null,
+    "judge": "moonshotai/kimi-k2.5",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 7.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 6.0
+    },
+    "total": 7.17,
+    "raw": null
+   },
+   {
+    "side": "new",
+    "genre": "realism_psychological",
+    "run": 0,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 7.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 8.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.5,
+    "raw": null
+   },
+   {
+    "side": "old",
+    "genre": "thriller_psychological",
+    "run": 1,
+    "voice": null,
+    "judge": "deepseek/deepseek-v4-pro-0813",
+    "repeat": 0,
+    "scores": {
+     "prose": 8.0,
+     "voice": 7.0,
+     "rhythm": 8.0,
+     "scene": 9.0,
+     "genre": 8.0,
+     "clean": 7.0
+    },
+    "total": 7.83,
+    "raw": null
+   }
+  ]
+ }
+}

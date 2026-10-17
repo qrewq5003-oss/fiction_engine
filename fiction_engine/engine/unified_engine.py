@@ -290,10 +290,12 @@ def build_engine_context(
                                            style_key, secondary_key, chapter_tone)
     _note_missing_sections(fixed_sections, genre_key, mode,
                            style_key, secondary_key, chapter_tone)
+    # Модули ремесла — не всем писателям (pipeline_config.CRAFT_MODULES_OFF)
+    from .pipeline_config import craft_modules_on
     module_sections = _build_module_sections(
         mode, genre_key, pre_selected_modules, task_text, api_call_fn, secondary_key,
         chapter_tone
-    )
+    ) if craft_modules_on(model_value) else []
 
     # Шум вычищается до расчёта бюджета: правила чужих жанров и заголовки,
     # под которыми после выброса код-блоков ничего не осталось
