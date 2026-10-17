@@ -320,13 +320,14 @@ def plan_text(scenes: list, chapter_num: int) -> str:
     собиралось в браузере по-своему (с заметками сцены), а в FE уходил
     другой текст. Заметки сцены — черновик автора, в план не идут.
     """
+    from engine.timeline import scene_when
     lines = [f"ПЛАН ГЛАВЫ {chapter_num}\n"]
     for i, s in enumerate(scenes, 1):
         lines.append(f"СЦЕНА {i}: {s['title'] or 'Без названия'}")
         if s["location"]:
-            lines.append(f"  Локация: {s['location']}" + (f" / {s['time_of_day']}" if s["time_of_day"] else ""))
-        elif s["time_of_day"]:
-            lines.append(f"  Время: {s['time_of_day']}")
+            lines.append(f"  Локация: {s['location']}")
+        if scene_when(s):
+            lines.append(f"  Когда: {scene_when(s)}")
         if s["characters"]:  lines.append(f"  Персонажи: {s['characters']}")
         if s["what_happens"]:lines.append(f"  Что происходит: {s['what_happens']}")
         if s["emotion"]:     lines.append(f"  Эмоция: {s['emotion']}")
@@ -380,12 +381,15 @@ def export_send():
     from engine.db import get_project
     fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
     if fe_pid:
+        from engine.timeline import scene_when
         facts = []
         for i, s in enumerate(scenes, 1):
             ev = f"глава {chapter_num}, сцена {i}: {s['title'] or 'без названия'}"
-            for attr, key in (("место", "location"), ("время", "time_of_day"), ("кто", "characters")):
-                if s[key]:
-                    facts.append({"kind": "событие", "name": ev, "attr": attr, "value": s[key]})
+            # «время» — день и время суток вместе: библия FE сверяет день
+            # события с главой, а не только «утро»
+            for attr, val in (("место", s["location"]), ("время", scene_when(s)), ("кто", s["characters"])):
+                if val:
+                    facts.append({"kind": "событие", "name": ev, "attr": attr, "value": val})
         import requests as req
         try:
             resp = req.post(f"{_fe_base_url()}/api/chapter_plan/{chapter_num}/save",

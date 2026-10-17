@@ -98,8 +98,15 @@ MIGRATIONS = {
         # выбор сцен главы в экспорте, сверка главы с планом
         "ALTER TABLE scenes ADD COLUMN chapter_num INTEGER",
     ],
+    6: [
+        # День сцены — свободный текст («пятница, 24 октября», «на следующий
+        # день»). Время суток — выпадающий список, и проверке времени
+        # (engine/timeline) не из чего было взять день: она работала вхолостую,
+        # а в книге-прогоне 17.10 дни уезжали на сутки-двое вперёд от плана
+        "ALTER TABLE scenes ADD COLUMN day TEXT DEFAULT ''",
+    ],
     # Следующие миграции добавлять здесь:
-    # 6: [ "ALTER TABLE scenes ADD COLUMN ..." ],
+    # 7: [ "ALTER TABLE scenes ADD COLUMN ..." ],
 }
 
 
