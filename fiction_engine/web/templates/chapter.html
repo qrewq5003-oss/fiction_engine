@@ -49,7 +49,7 @@ function _editButtons(editing) {
 function startEdit() {
   const el = document.getElementById('chapter-text');
   _chapterOriginal = el.innerText;
-  el.contentEditable = 'plaintext-only';
+  makeEditable(el);
   el.style.border = '1px dashed var(--accent)'; el.style.padding = '8px';
   el.focus();
   _editButtons(true);

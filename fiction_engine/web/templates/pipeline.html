@@ -214,6 +214,9 @@
       <div class="card-title">
         📄 Текст главы
         <button class="btn btn-secondary btn-sm" style="margin-left:auto;"
+                onclick="focusEdit(document.getElementById('result-text'))"
+                title="Править текст прямо здесь; «Принять» сохранит главу с правками">✏️ Править</button>
+        <button class="btn btn-secondary btn-sm"
                 onclick="copyToClipboard(document.getElementById('result-text').textContent)">
           📋 Копировать
         </button>
@@ -234,7 +237,7 @@
       <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">
         ✏️ Текст можно править прямо здесь — «Принять» сохранит главу с правками.
       </div>
-      <div id="result-text" contenteditable="plaintext-only" spellcheck="true"
+      <div id="result-text" contenteditable="true" spellcheck="true"
            oninput="state.currentText = this.innerText"
            style="white-space:pre-wrap;font-family:'Georgia',serif;font-size:14px;
                   line-height:1.8;max-height:500px;overflow-y:auto;outline:none;
@@ -990,6 +993,7 @@ async function deleteHistory() {
 })();
 
 initModelSelects();
+makeEditable(document.getElementById('result-text'));
 
 // Переключатель «Критик и судья» включён при каждом открытии: выключенный
 // по запомненному выбору, он оставлял главы без судьи незаметно для автора
