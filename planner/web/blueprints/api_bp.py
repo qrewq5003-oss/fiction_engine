@@ -332,7 +332,18 @@ def plan_text(scenes: list, chapter_num: int) -> str:
         if s["what_happens"]:lines.append(f"  Что происходит: {s['what_happens']}")
         if s["emotion"]:     lines.append(f"  Эмоция: {s['emotion']}")
         lines.append("")
+    # «Пока не раскрывать» — одним блоком после сцен: запрет на всю главу,
+    # писатель его видит, разгадку — нет. Сверка с планом этот блок пунктом
+    # не считает (engine/plan_check: HOLD_HEADER)
+    holds = [(s.get("hold") or "").strip() for s in scenes]
+    holds = [h for h in dict.fromkeys(holds) if h]
+    if holds:
+        lines.append(HOLD_HEADER)
+        lines += [f"- {h}" for h in holds]
     return "\n".join(lines).strip() + "\n"
+
+
+HOLD_HEADER = "ПОКА НЕ РАСКРЫВАТЬ (в этой главе читатель этого ещё не узнаёт — ни прямо, ни уликой, которая указывает однозначно):"
 
 
 def _chapter_num(data: dict) -> int:

@@ -91,6 +91,10 @@ def test_complementary_descriptions_are_not_a_conflict(project_id):
 def test_real_conflicts_stay():
     from engine.series_bible import complements
     assert not complements("третий этаж", "пятый этаж")
+    assert not complements("этаж 3", "этаж 5, окна во двор")
+    assert not complements("без двадцати два (1:40)", "двадцать минут второго, 1:20")
+    # Те же числа, подробнее — уточнение (книга на Sonnet 18.10)
+    assert complements("1:40, кварцевые", "без двадцати два (1:40), стекло с поцарапанным уголком, левое запястье")
     assert not complements("белая башня, 84 ступени до галереи", "кирпичная башня, 60 ступеней до галереи")
     assert not complements("красный шарф с длинной бахромой и кистями", "синий шарф с длинной бахромой и кистями")
     assert complements("держится на одной петле, задевает землю",
