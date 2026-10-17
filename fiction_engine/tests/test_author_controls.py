@@ -215,3 +215,46 @@ def test_writer_only_run_has_no_review_then_review_on_demand(project_id, client,
 def test_preview_shows_writer_prompt(project_id, client):
     r = client.post("/pipeline/preview", json={"chapter_num": 1, "task": "ЗАДАЧА: Лукаш в подвале."}).get_json()
     assert r["ok"] and "Лукаш в подвале" in r["prompt"] and r["chars"] > len(r["prompt"])
+
+
+def test_accept_runs_after_save_hooks_and_drops_draft_updates(project_id, client, monkeypatch):
+    """«Принять» в Мастерской: L3 и прочие шаги после сохранения; черновые анализы — прочь."""
+    import time
+    from unittest.mock import patch
+    from engine.db import save_state_update
+    from engine.db_core import get_conn
+    from engine.db_narrative import create_pipeline_run
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    run = create_pipeline_run(project_id, 1, "nano_gpt::w/w", "nano_gpt::c/c", "nano_gpt::w/w", "nano_gpt::j/j")
+    draft = save_state_update(project_id, 1, '{"global_state_changes": []}')     # анализ черновика
+    calls = []
+
+    def fake_analyze(pid, ch, model):
+        return {"update_id": save_state_update(pid, ch, '{"global_state_changes": []}')}
+
+    def fake_after(pid, ch, text, model):
+        calls.append((pid, ch, len(text)))
+        return {}
+    with patch("engine.state.analyze_chapter", side_effect=fake_analyze), \
+         patch("web.blueprints.helpers.after_chapter_saved", side_effect=fake_after):
+        r = client.post("/pipeline/accept", json={"run_id": run, "chapter_num": 1,
+                                                   "final_text": "Принятый текст. " * 50,
+                                                   "model_value": "nano_gpt::w/w"}).get_json()
+        assert r["ok"] and r["state_job"]
+        for _ in range(100):
+            if calls:
+                break
+            time.sleep(0.05)
+    assert calls == [(project_id, 1, len("Принятый текст. " * 50))]
+    with get_conn() as conn:
+        pending = conn.execute("SELECT id FROM state_updates WHERE project_id=? AND applied=0",
+                               (project_id,)).fetchall()
+    assert draft not in [p[0] for p in pending] and not pending
+
+
+def test_auto_director_note_keeps_planner_plan(project_id):
+    from engine.db import get_director_note, save_director_note
+    from engine.director_note import generate_director_note
+    save_director_note(project_id, 1, "ПЛАН ГЛАВЫ 2 из планировщика")
+    out = generate_director_note(project_id, 1, "Текст главы. " * 100, {}, lambda p: "Новая заметка модели.")
+    assert out is None and get_director_note(project_id, 2) == "ПЛАН ГЛАВЫ 2 из планировщика"
