@@ -189,6 +189,7 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `ANTHROPIC_API_KEY` | Ключ Anthropic, если не хранить в базе | — |
 | `FE_CLAUDE_SUBSCRIPTION` | `1` — модели Claude через подписку Claude Code (`claude` CLI, `claude login`); см. ниже | выключено |
 | `FE_CHATGPT_SUBSCRIPTION` | `1` — модели GPT через подписку ChatGPT (`codex` CLI, `codex login`); см. ниже | выключено |
+| `FE_EXCERPTS` | `1` — отрывки прошлых глав в промпт писателя без флажка в настройках (для замеров, `engine/excerpts.py`) | выключено |
 | `OPENAI_API_KEY` | Ключ OpenAI | — |
 | `GEMINI_API_KEY` | Ключ Google Gemini | — |
 | `DEEPSEEK_API_KEY` | Ключ DeepSeek | — |

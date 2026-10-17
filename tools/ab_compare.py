@@ -246,6 +246,10 @@ def _ablate(without: list[str] | None) -> None:
         if name == "engine":
             import engine.pipeline_context as pc
             pc.build_engine_context = lambda *a, **k: ""
+        elif name == "excerpts":
+            # Отрывки прошлых глав (engine/excerpts) — шаг 3 ENGINE_BOOST
+            import engine.excerpts as ex
+            ex.excerpts_block = lambda *a, **k: ""
         elif name == "bible":
             # Библия серии пишется, но генератору не идёт — меряется блок «пиши ровно так»
             import engine.series_bible as sb

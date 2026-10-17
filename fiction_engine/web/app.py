@@ -314,6 +314,16 @@ def resolver_model_set():
     return jsonify({"ok": True})
 
 
+@app.route("/api/settings/excerpts", methods=["GET", "POST"])
+def excerpts_setting_api():
+    """Отрывки прошлых глав в промпт писателя (engine/excerpts); по умолчанию выключено."""
+    from engine.db import set_setting
+    from engine.excerpts import EXCERPTS_SETTING, excerpts_enabled
+    if request.method == "POST":
+        set_setting(EXCERPTS_SETTING, "1" if (request.json or {}).get("enabled") else "0")
+    return jsonify({"ok": True, "enabled": excerpts_enabled()})
+
+
 @app.route("/api/l3/model", methods=["GET", "POST"])
 def l3_model_api():
     """Модель L3-саммари (память серии); «» — модель анализа задачи."""

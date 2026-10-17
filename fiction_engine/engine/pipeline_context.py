@@ -316,6 +316,20 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         except Exception as e:
             handle_error("build_context series_bible", e, level=ErrorLevel.RECOVERABLE)
 
+    # Отрывки прошлых глав: сами абзацы, где были люди, вещи и места из задачи
+    # и плана главы (engine/excerpts, шаг 3 docs/ENGINE_BOOST.md)
+    excerpts_ctx = ""
+    from . import excerpts
+    if chapter_num > 1 and excerpts.excerpts_enabled():
+        try:
+            from .db import get_director_note
+            focus = f"{task_text}\n{base_prompt[-3000:]}\n{get_director_note(project_id, chapter_num) or ''}"
+            e_block = excerpts.excerpts_block(project_id, chapter_num, focus)
+            if e_block:
+                excerpts_ctx = f"\n{e_block}\n"
+        except Exception as e:
+            handle_error("build_context excerpts", e, level=ErrorLevel.RECOVERABLE)
+
     # State — только если не задан явно в промпте
     state_markers = [
         "ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ", "СОСТОЯНИЕ МИРА",
@@ -377,7 +391,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
 {kb_block}
 {l3_block}
 {prep_block}
-{monotony_block}{names_block}{bible_ctx}{prev_analysis_block}{engine_block}
+{monotony_block}{names_block}{bible_ctx}{excerpts_ctx}{prev_analysis_block}{engine_block}
 {symbols_block}{state_block}"""
 
     # ── Debug: сохранить промпт в файл для верификации ────────────────────────

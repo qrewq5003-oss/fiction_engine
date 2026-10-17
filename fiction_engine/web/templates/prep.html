@@ -102,7 +102,7 @@ async function checkPrepSize() {
   document.getElementById('prep-total-size').textContent = r.message;
   if (r.warning) {
     document.getElementById('prep-size-warning').textContent =
-      '⚠ Подготовка большая. При генерации часть может не войти в контекстное окно модели. Сократи или используй модель с большим контекстом (Claude, Gemini 1.5 Pro).';
+      '⚠ Подготовка большая: она уходит писателю в каждой главе целиком — это дорого и рассеивает внимание модели. Перенеси давно прошедшее в «Заметки автора» (они моделям не уходят).';
     document.getElementById('prep-size-warning').style.display = 'block';
   }
 }

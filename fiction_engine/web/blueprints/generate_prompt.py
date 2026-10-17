@@ -76,8 +76,12 @@ def prep_size():
         return jsonify({"chars": 0})
     from engine.db import get_prep_context
     chars = len(get_prep_context(current["id"]))
-    return jsonify({"chars": chars, "warning": chars > 8000,
-                    "message": f"{chars} символов" + (" — возможно превышение" if chars > 8000 else "")})
+    from engine.pipeline_config import PREP_WARN_CHARS
+    warn = chars > PREP_WARN_CHARS
+    return jsonify({"chars": chars, "warning": warn,
+                    "message": f"{chars} символов" + (
+                        f" — больше {PREP_WARN_CHARS // 1000} тыс.: уходит писателю в каждой главе "
+                        f"целиком, дорого и рассеивает внимание" if warn else "")})
 
 
 @bp.route("/edit")

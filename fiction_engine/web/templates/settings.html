@@ -279,6 +279,19 @@
   <div id="l3-model-hint" style="font-size:11px;color:var(--text2);margin-top:6px;"></div>
 </div>
 
+<!-- Отрывки прошлых глав -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">📖 Отрывки прошлых глав</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+    Писатель получает абзацы прошлых глав, где были люди, вещи и места из задачи и плана
+    главы, — как они были написаны (до ~6 тыс. символов). Держит детали точнее выжимки State.
+    Пока экспериментально: включается по итогам замера.
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">
+    <input type="checkbox" id="input-excerpts" style="width:auto;" onchange="saveExcerpts()"> Давать писателю отрывки прошлых глав
+  </label>
+</div>
+
 <!-- Проверка непрерывности после главы -->
 <div class="card" style="margin-top:20px;">
   <div class="card-title">🔎 Проверка непрерывности</div>
@@ -556,6 +569,18 @@ async function saveL3Model(value) {
 }
 
 loadL3Model();
+
+async function loadExcerpts() {
+  const r = await fetch('/api/settings/excerpts').then(x => x.json()).catch(() => ({}));
+  document.getElementById('input-excerpts').checked = !!r.enabled;
+}
+async function saveExcerpts() {
+  const enabled = document.getElementById('input-excerpts').checked;
+  const r = await apiPost('/api/settings/excerpts', {enabled});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showToast(enabled ? 'Отрывки включены' : 'Отрывки выключены', enabled ? 'success' : 'info');
+}
+loadExcerpts();
 
 // Модель проверки непрерывности
 function showContinuity(r) {

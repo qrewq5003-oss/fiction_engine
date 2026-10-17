@@ -295,7 +295,8 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     sys_prompt = _build_sys_generator(genre)
 
     prep_chars = len(get_prep_context(project_id))
-    warning    = f"Подготовка большая ({prep_chars} символов)." if prep_chars > 8000 else None
+    from .pipeline_config import PREP_WARN_CHARS
+    warning    = f"Подготовка большая ({prep_chars} символов)." if prep_chars > PREP_WARN_CHARS else None
 
     # Защита: если task содержит полный промпт (случайно вставили шаблон),
     # очищаем его — иначе промпт дублируется в контексте.
