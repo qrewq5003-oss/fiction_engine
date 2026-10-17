@@ -305,6 +305,8 @@ def project_context():
         log_web_error("project/context: не собрать активные обещания", e,
                       project_id=pid)
 
+    from engine.db import get_chapters
+    chapters = get_chapters(pid)
     return jsonify({
         "project": {
             "id":          pid,
@@ -312,6 +314,8 @@ def project_context():
             "genre":       current.get("genre", ""),
             "description": current.get("description", ""),
         },
+        # Номер последней написанной главы — планировщик предлагает план следующей
+        "last_chapter": max((c["number"] for c in chapters), default=0),
         "global_state": state.get("global_state", ""),
         "plot_matrix":  state.get("plot_matrix", ""),
         "active_promises": promises,

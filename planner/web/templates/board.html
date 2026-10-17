@@ -26,6 +26,8 @@
 .scene-card-emotion { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 10px; font-size: 10px; background: var(--surface2); }
 .scene-card-actions { position: absolute; top: 6px; right: 6px; display: none; gap: 4px; }
 .scene-card:hover .scene-card-actions { display: flex; }
+/* На телефоне наведения нет — правка и удаление видны всегда */
+@media (hover: none) { .scene-card-actions { display: flex; } }
 
 .unassigned-col { min-width: 200px; max-width: 220px; flex-shrink: 0; }
 </style>
@@ -102,7 +104,7 @@
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-secondary" onclick="addActRow()">+ Акт</button>
       <button class="btn btn-primary" style="flex:1;" onclick="saveActs()">Сохранить</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-acts')">Закрыть</button>
+      <button class="btn btn-secondary" onclick="closeActs()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -152,10 +154,10 @@ async function onDrop(e, actId) {
 }
 
 // ─── Add / Delete Scene ───────────────────────────────────────────────────────
-async function addScene(actId) {
-  const r = await apiPost('/api/scenes/new', { act_id: actId });
-  if (r.ok) location.href = '/scene/' + r.id;
-  else showToast(r.error || 'Ошибка', 'error');
+// Сцена появляется в базе при первом сохранении карточки, а не по клику:
+// брошенные пустые карточки оставались на доске «Без названия #N»
+function addScene(actId) {
+  location.href = '/scene/new' + (actId ? '?act=' + actId : '');
 }
 
 async function deleteScene(id) {
@@ -171,15 +173,35 @@ const ACTS = {{ acts | tojson }};
 function renderActsList() {
   const el = document.getElementById('acts-list');
   el.innerHTML = ACTS.map((a, i) => `
-    <div style="display:grid;grid-template-columns:40px 1fr 80px;gap:6px;margin-bottom:8px;align-items:center;"
+    <div style="display:grid;grid-template-columns:60px 1fr 70px 34px;gap:6px;margin-bottom:8px;align-items:center;"
          data-idx="${i}">
-      <input type="number" value="${a.number}" min="1" style="text-align:center;"
+      <input type="number" value="${a.number}" min="1" style="text-align:center;padding:7px 4px;"
              onchange="ACTS[${i}].number=parseInt(this.value)">
-      <input type="text" value="${a.title}"
+      <input type="text" value="${String(a.title).replace(/"/g, '&quot;')}"
              onchange="ACTS[${i}].title=this.value">
       <input type="color" value="${a.color}" style="height:34px;padding:2px;"
              onchange="ACTS[${i}].color=this.value">
+      <button class="btn btn-secondary btn-sm" title="Удалить акт" onclick="deleteAct(${i})">🗑</button>
     </div>`).join('');
+}
+
+// Удалить акт: сцены остаются, переходят в «Без акта»
+async function deleteAct(i) {
+  const a = ACTS[i];
+  if (a.id) {
+    if (!confirm(`Удалить акт «${a.title}»? Его сцены перейдут в «Без акта».`)) return;
+    const r = await apiPost('/api/acts/' + a.id + '/delete', {});
+    if (!r.ok) { showToast(r.error || 'Ошибка', 'error'); return; }
+    actsDeleted = true;
+  }
+  ACTS.splice(i, 1);
+  renderActsList();
+}
+
+let actsDeleted = false;
+function closeActs() {
+  closeModal('modal-acts');
+  if (actsDeleted) location.reload();     // доска показывала бы удалённый акт
 }
 
 function addActRow() {

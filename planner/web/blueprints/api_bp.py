@@ -67,8 +67,15 @@ def scene_new():
     if not pid: return jsonify({"error": "Нет проекта"}), 400
     data   = request.json or {}
     act_id = data.get("act_id")
-    from engine.db import create_scene
+    if act_id is not None and not owned_act(act_id):
+        return deny("Акт")
+    from engine.db import create_scene, update_scene
     sid = create_scene(pid, act_id)
+    # Карточка /scene/new сохраняется впервые — поля приходят сразу.
+    # Снапшот пустой карточки не нужен: откатываться к пустоте незачем
+    fields = {k: v for k, v in data.items() if k != "act_id"}
+    if fields:
+        update_scene(sid, fields, snapshot=False)
     return jsonify({"ok": True, "id": sid})
 
 
@@ -254,11 +261,47 @@ def timeline():
     return jsonify({"warnings": check(scenes)})
 
 
+def plan_text(scenes: list, chapter_num: int) -> str:
+    """
+    План главы из сцен. Один на превью и на отправку: раньше превью
+    собиралось в браузере по-своему (с заметками сцены), а в FE уходил
+    другой текст. Заметки сцены — черновик автора, в план не идут.
+    """
+    lines = [f"ПЛАН ГЛАВЫ {chapter_num}\n"]
+    for i, s in enumerate(scenes, 1):
+        lines.append(f"СЦЕНА {i}: {s['title'] or 'Без названия'}")
+        if s["location"]:
+            lines.append(f"  Локация: {s['location']}" + (f" / {s['time_of_day']}" if s["time_of_day"] else ""))
+        elif s["time_of_day"]:
+            lines.append(f"  Время: {s['time_of_day']}")
+        if s["characters"]:  lines.append(f"  Персонажи: {s['characters']}")
+        if s["what_happens"]:lines.append(f"  Что происходит: {s['what_happens']}")
+        if s["emotion"]:     lines.append(f"  Эмоция: {s['emotion']}")
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _chapter_num(data: dict) -> int:
+    try:
+        return max(1, int(data.get("chapter_num") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+@bp.route("/export/preview", methods=["POST"])
+def export_preview():
+    data   = request.json or {}
+    scenes = [sc for sc in (owned_scene(sid) for sid in data.get("scene_ids", [])) if sc]
+    if not scenes:
+        return jsonify({"error": "Выбери хотя бы одну сцену"}), 400
+    return jsonify({"ok": True, "prompt": plan_text(scenes, _chapter_num(data))})
+
+
 @bp.route("/export/send", methods=["POST"])
 def export_send():
     data       = request.json or {}
     scene_ids  = data.get("scene_ids", [])
-    chapter_num = data.get("chapter_num", 1)
+    chapter_num = _chapter_num(data)
 
     # Номера сцен приходят из запроса. Без фильтра по проекту содержимое
     # чужой сцены уходило в промт — и дальше в Fiction Engine
@@ -268,17 +311,9 @@ def export_send():
     if scene_ids and not scenes:
         return deny("Сцена")
 
-    # Строим промт
-    lines = [f"ПЛАН ГЛАВЫ {chapter_num}\n"]
-    for i, s in enumerate(scenes, 1):
-        lines.append(f"СЦЕНА {i}: {s['title'] or 'Без названия'}")
-        if s["location"]:    lines.append(f"  Локация: {s['location']} / {s['time_of_day']}")
-        if s["characters"]:  lines.append(f"  Персонажи: {s['characters']}")
-        if s["what_happens"]:lines.append(f"  Что происходит: {s['what_happens']}")
-        if s["emotion"]:     lines.append(f"  Эмоция: {s['emotion']}")
-        lines.append("")
-
-    prompt_text = "\n".join(lines)
+    # Текст плана автор мог поправить в окне перед отправкой — уходит его
+    # текст; факты сцен для библии всё равно берутся из карточек
+    prompt_text = ((data.get("text") or "").strip() or plan_text(scenes, chapter_num)).strip()
 
     # Проект связан с Fiction Engine (импорт) — план идёт в него вместе с
     # фактами сцен: место, время, кто — в библию серии до того, как глава

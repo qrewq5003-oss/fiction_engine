@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 
 bp = Blueprint("scene", __name__)
 
-from ..ownership import owned_scene, owned_snapshot, deny  # noqa: E402
+from ..ownership import owned_act, owned_scene, owned_snapshot, deny  # noqa: E402
 
 
 def current_project():
@@ -13,16 +13,35 @@ def current_project():
 
 @bp.route("/scene/<int:scene_id>")
 def scene_detail(scene_id):
-    if not owned_scene(scene_id):
-        return deny("Сцена")
-    from engine.db import get_scene, get_acts, get_snapshots
-    s = get_scene(scene_id)
+    # Страница, а не API: на удалённую или чужую сцену — страница «не
+    # найдена» со ссылкой на доску. Раньше автор видел голый JSON с
+    # \u-кодами вместо текста
+    s = owned_scene(scene_id)
     if not s:
-        return redirect(url_for("main.board"))
+        return render_template("not_found.html", what="Сцена"), 404
+    from engine.db import get_acts, get_snapshots
     p = current_project()
     acts      = get_acts(p["id"]) if p else []
     snapshots = get_snapshots(scene_id)
     return render_template("scene.html", scene=s, acts=acts, snapshots=snapshots)
+
+
+@bp.route("/scene/new")
+def scene_new_form():
+    """
+    Пустая карточка без записи в базе: сцена появляется при первом
+    сохранении. Раньше «+ сцена» сразу создавала запись, и каждая открытая
+    и брошенная карточка оставалась на доске «Без названия #N».
+    """
+    p = current_project()
+    if not p:
+        return redirect(url_for("main.projects"))
+    from engine.db import get_acts
+    act_id = request.args.get("act", type=int)
+    if act_id is not None and not owned_act(act_id):
+        act_id = None
+    return render_template("scene.html", scene={"id": None, "act_id": act_id},
+                           acts=get_acts(p["id"]), snapshots=[])
 
 
 @bp.route("/scene/<int:scene_id>/save", methods=["POST"])
