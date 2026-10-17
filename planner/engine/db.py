@@ -128,6 +128,19 @@ def set_fe_project(pid: int, fe_pid: int | None) -> None:
         conn.execute("UPDATE projects SET fe_project_id=? WHERE id=?", (fe_pid, pid))
 
 
+def set_chapter_scenes(pid: int, chapter_num: int, scene_ids: list[int]) -> None:
+    """
+    Сцены плана главы chapter_num. План главы в FE заменяется целиком, и
+    здесь так же: сцены, бывшие в прошлом плане этой главы, метку теряют.
+    Снапшот не пишется — это не правка карточки.
+    """
+    with get_conn() as conn:
+        conn.execute("UPDATE scenes SET chapter_num=NULL WHERE project_id=? AND chapter_num=?",
+                     (pid, chapter_num))
+        conn.executemany("UPDATE scenes SET chapter_num=? WHERE id=? AND project_id=?",
+                         [(chapter_num, sid, pid) for sid in scene_ids])
+
+
 def delete_project(pid: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM projects WHERE id=?", (pid,))

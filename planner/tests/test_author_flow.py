@@ -119,6 +119,28 @@ def test_preview_is_what_gets_sent(client, project_id, monkeypatch):
     assert sent["body"]["note"] == "ПЛАН ГЛАВЫ 2\nСЦЕНА 1: своя"
 
 
+def test_sent_plan_marks_scenes_with_chapter(client, project_id, monkeypatch):
+    """Отправленный план помнит главу; новый план той же главы заменяет прежний."""
+    import requests
+    from engine.db import get_scene, get_snapshots
+
+    class Resp:
+        ok = True
+        def json(self): return {}
+
+    monkeypatch.setattr(requests, "post", lambda *a, **k: Resp())
+    a, b = _scenes(project_id)
+    snaps = len(get_snapshots(a))
+    _session(client, project_id)
+    client.post("/api/export/send", json={"scene_ids": [a, b], "chapter_num": 2})
+    assert (get_scene(a)["chapter_num"], get_scene(b)["chapter_num"]) == (2, 2)
+    assert len(get_snapshots(a)) == snaps            # метка — не правка карточки
+    client.post("/api/export/send", json={"scene_ids": [b], "chapter_num": 2})
+    assert (get_scene(a)["chapter_num"], get_scene(b)["chapter_num"]) == (None, 2)
+    board = client.get("/board").get_data(as_text=True)
+    assert "гл.2</span> Коридор" in board
+
+
 def test_export_suggests_next_chapter(client, project_id, monkeypatch):
     import io
     from engine.db import set_fe_project

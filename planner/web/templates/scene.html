@@ -215,8 +215,10 @@ async function aiAction(action) {
   spin.style.display = 'block';
   result.style.display = 'none';
 
+  // scene_id — чтобы помощь видела соседние сцены на доске; книгу из FE она
+  // видит, если проект связан
   const r = await apiPost('/api/ai/assist', {
-    action, model, scene: getFormData()
+    action, model, scene_id: SCENE_ID, scene: getFormData()
   });
 
   spin.style.display = 'none';

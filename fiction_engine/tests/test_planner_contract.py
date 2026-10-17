@@ -135,6 +135,15 @@ class TestProjectContext:
         save_chapter(project, 3, "Текст.", "3")
         assert json.loads(client.get(f"/api/project/context?pid={project}").data)["last_chapter"] == 3
 
+    def test_story_so_far_only_written_chapters(self, client, project):
+        """L3 непринятой главы (осталась от прошлой попытки) — не история книги."""
+        from engine.db import save_chapter, save_l3_summary
+        save_chapter(project, 1, "Текст.", "1")
+        save_l3_summary(project, 1, {"events": "подвал обрушился", "raw_summary": "гл1"})
+        save_l3_summary(project, 2, {"events": "черновик больницы", "raw_summary": "гл2"})
+        story = json.loads(client.get(f"/api/project/context?pid={project}").data)["story_so_far"]
+        assert "подвал обрушился" in story and "черновик больницы" not in story
+
     def test_unknown_pid_is_404(self, client, project):
         assert client.get("/api/project/context?pid=99999").status_code == 404
 

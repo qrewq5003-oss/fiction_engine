@@ -16,8 +16,9 @@
         <div style="font-size:11px;font-weight:600;color:{{ a.color }};margin-bottom:4px;">{{ a.title }}</div>
         {% for s in scenes if s.act_id == a.id %}
         <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);margin-bottom:4px;">
-          <input type="checkbox" class="scene-check" value="{{ s.id }}" style="width:auto;">
+          <input type="checkbox" class="scene-check" value="{{ s.id }}" data-chapter="{{ s.chapter_num or '' }}" style="width:auto;">
           <span style="font-size:12px;">{{ s.title or 'Сцена #'+s.id|string }}</span>
+          {% if s.chapter_num %}<span style="font-size:10px;color:var(--accent2);">гл.{{ s.chapter_num }}</span>{% endif %}
           {% if s.characters %}<span style="font-size:10px;color:var(--text2);">{{ s.characters }}</span>{% endif %}
         </label>
         {% endfor %}
@@ -30,8 +31,9 @@
         <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Без акта</div>
         {% for s in loose %}
         <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);margin-bottom:4px;">
-          <input type="checkbox" class="scene-check" value="{{ s.id }}" style="width:auto;">
+          <input type="checkbox" class="scene-check" value="{{ s.id }}" data-chapter="{{ s.chapter_num or '' }}" style="width:auto;">
           <span style="font-size:12px;">{{ s.title or 'Сцена #'+s.id|string }}</span>
+          {% if s.chapter_num %}<span style="font-size:10px;color:var(--accent2);">гл.{{ s.chapter_num }}</span>{% endif %}
           {% if s.characters %}<span style="font-size:10px;color:var(--text2);">{{ s.characters }}</span>{% endif %}
         </label>
         {% endfor %}
@@ -67,6 +69,19 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// Сцены, уже отправленные в план этой главы, отмечаются сами — при открытии
+// и при смене номера главы. Ручной выбор автора при этом не теряется:
+// отметки ставятся, только пока автор ничего не трогал
+let touched = false;
+function selectChapterScenes() {
+  if (touched) return;
+  const ch = document.getElementById('chapter-num').value;
+  document.querySelectorAll('.scene-check').forEach(c => { c.checked = c.dataset.chapter === ch; });
+}
+document.querySelectorAll('.scene-check').forEach(c => c.addEventListener('change', () => { touched = true; }));
+document.getElementById('chapter-num').addEventListener('input', selectChapterScenes);
+selectChapterScenes();
+
 // План собирает сервер (api_bp.plan_text) — тот же текст, что уйдёт в FE
 async function generatePrompt() {
   const checked = [...document.querySelectorAll('.scene-check:checked')].map(c => parseInt(c.value));
