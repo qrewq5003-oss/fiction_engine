@@ -363,8 +363,26 @@ class _Changes:
         self.fields.append({"field": field_name, "before": before, "after": after})
 
 
+_TEMPLATE_CHAR = re.compile(r"^#{2,4}[ \t]*\[[^\]\n]*\][ \t]*\n((?:(?!#{2,4}[ \t]|---).*\n?)*)", re.M)
+
+
+def drop_template_characters(global_text: str) -> str:
+    """
+    Убрать из State шаблонного персонажа «### [Имя]» из пустого State нового
+    проекта, если у него не заполнено ни одно поле (только подсказки в
+    скобках). Он оставался рядом с настоящими персонажами и уходил писателю в
+    каждой главе (книга-прогон 17.10, все 12 глав).
+    """
+    def keep(m: re.Match) -> str:
+        values = [ln.split(":", 1)[1].strip() for ln in m.group(1).splitlines() if ":" in ln]
+        filled = [v for v in values if v and not (v.startswith("[") and v.endswith("]"))]
+        return m.group(0) if filled else ""
+    return re.sub(r"\n{3,}", "\n\n", _TEMPLATE_CHAR.sub(keep, global_text or ""))
+
+
 def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str:
     """Изменения персонажей: поля известных, ЗНАЕТ += «узнал», новые — запись целиком."""
+    global_text = drop_template_characters(global_text)
     for char in changes_list:
         name = (char.get("name") or "").strip()
         if not name:
