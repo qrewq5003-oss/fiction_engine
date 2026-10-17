@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Граф{% endblock %}
 {% block topbar %}
-<span style="color:var(--text2);font-size:12px;">Перетаскивай узлы. Кликни на сцену чтобы открыть.</span>
+<span style="color:var(--text2);font-size:12px;">Перетаскивай узлы. Двойной клик — открыть сцену. Связь: «Редактировать» → «Добавить ребро» и тяни от сцены к сцене.</span>
 <div style="margin-left:auto;">
   <select id="link-type-sel" style="width:auto;">
     <option value="cause">причина → следствие</option>
@@ -50,6 +50,7 @@ const edges = new vis.DataSet(LINKS.map(l => ({
 })));
 
 const net = new vis.Network(document.getElementById('map-canvas'), { nodes, edges }, {
+  locale: 'ru',                       // кнопки правки графа — по-русски, а не «Edit»
   physics: { solver: 'repulsion', repulsion: { nodeDistance: 180 } },
   interaction: { hover: true, multiselect: true },
   manipulation: {

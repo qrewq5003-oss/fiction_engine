@@ -93,8 +93,13 @@ MIGRATIONS = {
         # библия серии ходят в него, а не в тот, что открыт в FE сейчас
         "ALTER TABLE projects ADD COLUMN fe_project_id INTEGER",
     ],
+    5: [
+        # Глава, в план которой сцена ушла в Fiction Engine: метка на доске,
+        # выбор сцен главы в экспорте, сверка главы с планом
+        "ALTER TABLE scenes ADD COLUMN chapter_num INTEGER",
+    ],
     # Следующие миграции добавлять здесь:
-    # 5: [ "ALTER TABLE scenes ADD COLUMN ..." ],
+    # 6: [ "ALTER TABLE scenes ADD COLUMN ..." ],
 }
 
 

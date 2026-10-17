@@ -305,6 +305,18 @@ def project_context():
         log_web_error("project/context: не собрать активные обещания", e,
                       project_id=pid)
 
+    from engine.db import get_chapters
+    chapters = get_chapters(pid)
+    last = max((c["number"] for c in chapters), default=0)
+    # Что уже случилось — L3 последних написанных глав: AI-помощь
+    # планировщика предлагает сцены, не споря с книгой. Только до последней
+    # написанной главы: L3 непринятой главы — не история книги
+    try:
+        from engine.pipeline import get_story_so_far
+        story = get_story_so_far(pid, last)
+    except Exception as e:
+        log_web_error("project/context: L3", e, project_id=pid)
+        story = ""
     return jsonify({
         "project": {
             "id":          pid,
@@ -312,6 +324,9 @@ def project_context():
             "genre":       current.get("genre", ""),
             "description": current.get("description", ""),
         },
+        # Номер последней написанной главы — планировщик предлагает план следующей
+        "last_chapter": last,
+        "story_so_far": story,
         "global_state": state.get("global_state", ""),
         "plot_matrix":  state.get("plot_matrix", ""),
         "active_promises": promises,

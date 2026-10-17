@@ -23,9 +23,12 @@
 .scene-card.dragging { opacity: .4; }
 .scene-card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scene-card-meta { font-size: 11px; color: var(--text2); line-height: 1.4; }
+.scene-card-ch { font-size: 10px; font-weight: 600; color: var(--accent2); background: var(--surface2); border-radius: 4px; padding: 0 4px; }
 .scene-card-emotion { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 10px; font-size: 10px; background: var(--surface2); }
 .scene-card-actions { position: absolute; top: 6px; right: 6px; display: none; gap: 4px; }
 .scene-card:hover .scene-card-actions { display: flex; }
+/* На телефоне наведения нет — правка и удаление видны всегда */
+@media (hover: none) { .scene-card-actions { display: flex; } }
 
 .unassigned-col { min-width: 200px; max-width: 220px; flex-shrink: 0; }
 </style>
@@ -47,7 +50,7 @@
       <div class="scene-card" id="sc-{{ s.id }}" draggable="true"
            ondragstart="onDragStart(event, {{ s.id }})"
            ondragend="onDragEnd(event)">
-        <div class="scene-card-title">{{ s.title or 'Без названия #' ~ s.id }}</div>
+        <div class="scene-card-title">{% if s.chapter_num %}<span class="scene-card-ch" title="В плане главы {{ s.chapter_num }}, отправленном в Fiction Engine">гл.{{ s.chapter_num }}</span> {% endif %}{{ s.title or 'Без названия #' ~ s.id }}</div>
         {% if s.location %}<div class="scene-card-meta">📍 {{ s.location }}{% if s.time_of_day %} / {{ s.time_of_day }}{% endif %}</div>{% endif %}
         {% if s.characters %}<div class="scene-card-meta">👤 {{ s.characters }}</div>{% endif %}
         {% if s.what_happens %}<div class="scene-card-meta" style="margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ s.what_happens }}</div>{% endif %}
@@ -78,7 +81,7 @@
       <div class="scene-card" id="sc-{{ s.id }}" draggable="true"
            ondragstart="onDragStart(event, {{ s.id }})"
            ondragend="onDragEnd(event)">
-        <div class="scene-card-title">{{ s.title or 'Без названия #' ~ s.id }}</div>
+        <div class="scene-card-title">{% if s.chapter_num %}<span class="scene-card-ch" title="В плане главы {{ s.chapter_num }}, отправленном в Fiction Engine">гл.{{ s.chapter_num }}</span> {% endif %}{{ s.title or 'Без названия #' ~ s.id }}</div>
         {% if s.location %}<div class="scene-card-meta">📍 {{ s.location }}</div>{% endif %}
         {% if s.characters %}<div class="scene-card-meta">👤 {{ s.characters }}</div>{% endif %}
         {% if s.emotion %}<div class="scene-card-emotion">{{ s.emotion }}</div>{% endif %}
@@ -102,7 +105,7 @@
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-secondary" onclick="addActRow()">+ Акт</button>
       <button class="btn btn-primary" style="flex:1;" onclick="saveActs()">Сохранить</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-acts')">Закрыть</button>
+      <button class="btn btn-secondary" onclick="closeActs()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -152,10 +155,10 @@ async function onDrop(e, actId) {
 }
 
 // ─── Add / Delete Scene ───────────────────────────────────────────────────────
-async function addScene(actId) {
-  const r = await apiPost('/api/scenes/new', { act_id: actId });
-  if (r.ok) location.href = '/scene/' + r.id;
-  else showToast(r.error || 'Ошибка', 'error');
+// Сцена появляется в базе при первом сохранении карточки, а не по клику:
+// брошенные пустые карточки оставались на доске «Без названия #N»
+function addScene(actId) {
+  location.href = '/scene/new' + (actId ? '?act=' + actId : '');
 }
 
 async function deleteScene(id) {
@@ -171,15 +174,35 @@ const ACTS = {{ acts | tojson }};
 function renderActsList() {
   const el = document.getElementById('acts-list');
   el.innerHTML = ACTS.map((a, i) => `
-    <div style="display:grid;grid-template-columns:40px 1fr 80px;gap:6px;margin-bottom:8px;align-items:center;"
+    <div style="display:grid;grid-template-columns:60px 1fr 70px 34px;gap:6px;margin-bottom:8px;align-items:center;"
          data-idx="${i}">
-      <input type="number" value="${a.number}" min="1" style="text-align:center;"
+      <input type="number" value="${a.number}" min="1" style="text-align:center;padding:7px 4px;"
              onchange="ACTS[${i}].number=parseInt(this.value)">
-      <input type="text" value="${a.title}"
+      <input type="text" value="${String(a.title).replace(/"/g, '&quot;')}"
              onchange="ACTS[${i}].title=this.value">
       <input type="color" value="${a.color}" style="height:34px;padding:2px;"
              onchange="ACTS[${i}].color=this.value">
+      <button class="btn btn-secondary btn-sm" title="Удалить акт" onclick="deleteAct(${i})">🗑</button>
     </div>`).join('');
+}
+
+// Удалить акт: сцены остаются, переходят в «Без акта»
+async function deleteAct(i) {
+  const a = ACTS[i];
+  if (a.id) {
+    if (!confirm(`Удалить акт «${a.title}»? Его сцены перейдут в «Без акта».`)) return;
+    const r = await apiPost('/api/acts/' + a.id + '/delete', {});
+    if (!r.ok) { showToast(r.error || 'Ошибка', 'error'); return; }
+    actsDeleted = true;
+  }
+  ACTS.splice(i, 1);
+  renderActsList();
+}
+
+let actsDeleted = false;
+function closeActs() {
+  closeModal('modal-acts');
+  if (actsDeleted) location.reload();     // доска показывала бы удалённый акт
 }
 
 function addActRow() {

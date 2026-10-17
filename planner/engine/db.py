@@ -128,6 +128,19 @@ def set_fe_project(pid: int, fe_pid: int | None) -> None:
         conn.execute("UPDATE projects SET fe_project_id=? WHERE id=?", (fe_pid, pid))
 
 
+def set_chapter_scenes(pid: int, chapter_num: int, scene_ids: list[int]) -> None:
+    """
+    Сцены плана главы chapter_num. План главы в FE заменяется целиком, и
+    здесь так же: сцены, бывшие в прошлом плане этой главы, метку теряют.
+    Снапшот не пишется — это не правка карточки.
+    """
+    with get_conn() as conn:
+        conn.execute("UPDATE scenes SET chapter_num=NULL WHERE project_id=? AND chapter_num=?",
+                     (pid, chapter_num))
+        conn.executemany("UPDATE scenes SET chapter_num=? WHERE id=? AND project_id=?",
+                         [(chapter_num, sid, pid) for sid in scene_ids])
+
+
 def delete_project(pid: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM projects WHERE id=?", (pid,))
@@ -193,18 +206,20 @@ def create_scene(project_id: int, act_id: int | None = None) -> int:
         return cur.lastrowid
 
 
-def update_scene(scene_id: int, data: dict, reason: str = "изменена"):
+def update_scene(scene_id: int, data: dict, reason: str = "изменена", snapshot: bool = True):
     """Обновляет сцену и создаёт снапшот."""
     fields = ["title", "location", "time_of_day", "characters",
               "what_happens", "emotion", "notes", "act_id", "position"]
-    old = get_scene(scene_id)
-    if old:
-        _create_snapshot(scene_id, old, reason)
-
     sets = ", ".join(f"{f}=?" for f in fields if f in data)
     vals = [data[f] for f in fields if f in data]
     if not sets:
         return
+    old = get_scene(scene_id)
+    # Снапшот — только если что-то меняется. Автосохранение при уходе со
+    # страницы писало копию на каждый уход, и десять одинаковых копий
+    # вытесняли из истории настоящие версии
+    if snapshot and old and any(_norm(old.get(f)) != _norm(data[f]) for f in fields if f in data):
+        _create_snapshot(scene_id, old, reason)
     vals.append(scene_id)
     with get_conn() as conn:
         conn.execute(
@@ -267,6 +282,12 @@ def delete_link(link_id: int):
 # ─── Snapshots ───────────────────────────────────────────────────────────────
 
 import json
+
+
+def _norm(v) -> str:
+    """Значение поля для сравнения: None и «», 3 и «3» — одно и то же."""
+    return "" if v is None else str(v).strip()
+
 
 def _create_snapshot(scene_id: int, data: dict, reason: str):
     with get_conn() as conn:

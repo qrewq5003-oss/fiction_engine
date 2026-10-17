@@ -120,8 +120,42 @@ class TestCallsReachFe:
         req = next(r for r in fake_fe.received if r["path"].startswith("/api/project/context"))
         assert "pid=7" in req["path"], f"номер проекта не передан: {req['path']}"
 
+        # Импорт связывает проект; описание остаётся авторским — копия State
+        # в нём устаревала с первой же главы
         from engine.db import get_project
-        assert "найти убийцу" in get_project(project_id)["description"]
+        p = get_project(project_id)
+        assert p["fe_project_id"] == 7
+        assert p["description"] == "описание"
+
+    def test_import_drops_old_state_copy(self, client, project_id, fake_fe):
+        from engine.db import get_project, update_project
+        update_project(project_id, "Тестовый", "детектив", "СОСТОЯНИЕ МИРА:\nстарое")
+        fake_fe.responses["/api/project/context"] = (200, {"project": {"id": 7, "genre": "хоррор"}})
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        assert client.post("/api/fe/import/7").status_code == 200
+        assert get_project(project_id)["description"] == ""
+
+    def test_ai_assist_knows_book_and_neighbours(self, client, project_id, fake_fe):
+        from engine.db import create_scene, get_acts, set_fe_project, update_scene
+        act = get_acts(project_id)[0]["id"]
+        a, b, c = (create_scene(project_id, act) for _ in range(3))
+        update_scene(a, {"title": "Обвал", "what_happens": "подвал рушится"})
+        update_scene(c, {"title": "Больница"})
+        set_fe_project(project_id, 7)
+        fake_fe.responses["/api/project/context"] = (200, {
+            "last_chapter": 1, "story_so_far": "ПАМЯТЬ СЕРИИ: Томаш погиб",
+            "plot_matrix": "ГДЕ_СЕЙЧАС: больница", "global_state": "Лукаш ранен"})
+        fake_fe.responses["/api/inline_call"] = (200, {"ok": True, "result": "x"})
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        client.post("/api/ai/assist", json={"scene_id": b, "action": "next",
+                                            "model": "deepseek_direct::deepseek-chat",
+                                            "scene": {"title": "Скорая"}})
+        prompt = next(r for r in fake_fe.received if r["path"] == "/api/inline_call")["body"]["prompt"]
+        assert "Томаш погиб" in prompt and "ГДЕ_СЕЙЧАС" in prompt and "написано глав: 1" in prompt
+        assert "СЦЕНА ДО: Обвал — подвал рушится" in prompt and "СЦЕНА ПОСЛЕ: Больница" in prompt
+        assert prompt.index("=== ЭТА СЦЕНА ===") > prompt.index("=== КНИГА")
 
     def test_ai_assist_calls_inline(self, client, project_id, fake_fe):
         from engine.db import create_scene
@@ -173,7 +207,8 @@ class TestCallsCarryToken:
         client.post("/api/ai/assist", json={"scene_id": sid, "action": "develop",
                                             "model": "deepseek_direct::deepseek-chat"})
         client.post("/api/export/send", json={"scene_ids": [sid], "chapter_num": 4})
-        assert len(fake_fe.received) == 5
+        # Шесть: после импорта проект связан, и AI-помощь сперва берёт у FE книгу
+        assert len(fake_fe.received) == 6
         import hashlib
         want = hashlib.sha256("fiction-engine-api:пароль-fe".encode()).hexdigest()
         assert all(r["token"] == want for r in fake_fe.received), fake_fe.received

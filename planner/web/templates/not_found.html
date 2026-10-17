@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Не найдено{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <div style="font-size:14px;font-weight:600;margin-bottom:8px;">{{ what }} не найдена в текущем проекте</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Её удалили, или она из другого проекта.</div>
+  <a href="/board" class="btn btn-primary btn-sm">← На доску</a>
+</div>
+{% endblock %}

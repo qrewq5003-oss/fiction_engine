@@ -77,8 +77,16 @@ label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px
 .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 380px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
 .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
 
+/* Телефон: меню выдвигается по ☰ поверх страницы — постоянная колонка
+   занимала почти половину экрана, и доска не помещалась */
+.menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 0 4px; }
 @media (max-width: 640px) {
-  .sidebar { width: 160px; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: 220px; z-index: 900; transform: translateX(-100%); transition: transform .2s; }
+  .app.menu-open .sidebar { transform: none; box-shadow: 0 0 0 100vmax rgba(0,0,0,.5); }
+  .menu-btn { display: inline-block; }
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .content { padding: 10px; }
+  .two-cols { grid-template-columns: 1fr !important; }
 }
 </style>
 {% block styles %}{% endblock %}
@@ -121,6 +129,7 @@ label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px
   <!-- Main -->
   <div class="main">
     <div class="topbar">
+      <button class="menu-btn" title="Меню" onclick="document.querySelector('.app').classList.toggle('menu-open')">☰</button>
       {% if current %}
       <span style="font-weight:600;color:var(--accent2);">{{ current.name }}</span>
       {% if current.genre %}<span style="color:var(--text2);font-size:12px;">{{ current.genre }}</span>{% endif %}
@@ -183,6 +192,13 @@ async function saveNewProject() {
   if (r.ok) location.href = '/board';
   else showToast(r.error || 'Ошибка', 'error');
 }
+
+// Открытое меню на телефоне закрывается касанием мимо него
+document.addEventListener('click', e => {
+  const app = document.querySelector('.app');
+  if (app.classList.contains('menu-open') && !e.target.closest('.sidebar, .menu-btn'))
+    app.classList.remove('menu-open');
+});
 
 document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });

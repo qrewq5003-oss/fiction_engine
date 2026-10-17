@@ -4,11 +4,11 @@
 {% if not linked %}
 <div class="card">
   <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Проект не связан с Fiction Engine</div>
-  <div style="font-size:12px;color:var(--text2);">Импортируй проект Fiction Engine на странице «Экспорт» —
+  <div style="font-size:12px;color:var(--text2);">Импортируй проект Fiction Engine в «Все проекты» → «📥 Импорт из FE» —
     тогда здесь появятся места, вещи и время событий серии, которые движок ведёт по главам.</div>
 </div>
 {% else %}
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+<div class="two-cols" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
   <div>
     <div class="card" id="conflicts-card" style="display:none;border-color:var(--warning, #fbbf24);">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">⚠ Противоречия — факт сменился без события</div>
@@ -85,9 +85,12 @@ async function saveFact() {
   const body = {kind: document.getElementById('f-kind').value, name: document.getElementById('f-name').value,
     attr: document.getElementById('f-attr').value, value: document.getElementById('f-value').value,
     chapter_num: +document.getElementById('f-chapter').value || 0, reason: document.getElementById('f-reason').value};
-  const r = await fetch('/api/fe/bible/set', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken()}, body: JSON.stringify(body)});
-  const d = await r.json();
-  if (d.error) { alert(d.error); return; }
+  const missing = [['name', 'название'], ['attr', 'признак'], ['value', 'значение']]
+    .filter(([k]) => !String(body[k]).trim()).map(([, l]) => l);
+  if (missing.length) { showToast('Заполни: ' + missing.join(', '), 'error'); return; }
+  const d = await apiPost('/api/fe/bible/set', body);
+  if (d.error) { showToast(d.error, 'error'); return; }
+  showToast('Записано');
   ['f-name', 'f-attr', 'f-value', 'f-reason'].forEach(id => document.getElementById(id).value = '');
   load();
 }

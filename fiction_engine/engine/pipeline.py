@@ -506,7 +506,7 @@ from .pipeline_tasks import (        # noqa: E402,F401
     run_generation, score_text, generate_l3,
     generate_director_note_for_chapter, analyze_voice_match,
     find_symbols_in_chapter, run_narrative_analysis,
-    get_active_promises_for_project, run_batch_l3,
+    get_active_promises_for_project, get_story_so_far, run_batch_l3,
     check_voice_drift, auto_drift_check_if_needed,
     detect_truncation, describe_truncation, extend_short_chapter,
     clean_foreign_words, strip_reasoning,
