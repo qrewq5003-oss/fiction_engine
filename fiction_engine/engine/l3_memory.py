@@ -168,11 +168,13 @@ def generate_l3_summary(project_id: int, chapter_num: int,
     if not chapter_text or len(chapter_text.strip()) < 100:
         return None
 
-    # Берём не больше 6000 символов (~1500 токенов) — достаточно для саммари
-    text_sample = chapter_text[:6000]
-    if len(chapter_text) > 6000:
-        # Добавляем хвост — финал главы важен для promises
-        text_sample += "\n...\n" + chapter_text[-1500:]
+    # Глава целиком. Было: первые 6000 символов и последние 1500 — «достаточно
+    # для саммари». Глава 1 автора 17.10 — 18 тыс. символов: середина (гибель
+    # всей команды, разговор, где Павел дочитывает сообщение) до модели не
+    # доходила, и Haiku, и Sonnet писали «судьба сотрудников неясна».
+    # Потолок — предохранитель от вырожденного ответа, тот же, что у критика.
+    from .pipeline_config import CRITIC_TEXT_LIMIT
+    text_sample = chapter_text[:CRITIC_TEXT_LIMIT]
 
     prompt = SUMMARY_PROMPT.format(
         chapter_num=chapter_num,

@@ -47,3 +47,18 @@ def test_l3_uses_its_own_model(project_id, monkeypatch):
     with patch("engine.pipeline._call", side_effect=fake):
         generate_l3(project_id, 1, "Текст главы. " * 200, "nano_gpt::writer/one")
     assert set(seen) == {"nano_gpt::light/one"}
+
+
+def test_l3_and_analysis_see_the_middle_of_a_long_chapter(project_id):
+    """Середина главы (гибель команды) не выпадает: было 6000 + хвост 1500 символов."""
+    from engine.l3_memory import generate_l3_summary
+    from engine.chapter_analyzer import ChapterAnalyzer
+    text = "Начало. " * 1500 + "ПОГИБЛИ ВСЕ ДВЕНАДЦАТЬ. " + "Конец. " * 1500   # ~22 тыс. символов
+    prompts = []
+
+    def fake(prompt):
+        prompts.append(prompt)
+        return '{"events": "e", "characters": "", "conflicts": "", "promises": [], "mood": "m"}'
+    generate_l3_summary(project_id, 1, text, fake)
+    ChapterAnalyzer().analyze(project_id, 1, text, fake)
+    assert len(prompts) >= 2 and all("ПОГИБЛИ ВСЕ ДВЕНАДЦАТЬ" in p for p in prompts)

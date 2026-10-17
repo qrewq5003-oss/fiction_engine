@@ -252,10 +252,10 @@ class ChapterAnalyzer:
         # Загружаем предыдущие саммари для контекста
         previous_context = self._build_previous_context(project_id, chapter_num, n_previous)
 
-        # Ограничиваем текст — 8000 символов достаточно для анализа
-        text_sample = chapter_text[:8000]
-        if len(chapter_text) > 8000:
-            text_sample += "\n...\n" + chapter_text[-1500:]
+        # Глава целиком (было: 8000 символов и хвост 1500 — середина главы
+        # выпадала, как у L3). Потолок — тот же, что у критика
+        from .pipeline_config import CRITIC_TEXT_LIMIT
+        text_sample = chapter_text[:CRITIC_TEXT_LIMIT]
 
         prompt = _ANALYSIS_PROMPT.format(
             chapter_num=chapter_num,
