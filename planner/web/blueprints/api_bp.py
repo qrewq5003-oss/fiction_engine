@@ -193,6 +193,52 @@ def link_delete(link_id):
 
 # ─── AI Assistant ─────────────────────────────────────────────────────────────
 
+BOOK_CONTEXT_MAX = 9000        # символов о книге в запросе AI-помощи
+
+
+def _book_context() -> str:
+    """
+    Что известно о связанной книге FE: что уже случилось (L3), сюжетные
+    линии и состояние мира. FE молчит или проекта нет — «».
+    """
+    from engine.db import get_project
+    fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
+    if not fe_pid:
+        return ""
+    import json as _json
+    try:
+        with _fe_get(f"/api/project/context?pid={fe_pid}", timeout=5) as r:
+            d = _json.loads(r.read())
+    except Exception:
+        return ""
+    parts = [(d.get("story_so_far") or "").strip(),
+             "СЮЖЕТНЫЕ ЛИНИИ:\n" + d["plot_matrix"].strip() if d.get("plot_matrix") else "",
+             "СОСТОЯНИЕ МИРА И ГЕРОЕВ:\n" + d["global_state"].strip() if d.get("global_state") else ""]
+    text = "\n\n".join(p for p in parts if p)[:BOOK_CONTEXT_MAX]
+    if not text:
+        return ""
+    last = d.get("last_chapter") or 0
+    return f"=== КНИГА (написано глав: {last}) ===\n{text}\n\n"
+
+
+def _neighbours(scene_id) -> str:
+    """Сцена до и после этой на доске — только своего проекта."""
+    me = owned_scene(scene_id) if scene_id else None
+    if not me:
+        return ""
+    from engine.db import get_acts, get_scenes
+    order = {a["id"]: i for i, a in enumerate(get_acts(me["project_id"]))}
+    seq = sorted(get_scenes(me["project_id"]),
+                 key=lambda s: (order.get(s["act_id"], len(order)), s["position"] or 0))
+    i = next(k for k, s in enumerate(seq) if s["id"] == me["id"])
+    out = []
+    for label, s in (("ДО", seq[i - 1] if i > 0 else None),
+                     ("ПОСЛЕ", seq[i + 1] if i + 1 < len(seq) else None)):
+        if s and (s["title"] or s["what_happens"]):
+            out.append(f"СЦЕНА {label}: {s['title'] or 'без названия'} — {s['what_happens'] or ''}".strip(" —"))
+    return ("=== СОСЕДНИЕ СЦЕНЫ ===\n" + "\n".join(out) + "\n\n") if out else ""
+
+
 @bp.route("/ai/assist", methods=["POST"])
 def ai_assist():
     data   = request.json or {}
@@ -217,6 +263,13 @@ def ai_assist():
         f"Эмоция: {scene.get('emotion','')}\n"
         f"Заметки: {scene.get('notes','')}"
     )
+    # Книга и соседние сцены: без них «что дальше» и «конфликт» придумывались
+    # с нуля и спорили с тем, что уже написано
+    context = _book_context() + _neighbours(data.get("scene_id"))
+    prompt = f"{instruction}\n\n{context}=== ЭТА СЦЕНА ===\n{scene_text}"
+    if context:
+        prompt += ("\n\nДержись того, что уже есть в книге и в соседних сценах: "
+                   "не меняй факты, не воскрешай погибших, не переноси места и время.")
 
     # Вызов модели делает Fiction Engine: ключи живут там
     try:
@@ -224,9 +277,9 @@ def ai_assist():
         resp = req.post(f"{_fe_base_url()}/api/inline_call", headers=_fe_headers(), json={
             "model": model,
             "system": "Ты помощник сценариста и писателя. Отвечаешь конкретно и по делу.",
-            "prompt": f"{instruction}\n\n{scene_text}",
-            "max_tokens": 600
-        }, timeout=60)
+            "prompt": prompt,
+            "max_tokens": 900
+        }, timeout=90)
         if resp.ok:
             return jsonify({"ok": True, "result": resp.json().get("result", "")})
 
@@ -288,6 +341,12 @@ def _chapter_num(data: dict) -> int:
         return 1
 
 
+def _mark_chapter(chapter_num: int, scenes: list) -> None:
+    """План ушёл в FE — сцены помнят главу (метка на доске, выбор в экспорте)."""
+    from engine.db import set_chapter_scenes
+    set_chapter_scenes(current_pid(), chapter_num, [s["id"] for s in scenes])
+
+
 @bp.route("/export/preview", methods=["POST"])
 def export_preview():
     data   = request.json or {}
@@ -333,6 +392,7 @@ def export_send():
                             json={"pid": fe_pid, "note": prompt_text, "facts": facts},
                             headers=_fe_headers(), timeout=10)
             if resp.ok:
+                _mark_chapter(chapter_num, scenes)
                 return jsonify({"ok": True, "prompt": prompt_text, "sent": True,
                                 "facts": resp.json().get("facts", 0)})
             return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
@@ -351,6 +411,7 @@ def export_send():
         resp = req.post(f"{_fe_base_url()}/api/director_note/{chapter_num}/save",
                         json={"note": prompt_text}, headers=_fe_headers(), timeout=10)
         if resp.ok:
+            _mark_chapter(chapter_num, scenes)
             return jsonify({"ok": True, "prompt": prompt_text, "sent": True})
     except req.exceptions.RequestException:
         # Ловим ТОЛЬКО сетевой отказ. Голый `except Exception` здесь означал,
@@ -483,19 +544,15 @@ def fe_import(fe_pid):
 
     fe_proj = data.get("project", {})
     global_state = data.get("global_state", "")
-    plot_matrix  = data.get("plot_matrix", "")
     promises     = data.get("active_promises", [])
 
-    # Собираем описание из state engine
-    context_parts = []
-    if global_state:
-        context_parts.append(f"СОСТОЯНИЕ МИРА:\n{global_state[:800]}")
-    if plot_matrix:
-        context_parts.append(f"АКТИВНЫЕ ЛИНИИ:\n{plot_matrix[:600]}")
-    if promises:
-        context_parts.append("НЕЗАКРЫТЫЕ ОБЕЩАНИЯ:\n" + "\n".join(f"- {p}" for p in promises[:10]))
-
-    description = "\n\n".join(context_parts) if context_parts else project.get("description", "")
+    # Копия State в описании проекта устаревала с первой же главы (у автора
+    # 17.10 там были «выписан домой» и «музей алхимии» после отката State).
+    # Книгу AI-помощь теперь берёт из FE при каждом вызове; описание —
+    # авторское, а прежняя копия State из него убирается
+    description = project.get("description", "") or ""
+    if description.startswith("СОСТОЯНИЕ МИРА:"):
+        description = ""
 
     update_project(pid,
         name=project["name"],

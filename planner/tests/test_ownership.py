@@ -43,30 +43,42 @@ def _proof_scene_new(client, f):
 
 def _proof_ai_assist(client, f):
     """
-    Сцену не читает из базы — она целиком приходит телом запроса,
-    поэтому отправить можно лишь то, что у отправителя и так есть.
-    Доказательство: с номером чужой сцены в теле обработчик всё равно
-    не обращается к базе.
+    Ничего не пишет. Читает соседние сцены по scene_id — только своего
+    проекта, и книгу FE — только связанную с проектом СЕССИИ.
+    Доказательство: с номером чужой сцены (у чужого проекта и связь с FE
+    есть) в запрос к модели не попадает ни чужая сцена, ни её соседи, и
+    за книгой планировщик в FE не ходит.
     """
-    import sqlite3
-    opened = []
-    real = sqlite3.connect
-    sqlite3.connect = lambda *a, **kw: (opened.append(a[0]), real(*a, **kw))[1]
+    import requests
+    from engine.db import get_scene, set_fe_project, update_scene
+    update_scene(f["other_scene_id"], {"title": "ЧУЖОЙ-СОСЕД"})
+    set_fe_project(f["project_id"], 99)
+    sent = []
+    real_post = requests.post
+    requests.post = lambda url, json=None, **k: (sent.append(json), _Fail())[1]
+    import web.blueprints.api_bp as api
+    real_get, fetched = api._fe_get, []
+    api._fe_get = lambda path, timeout: (fetched.append(path), _raise())[1]
     try:
-        client.post("/api/ai/assist", json={"scene_id": f["scene_id"],
-                                            "action": "develop", "model": "x::y"})
+        client.post("/api/ai/assist", json={"scene_id": f["scene_id"], "action": "develop",
+                                            "model": "x::y", "scene": {"title": "своя"}})
     finally:
-        sqlite3.connect = real
-
-    # Ради этого наблюдение и собиралось. Без такой строки доказательство
-    # утверждало одно (в базу не ходит), а проверяло другое (чужая сцена
-    # не изменена) — а она и не могла измениться, обработчик ничего не
-    # пишет. Ложное обоснование просто переехало из строки списка в
-    # докстринг функции.
-    assert not opened, f"обработчик ходил в базу: {opened}"
-
-    from engine.db import get_scene
+        requests.post, api._fe_get = real_post, real_get
+    prompt = json.dumps(sent, ensure_ascii=False)
+    assert sent and "ЧУЖ" not in prompt, f"в запрос попало чужое: {prompt[:300]}"
+    assert not fetched, f"за книгой ходили в FE: {fetched}"
     assert get_scene(f["scene_id"])["title"] == "ЧУЖАЯ-2", "чужая сцена изменена"
+
+
+class _Fail:
+    ok = False
+    status_code = 502
+    text = "нет"
+    def json(self): return {"error": "нет"}
+
+
+def _raise():
+    raise OSError("FE не должен вызываться")
 
 
 def _proof_fe_import(client, f):

@@ -307,6 +307,16 @@ def project_context():
 
     from engine.db import get_chapters
     chapters = get_chapters(pid)
+    last = max((c["number"] for c in chapters), default=0)
+    # Что уже случилось — L3 последних написанных глав: AI-помощь
+    # планировщика предлагает сцены, не споря с книгой. Только до последней
+    # написанной главы: L3 непринятой главы — не история книги
+    try:
+        from engine.l3_memory import get_l3_context
+        story = get_l3_context(pid, last + 1, 3) if last else ""
+    except Exception as e:
+        log_web_error("project/context: L3", e, project_id=pid)
+        story = ""
     return jsonify({
         "project": {
             "id":          pid,
@@ -315,7 +325,8 @@ def project_context():
             "description": current.get("description", ""),
         },
         # Номер последней написанной главы — планировщик предлагает план следующей
-        "last_chapter": max((c["number"] for c in chapters), default=0),
+        "last_chapter": last,
+        "story_so_far": story,
         "global_state": state.get("global_state", ""),
         "plot_matrix":  state.get("plot_matrix", ""),
         "active_promises": promises,
