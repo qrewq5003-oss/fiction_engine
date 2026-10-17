@@ -208,19 +208,8 @@ def _execute_steps(
                           full_prompt, model_gen, sys_gen, step_call, results,
                           prefill=prefill)
             gen_text = str(results.get("generated_text", "") or "")
-            # Сверка с прошлыми главами и, если выбран правщик, правка на месте —
-            # отдельной итерацией, чтобы в истории прогона была видна и исходная глава
-            from .continuity_checker import continuity_fix_model, cross_check_and_fix
-            continuity: dict = {}
-            fixed, cross = cross_check_and_fix(project_id, chapter_num, gen_text, model_gen, step_call,
-                                               report=continuity)
-            if continuity:
-                results["continuity"] = continuity
-            if fixed != gen_text:
-                from .db import save_pipeline_iteration
-                save_pipeline_iteration(run_id, iteration, "continuity_fix", continuity_fix_model(),
-                                        "", fixed)
-                results["generated_text"] = gen_text = fixed
+            gen_text, cross = _continuity_pass(run_id, iteration, project_id, chapter_num,
+                                               gen_text, model_gen, step_call, results)
             # Повторы относительно прошлых глав проекта — сигнал автору
             from .text_signals import previous_chapters, series_signals
             series = series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
@@ -235,6 +224,15 @@ def _execute_steps(
             step_edit(run_id, iteration, generation_prompt,
                       previous_text, previous_critique,
                       model_editor, step_call, results)
+            # Редактор переписывает главу целиком, и проверенный текст
+            # перестаёт быть проверенным: у автора 17.10 «Кратохвил» вместо
+            # Вавры, «одиннадцать в подвале» вместо двенадцати и «под
+            # обезболом» появились только на кругах редактуры, после
+            # проверки первого текста
+            edited = str(results.get("generated_text", "") or "")
+            if edited:
+                _continuity_pass(run_id, iteration, project_id, chapter_num,
+                                 edited, model_editor, step_call, results)
 
         elif step.name == "critique":
             step_critique(run_id, iteration, chapter_num,
@@ -405,6 +403,27 @@ def preview_writer_prompt(project: dict, chapter_num: int, task: str,
     prompt = _build_context(project["id"], chapter_num, clean, mode, model_gen, task_text=clean)
     system = _build_sys_generator(project_genre_key(project) or "")
     return {"prompt": prompt, "system": system, "chars": len(prompt) + len(system)}
+
+
+def _continuity_pass(run_id, iteration: int, project_id: int, chapter_num: int,
+                     text: str, model_gen: str, call, results: dict) -> tuple[str, list[str]]:
+    """
+    Сверка главы с прошлыми и, если выбран правщик, правка на месте —
+    отдельной итерацией, чтобы в истории прогона был виден и текст до правки.
+    → (текст, сигналы автору). Проверяющий не выбран — текст как был.
+    """
+    from .continuity_checker import continuity_fix_model, cross_check_and_fix
+    continuity: dict = {}
+    fixed, cross = cross_check_and_fix(project_id, chapter_num, text, model_gen, call,
+                                       report=continuity)
+    if continuity:
+        results["continuity"] = continuity
+    if fixed != text:
+        from .db import save_pipeline_iteration
+        save_pipeline_iteration(run_id, iteration, "continuity_fix", continuity_fix_model(),
+                                "", fixed)
+        results["generated_text"] = fixed
+    return fixed, cross
 
 
 def continue_pipeline(

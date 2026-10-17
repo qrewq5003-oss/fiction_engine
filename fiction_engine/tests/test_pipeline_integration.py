@@ -369,6 +369,35 @@ class TestContinuePipeline:
             )
         assert second.get("verdict") == "ПРИНЯТЬ"
 
+    def test_edit_round_is_checked_for_continuity(self, pid, monkeypatch):
+        """Круг редактуры переписывает главу — её снова сверяют с прошлыми и правят."""
+        import engine.continuity_checker as cc
+        checked = []
+
+        def fake_check(project_id, chapter_num, text, model_gen, call_fn, fix=True, report=None):
+            checked.append(text)
+            return text.replace("Кратохвил", "Вавра"), []
+
+        monkeypatch.setattr(cc, "cross_check_and_fix", fake_check)
+        llm_start = _make_llm_sequence(_llm_generate, _llm_critique, _llm_judge_rework, lambda p: "")
+        with patch("engine.pipeline._call", llm_start):
+            from engine.pipeline import start_pipeline
+            first = start_pipeline(project_id=pid, chapter_num=1, generation_prompt="Задача",
+                                   model_gen="m", model_critic="m", model_editor="m", model_judge="m")
+        edited = "Лукаш Кратохвил стоял у ленты. " * 60
+        llm_cont = _make_llm_sequence(_llm_generate, _llm_critique, _llm_judge_accept, edit=edited)
+        with patch("engine.pipeline._call", llm_cont):
+            from engine.pipeline import continue_pipeline
+            second = continue_pipeline(run_id=first["run_id"], project_id=pid, chapter_num=1,
+                                       generation_prompt="Задача",
+                                       previous_text=first.get("generated_text", ""),
+                                       previous_critique=first.get("critique", ""))
+        assert len(checked) == 2 and "Кратохвил" in checked[1]     # генерация и круг редактуры
+        assert "Кратохвил" not in second["generated_text"] and "Вавра" in second["generated_text"]
+        from engine.db import get_pipeline_iterations
+        stages = [i["stage"] for i in get_pipeline_iterations(first["run_id"]) if i["iteration"] == 2]
+        assert stages[:2] == ["edit", "continuity_fix"]
+
 
 # ─── Тест 5: auto-retry деградация ────────────────────────────────────────────
 
