@@ -279,6 +279,27 @@
 
 <script>
 // Вспомогательные функции
+// Редактируемый текст главы. «plaintext-only» поддерживают не все браузеры
+// (Firefox — только с 2025 года): там окно молча не принимало ввод.
+// Тогда — обычное редактирование; текст всё равно читается через innerText.
+function makeEditable(el) {
+  if (!el) return;
+  // Неподдерживаемое значение не игнорируется, а бросает SyntaxError
+  try { el.contentEditable = 'plaintext-only'; } catch (e) { /* старый браузер */ }
+  if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+}
+
+// Включить правку: курсор в конец, рамка подсвечена
+function focusEdit(el) {
+  if (!el) return;
+  makeEditable(el);
+  el.focus();
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  el.style.borderColor = 'var(--accent)';
+  el.addEventListener('blur', () => { el.style.borderColor = ''; }, {once: true});
+}
+
 async function apiPost(url, data) {
   const r = await fetch(url, {
     method: 'POST',
