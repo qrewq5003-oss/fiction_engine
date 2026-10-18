@@ -131,7 +131,7 @@
         <textarea id="imp-text" rows="8" placeholder="Вставь текст главы целиком"></textarea>
       </div>
       <div class="form-group">
-        <label>Модель (разбивку делает Fiction Engine)</label>
+        <label>Модель (разбивку делает Fiction Engine) <span id="imp-model-hint" style="color:var(--accent2);"></span></label>
         <select id="imp-model"><option value="">— загрузка моделей FE… —</option></select>
       </div>
       <div style="display:flex;gap:8px;">
@@ -242,6 +242,7 @@ const BOARD_CHAPTERS = {{ chapters | tojson }};
 const LINK_NAMES = { cause: 'причина → следствие', parallel: 'параллельно', mirror: 'отражает', contrast: 'противоречит' };
 const TIMES = ['', 'Утро', 'День', 'Вечер', 'Ночь'];
 let IMP = null;              // ответ разбивки: {chapter_num, scenes, links, already}
+let FE_CHAPTERS = [];        // главы FE: {number, title, words, model — кто писал}
 
 function esc(v) {
   return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -257,6 +258,7 @@ async function openImport() {
   if (LINKED) {
     src.innerHTML = '<option value="">— загрузка глав FE… —</option>';
     const r = await fetch('/api/fe/chapters').then(x => x.json()).catch(() => ({chapters: []}));
+    FE_CHAPTERS = r.chapters || [];
     const onBoard = new Set(BOARD_CHAPTERS.map(c => c.chapter_num));
     src.innerHTML = (r.chapters || []).map(c =>
       `<option value="${c.number}">Глава ${c.number}${c.title && !/^глава\s*\d/i.test(c.title) ? ' · ' + esc(c.title) : ''} · ${c.words} сл.${onBoard.has(c.number) ? ' · уже на доске' : ''}</option>`
@@ -266,14 +268,26 @@ async function openImport() {
     const first = (r.chapters || []).find(c => !onBoard.has(c.number));
     if (first) src.value = String(first.number);
   }
+  await loadImportModels();
   impSrcChanged();
-  loadImportModels();
 }
 
+// Глава из FE разбивается той моделью, что её написала: она лучше знает
+// свою книгу и видит связи с прошлыми главами (DeepSeek на копии книги
+// автора нашёл одну такую связь на три главы). Выбор можно поменять
 function impSrcChanged() {
   const v = document.getElementById('imp-src').value;
   document.getElementById('imp-text-box').style.display = v ? 'none' : '';
-  if (v) document.getElementById('imp-num').value = v;
+  const hint = document.getElementById('imp-model-hint');
+  hint.textContent = '';
+  if (!v) return;
+  document.getElementById('imp-num').value = v;
+  const writer = (FE_CHAPTERS.find(c => String(c.number) === v) || {}).model;
+  const sel = document.getElementById('imp-model');
+  if (writer && [...sel.options].some(o => o.value === writer)) {
+    sel.value = writer;
+    hint.textContent = '— та, что писала главу';
+  }
 }
 
 // Модели FE — тот же список и тот же запомненный выбор, что у AI-помощи в сцене
@@ -295,7 +309,9 @@ async function impSplit() {
   const text = fromFe ? '' : document.getElementById('imp-text').value.trim();
   if (!model) { showToast('Выбери модель', 'error'); return; }
   if (!fromFe && !text) { showToast('Вставь текст главы', 'error'); return; }
-  try { localStorage.setItem('planner_ai_model', model); } catch (e) {}
+  // Запоминается только ручной выбор для вставленного текста: модель автора главы
+  // подставляется сама и не должна менять выбор AI-помощи в сцене
+  if (!fromFe) { try { localStorage.setItem('planner_ai_model', model); } catch (e) {} }
   const btn = document.getElementById('imp-split-btn'), st = document.getElementById('imp-status');
   btn.disabled = true; st.textContent = 'Модель читает главу — это может занять пару минут…';
   const r = await apiPost('/api/chapter_import/split', {

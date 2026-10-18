@@ -133,9 +133,12 @@ def chapters_list_api():
     current, err = _project_from(request.args.get("pid", type=int))
     if err:
         return err
-    from engine.db import get_chapters
+    from engine.db import chapter_writers, get_chapters
+    # model — кто писал главу: планировщик разбивает главу той же моделью
+    writers = chapter_writers(current["id"])
     return jsonify({"chapters": [{"number": c["number"], "title": c.get("title") or "",
-                                  "words": c.get("word_count") or 0}
+                                  "words": c.get("word_count") or 0,
+                                  "model": writers.get(c["number"], "")}
                                  for c in get_chapters(current["id"])]})
 
 

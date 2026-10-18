@@ -206,7 +206,7 @@ class TestChapterImport:
         other = create_project("Другая серия", "хоррор")
         save_chapter(other, 2, "Паром отошёл.", "Паром")
         data = json.loads(client.get(f"/api/chapters/list?pid={other}").data)
-        assert data["chapters"] == [{"number": 2, "title": "Паром", "words": 2}]
+        assert data["chapters"] == [{"number": 2, "title": "Паром", "words": 2, "model": ""}]
         text = json.loads(client.get(f"/api/chapter/2/text?pid={other}").data)
         assert text["text"] == "Паром отошёл." and text["title"] == "Паром"
         # Открыт в FE другой проект — его глава 2 не подставляется
@@ -215,3 +215,14 @@ class TestChapterImport:
     def test_unknown_pid_is_404(self, client, project):
         assert client.get("/api/chapters/list?pid=99999").status_code == 404
         assert client.get("/api/chapter/1/text?pid=99999").status_code == 404
+
+    def test_chapter_model_is_writer_of_accepted_run(self, client, project):
+        """Планировщик разбивает главу той же моделью, что её написала."""
+        from engine.db import create_pipeline_run, finish_pipeline_run, save_chapter
+        save_chapter(project, 1, "Текст.", "1")
+        old = create_pipeline_run(project, 1, "nano_gpt::a", "c", "e", "j")
+        finish_pipeline_run(project, old, "rejected")
+        run = create_pipeline_run(project, 1, "claude_subscription::claude-sonnet-5-5", "c", "e", "j")
+        finish_pipeline_run(project, run, "accepted")
+        data = json.loads(client.get(f"/api/chapters/list?pid={project}").data)
+        assert data["chapters"][0]["model"] == "claude_subscription::claude-sonnet-5-5"
