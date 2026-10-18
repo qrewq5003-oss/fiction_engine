@@ -118,3 +118,27 @@ def test_step_edit_gives_plan_misses_to_editor(project_id):
     assert editor and "не названа пятница" in editor[0]
     assert results["generated_text"].startswith("В пятницу утром лампа не горела.")
     assert results["edit_report"]["plan_missing"] == 1 and results["edit_report"]["filter"]["plan_kept"] == 1
+    assert "plan_error" not in results["edit_report"]
+
+
+def test_step_edit_plan_check_failure_is_reported(project_id):
+    """Сбой сверки — один повтор, затем ошибка в отчёте, а не молчаливые «0 пунктов» (книга 18.10)."""
+    from unittest.mock import patch
+    from engine.db import save_director_note, set_setting
+    from engine.pipeline_steps import step_edit
+    save_director_note(project_id, 0, "СЦЕНА 1: Пристань\n  Когда: пятница, утро")
+    set_setting("continuity_model", SONNET)
+    checks, results = [], {}
+
+    def call(model, system, prompt):
+        if "=== ПЛАН ===" in prompt:
+            checks.append(1)
+            raise RuntimeError("codex: usage limit")
+        return json.dumps({"edits": []})
+
+    with patch("engine.pipeline_steps.save_pipeline_iteration"):
+        step_edit(1, 2, "Глава 1", "Лампа не горела.", "разбор", SOL, call, results, model_judge=SONNET,
+                  project_id=project_id, chapter_num=1)
+    assert len(checks) == 2
+    assert results["edit_report"]["plan_missing"] == 0 and "usage limit" in results["edit_report"]["plan_error"]
+    assert results["generated_text"] == "Лампа не горела."

@@ -389,28 +389,37 @@ def _flag_truncation(text: str, results: dict, where: str) -> None:
         handle_error(f"{where}: проверка обрыва", e, level=ErrorLevel.RECOVERABLE)
 
 
-def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str, call_fn) -> list[dict]:
+def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str,
+                 call_fn) -> tuple[list[dict], str]:
     """
-    Пункты плана главы «нет»/«частично» — задание редактору (point_edit.plan_task).
-    Сверяет модель другой семьи, чем редактор (plan_check.plan_checker_model).
-    Нет плана, проверяющего или сбой — пусто: круг идёт как раньше.
+    → (пункты плана главы «нет»/«частично», ошибка сверки) — задание редактору
+    (point_edit.plan_task). Сверяет модель другой семьи, чем редактор
+    (plan_check.plan_checker_model). Нет плана или проверяющего — пусто, круг
+    идёт как раньше. Сбой — один повтор, затем ошибка в отчёте круга: на книге
+    18.10 сбой сверки (окно ChatGPT 95–99 %) молча дал «0 пунктов», а та же
+    сверка того же текста 5 раз из 5 находила три пункта «частично».
     """
     if not (project_id and chapter_num):
-        return []
+        return [], ""
     try:
         from .db import get_director_note
-        plan = (get_director_note(project_id, chapter_num) or "").strip()
-        if not plan:
-            return []
         from .plan_check import check_plan, plan_checker_model
-        checker, _ = plan_checker_model(model_editor)
-        if not checker:
-            return []
-        res = check_plan(chapter_num, plan, text, lambda p: call_fn(checker, "Отвечай только JSON.", p))
-        return [x for x in res if x["status"] in ("нет", "частично")]
+        plan = (get_director_note(project_id, chapter_num) or "").strip()
+        checker = plan_checker_model(model_editor)[0] if plan else ""
     except Exception as e:
-        handle_error("step_edit: сверка с планом", e, level=ErrorLevel.RECOVERABLE)
-        return []
+        handle_error("step_edit: сверка с планом", e, level=ErrorLevel.DEGRADED)
+        return [], f"{type(e).__name__}: {e}"[:200]
+    if not (plan and checker):
+        return [], ""
+    err = ""
+    for _ in range(2):
+        try:
+            res = check_plan(chapter_num, plan, text, lambda p: call_fn(checker, "Отвечай только JSON.", p))
+            return [x for x in res if x["status"] in ("нет", "частично")], ""
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"[:200]
+            handle_error("step_edit: сверка с планом", e, level=ErrorLevel.DEGRADED)
+    return [], err
 
 
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
@@ -447,7 +456,8 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
     if rhythm_hint:
         critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
-    plan_misses = _plan_misses(project_id, chapter_num, text, model_editor, call_fn) if mode != "rewrite" else []
+    plan_misses, plan_error = (_plan_misses(project_id, chapter_num, text, model_editor, call_fn)
+                               if mode != "rewrite" else ([], ""))
     if plan_misses:
         from .point_edit import plan_task
         critique = plan_task(plan_misses) + "\n\n" + critique
@@ -462,6 +472,8 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                                   "failed": [f"{(f.get('old') or f.get('after') or '')[:60]} — {f['why']}"
                                              for f in rep["failed"]][:8],
                                   "changed": rep["changed"]}
+        if plan_error:
+            results["edit_report"]["plan_error"] = plan_error
         if rep["applied"] and model_judge:
             from .continuity_fix import changed_share
             from .edit_filter import filter_edits
