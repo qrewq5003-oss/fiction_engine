@@ -25,7 +25,10 @@ def board():
             by_act[s["act_id"]].append(s)
         else:
             unassigned.append(s)
-    return render_template("board.html", acts=acts, by_act=by_act, unassigned=unassigned)
+    # Главы сцен — «Импорт главы» ставит новую главу в акт, где лежит предыдущая
+    chapters = [{"act_id": s["act_id"], "chapter_num": s["chapter_num"]} for s in scenes if s["chapter_num"]]
+    return render_template("board.html", acts=acts, by_act=by_act, unassigned=unassigned,
+                           chapters=chapters, linked=bool(p.get("fe_project_id")))
 
 
 @bp.route("/map")

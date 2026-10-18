@@ -3,6 +3,7 @@
 
 {% block topbar %}
 <div style="margin-left:auto;display:flex;gap:8px;">
+  <button class="btn btn-secondary btn-sm" onclick="openImport()" title="Разбить написанную главу на сцены и поставить их на доску">📥 Импорт главы</button>
   <button class="btn btn-secondary btn-sm" onclick="openModal('modal-acts')">⚙ Акты</button>
   <button class="btn btn-primary btn-sm" onclick="addScene(null)">+ Сцена</button>
 </div>
@@ -31,6 +32,17 @@
 @media (hover: none) { .scene-card-actions { display: flex; } }
 
 .unassigned-col { min-width: 200px; max-width: 220px; flex-shrink: 0; }
+
+/* Импорт главы */
+.imp-scene { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; background: var(--surface); }
+.imp-scene.off { opacity: .45; }
+.imp-scene-head { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.imp-scene-head input[type=checkbox] { width: auto; }
+.imp-grid { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 6px; margin-bottom: 6px; }
+.imp-link { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin-bottom: 4px; color: var(--text); }
+.imp-link input { width: auto; margin-top: 2px; }
+.imp-note { font-size: 12px; color: var(--text2); margin: 6px 0 10px; }
+@media (max-width: 640px) { .imp-grid { grid-template-columns: 1fr !important; } }
 </style>
 {% endblock %}
 
@@ -97,6 +109,54 @@
   </div>
   {% endif %}
 
+</div>
+
+<!-- Импорт главы: текст → сцены на доску, связи → в граф -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal" style="width:760px;">
+    <div class="modal-title">📥 Импорт главы</div>
+    <div id="imp-step1">
+      <div class="two-cols" style="display:grid;grid-template-columns:1fr 110px;gap:8px;">
+        <div class="form-group">
+          <label>Глава</label>
+          <select id="imp-src" onchange="impSrcChanged()"></select>
+        </div>
+        <div class="form-group">
+          <label>Номер главы</label>
+          <input type="number" id="imp-num" min="1" value="1">
+        </div>
+      </div>
+      <div class="form-group" id="imp-text-box">
+        <label>Текст главы</label>
+        <textarea id="imp-text" rows="8" placeholder="Вставь текст главы целиком"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Модель (разбивку делает Fiction Engine) <span id="imp-model-hint" style="color:var(--accent2);"></span></label>
+        <select id="imp-model"><option value="">— загрузка моделей FE… —</option></select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" id="imp-split-btn" style="flex:1;" onclick="impSplit()">Разбить на сцены</button>
+        <button class="btn btn-secondary" onclick="closeModal('modal-import')">Закрыть</button>
+      </div>
+      <div class="imp-note" id="imp-status"></div>
+    </div>
+    <div id="imp-step2" style="display:none;">
+      <div class="imp-note" id="imp-summary"></div>
+      <div class="form-group">
+        <label>Акт</label>
+        <select id="imp-act"></select>
+      </div>
+      <div id="imp-scenes"></div>
+      <div id="imp-links-box">
+        <label style="margin-top:10px;">Связи для графа</label>
+        <div id="imp-links"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-secondary" onclick="impBack()">← Назад</button>
+        <button class="btn btn-primary" id="imp-save-btn" style="flex:1;" onclick="impSave()">Добавить на доску</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Acts modal -->
@@ -172,6 +232,202 @@ async function deleteScene(id) {
 
 // ─── Acts ─────────────────────────────────────────────────────────────────────
 const ACTS = {{ acts | tojson }};
+
+// ─── Импорт главы ─────────────────────────────────────────────────────────────
+// Глава (из Fiction Engine или вставленная) → модель размечает сцены и связи →
+// автор правит и снимает лишнее → сцены встают в акт по порядку глав, связи
+// видны на графе
+const LINKED = {{ linked | tojson }};
+const BOARD_CHAPTERS = {{ chapters | tojson }};
+const LINK_NAMES = { cause: 'причина → следствие', parallel: 'параллельно', mirror: 'отражает', contrast: 'противоречит' };
+const TIMES = ['', 'Утро', 'День', 'Вечер', 'Ночь'];
+let IMP = null;              // ответ разбивки: {chapter_num, scenes, links, already}
+let FE_CHAPTERS = [];        // главы FE: {number, title, words, model — кто писал}
+
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function openImport() {
+  document.getElementById('imp-step1').style.display = '';
+  document.getElementById('imp-step2').style.display = 'none';
+  document.getElementById('imp-status').textContent = '';
+  openModal('modal-import');
+  const src = document.getElementById('imp-src');
+  src.innerHTML = '<option value="">— вставить текст —</option>';
+  if (LINKED) {
+    src.innerHTML = '<option value="">— загрузка глав FE… —</option>';
+    const r = await fetch('/api/fe/chapters').then(x => x.json()).catch(() => ({chapters: []}));
+    FE_CHAPTERS = r.chapters || [];
+    const onBoard = new Set(BOARD_CHAPTERS.map(c => c.chapter_num));
+    src.innerHTML = (r.chapters || []).map(c =>
+      `<option value="${c.number}">Глава ${c.number}${c.title && !/^глава\s*\d/i.test(c.title) ? ' · ' + esc(c.title) : ''} · ${c.words} сл.${onBoard.has(c.number) ? ' · уже на доске' : ''}</option>`
+    ).join('') + '<option value="">— вставить текст —</option>';
+    if (r.error) document.getElementById('imp-status').textContent = r.error;
+    // Первая глава, которой ещё нет на доске
+    const first = (r.chapters || []).find(c => !onBoard.has(c.number));
+    if (first) src.value = String(first.number);
+  }
+  await loadImportModels();
+  impSrcChanged();
+}
+
+// Глава из FE разбивается той моделью, что её написала: она лучше знает
+// свою книгу и видит связи с прошлыми главами (DeepSeek на копии книги
+// автора нашёл одну такую связь на три главы). Выбор можно поменять
+function impSrcChanged() {
+  const v = document.getElementById('imp-src').value;
+  document.getElementById('imp-text-box').style.display = v ? 'none' : '';
+  const hint = document.getElementById('imp-model-hint');
+  hint.textContent = '';
+  if (!v) return;
+  document.getElementById('imp-num').value = v;
+  const writer = (FE_CHAPTERS.find(c => String(c.number) === v) || {}).model;
+  const sel = document.getElementById('imp-model');
+  if (writer && [...sel.options].some(o => o.value === writer)) {
+    sel.value = writer;
+    hint.textContent = '— та, что писала главу';
+  }
+}
+
+// Модели FE — тот же список и тот же запомненный выбор, что у AI-помощи в сцене
+async function loadImportModels() {
+  const sel = document.getElementById('imp-model');
+  if (sel.options.length > 1) return;
+  const r = await fetch('/api/fe/models').then(x => x.json()).catch(() => ({models: []}));
+  const list = r.models || [];
+  if (!list.length) { sel.innerHTML = '<option value="">FE недоступен — запусти Fiction Engine</option>'; return; }
+  let saved = '';
+  try { saved = localStorage.getItem('planner_ai_model') || ''; } catch (e) {}
+  sel.innerHTML = '<option value="">— выбери модель —</option>' + list.map(m =>
+    `<option value="${esc(m.value)}"${m.value === saved ? ' selected' : ''}>${esc(m.label)}</option>`).join('');
+}
+
+async function impSplit() {
+  const model = document.getElementById('imp-model').value;
+  const fromFe = document.getElementById('imp-src').value;
+  const text = fromFe ? '' : document.getElementById('imp-text').value.trim();
+  if (!model) { showToast('Выбери модель', 'error'); return; }
+  if (!fromFe && !text) { showToast('Вставь текст главы', 'error'); return; }
+  // Запоминается только ручной выбор для вставленного текста: модель автора главы
+  // подставляется сама и не должна менять выбор AI-помощи в сцене
+  if (!fromFe) { try { localStorage.setItem('planner_ai_model', model); } catch (e) {} }
+  const btn = document.getElementById('imp-split-btn'), st = document.getElementById('imp-status');
+  btn.disabled = true; st.textContent = 'Модель читает главу — это может занять пару минут…';
+  const r = await apiPost('/api/chapter_import/split', {
+    chapter_num: parseInt(document.getElementById('imp-num').value) || 1, model, text });
+  btn.disabled = false;
+  if (!r.ok) { st.textContent = r.error || 'Ошибка'; return; }
+  st.textContent = '';
+  IMP = r;
+  renderImport();
+}
+
+function impDefaultAct(n) {
+  // Акт, где лежит ближайшая не более поздняя глава; иначе — первый акт
+  const prev = BOARD_CHAPTERS.filter(c => c.chapter_num <= n && c.act_id)
+                             .sort((a, b) => b.chapter_num - a.chapter_num)[0];
+  return prev ? prev.act_id : (ACTS[0] ? ACTS[0].id : '');
+}
+
+function renderImport() {
+  document.getElementById('imp-step1').style.display = 'none';
+  document.getElementById('imp-step2').style.display = '';
+  const n = IMP.chapter_num;
+  document.getElementById('imp-summary').textContent =
+    `Глава ${n}: ${IMP.words} слов, сцен ${IMP.scenes.length}, связей ${IMP.links.length}. ` +
+    'Поправь, что нужно, и сними галочку с лишнего.' +
+    (IMP.already ? ` На доске уже ${IMP.already} сцен главы ${n} — новые встанут рядом, прежние останутся.` : '');
+  const act = document.getElementById('imp-act');
+  act.innerHTML = ACTS.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join('') +
+                  '<option value="">Без акта</option>';
+  act.value = String(impDefaultAct(n) || '');
+  document.getElementById('imp-scenes').innerHTML = IMP.scenes.map((s, i) => `
+    <div class="imp-scene" id="imp-sc-${i}">
+      <div class="imp-scene-head">
+        <input type="checkbox" checked onchange="impToggle(${i}, this.checked)">
+        <b style="font-size:12px;color:var(--text2);">${i + 1}</b>
+        <input type="text" data-f="title" value="${esc(s.title)}" placeholder="Название">
+      </div>
+      <div class="imp-grid">
+        <input type="text" data-f="location" value="${esc(s.location)}" placeholder="Локация">
+        <input type="text" data-f="day" value="${esc(s.day)}" placeholder="День">
+        <select data-f="time_of_day">${TIMES.map(t => `<option value="${t}"${t === s.time_of_day ? ' selected' : ''}>${t || '— время —'}</option>`).join('')}</select>
+      </div>
+      <div class="imp-grid" style="grid-template-columns:2fr 1fr;">
+        <input type="text" data-f="characters" value="${esc(s.characters)}" placeholder="Персонажи">
+        <input type="text" data-f="emotion" value="${esc(s.emotion)}" placeholder="Эмоция">
+      </div>
+      <textarea data-f="what_happens" rows="2" placeholder="Что происходит">${esc(s.what_happens)}</textarea>
+    </div>`).join('');
+  renderImportLinks();
+}
+
+function impEnd(e, title) {
+  return e[0] === 'new' ? `${e[1] + 1}. ${IMP.scenes[e[1]].title || 'сцена'}` : `доска: ${title}`;
+}
+
+// Сцена → следующая сцена главы: порядок и так виден на доске и в колонке
+// графа «по главам», а цепочка таких стрелок заслоняет настоящие связи.
+// Модели её проводят, даже когда просишь не надо, — по умолчанию сняты
+function impAdjacent(l) {
+  return l.from[0] === 'new' && l.to[0] === 'new' && l.to[1] === l.from[1] + 1;
+}
+
+function renderImportLinks() {
+  document.getElementById('imp-links-box').style.display = IMP.links.length ? '' : 'none';
+  const adj = IMP.links.filter(impAdjacent).length;
+  document.getElementById('imp-links').innerHTML = (adj ? `<div class="imp-note">Связи соседних сцен (${adj}) сняты: порядок и так виден. Включи, если связь важна.</div>` : '') +
+    IMP.links.map((l, i) =>
+    `<label class="imp-link"><input type="checkbox"${impAdjacent(l) ? '' : ' checked'} data-link="${i}">
+      <span><b>${esc(impEnd(l.from, l.from_title))}</b> → <b>${esc(impEnd(l.to, l.to_title))}</b> · ${LINK_NAMES[l.type] || l.type}${l.label ? ' — ' + esc(l.label) : ''}</span></label>`
+  ).join('');
+}
+
+function impToggle(i, on) {
+  document.getElementById('imp-sc-' + i).classList.toggle('off', !on);
+  // Связи снятой сцены уходят вместе с ней
+  IMP.links.forEach((l, k) => {
+    if ((l.from[0] === 'new' && l.from[1] === i) || (l.to[0] === 'new' && l.to[1] === i)) {
+      const cb = document.querySelector(`[data-link="${k}"]`);
+      if (cb) { cb.checked = on && !impAdjacent(l); cb.disabled = !on; }
+    }
+  });
+}
+
+function impBack() {
+  document.getElementById('imp-step2').style.display = 'none';
+  document.getElementById('imp-step1').style.display = '';
+}
+
+async function impSave() {
+  const keep = [], remap = {};
+  IMP.scenes.forEach((s, i) => {
+    const card = document.getElementById('imp-sc-' + i);
+    if (!card.querySelector('input[type=checkbox]').checked) return;
+    const sc = {};
+    card.querySelectorAll('[data-f]').forEach(el => sc[el.dataset.f] = el.value.trim());
+    remap[i] = keep.length;
+    keep.push(sc);
+  });
+  if (!keep.length) { showToast('Не выбрано ни одной сцены', 'error'); return; }
+  // Номера сцен главы — после снятых галочек сдвигаются
+  const end = e => e[0] === 'new' ? (e[1] in remap ? ['new', remap[e[1]]] : null) : ['board', e[1]];
+  const links = [];
+  IMP.links.forEach((l, k) => {
+    const cb = document.querySelector(`[data-link="${k}"]`);
+    const a = end(l.from), b = end(l.to);
+    if (cb && cb.checked && a && b) links.push({ from: a, to: b, type: l.type, label: l.label });
+  });
+  const btn = document.getElementById('imp-save-btn');
+  btn.disabled = true;
+  const act = document.getElementById('imp-act').value;
+  const r = await apiPost('/api/chapter_import/save', {
+    chapter_num: IMP.chapter_num, act_id: act ? parseInt(act) : null, scenes: keep, links });
+  btn.disabled = false;
+  if (r.ok) { showToast(`Глава ${IMP.chapter_num}: сцен на доске — ${r.ids.length}`); setTimeout(() => location.reload(), 600); }
+  else showToast(r.error || 'Ошибка', 'error');
+}
 
 function renderActsList() {
   const el = document.getElementById('acts-list');
