@@ -715,6 +715,14 @@ def _call_chatgpt_subscription(model_id, system, user, api_key, max_tokens, pref
              and e.get("item", {}).get("type") not in ("agent_message", "reasoning")]
     errors = [str(e.get("message") or e.get("error") or e) for e in events
               if e.get("type") in ("error", "turn.failed")]
+    # Событие error бывает и промежуточным: «Reconnecting... 2/5 (tls handshake
+    # eof)» — codex переподключается сам и доводит ход до turn.completed. Такой
+    # ответ раньше выбрасывался как ошибка (18.10: обрыв на каждом втором
+    # вызове Sol, повторы тратили подписку). Ошибка — только если ход не дошёл
+    completed = any(e.get("type") == "turn.completed" for e in events)
+    failed = any(e.get("type") == "turn.failed" for e in events)
+    if completed and not failed and not proc.returncode and result.strip():
+        errors = []
     if errors or proc.returncode:
         raise RuntimeError(f"codex: {(errors[-1] if errors else (proc.stderr or proc.stdout))[:300]}")
     if tools:
