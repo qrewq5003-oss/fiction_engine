@@ -52,16 +52,20 @@ def test_missing_fragment_and_bad_answer_keep_text():
 def test_mode_setting(project_id):
     from engine.db import set_setting
     from engine.point_edit import edit_mode
-    assert edit_mode() == "points"
+    assert edit_mode() == "self"                 # по умолчанию места выбирает редактор
     set_setting("edit_mode", "rewrite")
     assert edit_mode() == "rewrite"
-    set_setting("edit_mode", "чепуха")
+    set_setting("edit_mode", "points")
     assert edit_mode() == "points"
+    set_setting("edit_mode", "чепуха")
+    assert edit_mode() == "self"
 
 
 def test_step_edit_points_mode(project_id):
     from unittest.mock import patch
+    from engine.db import set_setting
     from engine.pipeline_steps import step_edit
+    set_setting("edit_mode", "points")
     prompts, results = [], {}
 
     def call(model, system, prompt):
@@ -75,6 +79,26 @@ def test_step_edit_points_mode(project_id):
     assert results["edit_report"]["mode"] == "points" and results["edit_report"]["applied"] == 1
     assert "ПРАВКА: допиши сцену с Митяем" in prompts[0][1]          # задача автора видна редактору
     assert saved.call_args[0][2] == "edit"
+    assert "лампа — штамп" in prompts[0][1]                          # разбор критика — редактору
+
+
+def test_step_edit_self_mode_ignores_critique(project_id):
+    """По умолчанию разбор критика редактору не идёт: места он выбирает сам (замер 18.10)."""
+    from unittest.mock import patch
+    from engine.pipeline_steps import step_edit
+    from engine.point_edit import SELF_REVIEW
+    prompts, results = [], {}
+
+    def call(model, system, prompt):
+        prompts.append(prompt)
+        return json.dumps({"edits": [{"old": "Лампа не горела.", "new": "Лампа была погашена."}]},
+                          ensure_ascii=False)
+
+    with patch("engine.pipeline_steps.save_pipeline_iteration"):
+        step_edit(1, 2, "Глава 1", TEXT, "покажи эмоции героини", "m::m", call, results)
+    assert SELF_REVIEW in prompts[0] and "покажи эмоции" not in prompts[0]
+    assert results["edit_report"]["mode"] == "self" and results["edit_report"]["applied"] == 1
+    assert "не больше 6 правок" in prompts[0].lower() or "Не больше 6 правок" in prompts[0]
 
 
 def test_rewrite_mode_also_sees_the_task(project_id):

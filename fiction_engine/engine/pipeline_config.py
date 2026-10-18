@@ -598,6 +598,40 @@ ROLE_PRESETS: dict[str, dict] = {
 }
 
 
+# ─── ⚠ СМЕНИЛ МОДЕЛЬ В НАБОРЕ — ПОВТОРИ ЗАМЕРЫ ────────────────────────────────
+#
+# Наборы выше подобраны замерами на этих самых моделях. Другой писатель (или
+# судья, критик, правщик) — другие числа: порог судьи, польза критика,
+# качество точечной редактуры не переносятся с модели на модель. 18.10 так и
+# вышло: одна и та же редактура по разбору критика улучшала текст Sonnet в
+# 61–70 % правок, а текст Sol — в 48–50 %.
+#
+# Ниже — с какими моделями наборы замерены. tests/test_role_presets_benched.py
+# сверяет их с ROLE_PRESETS и падает при любой разнице. Не правь этот снимок,
+# чтобы тест позеленел: сначала замеры для новой модели (минимум — то, что
+# она в наборе делает), числа — в bench/, и только потом снимок.
+#   писатель/редактор  → bench/ab-writers-*.json, bench/edit-source-*.json
+#                        (точечная редактура: сам / по критику, слепо по фрагментам)
+#   судья              → bench/judges-*.json (порог «ПРИНЯТЬ», устойчивость к порядку)
+#   критик             → bench/critics-*.json
+#   непрерывность      → bench/ab-continuity-*.json, bench/continuity-reveal-*.json
+# Правило всех замеров: своё не судит никто (Claude — не Claude, GPT — не GPT).
+BENCHED_PRESETS = {
+    "sonnet": {
+        "roles": {"gen": SONNET, "editor": SONNET, "critic": CRITIC_MODEL, "judge": SOL},
+        "settings": {"continuity_model": SOL, "continuity_fix_model": SONNET,
+                     "scorer_model": SOL, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
+        "bench": "2026-10-18",
+    },
+    "gpt": {
+        "roles": {"gen": SOL, "editor": SOL, "critic": CRITIC_MODEL, "judge": SONNET},
+        "settings": {"continuity_model": SONNET, "continuity_fix_model": SONNET,
+                     "scorer_model": SONNET, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
+        "bench": "2026-10-18",
+    },
+}
+
+
 def apply_role_preset(name: str) -> dict:
     """Записать набор в настройки. → {"roles", "missing": модели без ключа}."""
     from .db_settings import set_setting

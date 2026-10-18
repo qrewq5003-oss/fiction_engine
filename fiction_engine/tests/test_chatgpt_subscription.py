@@ -112,3 +112,14 @@ def test_reconnect_without_completion_raises(monkeypatch):
          patch("engine.api.subprocess.run", side_effect=_run(text="", events=evs, code=1)):
         with pytest.raises(RuntimeError, match="stream disconnected"):
             call_model("chatgpt_subscription::gpt-6-luna", "с", "у")
+
+
+def test_error_item_is_not_a_tool(monkeypatch):
+    """item.type == "error" — сообщение codex о сбое, не вызов инструмента (18.10)."""
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
+    evs = [{"type": "item.completed", "item": {"type": "error", "message": "Reconnecting... 2/5"}},
+           {"type": "item.completed", "item": {"type": "agent_message", "text": "Ответ."}},
+           {"type": "turn.completed", "usage": {}}]
+    with patch("engine.api.shutil.which", return_value="/usr/bin/codex"),          patch("engine.api.subprocess.run", side_effect=_run(text="Ответ.", events=evs)):
+        assert call_model("chatgpt_subscription::gpt-6-luna", "с", "у") == "Ответ."

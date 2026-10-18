@@ -712,7 +712,8 @@ def _call_chatgpt_subscription(model_id, system, user, api_key, max_tokens, pref
             with open(last, encoding="utf-8") as f:
                 result = f.read()
     tools = [e["item"].get("type") for e in events if e.get("type", "").startswith("item.")
-             and e.get("item", {}).get("type") not in ("agent_message", "reasoning")]
+             and e.get("item", {}).get("type") not in ("agent_message", "reasoning", "error")]
+    # item «error» — не инструмент: так codex тоже сообщает о переподключении
     errors = [str(e.get("message") or e.get("error") or e) for e in events
               if e.get("type") in ("error", "turn.failed")]
     # Событие error бывает и промежуточным: «Reconnecting... 2/5 (tls handshake

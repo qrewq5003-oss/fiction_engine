@@ -409,15 +409,20 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     critique = results.get("critique") or previous_critique
     if not (text and critique):
         return
+    from .point_edit import SELF_REVIEW, SYS_POINT_EDITOR, edit_mode, point_edit
+    mode = edit_mode()
+    if mode == "self":
+        # Места выбирает редактор сам: по разбору критика правки выходили
+        # лучше исходника через раз (point_edit.EDIT_MODES). Круг по-прежнему
+        # идёт после критика — без разбора шаг пропускается, как раньше
+        critique = SELF_REVIEW
     rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
     if rhythm_hint:
         critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
     # Задача главы — с правкой автора («Изменить промпт для следующей
     # итерации»). Раньше редактор её не видел вовсе: правка задачи на круг
     # редактуры не действовала
-    from .point_edit import SYS_POINT_EDITOR, edit_mode, point_edit
-    mode = edit_mode()
-    if mode == "points":
+    if mode in ("self", "points"):
         rep = point_edit(text, critique, generation_prompt,
                          lambda p: call_fn(model_editor, SYS_POINT_EDITOR, p))
         edited_text = rep["text"]

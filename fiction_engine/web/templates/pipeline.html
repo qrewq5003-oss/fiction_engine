@@ -293,13 +293,18 @@
             Оставь пустым чтобы использовать оригинальный промпт. Редактор видит задачу — напиши, что поправить.
           </div>
         </div>
-        <!-- Режим круга редактуры (engine/point_edit): точечно — правки по
-             критике, остальной текст слово в слово; целиком — переписать главу -->
+        <!-- Режим круга редактуры (engine/point_edit): точечно — правки в
+             нескольких местах, остальной текст слово в слово (места выбирает
+             редактор сам или берёт из разбора критика); целиком — переписать главу -->
         <div style="font-size:12px;color:var(--text2);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
           <span>Ещё круг редактуры:</span>
           <label style="display:flex;gap:4px;align-items:center;cursor:pointer;">
-            <input type="radio" name="edit-mode" value="points" style="width:auto;" onchange="setEditMode(this.value)" checked>
-            точечные правки</label>
+            <input type="radio" name="edit-mode" value="self" style="width:auto;" onchange="setEditMode(this.value)" checked>
+            точечно</label>
+          <label style="display:flex;gap:4px;align-items:center;cursor:pointer;"
+                 title="Править места, которые назвал критик. На замере правки по советам критика выходили лучше исходника через раз">
+            <input type="radio" name="edit-mode" value="points" style="width:auto;" onchange="setEditMode(this.value)">
+            точечно по разбору критика</label>
           <label style="display:flex;gap:4px;align-items:center;cursor:pointer;"
                  title="Для главы, которую не спасти правками: структура, порядок сцен">
             <input type="radio" name="edit-mode" value="rewrite" style="width:auto;" onchange="setEditMode(this.value)">
@@ -827,7 +832,7 @@ function showEditReport(rep) {
   const el = document.getElementById('edit-report');
   if (!rep) { el.style.display = 'none'; return; }
   const pct = Math.round((rep.changed || 0) * 100);
-  el.textContent = rep.mode === 'points'
+  el.textContent = rep.mode !== 'rewrite'
     ? `Редактура: правок ${rep.applied}, изменено ${pct}% текста` +
       (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
     : `Редактура целиком: изменено ${pct}% текста`;
