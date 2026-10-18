@@ -326,7 +326,8 @@ def excerpts_setting_api():
 
 @app.route("/api/settings/edit_mode", methods=["GET", "POST"])
 def edit_mode_api():
-    """«Ещё круг редактуры»: points — точечные правки (по умолчанию), rewrite — целиком."""
+    """«Ещё круг редактуры»: self — точечно, места выбирает редактор (по умолчанию);
+    points — точечно по разбору критика; rewrite — целиком."""
     from engine.db import set_setting
     from engine.point_edit import EDIT_MODE_KEY, EDIT_MODES, edit_mode
     if request.method == "POST":
