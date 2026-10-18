@@ -119,6 +119,16 @@ def purge_orphan_chapter_data(project_id: int) -> int:
     return n + _drop_chapter_facts(project_id, gone)
 
 
+def chapter_writers(project_id: int) -> dict[int, str]:
+    """Глава → модель, которая её написала (генерация последнего принятого запуска)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT chapter_num, model_gen FROM pipeline_runs "
+            "WHERE project_id=? AND status='accepted' AND model_gen IS NOT NULL ORDER BY id",
+            (project_id,)).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
 def get_chapters(project_id: int) -> list[dict]:
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(

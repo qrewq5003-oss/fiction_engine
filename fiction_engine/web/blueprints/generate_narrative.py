@@ -107,14 +107,39 @@ def chapter_tone_save(chapter_num):
 
 @bp.route("/api/chapter/<int:chapter_num>/text")
 def chapter_text_get(chapter_num):
-    """Вернуть текст сохранённой главы для склейки."""
-    current = get_current_project()
+    """
+    Вернуть текст сохранённой главы — для склейки и для импорта главы в
+    планировщик. ?pid=N — глава этого проекта, без него — открытого в FE.
+    """
+    pid = request.args.get("pid", type=int)
+    if pid:
+        current, err = _project_from(pid)
+        if err:
+            return err
+    else:
+        current = get_current_project()
     if not current:
         return jsonify({"text": None})
     from engine.db import get_chapter
     ch = get_chapter(current["id"], chapter_num)
     return jsonify({"text": ch["content"] if ch else None,
+                    "title": (ch.get("title") or "") if ch else "",
                     "words": ch["word_count"] if ch else 0})
+
+
+@bp.route("/api/chapters/list")
+def chapters_list_api():
+    """Написанные главы проекта ?pid — планировщику для импорта главы на доску."""
+    current, err = _project_from(request.args.get("pid", type=int))
+    if err:
+        return err
+    from engine.db import chapter_writers, get_chapters
+    # model — кто писал главу: планировщик разбивает главу той же моделью
+    writers = chapter_writers(current["id"])
+    return jsonify({"chapters": [{"number": c["number"], "title": c.get("title") or "",
+                                  "words": c.get("word_count") or 0,
+                                  "model": writers.get(c["number"], "")}
+                                 for c in get_chapters(current["id"])]})
 
 
 @bp.route("/api/director_note/<int:chapter_num>/save", methods=["POST"])

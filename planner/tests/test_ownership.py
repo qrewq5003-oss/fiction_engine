@@ -149,6 +149,43 @@ def _proof_login(client, f):
     assert ([dict(p) for p in get_projects()], dict(get_scene(f["scene_id"]))) == before
 
 
+def _session_pid(client) -> int:
+    with client.session_transaction() as sess:
+        return sess["project_id"]
+
+
+def _proof_chapter_import_split(client, f):
+    """
+    Ничего не пишет; глава берётся из связи проекта СЕССИИ. У чужого проекта
+    связь есть, у своего нет — отказ, чужая связь не используется.
+    """
+    from engine.db import get_scenes, set_fe_project
+    set_fe_project(f["project_id"], 99)
+    set_fe_project(_session_pid(client), None)
+    before = len(get_scenes(f["project_id"]))
+    r = client.post("/api/chapter_import/split", json={"chapter_num": 1, "model": "m"})
+    assert r.status_code == 400, "взята связь чужого проекта"
+    assert len(get_scenes(f["project_id"])) == before
+
+
+def _proof_chapter_import_save(client, f):
+    """
+    Сцены — только в проект сессии: чужой акт — отказ; связь со сценой
+    чужого проекта молча отбрасывается.
+    """
+    from engine.db import get_acts, get_links, get_scenes
+    other, own = f["project_id"], _session_pid(client)
+    links_before, scenes_before = len(get_links(other)), len(get_scenes(other))
+    r = client.post("/api/chapter_import/save", json={
+        "chapter_num": 1, "act_id": f["act_id"], "scenes": [{"title": "взлом"}]})
+    assert r.status_code >= 400, "сцена записана в чужой акт"
+    r = client.post("/api/chapter_import/save", json={
+        "chapter_num": 1, "act_id": get_acts(own)[0]["id"], "scenes": [{"title": "своя"}],
+        "links": [{"from": ["board", f["scene_id"]], "to": ["new", 0], "type": "cause"}]})
+    assert r.status_code == 200
+    assert len(get_links(other)) == links_before and len(get_scenes(other)) == scenes_before
+    assert not get_links(own), "связь с чужой сценой создана"
+
 PROOFS = {
     "/login":                     _proof_login,
     "/api/scenes/new":            _proof_scene_new,
@@ -158,6 +195,8 @@ PROOFS = {
     "/projects/<int:pid>/delete": _proof_project_delete,
     "/switch/<int:pid>":          _proof_switch,
     "/api/fe/bible/set":          _proof_fe_bible_set,
+    "/api/chapter_import/split":  _proof_chapter_import_split,
+    "/api/chapter_import/save":   _proof_chapter_import_save,
 }
 
 

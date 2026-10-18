@@ -2,7 +2,11 @@
 {% block title %}Граф{% endblock %}
 {% block topbar %}
 <span style="color:var(--text2);font-size:12px;">Перетаскивай узлы. Двойной клик — открыть сцену. Связь: «Редактировать» → «Добавить ребро» и тяни от сцены к сцене.</span>
-<div style="margin-left:auto;">
+<div style="margin-left:auto;display:flex;gap:8px;">
+  <select id="layout-sel" style="width:auto;" onchange="setLayout(this.value)" title="Раскладка графа">
+    <option value="free">свободно</option>
+    <option value="chapters">по главам</option>
+  </select>
   <select id="link-type-sel" style="width:auto;">
     <option value="cause">причина → следствие</option>
     <option value="parallel">параллельно</option>
@@ -34,8 +38,10 @@ const LINK_LABELS = { cause:'→', parallel:'||', mirror:'↔', contrast:'≠' }
 
 const nodes = new vis.DataSet(SCENES.map(s => ({
   id: s.id,
-  label: (s.title || 'Сцена #'+s.id) + (s.emotion ? '\n['+s.emotion+']' : ''),
-  color: { background: ACT_COLORS[s.act_id] ? ACT_COLORS[s.act_id]+'33' : '#1e253533',
+  // Глава — у сцен из плана или импорта главы: граф читается по порядку книги
+  label: (s.chapter_num ? 'гл.' + s.chapter_num + ' · ' : '') + (s.title || 'Сцена #'+s.id) +(s.emotion ? '\n['+s.emotion+']' : ''),
+  title: s.what_happens || undefined,
+  color: { background: ACT_COLORS[s.act_id] ?ACT_COLORS[s.act_id]+'33' : '#1e253533',
            border: ACT_COLORS[s.act_id] || '#6b7280',
            highlight: { background: '#7c3aed33', border: '#7c3aed' } },
   font: { color: '#e2e8f0', size: 12 },
@@ -44,7 +50,10 @@ const nodes = new vis.DataSet(SCENES.map(s => ({
 
 const edges = new vis.DataSet(LINKS.map(l => ({
   id: l.id, from: l.from_id, to: l.to_id,
-  label: l.label || LINK_LABELS[l.link_type] || '',
+  // На ребре — значок типа, пояснение — при наведении: фразы на рёбрах
+  // импортированной главы налезали друг на друга
+  label: LINK_LABELS[l.link_type] || '',
+  title: l.label || undefined,
   color: { color: LINK_COLORS[l.link_type] || '#6b7280' },
   arrows: 'to', font: { color: '#94a3b8', size: 10 }, smooth: { type: 'curvedCW', roundness: .15 }
 })));
@@ -73,6 +82,36 @@ const net = new vis.Network(document.getElementById('map-canvas'), { nodes, edge
     }
   }
 });
+
+// Раскладка «по главам»: глава — колонка, сцены сверху вниз в порядке доски,
+// без главы — последняя колонка. Свободная — физика, как раньше
+const ACT_ORDER = Object.fromEntries(ACTS.map((a, i) => [a.id, i]));
+function chapterPositions() {
+  const seq = [...SCENES].sort((a, b) =>
+    ((ACT_ORDER[a.act_id] ?? 99) - (ACT_ORDER[b.act_id] ?? 99)) || ((a.position || 0) - (b.position || 0)));
+  const cols = [...new Set(seq.map(s => s.chapter_num || null))]
+    .sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
+  const row = {};
+  return seq.map(s => {
+    const c = s.chapter_num || null;
+    row[c] = (row[c] || 0) + 1;
+    return { id: s.id, x: cols.indexOf(c) * 300, y: row[c] * 80 };
+  });
+}
+function setLayout(mode) {
+  try { localStorage.setItem('planner_map_layout', mode); } catch (e) {}
+  if (mode === 'chapters') {
+    net.setOptions({ physics: { enabled: false } });
+    nodes.update(chapterPositions());
+  } else {
+    net.setOptions({ physics: { enabled: true } });
+  }
+  net.fit();
+}
+let savedLayout = 'free';
+try { savedLayout = localStorage.getItem('planner_map_layout') || 'free'; } catch (e) {}
+document.getElementById('layout-sel').value = savedLayout;
+if (savedLayout === 'chapters') setLayout('chapters');
 
 net.on('doubleClick', p => {
   if (p.nodes.length) location.href = '/scene/' + p.nodes[0];
