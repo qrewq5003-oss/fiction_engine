@@ -45,6 +45,22 @@ def plan_items(plan: str) -> list[str]:
     return [i[:PLAN_ITEM_MAX] for i in items if i][:PLAN_MAX_ITEMS]
 
 
+def plan_end_line(plan: str) -> str:
+    """
+    Где кончается глава — строка писателю после плана из планировщика.
+    Писатель добирал объём и шёл дальше плана: книга 3 (18.10), глава 1 из
+    трёх сцен закончилась заселением в гостиницу — первой сценой главы 2.
+    Только для плана со сценами («СЦЕНА N: …»); у обычной заметки конца нет.
+    """
+    text = (plan or "").split(HOLD_MARK)[0]
+    scenes = list(_SCENE.finditer(text))
+    if not scenes:
+        return ""
+    last = text[scenes[-1].start():].strip().splitlines()[0].strip()
+    return (f"ГЛАВА ЗАКАНЧИВАЕТСЯ последней сценой плана — {last}. После неё ничего не пиши: "
+            "следующие события — в следующих главах. Объём набирай внутри сцен плана, а не новыми сценами.")
+
+
 def quote_found(quote: str, text: str) -> bool:
     """
     Цитата подтверждает пункт, если хоть один её кусок от 4 слов (между «…»,

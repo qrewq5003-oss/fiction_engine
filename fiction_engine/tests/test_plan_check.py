@@ -84,3 +84,20 @@ def test_endpoint(project_id, monkeypatch):
     d = c.post("/pipeline/plan_check", json=body).get_json()
     assert d["ok"] and d["checker"] == "gpt-6.1-sol@medium"
     assert [x["status"] for x in d["items"]] == ["есть", "?", "?"] and d["items"][0]["quote_ok"]
+
+
+def test_plan_end_line_names_last_scene_and_skips_hold():
+    """Писатель шёл дальше плана (книга 3, 18.10): ему сказано, какой сценой глава кончается."""
+    from engine.plan_check import plan_end_line
+    plan = ("ПЛАН ГЛАВЫ 1\n\nСЦЕНА 1: Паром\n  Локация: озеро\n\nСЦЕНА 3: Пустая полка\n"
+            "  Что происходит: нет журнала\n\nПОКА НЕ РАСКРЫВАТЬ (…):\n- СЦЕНА 9: не сцена, а запрет")
+    end = plan_end_line(plan)
+    assert "СЦЕНА 3: Пустая полка" in end and "СЦЕНА 9" not in end
+    assert plan_end_line("Заметка редактора без сцен") == ""
+
+
+def test_plan_end_line_reaches_writer(project_id):
+    from engine.db import save_director_note
+    from engine.state_prompts import _director_block
+    assert "ГЛАВА ЗАКАНЧИВАЕТСЯ" in _director_block("СЦЕНА 1: Паром\n\nСЦЕНА 2: Маяк")
+    assert "ГЛАВА ЗАКАНЧИВАЕТСЯ" not in _director_block("Сделай Анну злее")
