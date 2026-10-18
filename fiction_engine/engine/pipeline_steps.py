@@ -391,9 +391,12 @@ def _flag_truncation(text: str, results: dict, where: str) -> None:
 
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
-              model_editor: str, call_fn, results: dict) -> None:
+              model_editor: str, call_fn, results: dict, model_judge: str = "") -> None:
     """
     Шаг редактуры: правит текст по критике.
+
+    model_judge — судья набора: после точечного круга он вслепую сверяет
+    каждую правку с исходником, отвергнутые откатываются (engine/edit_filter).
 
     Берёт текст и критику ТЕКУЩЕЙ итерации, если они есть, и только иначе —
     предыдущей. До 13.09.2026 он смотрел лишь на предыдущую, поэтому на
@@ -430,6 +433,12 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                                   "failed": [f"{(f.get('old') or f.get('after') or '')[:60]} — {f['why']}"
                                              for f in rep["failed"]][:8],
                                   "changed": rep["changed"]}
+        if rep["applied"] and model_judge:
+            from .continuity_fix import changed_share
+            from .edit_filter import filter_edits
+            edited_text, flt = filter_edits(text, edited_text, model_judge, model_editor, call_fn)
+            results["edit_report"]["filter"] = flt
+            results["edit_report"]["changed"] = round(changed_share(text, edited_text), 3)
         save_pipeline_iteration(run_id, iteration, "edit", model_editor,
                                 generation_prompt, edited_text)
         results["generated_text"] = edited_text

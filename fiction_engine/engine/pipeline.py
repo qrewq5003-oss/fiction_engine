@@ -223,7 +223,7 @@ def _execute_steps(
         elif step.name == "edit":
             step_edit(run_id, iteration, generation_prompt,
                       previous_text, previous_critique,
-                      model_editor, step_call, results)
+                      model_editor, step_call, results, model_judge=model_judge)
             # Редактор переписывает главу целиком, и проверенный текст
             # перестаёт быть проверенным: у автора 17.10 «Кратохвил» вместо
             # Вавры, «одиннадцать в подвале» вместо двенадцати и «под
