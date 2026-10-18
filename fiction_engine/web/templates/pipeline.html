@@ -833,7 +833,9 @@ function showEditReport(rep) {
   if (!rep) { el.style.display = 'none'; return; }
   const pct = Math.round((rep.changed || 0) * 100);
   el.textContent = rep.mode !== 'rewrite'
-    ? `Редактура: правок ${rep.applied}, изменено ${pct}% текста` +
+    ? `Редактура: правок ${rep.applied}` +
+      (rep.filter && rep.filter.checked ? ` (судья оставил ${rep.filter.kept} из ${rep.filter.checked} мест)` : '') +
+      `, изменено ${pct}% текста` +
       (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
     : `Редактура целиком: изменено ${pct}% текста`;
   el.style.display = 'block';
