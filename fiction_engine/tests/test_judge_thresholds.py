@@ -14,10 +14,10 @@ def test_judge_gets_critique_without_scores():
 
 def test_threshold_per_judge():
     from engine.pipeline_config import ACCEPT_TOTAL, accept_total_for, verdict_rule_for_prompt
-    assert accept_total_for("chatgpt_subscription::gpt-6.1-sol@medium") == 32
+    assert accept_total_for("chatgpt_subscription::gpt-6.1-sol@medium") == 30
     assert accept_total_for("claude_subscription::claude-sonnet-5-5") == 33
     assert accept_total_for("anthropic_direct::claude-haiku-4-5-20251001") == ACCEPT_TOTAL
-    assert "ИТОГ ≥ 32" in verdict_rule_for_prompt("chatgpt_subscription::gpt-6.1-sol@medium")
+    assert "ИТОГ ≥ 30" in verdict_rule_for_prompt("chatgpt_subscription::gpt-6.1-sol@medium")
 
 
 def _judge(model, total, crit=7):
@@ -39,8 +39,8 @@ def test_verdict_follows_judge_threshold_not_model_word():
     sol = "chatgpt_subscription::gpt-6.1-sol@medium"
     res, seen = _judge(sol, 33)
     assert res["verdict"] == "ПРИНЯТЬ"                  # модель сказала «на доработку»
-    assert "ИТОГ ≥ 32" in seen["system"] and "ИТОГ: 27" not in seen["user"]
-    assert _judge(sol, 31)[0]["verdict"] == "НА ДОРАБОТКУ"
+    assert "ИТОГ ≥ 30" in seen["system"] and "ИТОГ: 27" not in seen["user"]
+    assert _judge(sol, 29)[0]["verdict"] == "НА ДОРАБОТКУ"
     assert _judge(sol, 40, crit=3)[0]["verdict"] == "НА ДОРАБОТКУ"   # провал критерия
     assert _judge("anthropic_direct::claude-haiku-4-5-20251001", 33)[0]["verdict"] == "НА ДОРАБОТКУ"
 

@@ -123,7 +123,7 @@ def test_writer_by_subscription_when_enabled(monkeypatch):
 
 def test_roles_never_judge_own_family_and_critic_is_not_judge(monkeypatch):
     from unittest.mock import patch
-    from engine.pipeline_config import CRITIC_MODEL, default_role_models, model_family
+    from engine.pipeline_config import CRITIC_FALLBACK, CRITIC_MODEL, default_role_models, model_family
     monkeypatch.setenv("NANO_GPT_API_KEY", "k")
     with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
         for claude, gpt in (("1", "1"), ("0", "1"), ("1", "0")):
@@ -131,7 +131,8 @@ def test_roles_never_judge_own_family_and_critic_is_not_judge(monkeypatch):
             monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", gpt)
             r = default_role_models()
             assert model_family(r["judge"]) != model_family(r["gen"]) or claude + gpt != "11", r
-            assert r["critic"] == CRITIC_MODEL and r["critic"] != r["judge"]
+            # Критик Haiku — по подписке Claude; без неё прежний Kimi (nano), не судья
+            assert r["critic"] == (CRITIC_MODEL if claude == "1" else CRITIC_FALLBACK) and r["critic"] != r["judge"]
 
 
 def test_role_presets_never_judge_own_family():

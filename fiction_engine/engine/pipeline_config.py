@@ -80,9 +80,23 @@ ACCEPT_MIN_CRITERION = 4     # из 10, по каждому из пяти
 #     Sonnet порог 33: живые 5 из 12, испорченные 1 из 12 — дубль куска,
 #                      его ловит арифметика (detect_truncation и повторы)
 JUDGE_ACCEPT_TOTAL: dict[str, int] = {
-    "gpt-6.1-sol": 32,
+    # 18.10: 32 → 30 с критиком Haiku 5.5 вместо Kimi (bench/critic-no-nano-2026-10-18.json):
+    # при 30 на 48 главах проходят 12/24 живых и 0/24 испорченных, при 32 — 8/24
+    "gpt-6.1-sol": 30,
     "claude-sonnet-5": 33,
 }
+
+# Судьи, которым разбор критика не передаётся: оценивают главу сами.
+# Sonnet без разбора отличает живые главы от испорченных лучше, чем с ним:
+# 12/12 и 11/12 на двух выборках; с разбором Kimi 12/12, с разбором Luna —
+# 10/12 и строже (bench/critic-no-nano-2026-10-18.json). Sol, наоборот, без
+# разбора хуже: 9/12 против 11–12/12 — ему разбор идёт.
+JUDGE_WITHOUT_CRITIQUE = ("claude-sonnet-5",)
+
+
+def judge_sees_critique(model_judge: str = "") -> bool:
+    m = (model_judge or "").split("::")[-1]
+    return not any(k in m for k in JUDGE_WITHOUT_CRITIQUE)
 
 
 def accept_total_for(model_judge: str = "") -> int:
@@ -539,7 +553,16 @@ SUBSCRIPTION_WRITERS = (
 # не сменить голос. Критик — третья модель, не судья: судья видит разбор
 # критика и, будь это одна модель, повторял его балл (у автора 39/39).
 # Оговорка: порог «ПРИНЯТЬ» калиброван на Haiku, на Sol не выверен.
-CRITIC_MODEL = "nano_gpt::moonshotai/kimi-k2.5"
+# 18.10: критик — Claude Haiku 5.5 по подписке вместо Kimi (nano). Модели nano
+# как оценщики ненадёжны (выбор в обратном порядке показа совпадал в 34–55 %).
+# С разбором Haiku судья Sol лучше всех отличает живые главы от испорченных:
+# 24/24, разрыв 8.8 балла; Luna — 23/24 и 6.8, Kimi — 11/12 и 6.7 (две
+# выборки, 48 глав). GPT-6 Astra не лучше Luna и дороже. Haiku не нагружает
+# подписку ChatGPT, где у набора Sonnet судья и проверка непрерывности.
+# Судье Sonnet разбор не передаётся (JUDGE_WITHOUT_CRITIQUE); критик в наборе
+# GPT нужен для анализа главы, дрейфа голоса и разбора автору.
+CRITIC_MODEL = "claude_subscription::claude-haiku-5-5"
+CRITIC_FALLBACK = "nano_gpt::moonshotai/kimi-k2.5"   # только вне наборов и без подписки Claude
 
 
 def default_role_models() -> dict[str, str]:
@@ -565,8 +588,10 @@ def default_role_models() -> dict[str, str]:
                       if on[m.split("::")[0]] and model_family(m) != model_family(gen)), "")
         if judge:
             roles["judge"] = judge
-        if _has_key(CRITIC_MODEL):
-            roles["critic"] = CRITIC_MODEL
+        # Без подписки ChatGPT Luna недоступна — прежний критик, лишь бы не судья
+        critic = next((m for m in (CRITIC_MODEL, CRITIC_FALLBACK) if _has_key(m)), "")
+        if critic:
+            roles["critic"] = critic
     return roles
 
 
@@ -613,20 +638,35 @@ ROLE_PRESETS: dict[str, dict] = {
 #   писатель/редактор  → bench/ab-writers-*.json, bench/edit-source-*.json
 #                        (точечная редактура: сам / по критику, слепо по фрагментам)
 #   судья              → bench/judges-*.json (порог «ПРИНЯТЬ», устойчивость к порядку)
-#   критик             → bench/critics-*.json
+#   критик             → bench/critics-*.json, bench/critic-no-nano-*.json (судья с его
+#                        разбором, без разбора; порог судьи пересчитать)
 #   непрерывность      → bench/ab-continuity-*.json, bench/continuity-reveal-*.json
 # Правило всех замеров: своё не судит никто (Claude — не Claude, GPT — не GPT).
+# Названия моделей здесь — строками, а не константами наборов: иначе замена
+# константы меняла бы и наборы, и снимок разом, и тест молчал бы.
 BENCHED_PRESETS = {
     "sonnet": {
-        "roles": {"gen": SONNET, "editor": SONNET, "critic": CRITIC_MODEL, "judge": SOL},
-        "settings": {"continuity_model": SOL, "continuity_fix_model": SONNET,
-                     "scorer_model": SOL, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
+        "roles": {"gen": "claude_subscription::claude-sonnet-5-5",
+                  "editor": "claude_subscription::claude-sonnet-5-5",
+                  "critic": "claude_subscription::claude-haiku-5-5",
+                  "judge": "chatgpt_subscription::gpt-6.1-sol@medium"},
+        "settings": {"continuity_model": "chatgpt_subscription::gpt-6.1-sol@medium",
+                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
+                     "scorer_model": "chatgpt_subscription::gpt-6.1-sol@medium",
+                     "resolver_model": "claude_subscription::claude-haiku-5-5",
+                     "l3_model": "claude_subscription::claude-sonnet-5-5"},
         "bench": "2026-10-18",
     },
     "gpt": {
-        "roles": {"gen": SOL, "editor": SOL, "critic": CRITIC_MODEL, "judge": SONNET},
-        "settings": {"continuity_model": SONNET, "continuity_fix_model": SONNET,
-                     "scorer_model": SONNET, "resolver_model": HAIKU_SUB, "l3_model": SONNET},
+        "roles": {"gen": "chatgpt_subscription::gpt-6.1-sol@medium",
+                  "editor": "chatgpt_subscription::gpt-6.1-sol@medium",
+                  "critic": "claude_subscription::claude-haiku-5-5",
+                  "judge": "claude_subscription::claude-sonnet-5-5"},
+        "settings": {"continuity_model": "claude_subscription::claude-sonnet-5-5",
+                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
+                     "scorer_model": "claude_subscription::claude-sonnet-5-5",
+                     "resolver_model": "claude_subscription::claude-haiku-5-5",
+                     "l3_model": "claude_subscription::claude-sonnet-5-5"},
         "bench": "2026-10-18",
     },
 }

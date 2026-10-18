@@ -575,6 +575,10 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
     results["critic_score"] = critic_score
 
 
+# Вместо разбора критика — судье, который оценивает сам (тот же текст, что на замере)
+NO_CRITIQUE_FOR_JUDGE = "(отдельного разбора нет — оцени главу сам)"
+
+
 def step_judge(run_id: int, iteration: int, chapter_num: int,
                model_judge: str, call_fn, results: dict,
                previous_text: str = "",
@@ -590,9 +594,12 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     import re
 
     current_text = results.get("generated_text", previous_text or "")
-    # Разбор критика — без его баллов: иначе судья повторял его ИТОГ
+    # Разбор критика — без его баллов: иначе судья повторял его ИТОГ.
+    # Некоторым судьям разбор не передаётся вовсе (pipeline_config.JUDGE_WITHOUT_CRITIQUE)
+    from .pipeline_config import judge_sees_critique
     from .pipeline_llm import critique_for_judge
-    critique     = critique_for_judge(results.get("critique", ""))
+    critique     = (critique_for_judge(results.get("critique", "")) if judge_sees_critique(model_judge)
+                    else NO_CRITIQUE_FOR_JUDGE)
 
     # ── История оценок для контекста судьи ──────────────────────────────────
     score_context = ""
