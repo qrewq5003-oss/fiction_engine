@@ -248,6 +248,45 @@ def move_scene(scene_id: int, new_act_id: int | None, new_position: int):
     _trim_snapshots(scene_id)
 
 
+def import_chapter(project_id: int, act_id: int | None, chapter_num: int,
+                   scenes: list[dict], links: list[dict]) -> list[int]:
+    """
+    Сцены главы из её текста (engine/chapter_import) — в акт, по порядку
+    глав, с меткой главы; связи — между ними и со сценами доски этого
+    проекта. Одна транзакция: полглавы на доске не остаётся.
+    links: {"from": ["new", i] | ["board", id], "to": …, "type", "label"}.
+    """
+    from .chapter_import import FIELDS, insert_position
+    with get_conn() as conn:
+        act = [dict(r) for r in conn.execute(
+            "SELECT id, chapter_num FROM scenes WHERE project_id=? AND act_id IS ? ORDER BY position, id",
+            (project_id, act_id)).fetchall()]
+        at = insert_position(act, chapter_num)
+        new_ids = []
+        for s in scenes:
+            cur = conn.execute(
+                f"INSERT INTO scenes (project_id, act_id, chapter_num, {', '.join(FIELDS)}) "
+                f"VALUES (?,?,?,{','.join('?' * len(FIELDS))})",
+                (project_id, act_id, chapter_num, *[str(s.get(f) or "") for f in FIELDS]))
+            new_ids.append(cur.lastrowid)
+        order = [s["id"] for s in act[:at]] + new_ids + [s["id"] for s in act[at:]]
+        conn.executemany("UPDATE scenes SET position=? WHERE id=?",
+                         [(i + 1, sid) for i, sid in enumerate(order)])
+        own = {r[0] for r in conn.execute("SELECT id FROM scenes WHERE project_id=?", (project_id,))}
+        for ln in links:
+            ids = []
+            for kind, ref in (ln["from"], ln["to"]):
+                ids.append(new_ids[ref] if kind == "new" and 0 <= ref < len(new_ids)
+                           else ref if kind == "board" and ref in own else None)
+            if None in ids or ids[0] == ids[1]:
+                continue
+            conn.execute(
+                """INSERT INTO scene_links (from_id, to_id, link_type, label) VALUES (?,?,?,?)
+                   ON CONFLICT(from_id, to_id) DO NOTHING""",
+                (ids[0], ids[1], ln.get("type") or "cause", ln.get("label") or ""))
+        return new_ids
+
+
 # ─── Scene Links ─────────────────────────────────────────────────────────────
 
 def get_links(project_id: int) -> list:

@@ -300,6 +300,110 @@ def ai_assist():
         }), 503
 
 
+# ─── Импорт главы на доску ────────────────────────────────────────────────────
+
+@bp.route("/fe/chapters")
+def fe_chapters():
+    """Написанные главы связанного проекта FE — выбор в «Импорт главы»."""
+    from engine.db import get_project
+    fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
+    if not fe_pid:
+        return jsonify({"chapters": [], "linked": False})
+    import json as _json
+    try:
+        with _fe_get(f"/api/chapters/list?pid={fe_pid}", timeout=5) as r:
+            return jsonify({"chapters": _json.loads(r.read()).get("chapters", []), "linked": True})
+    except Exception as e:
+        return jsonify({"chapters": [], "linked": True, "error": f"FE недоступен: {e}"})
+
+
+@bp.route("/chapter_import/split", methods=["POST"])
+def chapter_import_split():
+    """
+    Разбить главу на сцены — только предложение, на доску ничего не пишется:
+    автор смотрит, правит и снимает лишнее в окне, потом /chapter_import/save.
+    Текст — вставленный автором или глава связанного проекта FE.
+    """
+    pid = current_pid()
+    if not pid:
+        return jsonify({"error": "Нет проекта"}), 400
+    data = request.json or {}
+    chapter, model = _chapter_num(data), (data.get("model") or "").strip()
+    if not model:
+        return jsonify({"error": "Выбери модель"}), 400
+    text = (data.get("text") or "").strip()
+    if not text:
+        from engine.db import get_project
+        fe_pid = (get_project(pid) or {}).get("fe_project_id")
+        if not fe_pid:
+            return jsonify({"error": "Проект не связан с Fiction Engine — вставь текст главы"}), 400
+        import json as _json
+        try:
+            with _fe_get(f"/api/chapter/{chapter}/text?pid={fe_pid}", timeout=10) as r:
+                text = (_json.loads(r.read()).get("text") or "").strip()
+        except Exception as e:
+            return jsonify({"error": f"FE недоступен: {e}"}), 503
+        if not text:
+            return jsonify({"error": f"Главы {chapter} в Fiction Engine нет"}), 404
+
+    from engine.chapter_import import SYSTEM, build_prompt, parse
+    from engine.db import get_scenes
+    board = get_scenes(pid)
+    import requests as req
+    try:
+        # Глава целиком и ответ на десяток сцен: подписке нужно время
+        resp = req.post(f"{_fe_base_url()}/api/inline_call", headers=_fe_headers(), json={
+            "model": model, "system": SYSTEM, "prompt": build_prompt(text, chapter, board),
+            "max_tokens": 8000}, timeout=600)
+    except req.exceptions.RequestException as e:
+        return jsonify({"error": f"Fiction Engine недоступен ({_fe_base_url()}): {e}"}), 503
+    if not resp.ok:
+        try:
+            detail = resp.json().get("error") or resp.text[:200]
+        except Exception:
+            detail = resp.text[:200]
+        return jsonify({"error": f"Fiction Engine ответил отказом: {detail}"}), resp.status_code
+    try:
+        got = parse(resp.json().get("result", ""), {s["id"] for s in board})
+    except ValueError as e:
+        return jsonify({"error": f"Не разобрать ответ модели: {e}. Попробуй ещё раз или другую модель"}), 502
+    titles = {s["id"]: s["title"] or f"Сцена #{s['id']}" for s in board}
+    for ln in got["links"]:
+        for end in ("from", "to"):
+            if ln[end][0] == "board":
+                ln[end + "_title"] = titles[ln[end][1]]
+    return jsonify({"ok": True, "chapter_num": chapter, "words": len(text.split()),
+                    "already": sum(1 for s in board if s.get("chapter_num") == chapter), **got})
+
+
+@bp.route("/chapter_import/save", methods=["POST"])
+def chapter_import_save():
+    """Сцены главы, которые автор оставил в окне, — на доску; связи — в граф."""
+    pid = current_pid()
+    if not pid:
+        return jsonify({"error": "Нет проекта"}), 400
+    data = request.json or {}
+    act_id = data.get("act_id") or None
+    if act_id is not None and not owned_act(act_id):
+        return deny("Акт")
+    scenes = [s for s in data.get("scenes") or [] if isinstance(s, dict)]
+    if not scenes:
+        return jsonify({"error": "Нет сцен"}), 400
+    links = []
+    for ln in data.get("links") or []:
+        try:
+            ends = [(str(e[0]), int(e[1])) for e in (ln["from"], ln["to"])]
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+        if all(k in ("new", "board") for k, _ in ends):
+            links.append({"from": ends[0], "to": ends[1],
+                          "type": ln.get("type") if ln.get("type") in ("cause", "parallel", "mirror", "contrast")
+                          else "cause", "label": str(ln.get("label") or "")[:80]})
+    from engine.db import import_chapter
+    ids = import_chapter(pid, act_id, _chapter_num(data), scenes, links)
+    return jsonify({"ok": True, "ids": ids})
+
+
 # ─── Export to Fiction Engine ─────────────────────────────────────────────────
 
 @bp.route("/timeline")
