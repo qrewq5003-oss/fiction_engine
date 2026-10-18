@@ -37,11 +37,18 @@ def _opcodes(old: str, new: str) -> tuple[list[str], list[str], list[tuple]]:
     return a, b, difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
 
 
+def _norm(s: str) -> str:
+    return " ".join((s or "").split())
+
+
 def filter_edits(old: str, new: str, judge_model: str, editor_model: str,
-                 call_fn: Callable[[str, str, str], str], seed: int | None = None) -> tuple[str, dict]:
+                 call_fn: Callable[[str, str, str], str], seed: int | None = None,
+                 keep: list[str] | tuple = ()) -> tuple[str, dict]:
     """
-    → (текст, отчёт). Отчёт: {"checked", "kept", "reverted"} или {"skipped": почему}.
+    → (текст, отчёт). Отчёт: {"checked", "kept", "reverted", "plan_kept"} или {"skipped": почему}.
     call_fn(model, system, prompt) — тот же вызов, что у шагов пайплайна.
+    keep — новый текст правок, которые судье не показываются и не откатываются
+    (правки по плану главы: point_edit.PLAN_MARK).
     """
     from .pipeline_config import model_family
     from .pipeline_llm import parse_json
@@ -50,9 +57,12 @@ def filter_edits(old: str, new: str, judge_model: str, editor_model: str,
     if model_family(judge_model) == model_family(editor_model):
         return new, {"skipped": "судья той же семьи, что редактор"}
     a, b, ops = _opcodes(old, new)
-    changed = [op for op in ops if op[0] != "equal"]
+    marks = [_norm(k) for k in keep if _norm(k)]
+    protected = {op for op in ops if op[0] != "equal"
+                 and any(m in _norm(SEP.join(b[op[3]:op[4]])) for m in marks)}
+    changed = [op for op in ops if op[0] != "equal" and op not in protected]
     if not changed:
-        return new, {"checked": 0, "kept": 0, "reverted": 0}
+        return new, {"checked": 0, "kept": 0, "reverted": 0, "plan_kept": len(protected)}
     rng = random.Random(seed)
     flips = [rng.random() < 0.5 for _ in changed]
     items = []
@@ -70,19 +80,23 @@ def filter_edits(old: str, new: str, judge_model: str, editor_model: str,
     except Exception:
         choices = {}
     if not choices:
-        return new, {"skipped": "ответ судьи не разобран"}
-    keep = []
+        return new, {"skipped": "ответ судьи не разобран", "plan_kept": len(protected)}
+    verdict = []
     for i, flip in enumerate(flips, 1):
         v = choices.get(i, "").lower()
         # Нет ответа по фрагменту — правка остаётся: фильтр откатывает только то,
         # что судья явно не выбрал
-        keep.append(v == ("1" if flip else "2") or v not in ("1", "2", "равно"))
+        verdict.append(v == ("1" if flip else "2") or v not in ("1", "2", "равно"))
     out, k = [], 0
-    for tag, i1, i2, j1, j2 in ops:
+    for op in ops:
+        tag, i1, i2, j1, j2 = op
         if tag == "equal":
             out += a[i1:i2]
-            continue
-        out += b[j1:j2] if keep[k] else a[i1:i2]
-        k += 1
-    kept = sum(keep)
-    return SEP.join(out), {"checked": len(changed), "kept": kept, "reverted": len(changed) - kept}
+        elif op in protected:
+            out += b[j1:j2]
+        else:
+            out += b[j1:j2] if verdict[k] else a[i1:i2]
+            k += 1
+    kept = sum(verdict)
+    return SEP.join(out), {"checked": len(changed), "kept": kept, "reverted": len(changed) - kept,
+                           "plan_kept": len(protected)}
