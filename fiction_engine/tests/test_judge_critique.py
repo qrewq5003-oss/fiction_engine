@@ -1,4 +1,4 @@
-"""Судье Sonnet разбор критика не передаётся; Sol его получает (bench/critic-luna-2026-10-18.json)."""
+"""Судье Sonnet разбор критика не передаётся; Sol его получает (bench/critic-no-nano-2026-10-18.json)."""
 from unittest.mock import patch
 
 SOL = "chatgpt_subscription::gpt-6.1-sol@medium"

@@ -80,9 +80,8 @@ ACCEPT_MIN_CRITERION = 4     # из 10, по каждому из пяти
 #     Sonnet порог 33: живые 5 из 12, испорченные 1 из 12 — дубль куска,
 #                      его ловит арифметика (detect_truncation и повторы)
 JUDGE_ACCEPT_TOTAL: dict[str, int] = {
-    # 18.10: 32 → 30 с критиком Luna вместо Kimi (bench/critic-luna-2026-10-18.json):
-    # с разбором Luna Sol строже на 1–2 балла; при 30 на 48 главах проходят
-    # 12/24 живых и 0/24 испорченных, при 32 — 6/24
+    # 18.10: 32 → 30 с критиком Haiku 5.5 вместо Kimi (bench/critic-no-nano-2026-10-18.json):
+    # при 30 на 48 главах проходят 12/24 живых и 0/24 испорченных, при 32 — 8/24
     "gpt-6.1-sol": 30,
     "claude-sonnet-5": 33,
 }
@@ -90,7 +89,7 @@ JUDGE_ACCEPT_TOTAL: dict[str, int] = {
 # Судьи, которым разбор критика не передаётся: оценивают главу сами.
 # Sonnet без разбора отличает живые главы от испорченных лучше, чем с ним:
 # 12/12 и 11/12 на двух выборках; с разбором Kimi 12/12, с разбором Luna —
-# 10/12 и строже (bench/critic-luna-2026-10-18.json). Sol, наоборот, без
+# 10/12 и строже (bench/critic-no-nano-2026-10-18.json). Sol, наоборот, без
 # разбора хуже: 9/12 против 11–12/12 — ему разбор идёт.
 JUDGE_WITHOUT_CRITIQUE = ("claude-sonnet-5",)
 
@@ -554,14 +553,16 @@ SUBSCRIPTION_WRITERS = (
 # не сменить голос. Критик — третья модель, не судья: судья видит разбор
 # критика и, будь это одна модель, повторял его балл (у автора 39/39).
 # Оговорка: порог «ПРИНЯТЬ» калиброван на Haiku, на Sol не выверен.
-# 18.10: критик — GPT-6 Luna по подписке вместо Kimi (nano). Модели nano как
-# оценщики ненадёжны (выбор в обратном порядке показа совпадал в 34–55 %), а
-# с разбором Luna судья Sol отличает живые главы от испорченных так же
-# (11/12 и 12/12), порог — 30. GPT-6 Astra на 4 главах не лучше Luna и дороже.
+# 18.10: критик — Claude Haiku 5.5 по подписке вместо Kimi (nano). Модели nano
+# как оценщики ненадёжны (выбор в обратном порядке показа совпадал в 34–55 %).
+# С разбором Haiku судья Sol лучше всех отличает живые главы от испорченных:
+# 24/24, разрыв 8.8 балла; Luna — 23/24 и 6.8, Kimi — 11/12 и 6.7 (две
+# выборки, 48 глав). GPT-6 Astra не лучше Luna и дороже. Haiku не нагружает
+# подписку ChatGPT, где у набора Sonnet судья и проверка непрерывности.
 # Судье Sonnet разбор не передаётся (JUDGE_WITHOUT_CRITIQUE); критик в наборе
 # GPT нужен для анализа главы, дрейфа голоса и разбора автору.
-CRITIC_MODEL = "chatgpt_subscription::gpt-6-luna@medium"
-CRITIC_FALLBACK = "nano_gpt::moonshotai/kimi-k2.5"   # только вне наборов и без подписки ChatGPT
+CRITIC_MODEL = "claude_subscription::claude-haiku-5-5"
+CRITIC_FALLBACK = "nano_gpt::moonshotai/kimi-k2.5"   # только вне наборов и без подписки Claude
 
 
 def default_role_models() -> dict[str, str]:
@@ -637,7 +638,7 @@ ROLE_PRESETS: dict[str, dict] = {
 #   писатель/редактор  → bench/ab-writers-*.json, bench/edit-source-*.json
 #                        (точечная редактура: сам / по критику, слепо по фрагментам)
 #   судья              → bench/judges-*.json (порог «ПРИНЯТЬ», устойчивость к порядку)
-#   критик             → bench/critics-*.json, bench/critic-luna-*.json (судья с его
+#   критик             → bench/critics-*.json, bench/critic-no-nano-*.json (судья с его
 #                        разбором, без разбора; порог судьи пересчитать)
 #   непрерывность      → bench/ab-continuity-*.json, bench/continuity-reveal-*.json
 # Правило всех замеров: своё не судит никто (Claude — не Claude, GPT — не GPT).
@@ -647,7 +648,7 @@ BENCHED_PRESETS = {
     "sonnet": {
         "roles": {"gen": "claude_subscription::claude-sonnet-5-5",
                   "editor": "claude_subscription::claude-sonnet-5-5",
-                  "critic": "chatgpt_subscription::gpt-6-luna@medium",
+                  "critic": "claude_subscription::claude-haiku-5-5",
                   "judge": "chatgpt_subscription::gpt-6.1-sol@medium"},
         "settings": {"continuity_model": "chatgpt_subscription::gpt-6.1-sol@medium",
                      "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
@@ -659,7 +660,7 @@ BENCHED_PRESETS = {
     "gpt": {
         "roles": {"gen": "chatgpt_subscription::gpt-6.1-sol@medium",
                   "editor": "chatgpt_subscription::gpt-6.1-sol@medium",
-                  "critic": "chatgpt_subscription::gpt-6-luna@medium",
+                  "critic": "claude_subscription::claude-haiku-5-5",
                   "judge": "claude_subscription::claude-sonnet-5-5"},
         "settings": {"continuity_model": "claude_subscription::claude-sonnet-5-5",
                      "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
