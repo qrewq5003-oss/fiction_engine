@@ -835,6 +835,7 @@ function showEditReport(rep) {
   el.textContent = rep.mode !== 'rewrite'
     ? `Редактура: правок ${rep.applied}` +
       (rep.filter && rep.filter.checked ? ` (судья оставил ${rep.filter.kept} из ${rep.filter.checked} мест)` : '') +
+      (rep.plan_missing ? `; по плану не хватало пунктов: ${rep.plan_missing}, правок по плану: ${(rep.filter && rep.filter.plan_kept) || 0}` : '') +
       `, изменено ${pct}% текста` +
       (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
     : `Редактура целиком: изменено ${pct}% текста`;

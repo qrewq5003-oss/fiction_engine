@@ -389,9 +389,34 @@ def _flag_truncation(text: str, results: dict, where: str) -> None:
         handle_error(f"{where}: проверка обрыва", e, level=ErrorLevel.RECOVERABLE)
 
 
+def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str, call_fn) -> list[dict]:
+    """
+    Пункты плана главы «нет»/«частично» — задание редактору (point_edit.plan_task).
+    Сверяет модель другой семьи, чем редактор (plan_check.plan_checker_model).
+    Нет плана, проверяющего или сбой — пусто: круг идёт как раньше.
+    """
+    if not (project_id and chapter_num):
+        return []
+    try:
+        from .db import get_director_note
+        plan = (get_director_note(project_id, chapter_num) or "").strip()
+        if not plan:
+            return []
+        from .plan_check import check_plan, plan_checker_model
+        checker, _ = plan_checker_model(model_editor)
+        if not checker:
+            return []
+        res = check_plan(chapter_num, plan, text, lambda p: call_fn(checker, "Отвечай только JSON.", p))
+        return [x for x in res if x["status"] in ("нет", "частично")]
+    except Exception as e:
+        handle_error("step_edit: сверка с планом", e, level=ErrorLevel.RECOVERABLE)
+        return []
+
+
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
-              model_editor: str, call_fn, results: dict, model_judge: str = "") -> None:
+              model_editor: str, call_fn, results: dict, model_judge: str = "",
+              project_id: int = 0, chapter_num: int = 0) -> None:
     """
     Шаг редактуры: правит текст по критике.
 
@@ -422,6 +447,10 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
     if rhythm_hint:
         critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
+    plan_misses = _plan_misses(project_id, chapter_num, text, model_editor, call_fn) if mode != "rewrite" else []
+    if plan_misses:
+        from .point_edit import plan_task
+        critique = plan_task(plan_misses) + "\n\n" + critique
     # Задача главы — с правкой автора («Изменить промпт для следующей
     # итерации»). Раньше редактор её не видел вовсе: правка задачи на круг
     # редактуры не действовала
@@ -429,14 +458,16 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
         rep = point_edit(text, critique, generation_prompt,
                          lambda p: call_fn(model_editor, SYS_POINT_EDITOR, p))
         edited_text = rep["text"]
-        results["edit_report"] = {"mode": mode, "applied": len(rep["applied"]),
+        results["edit_report"] = {"mode": mode, "applied": len(rep["applied"]), "plan_missing": len(plan_misses),
                                   "failed": [f"{(f.get('old') or f.get('after') or '')[:60]} — {f['why']}"
                                              for f in rep["failed"]][:8],
                                   "changed": rep["changed"]}
         if rep["applied"] and model_judge:
             from .continuity_fix import changed_share
             from .edit_filter import filter_edits
-            edited_text, flt = filter_edits(text, edited_text, model_judge, model_editor, call_fn)
+            from .point_edit import plan_edit_texts
+            edited_text, flt = filter_edits(text, edited_text, model_judge, model_editor, call_fn,
+                                            keep=plan_edit_texts(rep["applied"]))
             results["edit_report"]["filter"] = flt
             results["edit_report"]["changed"] = round(changed_share(text, edited_text), 3)
         save_pipeline_iteration(run_id, iteration, "edit", model_editor,

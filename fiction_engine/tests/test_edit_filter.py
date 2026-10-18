@@ -29,7 +29,7 @@ def test_keeps_chosen_reverts_rejected():
     call = _judge(["лучше", "Третий абзац."])            # 1-я правка — да, 2-я — исходник
     text, rep = filter_edits(OLD, NEW, SONNET, SOL, call, seed=1)
     assert text == "Первый абзац, лучше.\n\nВторой абзац.\n\nТретий абзац.\n\nЧетвёртый."
-    assert rep == {"checked": 2, "kept": 1, "reverted": 1}
+    assert rep == {"checked": 2, "kept": 1, "reverted": 1, "plan_kept": 0}
     assert call.seen == [SONNET]
 
 
@@ -72,5 +72,49 @@ def test_step_edit_filters_with_judge(project_id):
     with patch("engine.pipeline_steps.save_pipeline_iteration"):
         step_edit(1, 2, "Глава 1", old, "разбор", SOL, call, results, model_judge=SONNET)
     assert results["generated_text"] == old
-    assert results["edit_report"]["filter"] == {"checked": 1, "kept": 0, "reverted": 1}
+    assert results["edit_report"]["filter"] == {"checked": 1, "kept": 0, "reverted": 1, "plan_kept": 0}
     assert results["edit_report"]["changed"] == 0
+
+
+def test_plan_edits_are_not_filtered():
+    """Правки по плану (PLAN_MARK) судье не показываются и не откатываются."""
+    from engine.edit_filter import filter_edits
+    from engine.point_edit import plan_edit_texts
+    keep = plan_edit_texts([{"new": "Первый абзац, лучше.", "why": "ПЛАН: сцена днём"},
+                            {"new": "Третий абзац, хуже.", "why": "ритм"}])
+    assert keep == ["Первый абзац, лучше."]
+    call = _judge(["Третий абзац."])                     # судья видит только одно место
+    text, rep = filter_edits(OLD, NEW, SONNET, SOL, call, seed=4, keep=keep)
+    assert text == "Первый абзац, лучше.\n\nВторой абзац.\n\nТретий абзац.\n\nЧетвёртый."
+    assert rep == {"checked": 1, "kept": 0, "reverted": 1, "plan_kept": 1}
+
+
+def test_step_edit_gives_plan_misses_to_editor(project_id):
+    """Пункты плана «нет»/«частично» — первыми в задании редактору; правка по плану переживает фильтр."""
+    from unittest.mock import patch
+    from engine.db import save_director_note
+    from engine.pipeline_steps import step_edit
+    save_director_note(project_id, 0, "СЦЕНА 1: Пристань\n  Когда: пятница, утро\n\nСЦЕНА 2: Каюта")
+    from engine.db import set_setting
+    set_setting("continuity_model", SONNET)          # проверяющий плана — не семья редактора
+    old = "Лампа не горела.\n\nСерёгин ждал у двери."
+    prompts, results = [], {}
+
+    def call(model, system, prompt):
+        prompts.append((model, prompt))
+        if "план главы" in prompt.lower() and "=== ПЛАН ===" in prompt:      # сверка
+            return json.dumps({"items": [{"n": 1, "status": "нет", "quote": "", "note": "не названа пятница"},
+                                         {"n": 2, "status": "есть", "quote": "Серёгин ждал у двери", "note": ""}]},
+                              ensure_ascii=False)
+        if "=== ФРАГМЕНТ" in prompt:                                       # фильтр: всё — исходник
+            return json.dumps({"choices": [{"n": 1, "better": "1"}]})
+        return json.dumps({"edits": [{"old": "Лампа не горела.", "new": "В пятницу утром лампа не горела.",
+                                      "why": "ПЛАН: пятница, утро"}]}, ensure_ascii=False)
+
+    with patch("engine.pipeline_steps.save_pipeline_iteration"):
+        step_edit(1, 2, "Глава 1", old, "разбор", SOL, call, results, model_judge=SONNET,
+                  project_id=project_id, chapter_num=1)
+    editor = [p for m, p in prompts if "ПЛАН ГЛАВЫ" in p]
+    assert editor and "не названа пятница" in editor[0]
+    assert results["generated_text"].startswith("В пятницу утром лампа не горела.")
+    assert results["edit_report"]["plan_missing"] == 1 and results["edit_report"]["filter"]["plan_kept"] == 1
