@@ -182,6 +182,10 @@ def _words(v: str) -> set[str]:
     return {w[:5] for w in re.findall(r"[а-яa-z]{4,}", _key(v))}
 
 
+def _short_words(v: str) -> set[str]:
+    return set(re.findall(r"[а-яa-z]{2,}", _key(v)))
+
+
 def same_or_refined(old: str, new: str) -> bool:
     """
     Новое значение — то же или уточнение прежнего: «15, квартира 8» → «15»,
@@ -194,6 +198,12 @@ def same_or_refined(old: str, new: str) -> bool:
         return False
     wo, wn = _words(old), _words(new)
     if not wo or not wn:
+        # Значение из коротких слов: «ФАП» → «ФАП, холодильная камера» —
+        # уточнение, если все его слова есть в другом (книга на Sonnet 18.10,
+        # единственный конфликт библии за 4 главы — ложный)
+        so, sn = _short_words(old), _short_words(new)
+        if so and sn and (so <= sn or sn <= so):
+            return True
         return bool(mo or mn) and (mo <= mn or mn <= mo)
     return len(wo & wn) * 2 >= min(len(wo), len(wn))
 
