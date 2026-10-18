@@ -1,0 +1,1463 @@
+{
+ "date": "2026-10-19",
+ "question": "Вторая оценка судьи у порога (среднее двух) — надёжнее ли вердикт?",
+ "setup": "калибровка 18.10 (критик Haiku 5.5, судья Sol, порог 30, критерий ≥ 4): 24 живые главы + 24 испорченные копии, весь прогон повторён второй раз в тех же условиях",
+ "result": {
+  "разница оценок между прогонами": "в среднем 1.6 балла, максимум 5; второй прогон в среднем на 0.5 ниже",
+  "вердикт сменился": "5 из 48, все — живые главы у порога (30–34 → 28–31 или критерий 5 → 3)",
+  "испорченные": "0 из 24 проходят в обоих прогонах, максимум 32 (с критерием < 4)",
+  "живые проходят": "одна оценка: 12/24 и 7/24; среднее двух всегда: 10/24; вторая оценка при 28–32 или 27–33: 10/24",
+  "порядок семей": "стабилен: Claude 29–40, DeepSeek 22–31, Kimi 19–29"
+ },
+ "вывод": "вторую оценку не вводить: отличие живых от испорченных одинаково при любой схеме; вторая оценка лишь заменяет один случайный вердикт у порога средним, а лишний круг у пограничной главы недорог и проходит через фильтр правок",
+ "runs": {
+  "выборка 0, прогон 1": [
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "reverse",
+    "critic_score": 22.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 36.0,
+    "judge_score": 36.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 7.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 32.0,
+    "judge_score": 31.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "duplicate",
+    "critic_score": 22.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 27.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 31.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "shuffle",
+    "critic_score": 17.0,
+    "judge_score": 14.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 38.0,
+    "judge_score": 33.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 34.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "duplicate",
+    "critic_score": 25.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "shuffle",
+    "critic_score": 23.0,
+    "judge_score": 17.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "shuffle",
+    "critic_score": 26.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 24.0,
+    "judge_score": 21.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "shuffle",
+    "critic_score": 19.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 22.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 37.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 36.0,
+    "judge_score": 30.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "duplicate",
+    "critic_score": 26.0,
+    "judge_score": 28.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 26.0,
+    "judge_score": 28.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "reverse",
+    "critic_score": 15.0,
+    "judge_score": 17.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "reverse",
+    "critic_score": 28.0,
+    "judge_score": 23.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "reverse",
+    "critic_score": 14.0,
+    "judge_score": 16.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "duplicate",
+    "critic_score": 30.0,
+    "judge_score": 28.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 26.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   }
+  ],
+  "выборка 0, прогон 2": [
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "reverse",
+    "critic_score": 21.0,
+    "judge_score": 21.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 37.0,
+    "judge_score": 38.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 7.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 29.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "duplicate",
+    "critic_score": 21.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 24.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 31.0,
+    "judge_score": 27.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "shuffle",
+    "critic_score": 14.0,
+    "judge_score": 14.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 32.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 36.0,
+    "judge_score": 32.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "duplicate",
+    "critic_score": 25.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "shuffle",
+    "critic_score": 23.0,
+    "judge_score": 20.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "shuffle",
+    "critic_score": 24.0,
+    "judge_score": 25.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 22.0,
+    "judge_score": 20.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "shuffle",
+    "critic_score": 21.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 25.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 40.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 8.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 8.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "duplicate",
+    "critic_score": 26.0,
+    "judge_score": 23.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 25.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "reverse",
+    "critic_score": 15.0,
+    "judge_score": 15.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "reverse",
+    "critic_score": 25.0,
+    "judge_score": 21.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "reverse",
+    "critic_score": 14.0,
+    "judge_score": 16.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "duplicate",
+    "critic_score": 28.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 27.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   }
+  ],
+  "выборка 1, прогон 1": [
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "duplicate",
+    "critic_score": 25.0,
+    "judge_score": 27.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 39.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 7.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 9.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 30.0,
+    "judge_score": 30.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "shuffle",
+    "critic_score": 14.0,
+    "judge_score": 13.0,
+    "criteria": {
+     "ГОЛОС": 3.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 32.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 30.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "reverse",
+    "critic_score": 17.0,
+    "judge_score": 15.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 36.0,
+    "judge_score": 36.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 8.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 36.0,
+    "judge_score": 34.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "shuffle",
+    "critic_score": 14.0,
+    "judge_score": 14.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "reverse",
+    "critic_score": 28.0,
+    "judge_score": 20.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "reverse",
+    "critic_score": 27.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 25.0,
+    "judge_score": 21.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "reverse",
+    "critic_score": 20.0,
+    "judge_score": 17.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 27.0,
+    "judge_score": 23.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 32.0,
+    "judge_score": 34.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 32.0,
+    "judge_score": 31.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "shuffle",
+    "critic_score": 30.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 28.0,
+    "judge_score": 27.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "duplicate",
+    "critic_score": 26.0,
+    "judge_score": 23.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "duplicate",
+    "critic_score": 34.0,
+    "judge_score": 32.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "duplicate",
+    "critic_score": 27.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "shuffle",
+    "critic_score": 24.0,
+    "judge_score": 16.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 29.0,
+    "judge_score": 27.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   }
+  ],
+  "выборка 1, прогон 2": [
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "duplicate",
+    "critic_score": 27.0,
+    "judge_score": 27.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 39.0,
+    "judge_score": 39.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 7.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 8.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 30.0,
+    "judge_score": 30.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "shuffle",
+    "critic_score": 12.0,
+    "judge_score": 12.0,
+    "criteria": {
+     "ГОЛОС": 3.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 2.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 28.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 31.0,
+    "judge_score": 29.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 6.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "reverse",
+    "critic_score": 14.0,
+    "judge_score": 15.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "real",
+    "critic_score": 35.0,
+    "judge_score": 36.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 7.0,
+     "СЦЕНЫ": 8.0,
+     "ДИАЛОГ": 7.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 37.0,
+    "judge_score": 31.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "shuffle",
+    "critic_score": 17.0,
+    "judge_score": 13.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 1.0,
+     "ПЕРСОНАЖИ": 3.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 2.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "detective_classic",
+    "kind": "reverse",
+    "critic_score": 21.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "reverse",
+    "critic_score": 23.0,
+    "judge_score": 21.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 3.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 23.0,
+    "judge_score": 20.0,
+    "criteria": {
+     "ГОЛОС": 4.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 4.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "thriller_psychological",
+    "kind": "reverse",
+    "critic_score": 15.0,
+    "judge_score": 19.0,
+    "criteria": {
+     "ГОЛОС": 5.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 26.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "fantasy_dark",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 37.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 6.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 7.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "ПРИНЯТЬ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 34.0,
+    "judge_score": 28.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 5.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "thriller_psychological",
+    "kind": "shuffle",
+    "critic_score": 26.0,
+    "judge_score": 25.0,
+    "criteria": {
+     "ГОЛОС": 7.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "realism_psychological",
+    "kind": "real",
+    "critic_score": 27.0,
+    "judge_score": 24.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 4.0,
+     "ДИАЛОГ": 5.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "kimi",
+    "genre": "thriller_psychological",
+    "kind": "duplicate",
+    "critic_score": 29.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 6.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "claude",
+    "genre": "realism_psychological",
+    "kind": "duplicate",
+    "critic_score": 34.0,
+    "judge_score": 32.0,
+    "criteria": {
+     "ГОЛОС": 8.0,
+     "СТРУКТУРА": 3.0,
+     "ПЕРСОНАЖИ": 8.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 8.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "duplicate",
+    "critic_score": 26.0,
+    "judge_score": 22.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "realism_psychological",
+    "kind": "shuffle",
+    "critic_score": 22.0,
+    "judge_score": 20.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 2.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 3.0,
+     "ДИАЛОГ": 4.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   },
+   {
+    "family": "deepseek",
+    "genre": "detective_classic",
+    "kind": "real",
+    "critic_score": 27.0,
+    "judge_score": 26.0,
+    "criteria": {
+     "ГОЛОС": 6.0,
+     "СТРУКТУРА": 4.0,
+     "ПЕРСОНАЖИ": 5.0,
+     "СЦЕНЫ": 5.0,
+     "ДИАЛОГ": 6.0
+    },
+    "verdict": "НА ДОРАБОТКУ"
+   }
+  ]
+ }
+}
