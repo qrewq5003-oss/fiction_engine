@@ -48,3 +48,13 @@ def test_empty_or_placeholder_values_change_nothing():
     assert _merge_open_questions(["", "[]"], PLOT_TEMPLATE, 2, _Changes()) == PLOT_TEMPLATE
     assert _merge_side_lines({"новые_линии": []}, PLOT_TEMPLATE, 2, _Changes()) == PLOT_TEMPLATE
     assert _merge_memory([{"name": "Лукаш", "knows": []}], MEMORY_TEMPLATE, _Changes()) == MEMORY_TEMPLATE
+
+
+def test_character_with_parentheses_is_not_duplicated():
+    """«Митяй (Дмитрий Рябов)»: после «)» нет границы слова — персонаж дописывался дублем (книга 18.10)."""
+    from engine.state_merge import _find_char_block, _merge_characters
+    g = "## ПЕРСОНАЖИ\n### Митяй (Дмитрий Рябов)\nСОСТОЯНИЕ: напуган\nЛОКАЦИЯ: берег\n"
+    assert _find_char_block(g, "Митяй (Дмитрий Рябов)")
+    assert not _find_char_block("## ПЕРСОНАЖИ\n### Аннушка\nСОСТОЯНИЕ: x\n", "Анна")
+    out = _merge_characters([{"name": "Митяй (Дмитрий Рябов)", "состояние": "скрытен"}], g, _Changes())
+    assert out.count("### Митяй") == 1 and "СОСТОЯНИЕ: скрытен" in out

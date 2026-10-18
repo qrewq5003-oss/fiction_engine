@@ -137,24 +137,36 @@ def _insert_after(text: str, after: str, new: str) -> str | None:
     return text[:end].rstrip() + "\n\n" + new.strip() + "\n\n" + text[end:].lstrip("\n")
 
 
+def _parse_edits(raw: str) -> list | None:
+    """Список правок из ответа редактора; не разобран — None."""
+    from .pipeline_llm import parse_json
+    try:
+        data = parse_json(raw)
+    except Exception:
+        return None
+    edits = data if isinstance(data, list) else data.get("edits") if isinstance(data, dict) else None
+    return edits if isinstance(edits, list) else None
+
+
 def point_edit(text: str, critique: str, task: str, api_call_fn: Callable[[str], str]) -> dict:
     """
     → {text, applied, failed, changed}. Модель не дала правок или ответ не
     разобран — текст как был (failed объясняет почему).
     """
     from .continuity_fix import apply_edits, changed_share
-    from .pipeline_llm import parse_json
-    raw = api_call_fn(_PROMPT.format(task=(task or "").strip() or "—", critique=critique.strip(),
-                                     text=text, max_edits=POINT_EDITS_MAX,
-                                     insert_max=INSERT_WORDS_MAX))
-    try:
-        data = parse_json(raw)
-    except Exception:
-        data = None
-    edits = data if isinstance(data, list) else data.get("edits") if isinstance(data, dict) else None
-    if not isinstance(edits, list):
-        return {"text": text, "applied": [], "failed": [{"why": "ответ редактора не разобран"}],
-                "changed": 0.0}
+    prompt = _PROMPT.format(task=(task or "").strip() or "—", critique=critique.strip(),
+                            text=text, max_edits=POINT_EDITS_MAX, insert_max=INSERT_WORDS_MAX)
+    raw = api_call_fn(prompt)
+    edits = _parse_edits(raw)
+    if edits is None:
+        # Один повтор: на книге 18.10 (гл.3, Sonnet) неразобранный ответ
+        # оставил круг без правок, а судья снизил главу за «нет редактуры»
+        raw = api_call_fn(prompt)
+        edits = _parse_edits(raw)
+    if edits is None:
+        head = " ".join(str(raw or "").split())[:160]
+        return {"text": text, "applied": [], "changed": 0.0,
+                "failed": [{"why": f"ответ редактора не разобран (дважды): «{head}»"}]}
     edits = [e for e in edits if isinstance(e, dict)][:POINT_EDITS_MAX]
     replaces = [e for e in edits if not e.get("after")]
     inserts = [e for e in edits if e.get("after")]

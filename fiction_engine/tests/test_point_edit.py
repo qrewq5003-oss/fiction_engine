@@ -47,6 +47,15 @@ def test_missing_fragment_and_bad_answer_keep_text():
     assert [f["why"] for f in rep["failed"]] == ["не найдено в главе", "место вставки не найдено в главе"]
     rep = point_edit(TEXT, "к", "з", lambda p: "Вот переписанная глава целиком: …")
     assert rep["text"] == TEXT and "не разобран" in rep["failed"][0]["why"]
+    assert "Вот переписанная глава" in rep["failed"][0]["why"]       # начало ответа — в отчёте
+
+
+def test_unparsed_answer_is_asked_once_more():
+    from engine.point_edit import point_edit
+    answers = ["Сейчас поправлю: {\"edits\": [", json.dumps(
+        {"edits": [{"old": "Лампа не горела.", "new": "Лампа не горела с вечера."}]}, ensure_ascii=False)]
+    rep = point_edit(TEXT, "к", "з", lambda p: answers.pop(0))
+    assert "Лампа не горела с вечера." in rep["text"] and len(rep["applied"]) == 1 and not answers
 
 
 def test_mode_setting(project_id):

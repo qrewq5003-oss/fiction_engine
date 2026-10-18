@@ -93,6 +93,15 @@ def test_refinement_is_not_a_conflict(project_id):
     assert record(project_id, [_e("контора", "этаж", "третий")], 4)["conflicts"]
 
 
+def test_short_word_value_refined(project_id):
+    """«ФАП» → «ФАП, холодильная камера» — уточнение (книга 18.10); «ФАП» → «ДК» — нет."""
+    from engine.series_bible import record, same_or_refined
+    record(project_id, [_e("сцена 1", "место", "ФАП", kind="событие")], 4)
+    assert record(project_id, [_e("сцена 1", "место", "ФАП, холодильная камера", kind="событие")], 4)["conflicts"] == []
+    assert not same_or_refined("ФАП", "ДК")
+    assert not same_or_refined("на юге", "на севере")
+
+
 def test_floor_from_any_attr_catches_real_conflict(project_id):
     """Замер 14.10, deepseek без библии: «адрес: …, 5 этаж» в гл.3 и «этаж: четвёртый» в гл.6."""
     from engine.series_bible import current, record
