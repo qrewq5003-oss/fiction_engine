@@ -87,3 +87,28 @@ def test_gpt_is_its_own_family():
     assert model_family("chatgpt_subscription::gpt-6.1-sol@medium") == "gpt"
     assert judge_bias_warning("claude_subscription::claude-sonnet-5-5",
                               "chatgpt_subscription::gpt-6.1-sol@medium") == ""
+
+
+def test_reconnect_then_completed_is_an_answer(monkeypatch):
+    """«Reconnecting... 2/5» — промежуточное событие: ход дошёл, ответ не выбрасывается."""
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
+    evs = [{"type": "thread.started"},
+           {"type": "error", "message": "Reconnecting... 2/5 (stream disconnected before completion: tls handshake eof)"},
+           {"type": "item.completed", "item": {"type": "agent_message", "text": "Ответ."}},
+           {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}]
+    with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
+         patch("engine.api.subprocess.run", side_effect=_run(text="Ответ.", events=evs)):
+        assert call_model("chatgpt_subscription::gpt-6-luna", "с", "у") == "Ответ."
+
+
+def test_reconnect_without_completion_raises(monkeypatch):
+    """Переподключения кончились, ход не завершён — ошибка с последним сообщением."""
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
+    evs = [{"type": "error", "message": "Reconnecting... 5/5 (tls handshake eof)"},
+           {"type": "turn.failed", "error": {"message": "stream disconnected"}}]
+    with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
+         patch("engine.api.subprocess.run", side_effect=_run(text="", events=evs, code=1)):
+        with pytest.raises(RuntimeError, match="stream disconnected"):
+            call_model("chatgpt_subscription::gpt-6-luna", "с", "у")
