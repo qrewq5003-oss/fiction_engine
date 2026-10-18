@@ -140,7 +140,21 @@ def delete_project(project_id: int):
     """
     from .db_core import project_scoped_tables
     with get_conn() as conn:
-        for table in project_scoped_tables(conn):
+        scoped = project_scoped_tables(conn)
+        # Сначала строки, которые ссылаются на строки проекта через другую
+        # таблицу: pipeline_iterations → pipeline_runs (своего project_id нет),
+        # author_edits → pipeline_runs. Без этого внешний ключ не давал
+        # удалить pipeline_runs, а за ними и сам проект — проект, где хоть раз
+        # работала «Мастерская», не удалялся вовсе (500 на «Удалить», 19.10)
+        tables = [r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()]
+        for table in tables:
+            for fk in conn.execute(f"PRAGMA foreign_key_list({table})").fetchall():
+                parent, col, ref = fk["table"], fk["from"], fk["to"]
+                if parent != "projects" and parent in scoped:
+                    conn.execute(f"DELETE FROM {table} WHERE {col} IN "
+                                 f"(SELECT {ref} FROM {parent} WHERE project_id=?)", (project_id,))
+        for table in scoped:
             if table == "projects":
                 continue
             try:

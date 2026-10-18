@@ -49,6 +49,26 @@ class TestProjects:
         delete_project(project_with_chapters)
         assert get_chapters(project_with_chapters) == []
 
+    def test_delete_project_with_pipeline_runs(self, project_id):
+        """Итерации «Мастерской» без project_id не держат проект (внешний ключ на pipeline_runs, 19.10)."""
+        from engine.db_core import get_conn
+        from engine.db_narrative import create_pipeline_run, save_pipeline_iteration
+        from engine.db_projects import create_project, delete_project, get_project
+        other = create_project("Другой", "детектив")
+        keep = create_pipeline_run(other, 1, "m", "m", "m", "m")
+        save_pipeline_iteration(keep, 1, "generate", "m", "задача", "текст другого")
+        run = create_pipeline_run(project_id, 1, "m", "m", "m", "m")
+        save_pipeline_iteration(run, 1, "generate", "m", "задача", "текст")
+        with get_conn() as conn:
+            conn.execute("INSERT INTO author_edits (project_id, chapter_num, run_id, original_text, accepted_text) "
+                         "VALUES (?,1,?,'a','b')", (project_id, run))
+        delete_project(project_id)
+        assert get_project(project_id) is None
+        with get_conn() as conn:
+            assert conn.execute("SELECT count(*) FROM pipeline_runs WHERE id=?", (run,)).fetchone()[0] == 0
+            assert conn.execute("SELECT count(*) FROM pipeline_iterations WHERE run_id=?", (run,)).fetchone()[0] == 0
+            assert conn.execute("SELECT count(*) FROM pipeline_iterations WHERE run_id=?", (keep,)).fetchone()[0] == 1
+
 
 # ─── Главы ───────────────────────────────────────────────────────────────────
 
