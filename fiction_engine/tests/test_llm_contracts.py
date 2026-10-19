@@ -294,6 +294,20 @@ class TestAnalyzeVoiceMatch:
             analyze_voice_match(self.PROFILE, CHAPTER_TEXT, MODEL)
         assert "Короткие предложения" in captured["prompt"]
 
+    def test_whole_profile_reaches_voice_check(self):
+        """Эталон в конце профиля доходит до проверки: раньше профиль резался на 800 символов."""
+        from engine.pipeline import analyze_voice_match
+        from engine.pipeline_context import VOICE_PROFILE_MAX_CHARS
+        profile = "Короткие фразы. " * 70 + "\nЭТАЛОН\nЛёва поставил передо мной тарелку."
+        assert 800 < len(profile) < VOICE_PROFILE_MAX_CHARS
+        captured = {}
+        def fake_call(model, sys, user, max_tokens=800):
+            captured["prompt"] = user
+            return self.RESPONSE_WITH_SCORE
+        with patch("engine.pipeline._call", side_effect=fake_call):
+            analyze_voice_match(profile, CHAPTER_TEXT, MODEL)
+        assert "Лёва поставил передо мной тарелку" in captured["prompt"]
+
     def test_whole_chapter_is_checked_for_voice(self):
         """
         Глава уходит на проверку голоса целиком.
