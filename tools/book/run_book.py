@@ -347,7 +347,8 @@ def chapter(n):
             rec["_habits_draft"] = habits(text)
         cands.append((r.get("verdict") == "ПРИНЯТЬ", float(r.get("judge_score") or r.get("score") or 0), rnd + 1, text))
         cont = r.get("continuity") or {}
-        code, pc = fe("/pipeline/plan_check", {"chapter_num": n, "text": text, "model_gen": ROLES["model_gen"]})
+        code, pc = fe("/pipeline/plan_check", {"chapter_num": n, "text": text, "run_id": run_id,
+                                               "model_gen": ROLES["model_gen"]})
         items = pc.get("items") or []
         missing = [x for x in items if x["status"] in ("нет", "частично")]
         rec["rounds"].append({
@@ -376,8 +377,16 @@ def chapter(n):
             break
         r.setdefault("generated_text", text)
     # Лучший вариант по вердикту и баллу судьи; при равенстве — более поздний (правка обычно лучше).
-    # Гл.10, 21, 22: черновик 32 «принять», после правки 29 — скрипт брал последний
+    # Гл.10, 21, 22: черновик 32 «принять», после правки 29 — скрипт брал последний.
+    # Выбирает приложение, как в окне «Принять»: при близком балле — круг с более полным планом
     best = max(cands, key=lambda c: (c[0], c[1], c[2])) if cands else None
+    code, rr = fe(f"/pipeline/{run_id}/rounds")
+    bt = next((x["text"].strip() for x in (rr.get("rounds") or []) if x["round"] == rr.get("best")), None) \
+        if code == 200 else None
+    app_best = next((c for c in cands if bt and c[3].strip() == bt), None)
+    if app_best:
+        best = app_best
+    rec["app_best"] = app_best[2] if app_best else None
     final = best[3] if best and best[3] else (r.get("generated_text") or text)
     rec["accepted_round"] = best[2] if best else None
     if best and best[2] != len(cands):

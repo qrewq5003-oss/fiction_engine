@@ -133,6 +133,11 @@ def pipeline_plan_check():
     except Exception as e:
         log_web_error("pipeline/plan_check", e, project_id=current["id"])
         return jsonify({"error": f"Сверка не удалась: {str(e)[:200]}"}), 502
+    # Текст круга запуска — итог сверки для выбора круга при «Принять»
+    run_id = data.get("run_id")
+    if isinstance(run_id, int) and owned_run(run_id):
+        from engine.plan_check import save_round_check
+        save_round_check(run_id, text, items)
     # Сторож забеганий — тем же проверяющим, если планировщик прислал план вперёд
     from engine.run_ahead import run_ahead_for
     ahead, ahead_error = None, ""
@@ -484,7 +489,8 @@ def pipeline_rounds_view(run_id):
     run = get_pipeline_run(run_id)
     if not run:
         return jsonify({"error": "Не найден"}), 404
-    rounds = pipeline_rounds(get_pipeline_iterations(run_id))
+    from engine.plan_check import attach_round_checks
+    rounds = attach_round_checks(run_id, pipeline_rounds(get_pipeline_iterations(run_id)))
     best = best_round(rounds)
     return jsonify({"rounds": [dict(r, words=len(r["text"].split())) for r in rounds],
                     "best": best["round"] if best else None,
