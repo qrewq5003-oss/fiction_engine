@@ -480,14 +480,34 @@ def pipeline_rounds(iters: list[dict]) -> list[dict]:
     return [r for r in rounds.values() if r["text"]]
 
 
+PLAN_SLACK = 2      # баллов судьи, которые уступаются кругу с более полным планом
+
+
 def best_round(rounds: list[dict]) -> dict | None:
     """
     Лучший круг: «ПРИНЯТЬ» выше доработки, затем балл судьи; при равенстве —
     более поздний. «Фон» (19.10): в главах 10, 21, 22 правка снижала оценку
     (32 «ПРИНЯТЬ» → 29), а «Принять» брал последний круг.
+
+    План: круг, чей текст сверен с планом (r["plan"], plan_check.
+    attach_round_checks) и закрывает его полнее, берётся, если вердикт тот же,
+    а балл ниже не больше чем на PLAN_SLACK. Пункт «нет» весит больше любого
+    числа «частично». Дымовая книга (19.10, гл.1): круг 1 — 33, два пункта
+    «частично»; круг 2 — 31, план целиком; брался круг 1, закрытое правкой
+    терялось. Текст лучшего по баллу круга не сверен — сравнивать не с чем.
     """
     judged = [r for r in rounds if r["score"]]
-    return max(judged, key=lambda r: (r["verdict"] == "ПРИНЯТЬ", r["score"], r["round"])) if judged else None
+    if not judged:
+        return None
+    top = max(judged, key=lambda r: (r["verdict"] == "ПРИНЯТЬ", r["score"], r["round"]))
+    if not top.get("plan"):
+        return top
+    def gaps(r):
+        return r["plan"]["missing"], r["plan"]["partial"]
+    near = [r for r in judged if r.get("plan") and gaps(r) < gaps(top)
+            and (r["verdict"] == "ПРИНЯТЬ") == (top["verdict"] == "ПРИНЯТЬ")
+            and r["score"] >= top["score"] - PLAN_SLACK]
+    return min(near, key=lambda r: (gaps(r), -r["score"], -r["round"])) if near else top
 
 
 def round_of_text(rounds: list[dict], text: str) -> dict | None:

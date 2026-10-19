@@ -157,10 +157,12 @@ def checks(work: Path, live: bool = True) -> list[tuple[str, bool, str]]:
     for n, r in res["chapters"].items():
         rounds = r.get("rounds") or []
         if rounds and r.get("accepted_round"):
-            best = max(rounds, key=lambda x: (x.get("verdict") == "ПРИНЯТЬ", float(x.get("judge_score") or 0), x["round"]))
-            if best["round"] != r["accepted_round"]:
-                worse.append(f"гл.{n}: принят {r['accepted_round']}, лучший {best['round']}")
-    out.append(("принят лучший по судье круг", not worse, "; ".join(worse)))
+            # Выбор приложения (балл судьи и план, pipeline.best_round); нет его — лучший по судье
+            best = r.get("app_best") or max(
+                rounds, key=lambda x: (x.get("verdict") == "ПРИНЯТЬ", float(x.get("judge_score") or 0), x["round"]))["round"]
+            if best != r["accepted_round"]:
+                worse.append(f"гл.{n}: принят {r['accepted_round']}, лучший {best}")
+    out.append(("принят лучший круг (судья и план)", not worse, "; ".join(worse)))
 
     conflicts = c.execute("SELECT chapter_num, name, attr, value, reason FROM series_bible WHERE project_id=? "
                           "AND status='противоречие'", (pid,)).fetchall()

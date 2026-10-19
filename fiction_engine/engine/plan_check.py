@@ -138,6 +138,54 @@ def check_plan(chapter_num: int, plan: str, chapter_text: str,
     return out
 
 
+# ─── Сверки кругов «Мастерской» ─────────────────────────────────────────────
+# Хранятся по запуску и тексту круга: выбор круга при «Принять» учитывает,
+# какой текст закрывает план полнее (pipeline.best_round).
+
+def _ensure_round_checks() -> None:
+    from .db_core import get_conn
+    with get_conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_plan_checks (
+                run_id     INTEGER NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
+                text_hash  TEXT NOT NULL,
+                missing    INTEGER NOT NULL,
+                partial    INTEGER NOT NULL,
+                checked_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (run_id, text_hash)
+            )""")
+
+
+def _text_hash(text: str) -> str:
+    import hashlib
+    return hashlib.sha1((text or "").strip().encode("utf-8")).hexdigest()
+
+
+def save_round_check(run_id: int, text: str, items: list[dict]) -> None:
+    """Итог сверки текста круга: пунктов «нет» и «частично». Повторная сверка того же текста — вместо прежней."""
+    if not (run_id and items and (text or "").strip()):
+        return
+    _ensure_round_checks()
+    from .db_core import get_conn
+    with get_conn() as conn:
+        conn.execute("INSERT OR REPLACE INTO pipeline_plan_checks (run_id, text_hash, missing, partial) "
+                     "VALUES (?,?,?,?)",
+                     (run_id, _text_hash(text), sum(x["status"] == "нет" for x in items),
+                      sum(x["status"] == "частично" for x in items)))
+
+
+def attach_round_checks(run_id: int, rounds: list[dict]) -> list[dict]:
+    """Кругам со сверенным текстом — plan: {missing, partial}; не сверен — None."""
+    _ensure_round_checks()
+    from .db_core import get_conn
+    with get_conn() as conn:
+        got = {h: {"missing": m, "partial": p} for h, m, p in conn.execute(
+            "SELECT text_hash, missing, partial FROM pipeline_plan_checks WHERE run_id=?", (run_id,))}
+    for r in rounds:
+        r["plan"] = got.get(_text_hash(r["text"]))
+    return rounds
+
+
 def plan_checker_model(model_gen: str) -> tuple[str, str]:
     """
     Проверяющий для главы писателя model_gen → (модель, причина отказа).

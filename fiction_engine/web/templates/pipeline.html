@@ -579,7 +579,7 @@ async function checkPlan() {
   btn.disabled = true; spin.style.display = 'inline-block';
   document.getElementById('plan-check-block').style.display = 'block';
   box.textContent = 'Сверяю...'; sum.textContent = '';
-  const r = await apiPost('/pipeline/plan_check', {chapter_num: state.chapterNum, text,
+  const r = await apiPost('/pipeline/plan_check', {chapter_num: state.chapterNum, text, run_id: state.runId,
                                                    model_gen: document.getElementById('pl-model-gen').value});
   btn.disabled = false; spin.style.display = 'none';
   if (r.error) { box.textContent = r.error; return; }
@@ -1152,7 +1152,9 @@ async function acceptResult() {
 // Какой текст принять. «Принять» брал последний круг, а правка бывает хуже
 // черновика: в «Фоне» (19.10) главы 10, 21, 22 — 32 «ПРИНЯТЬ» до правки и 29
 // после. Если выше оценён другой круг или оценка ниже порога судьи — спросить.
-// Текст правлен вручную (нет такого круга) — принимается как есть.
+// Лучший круг выбирает сервер: при близком балле — тот, что полнее закрывает
+// план (pipeline.best_round). Текст правлен вручную (нет такого круга) —
+// принимается как есть.
 async function chooseAcceptedText() {
   const cur = state.currentText;
   const rr = await fetch(`/pipeline/${state.runId}/rounds`).then(x => x.json()).catch(() => null);
@@ -1160,19 +1162,23 @@ async function chooseAcceptedText() {
   const mine = [...rounds].reverse().find(x => x.text === cur);
   if (!mine || !mine.score) return cur;
   const best = rounds.find(x => x.round === rr.best) || mine;
-  const better = best.round !== mine.round && best.score > mine.score;
+  const better = best.round !== mine.round;
   if (!better && mine.score >= rr.threshold) return cur;
+  const planText = p => !p ? 'план не сверен'
+    : (p.missing || p.partial) ? 'план: ' + [p.missing ? `нет ${p.missing}` : '', p.partial ? `частично ${p.partial}` : '']
+        .filter(Boolean).join(', ')
+    : 'план целиком ✅';
 
   const esc = t => String(t).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
-  document.getElementById('accept-modal-note').textContent = better
-    ? `Круг ${best.round} оценён выше текущего: правка не всегда улучшает главу.`
-    : `Оценка судьи ниже порога ${rr.threshold}.`;
+  document.getElementById('accept-modal-note').textContent = !better ? `Оценка судьи ниже порога ${rr.threshold}.`
+    : best.score > mine.score ? `Круг ${best.round} оценён выше текущего: правка не всегда улучшает главу.`
+    : `Круг ${best.round} полнее закрывает план, а судья оценил его почти так же (${best.score} против ${mine.score}).`;
   document.getElementById('accept-rounds').innerHTML = rounds.filter(x => x.score).map(x => `
     <label style="display:flex;gap:10px;align-items:center;justify-content:flex-start;padding:6px 0;margin:0;cursor:pointer;
                   font-size:14px;font-weight:normal;color:var(--text);text-transform:none;text-align:left;">
       <input type="radio" name="accept-round" value="${x.round}" style="width:auto;flex:none;margin:0;"
              ${x.round === (better ? best : mine).round ? 'checked' : ''}>
-      <span>Круг ${x.round} — судья <b>${x.score}</b>/50 · ${esc(x.verdict || '—')} · ${x.words} слов
+      <span>Круг ${x.round} — судья <b>${x.score}</b>/50 · ${esc(x.verdict || '—')} · ${x.words} слов · ${planText(x.plan)}
         ${x.round === best.round ? ' · <span style="color:var(--success)">лучший</span>' : ''}
         ${x.round === mine.round ? ' · <span style="color:var(--text2)">на экране</span>' : ''}</span>
     </label>`).join('');

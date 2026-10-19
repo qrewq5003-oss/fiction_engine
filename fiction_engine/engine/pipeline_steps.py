@@ -425,7 +425,7 @@ def _flag_truncation(text: str, results: dict, where: str) -> None:
 
 
 def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str,
-                 call_fn) -> tuple[list[dict], str]:
+                 call_fn, run_id: int = 0) -> tuple[list[dict], str]:
     """
     → (пункты плана главы «нет»/«частично», ошибка сверки) — задание редактору
     (point_edit.plan_task). Сверяет модель другой семьи, чем редактор
@@ -450,11 +450,21 @@ def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str
     for _ in range(2):
         try:
             res = check_plan(chapter_num, plan, text, lambda p: call_fn(checker, "Отвечай только JSON.", p))
+            _save_round_check(run_id, text, res)
             return [x for x in res if x["status"] in ("нет", "частично")], ""
         except Exception as e:
             err = f"{type(e).__name__}: {e}"[:200]
             handle_error("step_edit: сверка с планом", e, level=ErrorLevel.DEGRADED)
     return [], err
+
+
+def _save_round_check(run_id: int, text: str, items: list[dict]) -> None:
+    """Итог сверки текста, который правит редактор, — это текст прошлого круга (выбор круга при «Принять»)."""
+    try:
+        from .plan_check import save_round_check
+        save_round_check(run_id, text, items)
+    except Exception as e:
+        handle_error("step_edit: запись сверки круга", e, level=ErrorLevel.RECOVERABLE)
 
 
 def _ahead_reveals(project_id: int, chapter_num: int, text: str, model_editor: str,
@@ -520,7 +530,7 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     echo = project_echo_signals(project_id, text)
     if echo:
         critique = f"{critique}\n\nЗАМЕРЕНО: " + " ".join(echo)
-    plan_misses, plan_error = (_plan_misses(project_id, chapter_num, text, model_editor, call_fn)
+    plan_misses, plan_error = (_plan_misses(project_id, chapter_num, text, model_editor, call_fn, run_id)
                                if mode != "rewrite" else ([], ""))
     if plan_misses:
         from .point_edit import plan_task
