@@ -440,12 +440,7 @@ async function showL3Summary(num) {
 }
 
 async function deleteChapter(num) {
-  if (!confirm(`Удалить главу ${num}? Вместе с ней удалятся её L3-саммари и анализ.\n` +
-               'State не откатывается: то, что анализ главы внёс в State, останется.')) return;
-  const r = await apiPost(`/chapter/${num}/delete`, {});
-  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
-  showToast(`Глава ${num} удалена`, 'success');
-  setTimeout(() => location.reload(), 600);
+  if (await removeChapter(num)) setTimeout(() => location.reload(), 1500);
 }
 
 async function rebuildL3(num) {

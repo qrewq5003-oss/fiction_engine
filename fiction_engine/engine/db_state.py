@@ -130,6 +130,8 @@ def get_last_update(project_id: int) -> dict | None:
 
 # ─── Снапшоты ─────────────────────────────────────────────────────────────────
 
+SNAPSHOT_BEFORE = "перед анализом гл."     # + номер: State до анализа этой главы
+
 def snapshot_state(project_id: int, reason: str = "") -> None:
     state = get_state(project_id)
     with get_conn() as conn:
@@ -157,6 +159,23 @@ def get_state_history(project_id: int) -> list[dict]:
             (project_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def snapshot_before_chapter(project_id: int, chapter_num: int) -> dict | None:
+    """
+    Снимок State до анализа главы: первый «перед анализом гл.N» после
+    анализа последней из прежних глав. Глава принималась дважды — первый,
+    иначе в State остался бы её прежний вариант. None — снимка нет (глава
+    принята до этих пометок или снимок вытеснен: их хранится 20).
+    """
+    import re
+    with get_conn() as conn:
+        rows = conn.execute("SELECT id, reason, saved_at FROM state_history WHERE project_id=? "
+                            "AND reason LIKE ? ORDER BY id", (project_id, SNAPSHOT_BEFORE + "%")).fetchall()
+    marked = [(dict(r), int(m.group(1))) for r in rows
+              if (m := re.fullmatch(re.escape(SNAPSHOT_BEFORE) + r"(\d+)", r["reason"] or ""))]
+    after = max((r["id"] for r, n in marked if n < chapter_num), default=0)
+    return next((r for r, n in marked if n == chapter_num and r["id"] > after), None)
 
 
 def restore_state_snapshot(project_id: int, snapshot_id: int) -> bool:

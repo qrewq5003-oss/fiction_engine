@@ -1,6 +1,7 @@
 """Blueprint: главы, экспорт, L3."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
-from engine.db import delete_chapter, get_chapter, get_chapters, save_chapter
+from engine.db import (delete_chapter, get_chapter, get_chapters, rollback_chapter, rollback_info,
+                       save_chapter)
 from .helpers import (NO_MODEL, attachment_header, get_current_project, get_cheap_model,
                       page_model, read_uploaded_text)
 
@@ -81,6 +82,34 @@ def chapter_delete(num):
     if not delete_chapter(current["id"], num):
         return jsonify({"error": "Глава не найдена"}), 404
     return jsonify({"ok": True})
+
+
+@bp.route("/chapter/<int:num>/rollback")
+def chapter_rollback_info(num):
+    """Можно ли откатить главу целиком и к какому снимку State."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    if not get_chapter(current["id"], num):
+        return jsonify({"error": "Глава не найдена"}), 404
+    info = rollback_info(current["id"], num)
+    snap = info["snapshot"]
+    return jsonify({"last": info["last"], "snapshot": snap and {"id": snap["id"], "saved_at": snap["saved_at"]}})
+
+
+@bp.route("/chapter/<int:num>/rollback", methods=["POST"])
+def chapter_rollback(num):
+    """Откатить последнюю главу: State до её анализа, глава и производное от неё."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    if not get_chapter(current["id"], num):
+        return jsonify({"error": "Глава не найдена"}), 404
+    r = rollback_chapter(current["id"], num)
+    if not r["ok"]:
+        return jsonify({"error": r.get("error") or "Глава не откатилась"}), 400
+    return jsonify({"ok": True, "state_restored": r["state_restored"],
+                    "promises_reopened": r["promises_reopened"]})
 
 
 @bp.route("/export/txt")
