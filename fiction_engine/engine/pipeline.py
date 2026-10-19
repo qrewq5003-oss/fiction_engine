@@ -211,8 +211,9 @@ def _execute_steps(
             gen_text, cross = _continuity_pass(run_id, iteration, project_id, chapter_num,
                                                gen_text, model_gen, step_call, results)
             # Повторы относительно прошлых глав проекта — сигнал автору
-            from .text_signals import previous_chapters, series_signals
-            series = series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
+            from .text_signals import previous_chapters, project_echo_signals, series_signals
+            series = (series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
+                      + project_echo_signals(project_id, gen_text))
             if series:
                 results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,
@@ -458,7 +459,43 @@ def continue_pipeline(
     return result
 
 
-def accept_pipeline(run_id: int):
+TEXT_STAGES = ("generate", "continuity_fix", "edit")
+
+
+def pipeline_rounds(iters: list[dict]) -> list[dict]:
+    """
+    Круги запуска: текст круга (последний из генерации, правки, сверки) и
+    оценка судьи этого текста. Круг без нового текста (переоценка) судит
+    прежний текст. [{round, text, score, verdict}] по порядку кругов.
+    """
+    rounds: dict[int, dict] = {}
+    text = ""
+    for it in sorted(iters, key=lambda i: (i["iteration"], i.get("id") or 0)):
+        r = rounds.setdefault(it["iteration"], {"round": it["iteration"], "text": text,
+                                                "score": None, "verdict": ""})
+        if it["stage"] in TEXT_STAGES and it.get("output_text"):
+            text = r["text"] = it["output_text"]
+        elif it["stage"] == "judge" and it.get("score"):
+            r["score"], r["verdict"] = it["score"], it.get("verdict") or ""
+    return [r for r in rounds.values() if r["text"]]
+
+
+def best_round(rounds: list[dict]) -> dict | None:
+    """
+    Лучший круг: «ПРИНЯТЬ» выше доработки, затем балл судьи; при равенстве —
+    более поздний. «Фон» (19.10): в главах 10, 21, 22 правка снижала оценку
+    (32 «ПРИНЯТЬ» → 29), а «Принять» брал последний круг.
+    """
+    judged = [r for r in rounds if r["score"]]
+    return max(judged, key=lambda r: (r["verdict"] == "ПРИНЯТЬ", r["score"], r["round"])) if judged else None
+
+
+def round_of_text(rounds: list[dict], text: str) -> dict | None:
+    """Круг, чей текст принимается; None — автор правил текст вручную."""
+    return next((r for r in reversed(rounds) if text and r["text"] == text), None)
+
+
+def accept_pipeline(run_id: int, final_text: str = ""):
     run = get_pipeline_run(run_id)
     if not run:
         return
@@ -468,10 +505,11 @@ def accept_pipeline(run_id: int):
     try:
         run   = get_pipeline_run(run_id)
         iters = get_pipeline_iterations(run_id)
-        # Берём последний judge score из итераций
+        # Оценка принятого круга; текст правлен вручную или не передан — последняя
         judge_iters = [i for i in iters if i.get("stage") == "judge" and i.get("score")]
+        chosen = round_of_text(pipeline_rounds(iters), final_text)
         if judge_iters and run:
-            last_score = judge_iters[-1]["score"]
+            last_score = chosen["score"] if chosen and chosen["score"] else judge_iters[-1]["score"]
             from .db_chapters import save_judge_calibration
             # author_score == judge_score при принятии без авторской правки
             save_judge_calibration(

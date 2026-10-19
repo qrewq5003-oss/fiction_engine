@@ -590,7 +590,7 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     Применить структурированный JSON-анализ к State Engine.
     Надёжный путь: никаких regex по свободному тексту.
     """
-    from .db_state import get_state, update_state
+    from .db_state import SNAPSHOT_BEFORE, get_state, update_state
     state = get_state(project_id)
     ch = _Changes()
     global_text = _merge_characters(data.get("global_state_changes", []),
@@ -610,7 +610,9 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
 
     changed = bool(ch.fields)
     if changed:
-        update_state(project_id, global_text, plot_text, memory_text)
+        # Снимок с номером главы — по нему «Откатить главу» находит State до неё
+        update_state(project_id, global_text, plot_text, memory_text,
+                     _snapshot_reason=f"{SNAPSHOT_BEFORE}{chapter_num}" if chapter_num else "")
     return {"changed": changed, "fields": ch.fields, "new_chars": ch.new_chars,
             "bible_conflicts": ch.bible_conflicts}
 
