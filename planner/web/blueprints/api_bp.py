@@ -447,6 +447,36 @@ def plan_text(scenes: list, chapter_num: int) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def future_text(pid: int, chapter_num: int, current: list) -> str:
+    """
+    Сцены доски после плана главы — что будет дальше. Идёт в FE только
+    сторожу забеганий («глава раскрыла то, что по плану позже»), писателю —
+    никогда. Сторож «Фона» (19.10) ловил забегания по планам следующих глав:
+    по одному «пока не раскрывать» текущей главы из четырёх раскрытий
+    видно одно. Дальше — сцены позже последней сцены главы на доске (акты
+    по номеру) и сцены, уже размеченные под главы после этой. Заметки
+    сцены — черновик автора, не идут.
+    """
+    from engine.db import get_acts, get_scenes
+    act_no = {a["id"]: a["number"] for a in get_acts(pid)}
+    board = sorted(get_scenes(pid), key=lambda s: (act_no.get(s["act_id"], 10**6), s["position"] or 0, s["id"]))
+    here = {s["id"] for s in current}
+    idx = [i for i, s in enumerate(board) if s["id"] in here]
+    after = idx[-1] if idx else len(board)
+    lines = []
+    for i, s in enumerate(board):
+        later = s.get("chapter_num") and s["chapter_num"] > chapter_num
+        if s["id"] in here or not (later or (i > after and not s.get("chapter_num"))):
+            continue
+        what = (s.get("what_happens") or "").strip()
+        if not what:
+            continue
+        where = f"гл.{s['chapter_num']}" if s.get("chapter_num") else "дальше"
+        hold = (s.get("hold") or "").strip()
+        lines.append(f"- {where} «{s['title'] or 'без названия'}»: {what}" + (f" (пока не раскрывать: {hold})" if hold else ""))
+    return "\n".join(lines)
+
+
 HOLD_HEADER = "ПОКА НЕ РАСКРЫВАТЬ (в этой главе читатель этого ещё не узнаёт — ни прямо, ни уликой, которая указывает однозначно):"
 
 
@@ -508,7 +538,8 @@ def export_send():
         import requests as req
         try:
             resp = req.post(f"{_fe_base_url()}/api/chapter_plan/{chapter_num}/save",
-                            json={"pid": fe_pid, "note": prompt_text, "facts": facts},
+                            json={"pid": fe_pid, "note": prompt_text, "facts": facts,
+                                  "future": future_text(current_pid(), chapter_num, scenes)},
                             headers=_fe_headers(), timeout=10)
             if resp.ok:
                 _mark_chapter(chapter_num, scenes)

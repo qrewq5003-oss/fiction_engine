@@ -477,6 +477,10 @@ def chapter_plan_save(chapter_num):
     from engine.series_bible import author_set
     # Как в director_note_save: заметка для главы N хранится «после главы N-1»
     save_director_note(project["id"], chapter_num - 1, note)
+    # Сцены дальше по доске — только сторожу забеганий, писателю никогда
+    if "future" in data:
+        from engine.run_ahead import save_future
+        save_future(project["id"], chapter_num, str(data.get("future") or ""))
     n = 0
     for f in data.get("facts") or []:
         if not isinstance(f, dict):

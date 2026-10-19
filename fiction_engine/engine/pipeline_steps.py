@@ -457,6 +457,29 @@ def _plan_misses(project_id: int, chapter_num: int, text: str, model_editor: str
     return [], err
 
 
+def _ahead_reveals(project_id: int, chapter_num: int, text: str, model_editor: str,
+                   call_fn) -> tuple[list[dict], str]:
+    """
+    → (раскрытия раньше плана, ошибка сторожа) — задание редактору
+    (point_edit.ahead_task). Тот же проверяющий, что у сверки с планом; плана
+    вперёд нет (планировщик не прислал) — пусто, круг идёт как раньше.
+    """
+    if not (project_id and chapter_num):
+        return [], ""
+    try:
+        from .plan_check import plan_checker_model
+        from .run_ahead import get_future, run_ahead_for
+        checker = plan_checker_model(model_editor)[0] if get_future(project_id, chapter_num) else ""
+        if not checker:
+            return [], ""
+        found = run_ahead_for(project_id, chapter_num, text,
+                              lambda p: call_fn(checker, "Отвечай только JSON.", p)) or []
+        return [x for x in found if x["kind"] == "раскрытие"], ""
+    except Exception as e:
+        handle_error("step_edit: сторож забеганий", e, level=ErrorLevel.DEGRADED)
+        return [], f"{type(e).__name__}: {e}"[:200]
+
+
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
               model_editor: str, call_fn, results: dict, model_judge: str = "",
@@ -491,11 +514,22 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
     if rhythm_hint:
         critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
+    # Присказки из карточек и правила голоса в тексте — счётчик, не модель:
+    # редактор в режиме self сам их не замечал («Фон», 19.10)
+    from .text_signals import project_echo_signals
+    echo = project_echo_signals(project_id, text)
+    if echo:
+        critique = f"{critique}\n\nЗАМЕРЕНО: " + " ".join(echo)
     plan_misses, plan_error = (_plan_misses(project_id, chapter_num, text, model_editor, call_fn)
                                if mode != "rewrite" else ([], ""))
     if plan_misses:
         from .point_edit import plan_task
         critique = plan_task(plan_misses) + "\n\n" + critique
+    reveals, ahead_error = (_ahead_reveals(project_id, chapter_num, text, model_editor, call_fn)
+                            if mode != "rewrite" else ([], ""))
+    if reveals:
+        from .point_edit import ahead_task
+        critique = ahead_task(reveals) + "\n\n" + critique
     # Задача главы — с правкой автора («Изменить промпт для следующей
     # итерации»). Раньше редактор её не видел вовсе: правка задачи на круг
     # редактуры не действовала
@@ -509,6 +543,10 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                                   "changed": rep["changed"]}
         if plan_error:
             results["edit_report"]["plan_error"] = plan_error
+        if reveals or ahead_error:
+            results["edit_report"]["ahead"] = len(reveals)
+        if ahead_error:
+            results["edit_report"]["ahead_error"] = ahead_error
         if rep["applied"] and model_judge:
             from .continuity_fix import changed_share
             from .edit_filter import filter_edits

@@ -354,3 +354,65 @@ def previous_chapters(project_id: int, chapter_num: int, n: int = SERIES_LOOKBAC
             "SELECT number, content FROM chapters WHERE project_id=? AND number<? "
             "ORDER BY number DESC LIMIT ?", (project_id, chapter_num, n)).fetchall()
     return [dict(r) for r in reversed(rows)]
+
+
+# ─── Эхо подготовки: присказки из карточек и правила голоса в тексте ─────────
+#
+# Правила в промпте модель не исполняет, а цитирует («Фон», 19.10): присказка
+# из карточки («юридически говоря») шла 3–5 раз за главу, раздел голоса «Как
+# Варя думает» стал репликой героини. В готовых главах обеих книг автора
+# присказка из карточки («окей, смотрим») — не больше двух раз за главу, а
+# кусков правил голоса от 4 слов подряд нет ни в одной из 27 глав: сигнал
+# с этих порогов ложных срабатываний на них не даёт.
+
+CATCHPHRASE_MAX = 2          # раз за главу — норма; больше — тиражирует
+VOICE_ECHO_WORDS = 4         # слов подряд из правил голоса
+_SPEECH_LINE = re.compile(r"^\s*[-*•]?\s*(особенности речи|речь|манера речи|говорит|присказк\w*|словечк\w*)\b",
+                          re.I | re.M)
+_EXEMPLAR = re.compile(r"\n\s*(?:ЭТАЛОН|ОБРАЗЕЦ|ПРИМЕР|ОТРЫВОК)", re.I)
+
+
+def _low(s: str) -> str:
+    return (s or "").lower().replace("ё", "е")
+
+
+def catchphrases(cards: str) -> list[str]:
+    """Присказки из карточек: фразы в кавычках на строках об особенностях речи."""
+    out = []
+    for line in (cards or "").splitlines():
+        if _SPEECH_LINE.match(line):
+            out += [q.strip() for q in re.findall(r"[«\"]([^»\"]{3,60})[»\"]", line)]
+    return list(dict.fromkeys(q for q in out if q))
+
+
+def prep_echo_signals(text: str, cards: str = "", voice_profile: str = "") -> list[str]:
+    """Присказка из карточки чаще нормы; кусок правил голоса — в тексте главы."""
+    t = _low(text)
+    out = []
+    for phrase in catchphrases(cards):
+        words = re.findall(r"[а-яa-z]+", _low(phrase))
+        if not words:
+            continue
+        n = len(re.findall(r"\b" + r"\W+".join(map(re.escape, words)) + r"\b", t))
+        if n > CATCHPHRASE_MAX:
+            out.append(f"Присказка из карточки «{phrase}» — {n} раз в главе: особенность речи "
+                       f"тиражируется. Оставьте одну-две.")
+    rules = _EXEMPLAR.split(voice_profile or "")[0]
+    rw = [w for w in re.findall(r"[а-яa-z]+", _low(rules))]
+    grams = {" ".join(rw[i:i + VOICE_ECHO_WORDS]) for i in range(len(rw) - VOICE_ECHO_WORDS + 1)}
+    tw = re.findall(r"[а-яa-z]+", t)
+    hit = sorted(grams & {" ".join(tw[i:i + VOICE_ECHO_WORDS]) for i in range(len(tw) - VOICE_ECHO_WORDS + 1)})
+    if hit:
+        out.append(f"В тексте — слова из правил голоса: «{hit[0]}…». Правило попало в главу "
+                   f"как текст, а не как манера.")
+    return out
+
+
+def project_echo_signals(project_id: int, text: str) -> list[str]:
+    """prep_echo_signals по карточкам и активному голосу проекта."""
+    if not project_id:
+        return []
+    from .db_narrative import get_active_voice
+    from .db_settings import get_prep
+    voice = get_active_voice(project_id) or {}
+    return prep_echo_signals(text, get_prep(project_id).get("characters", ""), voice.get("profile") or "")

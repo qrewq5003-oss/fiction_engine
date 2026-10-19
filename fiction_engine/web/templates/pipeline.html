@@ -610,6 +610,30 @@ async function checkPlan() {
     }
     return row;
   }));
+  // Сторож забеганий: глава раскрыла то, что по планам вперёд позже
+  state.ahead = r.ahead || [];
+  if (r.ahead_error || r.ahead) {
+    const head = document.createElement('div');
+    head.style.cssText = 'margin:12px 0 6px;font-weight:600;';
+    const reveals = state.ahead.filter(x => x.kind === 'раскрытие').length;
+    head.textContent = r.ahead_error ? '⚠ ' + r.ahead_error
+      : !state.ahead.length ? '✅ Забеганий вперёд по плану нет'
+      : `⏩ Забегания вперёд: раскрытий ${reveals}, деталей раньше плана ${state.ahead.length - reveals}`;
+    head.style.color = r.ahead_error || reveals ? 'var(--warning)' : 'var(--text2)';
+    box.append(head);
+    for (const x of state.ahead) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:8px 10px;margin-bottom:6px;background:var(--surface2);border-radius:6px;' +
+                          (x.kind === 'раскрытие' ? 'border-left:3px solid var(--warning);' : '');
+      const t = document.createElement('div');
+      t.textContent = `${x.kind === 'раскрытие' ? '⏩ раскрытие' : '· деталь'} — ${x.plan}: ${x.why}`;
+      const q = document.createElement('div');
+      q.style.cssText = 'color:var(--text2);margin-top:4px;font-style:italic;';
+      q.textContent = '«' + x.quote + '»';
+      row.append(t, q);
+      box.append(row);
+    }
+  }
 }
 
 async function loadTaskHistory(chapterNum) {
@@ -851,6 +875,8 @@ function showEditReport(rep) {
       (rep.filter && rep.filter.checked ? ` (судья оставил ${rep.filter.kept} из ${rep.filter.checked} мест)` : '') +
       (rep.plan_missing ? `; по плану не хватало пунктов: ${rep.plan_missing}, правок по плану: ${(rep.filter && rep.filter.plan_kept) || 0}` : '') +
       (rep.plan_error ? `; сверка с планом не удалась (${rep.plan_error}) — пункты плана редактор не получил` : '') +
+      (rep.ahead ? `; раскрытий раньше плана убрать: ${rep.ahead}` : '') +
+      (rep.ahead_error ? `; сторож забеганий не ответил (${rep.ahead_error})` : '') +
       `, изменено ${pct}% текста` +
       (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
     : `Редактура целиком: изменено ${pct}% текста`;
@@ -863,6 +889,7 @@ function showResults(data) {
   showEditReport(data && data.edit_report);
   document.getElementById('plan-check-block').style.display = 'none';   // сверка — по прошлому тексту
   state.planItems = null;
+  state.ahead = null;
   showPlanAccept();
   if (state.chapterNum) loadDirectorNote(state.chapterNum).then(() => {  // кнопка сверки — если у главы есть план
     if (data.generated_text && planAuto() &&
@@ -1089,6 +1116,10 @@ async function acceptResult() {
   const missing = (state.planItems || []).filter(x => x.status === 'нет');
   if (missing.length && !confirm('В главе нет пунктов плана:\n' +
       missing.map(x => '— ' + x.item.split('\n')[0]).join('\n') + '\n\nВсё равно принять?')) return;
+  // Глава раскрыла то, что по плану позже — после «Принять» это уже канон серии
+  const reveals = (state.ahead || []).filter(x => x.kind === 'раскрытие');
+  if (reveals.length && !confirm('Глава забегает вперёд — раскрыто то, что по плану позже:\n' +
+      reveals.map(x => `— ${x.plan}: ${x.why}`).join('\n') + '\n\nВсё равно принять?')) return;
   const finalText = await chooseAcceptedText();
   if (finalText === null) return;
   const modelGen = document.getElementById('pl-model-gen').value;

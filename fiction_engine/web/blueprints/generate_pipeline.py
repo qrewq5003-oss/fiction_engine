@@ -126,14 +126,23 @@ def pipeline_plan_check():
         return jsonify({"error": why}), 400
     from engine.pipeline import call_llm
     budget = 32000 if model.startswith("claude_subscription::") else 4000
+    def ask(p):
+        return call_llm(model, "Ты внимательный редактор. Отвечай только JSON.", p, max_tokens=budget)
     try:
-        items = check_plan(chapter_num, plan, text,
-                           lambda p: call_llm(model, "Ты внимательный редактор. Отвечай только JSON.",
-                                              p, max_tokens=budget))
+        items = check_plan(chapter_num, plan, text, ask)
     except Exception as e:
         log_web_error("pipeline/plan_check", e, project_id=current["id"])
         return jsonify({"error": f"Сверка не удалась: {str(e)[:200]}"}), 502
-    return jsonify({"ok": True, "items": items, "checker": model.split("::")[-1]})
+    # Сторож забеганий — тем же проверяющим, если планировщик прислал план вперёд
+    from engine.run_ahead import run_ahead_for
+    ahead, ahead_error = None, ""
+    try:
+        ahead = run_ahead_for(current["id"], chapter_num, text, ask)
+    except Exception as e:
+        log_web_error("pipeline/plan_check: сторож забеганий", e, project_id=current["id"])
+        ahead_error = f"Сторож забеганий не ответил: {str(e)[:200]}"
+    return jsonify({"ok": True, "items": items, "checker": model.split("::")[-1],
+                    "ahead": ahead, "ahead_error": ahead_error})
 
 
 @bp.route("/pipeline/preview", methods=["POST"])
