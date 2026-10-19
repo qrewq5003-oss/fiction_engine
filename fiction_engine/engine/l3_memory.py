@@ -129,6 +129,26 @@ def mark_promise_resolved(
     return updated
 
 
+def reopen_promises(project_id: int, resolved_chapter: int) -> int:
+    """
+    Снова открыть обещания, которые закрыла глава resolved_chapter, — при её
+    откате. Обещания живут в L3 глав-источников, удаление главы их не трогало:
+    после отката писатель не видел обещания, которое так и не выполнено.
+    """
+    from .db_narrative import get_l3_summaries
+    n = 0
+    for summary in get_l3_summaries(project_id, resolved_chapter, n=10_000):
+        ch = summary["chapter_num"]
+        promises = normalize_promises(summary.get("promises", []), ch)
+        hit = [p for p in promises if p["resolved"] and p.get("resolved_chapter") == resolved_chapter]
+        for p in hit:
+            p["resolved"], p["resolved_chapter"] = False, None
+        if hit:
+            save_l3_summary(project_id, ch, dict(summary, promises=promises))
+            n += len(hit)
+    return n
+
+
 def _truncation_reason() -> str:
     """Пояснение к отказу, если ответ упёрся в потолок токенов."""
     try:
