@@ -265,6 +265,39 @@ _SYS_CONTINUITY_INNER = (
 
 # ─── Шаги ────────────────────────────────────────────────────────────────────
 
+def _without_work_notes(text: str, model_gen: str, sys_generator: str, full_prompt: str,
+                        call_fn, results: dict, retry: bool = True) -> str:
+    """
+    Глава без рабочих заметок модели (pipeline_tasks.work_note_lines): один повтор
+    генерации; заметки и в повторе — чистый текст после них, если его хватает на
+    главу; иначе текст как есть и предупреждение автору.
+    """
+    from .pipeline import strip_reasoning
+    from .pipeline_tasks import WORK_NOTES_TAIL_MIN, after_work_notes, work_note_lines
+    lines = work_note_lines(text)
+    if not lines:
+        return text
+    results["work_notes"] = len(lines)
+    if retry:
+        try:
+            again = strip_reasoning(call_fn(model_gen, sys_generator, full_prompt))[0]
+        except Exception as e:
+            handle_error("step_generate: повтор после рабочих заметок", e, level=ErrorLevel.RECOVERABLE)
+            again = ""
+        if again.strip() and not work_note_lines(again):
+            results["work_notes_fixed"] = "повтор генерации"
+            return again
+        if again.strip():
+            text, lines = again, work_note_lines(again)
+    tail = after_work_notes(text, lines)
+    if len(tail.split()) >= WORK_NOTES_TAIL_MIN:
+        results["work_notes_fixed"] = "текст после заметок"
+        return tail
+    results["warning"] = ((results.get("warning") or "") + " В главе остались рабочие заметки модели "
+                          f"({len(lines)} строк латиницей) — проверьте текст перед «Принять».").strip()
+    return text
+
+
 def step_generate(run_id: int, iteration: int, chapter_num: int,
                   generation_prompt: str, full_prompt: str,
                   model_gen: str, sys_generator: str,
@@ -282,6 +315,8 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     gen_text, reasoned = strip_reasoning(gen_text)
     if reasoned:
         results["reasoning_stripped"] = True
+    gen_text = _without_work_notes(gen_text, model_gen, sys_generator, full_prompt, call_fn,
+                                   results, retry=not prefill)
     if not prefill:
         from .pipeline import extend_short_chapter
         gen_text, extended = extend_short_chapter(gen_text, model_gen, sys_generator,

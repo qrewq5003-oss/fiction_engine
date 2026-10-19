@@ -217,6 +217,47 @@ def strip_reasoning(text: str) -> tuple[str, bool]:
     return cleaned, True
 
 
+# ─── Рабочие заметки модели без тегов ───────────────────────────────────────
+#
+# Книга «Фон», гл.21 (19.10): Sonnet по подписке (скрытое размышление выключено)
+# выдал черновик первой сцены, затем заметки по-английски («Write scene 2
+# (~1000 words)», «Hmm, Marat visited…»), затем «Write final cleanly.» и главу
+# целиком. Тегов нет — strip_reasoning их не видит; судья и редактор работали с
+# главой вместе с заметками. Один случай на ~60 глав четырёх книг.
+
+WORK_NOTE_MIN_LINES = 2      # одна английская реплика в диалоге — ещё не заметки
+WORK_NOTES_TAIL_MIN = 1200   # слов: чистый хвост после заметок, который годится главой
+_LATIN_WORD = re.compile(r"[A-Za-z]{2,}")
+
+
+def work_note_lines(text: str) -> list[int]:
+    """Номера строк — рабочих заметок латиницей в русском тексте; пусто, если их меньше WORK_NOTE_MIN_LINES."""
+    t = text or ""
+    if len(re.findall(r"[А-Яа-яЁё]", t)) < len(re.findall(r"[A-Za-z]", t)) * 3:
+        return []                                  # не русский текст — не наше дело
+    hits = []
+    for i, line in enumerate(t.splitlines()):
+        lat = len(re.findall(r"[A-Za-z]", line))
+        cyr = len(re.findall(r"[А-Яа-яЁё]", line))
+        if len(_LATIN_WORD.findall(line)) >= 4 and lat > cyr:
+            hits.append(i)
+    return hits if len(hits) >= WORK_NOTE_MIN_LINES else []
+
+
+def after_work_notes(text: str, lines: list[int]) -> str:
+    """Текст после последней строки заметок (там, где модель написала главу начисто)."""
+    rows = (text or "").splitlines()[lines[-1] + 1:] if lines else []
+    for i, row in enumerate(rows):
+        if not row.strip():
+            continue
+        # Глава может начаться в той же строке, сразу после «Write final cleanly.»
+        m = re.search(r"[«\"—–А-ЯЁ]", row)
+        if m and _LATIN_WORD.search(row[:m.start()]):
+            rows[i] = row[m.start():]
+        break
+    return "\n".join(rows).strip()
+
+
 def _tail_for_message(text: str, n: int = 40) -> str:
     return (text or "").rstrip()[-n:]
 
