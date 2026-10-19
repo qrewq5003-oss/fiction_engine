@@ -20,6 +20,7 @@ series_bible.py — библия серии: места, вещи и время 
 
 from __future__ import annotations
 
+import datetime
 import re
 
 from .db_core import get_conn
@@ -238,6 +239,74 @@ def complements(old: str, new: str) -> bool:
     return not (_content_stems(old) & _content_stems(new))
 
 
+# ─── Описание и та же ночь ────────────────────────────────────────────────────
+#
+# «Фон» (24 главы, 19.10): из 14 противоречий библии настоящее одно — куртка
+# синяя, потом голубая. Шесть — описания мест и вещей: «столик у окна, видны
+# трамваи» и «столик у стены, зеркало над стойкой» — два взгляда на одну
+# кофейню, а не два значения. Четыре — сцена после полуночи: в плане «четверг,
+# 27 ноября, ночь», в главе «пятница, 28 ноября, 0:58».
+
+_DESCRIPTIVE = re.compile(r"^(вид|описани|обстановк|интерьер|запах|внутри)")
+DESCRIPTION_MAX = 400     # символов в склеенном описании; старые части уходят первыми
+
+
+def descriptive(attr: str) -> bool:
+    """Признак — описание (вид, обстановка, запах), а не одно значение."""
+    return bool(_DESCRIPTIVE.search(attr_key(attr)))
+
+
+def marks_agree(old: str, new: str) -> bool:
+    """Метки (числа, порядковые, цвета, дни недели) не расходятся: одних нет или одни входят в другие."""
+    mo, mn = _marks(old), _marks(new)
+    return not (mo and mn) or mo <= mn or mn <= mo
+
+
+def _join_description(old: str, new: str) -> str:
+    parts = [p for p in re.split(r";\s*", old) if p] + [new]
+    while len(parts) > 1 and len("; ".join(parts)) > DESCRIPTION_MAX:
+        parts.pop(0)
+    return "; ".join(parts)
+
+
+_NIGHT_HOUR = 6           # время до 6 утра — ещё та ночь
+
+
+def _when(v: str) -> tuple[int | None, int | None]:
+    """(порядковый день года по дате, номер дня недели) — что есть в значении."""
+    v = _key(v)
+    day = None
+    m = _DATE.search(v)
+    if m:
+        d = int(m.group(1)) if m.group(1) else _ordn(m.group(2), m.group(3))
+        mon = next(i for i, mo in enumerate(_MONTHS, 1) if mo.startswith(m.group(4)[:3]))
+        try:
+            day = datetime.date(2000, mon, d).toordinal()
+        except ValueError:
+            day = None
+    m = _DAY.search(v)
+    return day, (_DAYS.index(_day(m.group(1))) if m else None)
+
+
+def same_night(old: str, new: str, context: str = "") -> bool:
+    """
+    Одна и та же ночь, названная до полуночи и после: «четверг, 27 ноября, ночь»
+    и «пятница, 28 ноября, 0:58». Дата и день недели сдвинуты на один день в
+    одну сторону, а в значениях или в исходном тексте — ночь или время до 6 утра.
+    """
+    text = _key(" ".join((old, new, context)))
+    night = "ноч" in text or any(int(h) < _NIGHT_HOUR for h, _ in _TIME.findall(text))
+    if not night:
+        return False
+    (do, wo), (dn, wn) = _when(old), _when(new)
+    shifts = []
+    if do is not None and dn is not None:
+        shifts.append(dn - do)
+    if wo is not None and wn is not None:
+        shifts.append((wn - wo + 3) % 7 - 3)
+    return bool(shifts) and len(set(shifts)) == 1 and abs(shifts[0]) == 1
+
+
 def _fact_key(name: str, attr: str) -> tuple[str, str]:
     return _key(name), attr_key(attr)
 
@@ -316,6 +385,16 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
             e = dict(e, value=f"{old['value']}; {e['value']}")
             _add(project_id, e, chapter_num, "дополнено", f"к гл.{old['chapter_num']}")
             result = "added"
+        elif not e["changed"] and descriptive(e["attr"]) and marks_agree(old["value"], e["value"]):
+            # Описание: спорят только метки — «синяя» и «голубая», «второй
+            # этаж» и «третий»; «столик у окна» и «столик у стены» — дополнение
+            e = dict(e, value=_join_description(old["value"], e["value"]))
+            _add(project_id, e, chapter_num, "дополнено", f"к гл.{old['chapter_num']}")
+            result = "added"
+        elif not e["changed"] and e["kind"] == "событие" and same_night(old["value"], e["value"], src):
+            _add(project_id, e, chapter_num, "уточнено",
+                 f"та же ночь: было «{old['value']}» (гл.{old['chapter_num']})")
+            result = "same"
         elif e["changed"]:
             _add(project_id, e, chapter_num, "изменено", e["changed"])
             out["changed"].append(dict(e, was=old["value"], was_chapter=old["chapter_num"]))
