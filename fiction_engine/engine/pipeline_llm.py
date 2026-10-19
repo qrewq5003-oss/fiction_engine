@@ -308,11 +308,9 @@ def _parse_json_impl(raw: str):
     #     главы (дымовая книга 19.10). Объект не разбирался, выемка по скобкам
     #     отдавала первый вложенный список, и State молча не обновлялся
     repaired = escape_stray_quotes(cleaned)
-    if repaired != cleaned:
-        try:
-            return json.loads(repaired)
-        except json.JSONDecodeError:
-            pass
+    got = _loads_or_none(repaired) if repaired != cleaned else None
+    if got is not None:
+        return got
 
     # 3. Найти JSON по балансу скобок (устойчиво к тексту вокруг).
     #    Массив верхнего уровня тоже бывает ответом — narrative_intelligence
@@ -328,6 +326,14 @@ def _parse_json_impl(raw: str):
             return found
 
     return None
+
+
+def _loads_or_none(s: str):
+    import json
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        return None
 
 
 def escape_stray_quotes(s: str) -> str:
