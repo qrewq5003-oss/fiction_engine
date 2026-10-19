@@ -324,6 +324,19 @@ def excerpts_setting_api():
     return jsonify({"ok": True, "enabled": excerpts_enabled()})
 
 
+@app.route("/api/settings/judge_rubric", methods=["GET", "POST"])
+def judge_rubric_api():
+    """Правила оценки критика и судьи: v1 — прежние, v2 — определения, шкала и связность (judge_rubric)."""
+    from engine.db import set_setting
+    from engine.judge_rubric import RUBRIC_KEY, RUBRICS, rubric
+    if request.method == "POST":
+        r = str((request.json or {}).get("rubric", ""))
+        if r not in RUBRICS:
+            return jsonify({"error": f"Правила: {', '.join(RUBRICS)}"}), 400
+        set_setting(RUBRIC_KEY, r)
+    return jsonify({"ok": True, "rubric": rubric()})
+
+
 @app.route("/api/settings/edit_mode", methods=["GET", "POST"])
 def edit_mode_api():
     """«Ещё круг редактуры»: self — точечно, места выбирает редактор (по умолчанию);
