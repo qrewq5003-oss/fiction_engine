@@ -33,7 +33,10 @@ FE_PORT, PL_PORT = 5300, 5301
 def env(work: Path) -> dict:
     home = work / "home"
     real = Path(os.path.expanduser("~"))
+    # PYTHONPATH — код этой рабочей копии: иначе venv берёт установленный пакет из
+    # основной папки, и копия гоняет не тот код (первый прогон 19.10: откат — 404)
     e = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8", USERPROFILE=str(home), HOME=str(home),
+             PYTHONPATH=os.pathsep.join([str(REPO / "fiction_engine"), os.environ.get("PYTHONPATH", "")]).rstrip(os.pathsep),
              FE_PORT=str(FE_PORT), PLANNER_PORT=str(PL_PORT), FE_URL=f"http://127.0.0.1:{FE_PORT}",
              PLANNER_DB=str(work / "planner.db"), FLASK_SECRET_KEY="smoke-book-secret-0123456789abcdef",
              BOOK_FE=f"http://127.0.0.1:{FE_PORT}", BOOK_PL=f"http://127.0.0.1:{PL_PORT}", BOOK_SMOKE="1",
@@ -138,6 +141,10 @@ def checks(work: Path, live: bool = True) -> list[tuple[str, bool, str]]:
              for n, r in res["chapters"].items()}
     out.append(("забеганий нет (внешний сторож)", not any(ahead.values()),
                 "; ".join(f"гл.{n}: {x.get('why', '')[:80]}" for n, xs in ahead.items() for x in xs)))
+    app = {n: [x for rd in (r.get("rounds") or []) for x in (rd.get("app_ahead") or []) if x.get("kind") == "раскрытие"]
+           for n, r in res["chapters"].items()}
+    out.append(("сторож приложения (в отчёт)", True,
+                "; ".join(f"гл.{n}: {len(xs)} раскрытий по кругам" for n, xs in app.items() if xs) or "раскрытий нет"))
     try:
         fut = dict(c.execute("SELECT chapter_num, length(text) FROM chapter_future_plans WHERE project_id=?",
                              (pid,)).fetchall())

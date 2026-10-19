@@ -356,6 +356,7 @@ def chapter(n):
             "continuity": cont,
             "signals": (r.get("text_signals") or [])[:6], "warning": r.get("warning"),
             "edit_report": r.get("edit_report"),
+            "app_ahead": pc.get("ahead"),          # сторож приложения (сверка с планом, #125)
             "plan": [(x["status"], x["item"].split("\n")[0], x["quote_ok"]) for x in items] or pc.get("error")})
         log(f"гл.{n} круг {rnd + 1}: {len(text.split())} слов, вердикт {r.get('verdict')}, "
             f"судья {r.get('judge_score') or r.get('score')}, план: "
@@ -415,7 +416,9 @@ def chapter(n):
         if x not in reveals:
             log(f"  деталь раньше плана (не стоп): гл.{x.get('chapter')} — {(x.get('why') or '')[:150]}")
     ahead = reveals
-    if ahead:
+    if ahead and SMOKE:        # дымовая книга: забегание — в отчёт, прогон идёт дальше до отката и удаления
+        log(f"гл.{n}: забегание вперёд (в отчёт) — " + "; ".join(x.get("why", "")[:120] for x in ahead))
+    elif ahead:
         results["chapters"][str(n)] = rec; save()
         raise Stop(f"гл.{n}: забегание вперёд — " + "; ".join(f"гл.{x.get('chapter')} «{x.get('scene')}»: {x.get('why','')[:120]}" for x in ahead))
     log(f"гл.{n}: забеганий нет")
