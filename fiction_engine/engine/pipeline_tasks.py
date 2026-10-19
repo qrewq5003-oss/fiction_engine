@@ -389,9 +389,10 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     # Сигналы по самому тексту — при любом генераторе (engine/text_signals.py).
     # Итог проверки непрерывности автор видит карточкой главы (поле
     # continuity), в общей строке предупреждений он не повторяется
-    from .text_signals import chapter_signals, previous_chapters, series_signals
+    from .text_signals import chapter_signals, previous_chapters, project_echo_signals, series_signals
     signals = chapter_signals(text) + series_signals(
-        text, previous_chapters(project_id, chapter_num)) + ([] if continuity else cross)
+        text, previous_chapters(project_id, chapter_num)) + ([] if continuity else cross) \
+        + project_echo_signals(project_id, text)
     if signals:
         warning = (warning or "") + " " + " ".join(signals)
     word_count = len(text.split())

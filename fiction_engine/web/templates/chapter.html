@@ -71,11 +71,7 @@ async function saveEdit() {
 }
 
 async function deleteChapter() {
-  if (!confirm(`Удалить главу ${CHAPTER_NUM}? Вместе с ней удалятся её L3-саммари и анализ.\n` +
-               'State не откатывается: то, что анализ главы внёс в State, останется.')) return;
-  const r = await apiPost(`/chapter/${CHAPTER_NUM}/delete`, {});
-  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
-  location.href = '/';
+  if (await removeChapter(CHAPTER_NUM)) setTimeout(() => location.href = '/', 1500);
 }
 
 async function checkContinuity() {

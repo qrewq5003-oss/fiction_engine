@@ -442,6 +442,20 @@
 }
 </style>
 
+<!-- Выбор варианта при «Принять»: правка бывает хуже черновика, оценка — ниже порога -->
+<div class="modal-overlay" id="accept-modal">
+  <div class="modal">
+    <div class="modal-title">✅ Какой вариант принять?</div>
+    <div id="accept-modal-note" style="font-size:13px;color:var(--text2);margin-bottom:12px;"></div>
+    <div id="accept-rounds"></div>
+    <div id="accept-below" class="alert alert-warning" style="display:none;margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="accept-cancel">Отмена</button>
+      <button class="btn btn-success" id="accept-ok">✅ Принять выбранный</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -596,6 +610,30 @@ async function checkPlan() {
     }
     return row;
   }));
+  // Сторож забеганий: глава раскрыла то, что по планам вперёд позже
+  state.ahead = r.ahead || [];
+  if (r.ahead_error || r.ahead) {
+    const head = document.createElement('div');
+    head.style.cssText = 'margin:12px 0 6px;font-weight:600;';
+    const reveals = state.ahead.filter(x => x.kind === 'раскрытие').length;
+    head.textContent = r.ahead_error ? '⚠ ' + r.ahead_error
+      : !state.ahead.length ? '✅ Забеганий вперёд по плану нет'
+      : `⏩ Забегания вперёд: раскрытий ${reveals}, деталей раньше плана ${state.ahead.length - reveals}`;
+    head.style.color = r.ahead_error || reveals ? 'var(--warning)' : 'var(--text2)';
+    box.append(head);
+    for (const x of state.ahead) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:8px 10px;margin-bottom:6px;background:var(--surface2);border-radius:6px;' +
+                          (x.kind === 'раскрытие' ? 'border-left:3px solid var(--warning);' : '');
+      const t = document.createElement('div');
+      t.textContent = `${x.kind === 'раскрытие' ? '⏩ раскрытие' : '· деталь'} — ${x.plan}: ${x.why}`;
+      const q = document.createElement('div');
+      q.style.cssText = 'color:var(--text2);margin-top:4px;font-style:italic;';
+      q.textContent = '«' + x.quote + '»';
+      row.append(t, q);
+      box.append(row);
+    }
+  }
 }
 
 async function loadTaskHistory(chapterNum) {
@@ -837,6 +875,8 @@ function showEditReport(rep) {
       (rep.filter && rep.filter.checked ? ` (судья оставил ${rep.filter.kept} из ${rep.filter.checked} мест)` : '') +
       (rep.plan_missing ? `; по плану не хватало пунктов: ${rep.plan_missing}, правок по плану: ${(rep.filter && rep.filter.plan_kept) || 0}` : '') +
       (rep.plan_error ? `; сверка с планом не удалась (${rep.plan_error}) — пункты плана редактор не получил` : '') +
+      (rep.ahead ? `; раскрытий раньше плана убрать: ${rep.ahead}` : '') +
+      (rep.ahead_error ? `; сторож забеганий не ответил (${rep.ahead_error})` : '') +
       `, изменено ${pct}% текста` +
       (rep.failed && rep.failed.length ? `; не легли: ${rep.failed.join('; ')}` : '')
     : `Редактура целиком: изменено ${pct}% текста`;
@@ -849,6 +889,7 @@ function showResults(data) {
   showEditReport(data && data.edit_report);
   document.getElementById('plan-check-block').style.display = 'none';   // сверка — по прошлому тексту
   state.planItems = null;
+  state.ahead = null;
   showPlanAccept();
   if (state.chapterNum) loadDirectorNote(state.chapterNum).then(() => {  // кнопка сверки — если у главы есть план
     if (data.generated_text && planAuto() &&
@@ -1075,11 +1116,17 @@ async function acceptResult() {
   const missing = (state.planItems || []).filter(x => x.status === 'нет');
   if (missing.length && !confirm('В главе нет пунктов плана:\n' +
       missing.map(x => '— ' + x.item.split('\n')[0]).join('\n') + '\n\nВсё равно принять?')) return;
+  // Глава раскрыла то, что по плану позже — после «Принять» это уже канон серии
+  const reveals = (state.ahead || []).filter(x => x.kind === 'раскрытие');
+  if (reveals.length && !confirm('Глава забегает вперёд — раскрыто то, что по плану позже:\n' +
+      reveals.map(x => `— ${x.plan}: ${x.why}`).join('\n') + '\n\nВсё равно принять?')) return;
+  const finalText = await chooseAcceptedText();
+  if (finalText === null) return;
   const modelGen = document.getElementById('pl-model-gen').value;
   const r = await apiPost('/pipeline/accept', {
     run_id: state.runId,
     chapter_num: state.chapterNum,
-    final_text: state.currentText,
+    final_text: finalText,
     model_value: modelGen,
   });
   if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
@@ -1100,6 +1147,55 @@ async function acceptResult() {
     }
   }
   setTimeout(() => location.reload(), 2000);
+}
+
+// Какой текст принять. «Принять» брал последний круг, а правка бывает хуже
+// черновика: в «Фоне» (19.10) главы 10, 21, 22 — 32 «ПРИНЯТЬ» до правки и 29
+// после. Если выше оценён другой круг или оценка ниже порога судьи — спросить.
+// Текст правлен вручную (нет такого круга) — принимается как есть.
+async function chooseAcceptedText() {
+  const cur = state.currentText;
+  const rr = await fetch(`/pipeline/${state.runId}/rounds`).then(x => x.json()).catch(() => null);
+  const rounds = (rr && rr.rounds) || [];
+  const mine = [...rounds].reverse().find(x => x.text === cur);
+  if (!mine || !mine.score) return cur;
+  const best = rounds.find(x => x.round === rr.best) || mine;
+  const better = best.round !== mine.round && best.score > mine.score;
+  if (!better && mine.score >= rr.threshold) return cur;
+
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  document.getElementById('accept-modal-note').textContent = better
+    ? `Круг ${best.round} оценён выше текущего: правка не всегда улучшает главу.`
+    : `Оценка судьи ниже порога ${rr.threshold}.`;
+  document.getElementById('accept-rounds').innerHTML = rounds.filter(x => x.score).map(x => `
+    <label style="display:flex;gap:10px;align-items:center;justify-content:flex-start;padding:6px 0;margin:0;cursor:pointer;
+                  font-size:14px;font-weight:normal;color:var(--text);text-transform:none;text-align:left;">
+      <input type="radio" name="accept-round" value="${x.round}" style="width:auto;flex:none;margin:0;"
+             ${x.round === (better ? best : mine).round ? 'checked' : ''}>
+      <span>Круг ${x.round} — судья <b>${x.score}</b>/50 · ${esc(x.verdict || '—')} · ${x.words} слов
+        ${x.round === best.round ? ' · <span style="color:var(--success)">лучший</span>' : ''}
+        ${x.round === mine.round ? ' · <span style="color:var(--text2)">на экране</span>' : ''}</span>
+    </label>`).join('');
+  const below = document.getElementById('accept-below');
+  const picked = () => {
+    const v = +(document.querySelector('input[name="accept-round"]:checked') || {}).value;
+    return rounds.find(x => x.round === v) || mine;
+  };
+  const showBelow = () => {
+    const p = picked();
+    below.style.display = p.score < rr.threshold ? '' : 'none';
+    below.textContent = `Круг ${p.round}: ${p.score} — ниже порога ${rr.threshold}. Судья такую главу не принял бы; принять всё равно можно.`;
+  };
+  document.querySelectorAll('input[name="accept-round"]').forEach(el => el.onchange = showBelow);
+  showBelow();
+
+  const modal = document.getElementById('accept-modal');
+  modal.classList.add('active');
+  return new Promise(resolve => {
+    const done = v => { modal.classList.remove('active'); resolve(v); };
+    document.getElementById('accept-cancel').onclick = () => done(null);
+    document.getElementById('accept-ok').onclick = () => done(picked().text);
+  });
 }
 
 async function rejectResult() {

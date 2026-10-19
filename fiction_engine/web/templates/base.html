@@ -312,6 +312,32 @@ async function apiPost(url, data) {
   catch (e) { return {error: `сервер ответил ${r.status} — подробности в логе`}; }
 }
 
+// Удалить главу или, если она последняя, откатить целиком: State — к снимку
+// до её анализа, обещания, закрытые ею, — снова открыты. Откат «Фона»
+// (19.10) шёл пятью маршрутами; у автора кнопки не было. true — сделано.
+async function removeChapter(num) {
+  const info = await fetch(`/chapter/${num}/rollback`).then(x => x.json()).catch(() => ({}));
+  if (info.last) {
+    const when = info.snapshot ? `State вернётся к снимку до её анализа (${info.snapshot.saved_at}); ` +
+                                 'правки State после него тоже откатятся — снимок «перед откатом» останется в истории State.'
+                               : 'Снимка State до её анализа нет (глава принята раньше, чем они появились) — State не откатится.';
+    if (!confirm(`Откатить главу ${num}?\n\nУдалятся глава, её L3, анализ, детали серии и факты библии; ` +
+                 `обещания, закрытые этой главой, снова откроются. ${when}\n\n` +
+                 'План главы, заметки и история запусков остаются.')) return false;
+    const r = await apiPost(`/chapter/${num}/rollback`, {});
+    if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return false; }
+    showToast(`Глава ${num} откачена` + (r.state_restored ? ' · State восстановлен' : ' · State не менялся') +
+              (r.promises_reopened ? ` · обещаний открыто: ${r.promises_reopened}` : ''), 'success', 5000);
+    return true;
+  }
+  if (!confirm(`Удалить главу ${num}? Вместе с ней удалятся её L3-саммари и анализ.\n` +
+               'State не откатывается: глава не последняя, State после неё общий с поздними главами.')) return false;
+  const r = await apiPost(`/chapter/${num}/delete`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return false; }
+  showToast(`Глава ${num} удалена`, 'success');
+  return true;
+}
+
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
     showToast('Скопировано!', 'success');

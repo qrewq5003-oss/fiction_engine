@@ -139,3 +139,49 @@ def test_event_date_time_weekday(project_id):
     record(project_id, [_e("встреча у вдовы", "дата", "среда, четвёртое декабря", kind="событие")], 5)
     r = record(project_id, [_e("встреча у вдовы", "время", "четверг, вечер", kind="событие")], 6)
     assert [c["attr"] for c in r["conflicts"]] == ["день недели"]
+
+
+def test_description_conflicts_only_on_marks(project_id):
+    """«Фон» 19.10: описания места спорили словами — «столик у окна» и «у стены»; спорят только метки."""
+    from engine.series_bible import current, record
+    record(project_id, [_e("кофейня «Зерно»", "вид", "столик у окна, видны трамваи")], 2)
+    r = record(project_id, [_e("кофейня «Зерно»", "вид", "столик у стены, зеркало над стойкой")], 10)
+    assert r["conflicts"] == []
+    assert current(project_id)[0]["value"] == "столик у окна, видны трамваи; столик у стены, зеркало над стойкой"
+    # Цвет — метка: «синяя» и «голубая» спорят
+    record(project_id, [_e("куртка Ольги", "вид", "синяя, на кармане бейдж", kind="вещь")], 2)
+    assert record(project_id, [_e("куртка Ольги", "вид", "голубая, с бейджем", kind="вещь")], 13)["conflicts"]
+    # Этаж в описании — тоже метка
+    record(project_id, [_e("кабинет Беловой", "обстановка", "каб. 214, второй этаж, кактус")], 13)
+    assert record(project_id, [_e("кабинет Беловой", "обстановка", "каб. 214, настольная лампа")], 17)["conflicts"] == []
+    assert record(project_id, [_e("кабинет Беловой", "обстановка", "каб. 215, лампа")], 18)["conflicts"]
+    # Не описание — по-прежнему строго
+    record(project_id, [_e("кусачки", "где", "в пакете", kind="вещь")], 2)
+    assert record(project_id, [_e("кусачки", "где", "на кухонном столе", kind="вещь")], 3)["conflicts"]
+
+
+def test_description_join_is_capped(project_id):
+    from engine.series_bible import DESCRIPTION_MAX, current, record
+    for ch in range(1, 30):
+        record(project_id, [_e("двор", "вид", f"на скамейке сидит кто-то в куртке, вариант номер {'а' * ch}")], ch)
+    v = current(project_id)[0]["value"]
+    assert len(v) <= DESCRIPTION_MAX and v.endswith("а" * 29)
+
+
+def test_same_night_is_not_a_conflict(project_id):
+    """План: «четверг, 27 ноября, ночь», глава: «пятница, 28 ноября, 0:58» — одна ночь."""
+    from engine.series_bible import record, same_night
+    ev = "событие"
+    record(project_id, [_e("сцена 3", "время", "четверг, 27 ноября, ночь", kind=ev)], 21)
+    r = record(project_id, [_e("сцена 3", "время", "пятница, 28 ноября, ночь, 0:58–1:38", kind=ev)], 21)
+    assert r["conflicts"] == []
+    record(project_id, [_e("сцена 2", "время", "пятница, 28 ноября, ночь", kind=ev)], 23)
+    assert record(project_id, [_e("сцена 2", "время", "ночь с 28 на 29 ноября, квартира", kind=ev)], 23)["conflicts"] == []
+    assert record(project_id, [_e("сцена 2", "время", "суббота, 29 ноября, около 2:10", kind=ev)], 23)["conflicts"] == []
+    assert same_night("30 ноября, ночь", "1 декабря, 0:40")
+    # Не ночь, сдвиг на два дня, день недели против даты — противоречие
+    assert not same_night("четверг, 27 ноября, вечер", "пятница, 28 ноября, 19:00")
+    assert not same_night("четверг, 27 ноября, ночь", "суббота, 29 ноября, 1:00")
+    assert not same_night("четверг, 27 ноября, ночь", "пятница, 27 ноября, 1:00")
+    record(project_id, [_e("сцена 5", "время", "среда, ночь", kind=ev)], 5)
+    assert record(project_id, [_e("сцена 5", "время", "пятница, 1:00", kind=ev)], 5)["conflicts"]

@@ -95,6 +95,44 @@ def delete_chapter(project_id: int, number: int) -> bool:
     return True
 
 
+def last_chapter_number(project_id: int) -> int | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT MAX(number) FROM chapters WHERE project_id=?", (project_id,)).fetchone()
+    return row[0] if row else None
+
+
+def rollback_info(project_id: int, number: int) -> dict:
+    """Можно ли откатить главу целиком: только последнюю — State после неё
+    принадлежит ей одной. Снимок State до её анализа, если он есть."""
+    from .db_state import snapshot_before_chapter
+    last = last_chapter_number(project_id) == number
+    snap = snapshot_before_chapter(project_id, number) if last else None
+    return {"last": last, "snapshot": snap}
+
+
+def rollback_chapter(project_id: int, number: int) -> dict:
+    """
+    Откатить последнюю главу: State — к снимку до её анализа, обещания,
+    закрытые ею, — снова открыты, сама глава и производное от неё (L3,
+    анализ, детали серии, библия) — удалены. План главы, заметки режиссёра,
+    история запусков и записи автора в библии остаются: это работа автора.
+
+    Откат «Фона» (гл.20–21, 19.10) шёл пятью маршрутами — удалить главу,
+    восстановить State, удалить L3, удалить сцены — и одна кнопка нужна была
+    автору с самого начала: глава не удалась.
+    """
+    from .db_state import restore_state_snapshot
+    from .l3_memory import reopen_promises
+    info = rollback_info(project_id, number)
+    if not info["last"]:
+        return {"ok": False, "error": "Откатить можно только последнюю главу: State после неё — общий с поздними главами"}
+    snap = info["snapshot"]
+    restored = bool(snap) and restore_state_snapshot(project_id, snap["id"])
+    reopened = reopen_promises(project_id, number)
+    deleted = delete_chapter(project_id, number)
+    return {"ok": deleted, "state_restored": restored, "snapshot": snap, "promises_reopened": reopened}
+
+
 def purge_orphan_chapter_data(project_id: int) -> int:
     """Удалить анализ и саммари глав, которых в проекте нет.
 
