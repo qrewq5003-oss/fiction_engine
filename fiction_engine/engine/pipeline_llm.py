@@ -304,6 +304,16 @@ def _parse_json_impl(raw: str):
     except json.JSONDecodeError:
         pass
 
+    # 2б. Кавычки внутри строки без экранирования: «Театр "Подвал"» в анализе
+    #     главы (дымовая книга 19.10). Объект не разбирался, выемка по скобкам
+    #     отдавала первый вложенный список, и State молча не обновлялся
+    repaired = escape_stray_quotes(cleaned)
+    if repaired != cleaned:
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            pass
+
     # 3. Найти JSON по балансу скобок (устойчиво к тексту вокруг).
     #    Массив верхнего уровня тоже бывает ответом — narrative_intelligence
     #    просит именно список, и объектная выемка его теряла.
@@ -318,6 +328,32 @@ def _parse_json_impl(raw: str):
             return found
 
     return None
+
+
+def escape_stray_quotes(s: str) -> str:
+    """
+    Экранировать кавычку внутри строки JSON, если за ней не идёт конец
+    значения (`,` `:` `}` `]` или конец текста): `"журнал «Театр "Подвал"»"`
+    → `"журнал «Театр \\"Подвал\\"»"`. Настоящая закрывающая кавычка всегда
+    стоит перед одним из этих знаков.
+    """
+    out, in_str, escape = [], False, False
+    for i, ch in enumerate(s):
+        if escape:
+            escape = False
+        elif ch == "\\" and in_str:
+            escape = True
+        elif ch == '"':
+            if not in_str:
+                in_str = True
+            else:
+                rest = s[i + 1:].lstrip()
+                if rest and rest[0] not in ",:}]":
+                    out.append("\\")
+                else:
+                    in_str = False
+        out.append(ch)
+    return "".join(out)
 
 
 def _scan_balanced(raw: str, opener: str, closer: str):

@@ -1,0 +1,52 @@
+"""Анализ главы с кавычками внутри строки: State обновляется, а битый JSON не «применяется» молча (дымовая книга 19.10)."""
+import json
+
+BROKEN = ('{"global_state_changes": [{"name": "Ника", "состояние": "напряжена", "локация": "вахта"}], '
+          '"details": ["Серый журнал учёта «Театр "Подвал"», вырвана страница за пятницу"], '
+          '"next_context": "Ника идёт к Артёму"}')
+
+
+def test_stray_quotes_repaired():
+    from engine.pipeline_llm import escape_stray_quotes, parse_json
+    d = parse_json(BROKEN)
+    assert isinstance(d, dict) and d["details"][0] == "Серый журнал учёта «Театр \"Подвал\"», вырвана страница за пятницу"
+    ok = '{"a": "x", "b": ["y", "z"], "c": {"d": "e"}}'
+    assert escape_stray_quotes(ok) == ok and parse_json('{"a": "он сказал \\"нет\\""}') == {"a": 'он сказал "нет"'}
+
+
+def test_broken_analysis_reaches_state(project_id):
+    from engine.db import get_state, update_state
+    from engine.db_state import merge_analysis_into_state
+    update_state(project_id, "## ПЕРСОНАЖИ\n", "## СЮЖЕТ\n", "")
+    r = merge_analysis_into_state(project_id, BROKEN, 1)
+    assert r["changed"] and "Ника" in get_state(project_id)["global_state"]
+
+
+def test_unparsable_json_is_an_error_not_applied(project_id, monkeypatch):
+    """Не разобрать никак — ошибка; «Применить» не помечает анализ применённым."""
+    from engine.db import get_pending_updates, save_state_update
+    from engine.db_settings import set_active_project
+    from engine.db_state import merge_analysis_into_state
+    from web.app import app
+    hopeless = '{"global_state_changes": [{"name": "Ника", "состояние": "оборвано'
+    r = merge_analysis_into_state(project_id, hopeless, 1)
+    assert not r["changed"] and "не разобран" in r["error"]
+    uid = save_state_update(project_id, 1, hopeless)
+    set_active_project(project_id)
+    app.config.update(TESTING=True, FE_CSRF=False)
+    resp = app.test_client().post(f"/state/apply/{uid}", json={})
+    assert resp.status_code == 422 and uid in [u["id"] for u in get_pending_updates(project_id)]
+
+
+def test_accept_retries_broken_analysis_once(project_id, monkeypatch):
+    from unittest.mock import patch
+    from engine.db import get_pending_updates, get_state, save_state_update, update_state
+    import web.blueprints.generate_pipeline as gp
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    update_state(project_id, "## ПЕРСОНАЖИ\n", "## СЮЖЕТ\n", "")
+    good = json.dumps({"global_state_changes": [{"name": "Соня", "состояние": "смеётся"}]}, ensure_ascii=False)
+    answers = iter(['{"global_state_changes": [{"name": "Ника", "состояние": "оборвано', good])
+    with patch("engine.state.analyze_chapter",
+               side_effect=lambda pid, ch, m: {"update_id": save_state_update(pid, ch, next(answers))}):
+        assert gp._try_state_update_after_accept(project_id, 1, "nano_gpt::w/w")
+    assert "Соня" in get_state(project_id)["global_state"] and not get_pending_updates(project_id)

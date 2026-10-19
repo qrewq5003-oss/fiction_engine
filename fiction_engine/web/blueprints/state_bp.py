@@ -176,6 +176,9 @@ def state_apply(update_id):
                 result = merge_analysis_into_state(
                     current["id"], u["raw_analysis"], u.get("chapter_num", 0)
                 )
+                if result.get("error"):
+                    # Не помечаем применённым: анализ остаётся в очереди, его можно переделать
+                    return jsonify({"error": result["error"] + ". Запусти анализ главы ещё раз."}), 422
                 mark_update_applied(current["id"], update_id)
                 if result["changed"]:
                     return jsonify({"ok": True,

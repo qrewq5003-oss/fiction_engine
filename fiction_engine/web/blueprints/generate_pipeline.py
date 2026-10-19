@@ -208,6 +208,18 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                 res = merge_analysis_into_state(
                     project_id, raw, u.get("chapter_num", chapter_num)
                 )
+                if res.get("error"):
+                    # Битый JSON анализа — один повтор анализа; не вышло — анализ
+                    # остаётся в очереди State, а не «применён» молча. Битый анализ
+                    # после удачного повтора уберёт _drop_draft_updates
+                    again = analyze_chapter(project_id, chapter_num, model_value).get("update_id")
+                    u2 = next((x for x in get_pending_updates(project_id) if x["id"] == again), None)
+                    res = (merge_analysis_into_state(project_id, u2["raw_analysis"], chapter_num)
+                           if u2 and u2.get("raw_analysis") else res)
+                    if res.get("error") or not u2:
+                        _log_state_update_failure(project_id, chapter_num, ValueError(res.get("error") or "нет анализа"))
+                        return False
+                    auto_id = again
                 mark_update_applied(project_id, auto_id)
                 _drop_draft_updates(project_id, int(chapter_num), auto_id)
                 return bool(res.get("changed"))
