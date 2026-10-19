@@ -313,6 +313,27 @@ class TestSeriesBibleLink:
         assert {(f["attr"], f["value"]) for f in req["body"]["facts"]} == {
             ("место", "контора на Литейном"), ("время", "вечер"), ("кто", "Вера, Лаптев")}
 
+    def test_export_sends_board_ahead_for_run_ahead_guard(self, client, project_id, fake_fe):
+        """Сцены доски после плана главы — в FE полем future (сторожу забеганий), без заметок сцены."""
+        from engine.db import create_scene, get_acts, set_chapter_scenes, update_scene
+        self._link(client, project_id, fake_fe)
+        a1, a2 = (a["id"] for a in get_acts(project_id)[:2])
+        past, now, nxt, later, empty = (create_scene(project_id, a) for a in (a1, a1, a1, a2, a2))
+        update_scene(past, {"title": "Пальто", "what_happens": "Варя находит пальто"})
+        set_chapter_scenes(project_id, 3, [past])
+        update_scene(now, {"title": "Кофейня", "what_happens": "Гоша врёт про 16-е"})
+        update_scene(nxt, {"title": "Признание", "what_happens": "Гоша признаётся, что фондом занимался Марат",
+                           "hold": "Марата прямо не обвинять", "notes": "черновик: может, в 15-ю?"})
+        update_scene(later, {"title": "Финал", "what_happens": "Марат задержан"})
+        fake_fe.responses["/api/chapter_plan/4/save"] = (200, {"ok": True, "facts": 0})
+        client.post("/api/export/send", json={"scene_ids": [now], "chapter_num": 4})
+        req = next(r for r in fake_fe.received if r["path"] == "/api/chapter_plan/4/save")
+        future = req["body"]["future"]
+        assert future.splitlines() == [
+            "- дальше «Признание»: Гоша признаётся, что фондом занимался Марат (пока не раскрывать: Марата прямо не обвинять)",
+            "- дальше «Финал»: Марат задержан"]
+        assert "черновик" not in future and "Пальто" not in future and "Кофейня" not in future
+
     def test_bible_proxy_uses_linked_pid(self, client, project_id, fake_fe):
         self._link(client, project_id, fake_fe)
         fake_fe.responses["/api/bible"] = (200, {"facts": [], "conflicts": [], "history": []})

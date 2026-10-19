@@ -211,8 +211,9 @@ def _execute_steps(
             gen_text, cross = _continuity_pass(run_id, iteration, project_id, chapter_num,
                                                gen_text, model_gen, step_call, results)
             # Повторы относительно прошлых глав проекта — сигнал автору
-            from .text_signals import previous_chapters, series_signals
-            series = series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
+            from .text_signals import previous_chapters, project_echo_signals, series_signals
+            series = (series_signals(gen_text, previous_chapters(project_id, chapter_num)) + cross
+                      + project_echo_signals(project_id, gen_text))
             if series:
                 results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,
