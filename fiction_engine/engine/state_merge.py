@@ -717,6 +717,15 @@ def merge_analysis_into_state(
         handle_error(f"merge_analysis_into_state JSON parse ({project_id})", e,
                      level=ErrorLevel.RECOVERABLE)
 
+    # Ответ — JSON, но не разобран: старый текстовый разбор его не поймёт, и
+    # анализ терялся молча — «применён», а State прежний (1 из 89 анализов
+    # книг автора, гл.1 дымовой книги 19.10). Ошибка, а не «без изменений»
+    if (raw_analysis or "").lstrip().lstrip("`").lstrip("json").lstrip().startswith("{"):
+        err = "анализ главы не разобран (битый JSON) — State не обновлён"
+        handle_error(f"merge_analysis_into_state ({project_id}, гл.{chapter_num})", ValueError(err),
+                     level=ErrorLevel.DEGRADED)
+        return {"changed": False, "fields": [], "new_chars": [], "bible_conflicts": [], "error": err}
+
     # Fallback: legacy regex-парсер (для старых сохранённых анализов)
     return _merge_from_legacy_text(project_id, raw_analysis)
 
