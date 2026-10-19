@@ -51,3 +51,15 @@ class TestDriftScheduling:
         from engine.db_narrative import get_last_drift_check
         result = get_last_drift_check(project_id)
         assert result is None or isinstance(result, dict)
+
+
+class TestPipelineRuns:
+    def test_all_runs_listed_and_rounds_counted(self, project_id):
+        """История «Мастерской»: все запуски (было LIMIT 20) и круги, а не одни генерации (книга «Фон», 19.10)."""
+        from engine.db_narrative import create_pipeline_run, get_pipeline_runs, save_pipeline_iteration
+        ids = [create_pipeline_run(project_id, n, "m", "m", "m", "m") for n in range(1, 27)]
+        for it, stage in ((1, "generate"), (1, "critique"), (1, "judge"), (2, "edit"), (2, "judge"), (3, "edit")):
+            save_pipeline_iteration(ids[0], it, stage, "m", "задача", "текст")
+        runs = get_pipeline_runs(project_id)
+        assert len(runs) == 26 and {r["chapter_num"] for r in runs} == set(range(1, 27))
+        assert next(r for r in runs if r["id"] == ids[0])["iterations"] == 3

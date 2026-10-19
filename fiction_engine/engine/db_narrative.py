@@ -387,13 +387,16 @@ def finish_pipeline_run(project_id: int, run_id: int, status: str = 'accepted') 
 
 
 def get_pipeline_runs(project_id: int) -> list[dict]:
+    # Все запуски проекта: раньше LIMIT 20 — у книги «Фон» (24 главы и 2 переписанные)
+    # главы 1–6 пропали из истории без следа. «Итерации» — круги (генерация и
+    # редактура), а не только генерации: раньше у каждой главы было «1 итер.»
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT r.*,
-               (SELECT COUNT(*) FROM pipeline_iterations WHERE run_id=r.id AND stage='generate') as iterations
+               (SELECT COUNT(DISTINCT iteration) FROM pipeline_iterations WHERE run_id=r.id) as iterations
                FROM pipeline_runs r
                WHERE r.project_id=?
-               ORDER BY r.created_at DESC, r.id DESC LIMIT 20""",
+               ORDER BY r.created_at DESC, r.id DESC""",
             (project_id,)
         ).fetchall()
         return [dict(r) for r in rows]
