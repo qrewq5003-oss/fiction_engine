@@ -306,8 +306,8 @@ def pipeline_accept():
     if not run_id:
         return jsonify({"error": "Нет run_id"}), 400
 
-    from engine.pipeline import accept_pipeline
-    accept_pipeline(run_id)
+    from engine.pipeline import accept_pipeline, pipeline_rounds, round_of_text
+    accept_pipeline(run_id, final_text)
 
     current   = get_current_project()
     state_job = None
@@ -325,6 +325,10 @@ def pipeline_accept():
             judge_iter = next((i for i in reversed(iters) if i["stage"] == "judge"), None)
             orig_text  = gen_iter["output_text"] if gen_iter else ""
             j_score    = judge_iter["score"] if judge_iter else None
+            # Автор выбрал прежний круг — его текст и оценка, а не последние
+            chosen = round_of_text(pipeline_rounds(iters), final_text)
+            if chosen:
+                orig_text, j_score = chosen["text"], chosen["score"] or j_score
             # Если final_text отличается от оригинала — автор редактировал вручную
             action = "manual_edit" if orig_text and final_text != orig_text else "accept"
             save_author_edit(
@@ -455,6 +459,24 @@ def pipeline_history(run_id):
         return jsonify({"error": "Не найден"}), 404
     iters = get_pipeline_iterations(run_id)
     return jsonify({"run": dict(run), "iterations": iters})
+
+
+@bp.route("/pipeline/<int:run_id>/rounds")
+def pipeline_rounds_view(run_id):
+    """Круги запуска с оценками, лучший круг и порог судьи — для выбора при «Принять»."""
+    if not owned_run(run_id):
+        return deny("Запуск")
+    from engine.db import get_pipeline_run, get_pipeline_iterations
+    from engine.pipeline import best_round, pipeline_rounds
+    from engine.pipeline_config import accept_total_for
+    run = get_pipeline_run(run_id)
+    if not run:
+        return jsonify({"error": "Не найден"}), 404
+    rounds = pipeline_rounds(get_pipeline_iterations(run_id))
+    best = best_round(rounds)
+    return jsonify({"rounds": [dict(r, words=len(r["text"].split())) for r in rounds],
+                    "best": best["round"] if best else None,
+                    "threshold": accept_total_for(run.get("model_judge") or "")})
 
 
 @bp.route("/pipeline/<int:run_id>/compare")
