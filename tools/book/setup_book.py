@@ -4,13 +4,15 @@
 
 Берёт book.json из текущей папки, пишет setup.json (fe_pid, pl_pid, voice_id).
 """
-import json, re
+import json, os, re
 from pathlib import Path
 import requests
 
 B = Path.cwd()                       # папка книги
 BOOK = json.load(open(B / "book.json", encoding="utf-8"))
-FE, PL = "http://127.0.0.1:5000", "http://127.0.0.1:5001"
+# Копия приложения (дымовая книга) — свои адреса
+FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")
+PL = os.environ.get("BOOK_PL", "http://127.0.0.1:5001")
 H = {"X-FE-Token": (Path.home() / "fiction_engine" / "api_token").read_text().strip()}
 OUT = B / "setup.json"
 done = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
@@ -40,11 +42,25 @@ done["voice_id"] = v["id"]
 pl = requests.Session()
 csrf = re.search(r'name="csrf-token" content="([^"]+)"', pl.get(PL + "/projects", timeout=30).text).group(1)
 r = pl.post(PL + "/projects/new", json={"name": BOOK["name"], "genre": BOOK["genre"],
-                                         "description": "Коммерческий детектив, 24 главы"},
+                                         "description": BOOK.get("description", "")},
             headers={"X-CSRF-Token": csrf}, timeout=30).json()
 done["pl_pid"] = r["id"]
 print("планировщик:", r)
 pl.get(PL + f"/switch/{r['id']}", timeout=30)
 csrf = re.search(r'name="csrf-token" content="([^"]+)"', pl.get(PL + "/projects", timeout=30).text).group(1)
 print("связь с FE:", pl.post(PL + f"/api/fe/import/{pid}", json={}, headers={"X-CSRF-Token": csrf}, timeout=120).json())
+
+# План всей книги — на доску сразу: планировщик шлёт сцены после главы сторожу
+# забеганий приложения (engine/run_ahead). run_book берёт сцены главы с доски
+if BOOK.get("plan_ahead"):
+    acts = sorted(pl.get(PL + "/api/acts", timeout=30).json()["acts"], key=lambda a: a["number"])
+    for n, ch in enumerate(BOOK["chapters"], 1):
+        act = acts[min(len(acts) - 1, (n - 1) * len(acts) // len(BOOK["chapters"]))]["id"]
+        for sc in ch["scenes"]:
+            pl.post(PL + "/api/scenes/new", json={"act_id": act, "title": sc["title"], "location": sc["location"],
+                                                  "day": sc.get("day", ""), "time_of_day": sc["time"],
+                                                  "characters": sc["chars"], "what_happens": sc["what"],
+                                                  "emotion": sc["emo"], "hold": sc.get("hold", "")},
+                    headers={"X-CSRF-Token": csrf}, timeout=30)
+    print("план на доске:", sum(len(ch["scenes"]) for ch in BOOK["chapters"]), "сцен")
 OUT.write_text(json.dumps(done, ensure_ascii=False, indent=1), encoding="utf-8")

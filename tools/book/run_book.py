@@ -10,14 +10,17 @@
 «Ещё круг редактуры» с правкой задачи → «Принять» → ждём State, L3, заметку.
 После главы — снимок структуры: State, библия, L3, промпт следующей главы.
 """
-import json, re, sqlite3, sys, time
+import json, os, re, sqlite3, sys, time
 from pathlib import Path
 import requests
 
 B = Path.cwd()                       # папка книги
 REPO = Path(__file__).resolve().parents[2]
 BOOK = json.load(open(B / "book.json", encoding="utf-8"))
-FE, PL = "http://127.0.0.1:5000", "http://127.0.0.1:5001"
+# Копия приложения (дымовая книга, tools/book/smoke.py) — свои адреса и облегчённый прогон
+FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")
+PL = os.environ.get("BOOK_PL", "http://127.0.0.1:5001")
+SMOKE = os.environ.get("BOOK_SMOKE") == "1"
 TOKEN = (Path.home() / "fiction_engine" / "api_token").read_text().strip()
 H = {"X-FE-Token": TOKEN}
 DB = Path.home() / "fiction_engine" / "projects.db"
@@ -30,7 +33,7 @@ SONNET = "claude_subscription::claude-sonnet-5-5"
 SOL = "chatgpt_subscription::gpt-6.1-sol@medium"
 ROLES = BOOK.get("roles") or {"model_gen": SONNET, "model_critic": "claude_subscription::claude-haiku-5-5",
                               "model_editor": SONNET, "model_judge": SOL}
-MAX_EXTRA = 2
+MAX_EXTRA = 1 if SMOKE else 2
 OUT = B / "results.json"
 results = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {"chapters": {}}
 
@@ -88,6 +91,11 @@ def planner_chapter(n, ch):
     have = [s["id"] for s in pl.get(PL + "/api/scenes", timeout=30).json()["scenes"] if s.get("chapter_num") == n]
     if have:
         return have, pl_post("/api/export/send", {"scene_ids": have, "chapter_num": n})[1]
+    # План всей книги уже на доске (book.json "plan_ahead", setup_book) — сцены главы по названию
+    if BOOK.get("plan_ahead"):
+        free = [s for s in pl.get(PL + "/api/scenes", timeout=30).json()["scenes"] if not s.get("chapter_num")]
+        ids = [next(s["id"] for s in free if s["title"] == sc["title"]) for sc in ch["scenes"]]
+        return ids, pl_post("/api/export/send", {"scene_ids": ids, "chapter_num": n})[1]
     ids = []
     act = act_for(n)
     for s in ch["scenes"]:
@@ -318,7 +326,7 @@ def chapter(n):
     ids, exp = planner_chapter(n, ch)
     rec["planner"] = {"scene_ids": ids, "export": {k: exp.get(k) for k in ("sent", "facts", "error", "message")}}
     log(f"гл.{n}: план из планировщика — {rec['planner']['export']}")
-    task = ch["task"] + "\n\nОбъём: 2800–3300 слов — в каждой из трёх сцен не меньше 900 слов."
+    task = ch["task"] + "\n\nОбъём: " + BOOK.get("volume", "2800–3300 слов — в каждой из трёх сцен не меньше 900 слов.")
     code, pv = fe("/pipeline/preview", {"chapter_num": n, "task": task, "engine_mode": "quick",
                                         "model_gen": ROLES["model_gen"]})
     rec["prompt_chars"] = pv.get("chars")
@@ -411,6 +419,8 @@ def chapter(n):
         results["chapters"][str(n)] = rec; save()
         raise Stop(f"гл.{n}: забегание вперёд — " + "; ".join(f"гл.{x.get('chapter')} «{x.get('scene')}»: {x.get('why','')[:120]}" for x in ahead))
     log(f"гл.{n}: забеганий нет")
+    if SMOKE:                  # дымовая книга ловит поломки движка, не качество — без логики и голоса
+        return rec
     lc = logic_check(n, final)
     rec["logic"] = lc
     if lc.get("items") is not None:
