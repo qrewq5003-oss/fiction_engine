@@ -182,6 +182,9 @@ def _build_sys_critic(genre: str = "") -> str:
     raw = (genre or "").lower()
     genre_key = (detect_genre(raw) or raw).split("_")[0]
     genre_lens = _GENRE_CRITIC_LENS.get(genre_key, _GENRE_CRITIC_DEFAULT)
+    from .judge_rubric import rubric
+    if rubric() == "v2":
+        return _sys_critic_v2(genre, genre_lens)
 
     return f"""Ты — строгий литературный редактор. Анализируешь текст главы и выявляешь конкретные проблемы.
 
@@ -214,6 +217,38 @@ def _build_sys_critic(genre: str = "") -> str:
 СЦЕНЫ: [0-10] — [1-2 предложения]
 ДИАЛОГ: [0-10] — [1-2 предложения]
 ИТОГ: [0-50]
+ГЛАВНЫЕ ПРОБЛЕМЫ:
+- [конкретная проблема с цитатой из текста]
+- [конкретная проблема с цитатой]
+- [конкретная проблема]
+ЧТО ИСПРАВИТЬ В ПЕРВУЮ ОЧЕРЕДЬ:
+[2-3 конкретных действия для редактора]"""
+
+
+def _sys_critic_v2(genre: str, genre_lens: str) -> str:
+    """Критик по правилам v2 (judge_rubric): те же определения и шкала, что у судьи, и строки связности."""
+    from .judge_rubric import critic_criteria
+    criteria, gates = critic_criteria(genre)
+    return f"""Ты — строгий литературный редактор. Анализируешь текст главы и выявляешь конкретные проблемы.
+
+{criteria}
+{genre_lens}
+
+Перед оценкой проверь по чеклисту сцены (Scene Health) и каждое нарушение отнеси к своему критерию:
+- Меняет ли глава состояние персонажа/мира/отношений?
+- События вытекают друг из друга?
+- Эмоциональная цель сцены ясна читателю?
+- Есть сенсорный якорь (деталь, создающая присутствие)?
+- Нет избыточных повторов (те же мысли/действия дважды)?
+
+Формат ответа — строго:
+ГОЛОС: [0-10] — [1-2 предложения конкретной критики]
+СТРУКТУРА: [0-10] — [1-2 предложения]
+ПЕРСОНАЖИ: [0-10] — [1-2 предложения]
+СЦЕНЫ: [0-10] — [1-2 предложения]
+ДИАЛОГ: [0-10] — [1-2 предложения]
+ИТОГ: [0-50]
+{gates}
 ГЛАВНЫЕ ПРОБЛЕМЫ:
 - [конкретная проблема с цитатой из текста]
 - [конкретная проблема с цитатой]
@@ -744,8 +779,14 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
 
     # Добавляем историю оценок и calibration hint в системную роль судьи
     # Правило вердикта — с порогом этого судьи (pipeline_config.accept_total_for)
-    from .pipeline_config import verdict_rule_for_prompt
-    sys_judge = SYS_JUDGE.replace(_verdict_rule, verdict_rule_for_prompt(model_judge))
+    from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for, verdict_rule_for_prompt
+    from .judge_rubric import rubric
+    v2 = rubric() == "v2"
+    if v2:
+        from .judge_rubric import sys_judge as _sys_judge_v2
+        sys_judge = _sys_judge_v2(accept_total_for(model_judge), ACCEPT_MIN_CRITERION, genre_key)
+    else:
+        sys_judge = SYS_JUDGE.replace(_verdict_rule, verdict_rule_for_prompt(model_judge))
     if score_context:
         sys_judge += f"\n\nИСТОРИЯ ОЦЕНОК ПРОЕКТА: {score_context}"
 
@@ -831,9 +872,16 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     from .pipeline_llm import parse_criteria, set_verdict
     from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for
     crit = parse_criteria(judgment)
+    # v2: связность и логика выводов вне балла; «ГРУБО» — на доработку (judge_rubric)
+    failed: list[str] = []
+    if v2:
+        from .judge_rubric import failed_gates, parse_gates
+        gates = parse_gates(judgment)
+        results["judge_gates"] = gates
+        failed = failed_gates(gates)
     if judge_score and len(crit) == 5:
         by_rule = ("ПРИНЯТЬ" if judge_score >= accept_total_for(model_judge)
-                   and min(crit.values()) >= ACCEPT_MIN_CRITERION else "НА ДОРАБОТКУ")
+                   and min(crit.values()) >= ACCEPT_MIN_CRITERION and not failed else "НА ДОРАБОТКУ")
         if by_rule != verdict:
             verdict = by_rule
             judgment = set_verdict(judgment, verdict)

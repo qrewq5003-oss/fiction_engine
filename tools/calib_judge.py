@@ -3,7 +3,8 @@
     python tools/calib_judge.py JUDGE_MODEL EXCLUDE_FAMILY OUT.json
 
 Окружение: CALIB_CRITIC — критик (по умолчанию Haiku 5.5, как CRITIC_MODEL движка),
-CALIB_NO_CRITIC=1 — судья без разбора, CALIB_PICK=0/1 — выборка глав, CALIB_LIMIT — сколько.
+CALIB_NO_CRITIC=1 — судья без разбора, CALIB_PICK=0/1 — выборка глав, CALIB_LIMIT — сколько,
+CALIB_RUBRIC=v2 — правила оценки v2 (engine/judge_rubric: определения, шкала, строки связности).
 Калибровки 16–19.10 — bench/judges-*, critic-no-nano-*, judge-repeat-*.
 
 Как в Pipeline: критик → судья (step_critique, step_judge движка),
@@ -96,6 +97,11 @@ def call(model, system, user, max_tokens=None, prefill=""):
 
 CRIT = re.compile(r"(ГОЛОС|СТРУКТУРА|ПЕРСОНАЖИ|СЦЕНЫ|ДИАЛОГ)\s*:\s*\[?(\d+(?:[.,]\d+)?)")
 pid = create_project("Калибровка", "калибровка")
+RUBRIC = os.environ.get("CALIB_RUBRIC", "v1")
+if RUBRIC != "v1":
+    from engine.db import set_setting
+    from engine.judge_rubric import RUBRIC_KEY
+    set_setting(RUBRIC_KEY, RUBRIC)
 done = [d for d in (json.loads(OUT.read_text(encoding="utf-8"))["items"] if OUT.exists() else [])
         if not d.get("error")]          # с ошибкой — перепроверить
 import os
@@ -123,18 +129,26 @@ for n, it in enumerate(items[:int(os.environ.get("CALIB_LIMIT", "999"))]):
         crit = {k: float(v.replace(",", ".")) for k, v in CRIT.findall(res.get("judgment", ""))}
         rec = {"family": it["family"], "genre": it["genre"], "kind": it["kind"],
                "critic_score": res.get("critic_score"), "judge_score": res.get("judge_score"),
-               "criteria": crit, "verdict": res.get("verdict"), "seconds": round(time.time() - t0)}
+               "criteria": crit, "verdict": res.get("verdict"), "gates": res.get("judge_gates"),
+               "seconds": round(time.time() - t0)}
     except Exception as e:
         rec = {"family": it["family"], "genre": it["genre"], "kind": it["kind"], "error": repr(e)[:300]}
     done.append(rec)
     print(n + 1, "/", len(items), rec, flush=True)
     OUT.write_text(json.dumps({"date": str(datetime.date.today()), "judge": JUDGE, "critic": CRITIC,
-                               "items": done}, ensure_ascii=False, indent=1), encoding="utf-8")
+                               "rubric": RUBRIC, "items": done}, ensure_ascii=False, indent=1), encoding="utf-8")
 
 ok = [d for d in done if d.get("judge_score") is not None]
-print("\nпорог  живые проходят  испорченные протекают  (и критерий ≥ 4)")
+def rough(d):
+    return any(v == "ГРУБО" for v in (d.get("gates") or {}).values())
+
+
+if RUBRIC != "v1":
+    r = [d for d in ok if d["kind"] == "real"]; s = [d for d in ok if d["kind"] != "real"]
+    print(f"\n«ГРУБО» в строках связности: живые {sum(map(rough, r))} из {len(r)}, испорченные {sum(map(rough, s))} из {len(s)}")
+print("\nпорог  живые проходят  испорченные протекают  (и критерий ≥ 4" + (", без «ГРУБО»)" if RUBRIC != "v1" else ")"))
 for th in range(26, 45):
     def passes(d):
-        return d["judge_score"] >= th and all(v >= 4 for v in d["criteria"].values())
+        return d["judge_score"] >= th and all(v >= 4 for v in d["criteria"].values()) and not rough(d)
     r = [d for d in ok if d["kind"] == "real"]; s = [d for d in ok if d["kind"] != "real"]
     print(f"{th:5}  {sum(map(passes, r)):3} из {len(r):2}        {sum(map(passes, s)):3} из {len(s):2}")
