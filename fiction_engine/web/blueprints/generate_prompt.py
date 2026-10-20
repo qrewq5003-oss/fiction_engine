@@ -8,6 +8,8 @@
 меняются и url_for в шаблонах продолжает работать.
 """
 
+import re
+
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from engine.db import (get_chapters, get_api_key,
                        get_prep, save_prep, PREP_SECTIONS)
@@ -119,6 +121,37 @@ def edit_run():
         return jsonify({"error": str(e)}), 500
 
 
+def _plot_fragment(plot_text: str, chapter_num: int) -> str:
+    """
+    Строки «Сюжета» про эту главу: с её номера, до 16 строк. Номер — отдельным
+    числом: раньше «1» находилось в «2016» и в «11», и кнопка брала не тот кусок.
+    """
+    import re
+    num = re.compile(rf"(?<!\d){chapter_num}(?!\d)")
+    relevant: list[str] = []
+    for line in plot_text.split("\n"):
+        if not relevant and num.search(line):
+            relevant.append(line)
+        elif relevant:
+            relevant.append(line)
+        if len(relevant) > 15:
+            break
+    return "\n".join(relevant)
+
+
+# Приписки модели после самого промта: «Примечание: в заголовке опечатка…»
+# («Ночная смена», 20.10) — кнопка вставляла их в задачу, и они уходили писателю
+_NOTE_LINE = re.compile(r"^\s*(?:-{3,}|\*{0,2}(?:Примечани|Комментари|Пояснени))", re.IGNORECASE)
+
+
+def _without_model_notes(text: str) -> str:
+    lines = text.strip().splitlines()
+    for i, line in enumerate(lines):
+        if i and _NOTE_LINE.match(line):
+            return "\n".join(lines[:i]).strip()
+    return text.strip()
+
+
 @bp.route("/api/prompt-assist", methods=["POST"])
 def prompt_assist():
     """Ассистент промта: собирает контекст и генерирует черновик промта для главы."""
@@ -173,21 +206,22 @@ def prompt_assist():
             "Пишешь лаконично и конкретно — автор сам доработает детали."
         )
 
+        # План главы из планировщика (тот, что уйдёт писателю). Раньше кнопка
+        # его не видела и сочиняла главу от крючка прошлой: «Ночная смена»
+        # (20.10) — подвал и новая свидетельница вместо плана, в последней
+        # главе новый крючок вместо развязки; писатель получал две разные главы
+        from engine.db import get_director_note
+        chapter_plan = (get_director_note(project_id, chapter_num) or "").strip()
+
         context_parts = []
-        if plot_text:
-            # Extract relevant chapter plan
-            lines = plot_text.split('\n')
-            relevant = []
-            capture = False
-            for line in lines:
-                if f"{chapter_num}" in line or f"Гл.{chapter_num}" in line or f"Глава {chapter_num}" in line:
-                    capture = True
-                if capture:
-                    relevant.append(line)
-                    if len(relevant) > 15:
-                        break
+        if chapter_plan:
+            context_parts.append("ПЛАН ГЛАВЫ (писатель получит его отдельно, целиком):\n" + chapter_plan)
+            if plot_text:
+                context_parts.append(f"ЗАМЫСЕЛ КНИГИ:\n{plot_text[:1000]}")
+        elif plot_text:
+            relevant = _plot_fragment(plot_text, chapter_num)
             if relevant:
-                context_parts.append(f"ПЛАН СЕРИИ (фрагмент про гл.{chapter_num}):\n" + "\n".join(relevant))
+                context_parts.append(f"ПЛАН СЕРИИ (фрагмент про гл.{chapter_num}):\n" + relevant)
             else:
                 context_parts.append(f"ПЛАН СЕРИИ:\n{plot_text[:1000]}")
 
@@ -197,29 +231,47 @@ def prompt_assist():
         if state_text:
             context_parts.append(f"ТЕКУЩЕЕ СОСТОЯНИЕ ПЕРСОНАЖЕЙ:\n{state_text}")
 
-        user_prompt = (
-            "\n\n---\n\n".join(context_parts) +
-            f"\n\n---\n\nСоставь черновик промта для Главы {chapter_num}.\n\n"
-            "Формат строго такой:\n"
-            f"Гл.{chapter_num} — [НАЗВАНИЕ ЗАГЛАВНЫМИ]\n\n"
-            "ЗАДАЧА: [одно предложение — что должна сделать эта глава с читателем]\n\n"
-            "СЦЕНЫ:\n"
-            "1. [Локация — краткое описание]\n"
-            "2. [Локация — краткое описание]\n"
-            "3. [Локация — краткое описание]\n\n"
-            "ТОНАЛЬНОСТЬ: [2-3 слова]\n"
-            "ЗАКАНЧИВАЕТСЯ НА: [крючок или состояние]\n\n"
-            "Не добавляй объяснений — только сам промт."
-        )
+        if chapter_plan:
+            # Задача — направление поверх плана, а не его пересказ: время, место и
+            # порядок сцен писатель уже получает, а вторая копия плана с другими
+            # словами спорит с первой
+            user_prompt = (
+                "\n\n---\n\n".join(context_parts) +
+                f"\n\n---\n\nСоставь черновик задачи для Главы {chapter_num} поверх плана главы.\n"
+                "Не пересказывай план: не переноси время, даты, места, порядок и состав сцен. "
+                "Не добавляй событий, улик и персонажей, которых нет в плане и прошлых главах. "
+                "Не раскрывай того, что план велит пока не раскрывать.\n\n"
+                "Формат строго такой:\n"
+                f"Гл.{chapter_num} — [НАЗВАНИЕ ЗАГЛАВНЫМИ]\n\n"
+                "ЗАДАЧА: [одно-два предложения — что эта глава делает с читателем]\n\n"
+                "ТОНАЛЬНОСТЬ: [2-3 слова]\n"
+                "ЗАКАНЧИВАЕТСЯ НА: [то, чем кончается последняя сцена плана]\n\n"
+                "Не добавляй объяснений — только сам промт."
+            )
+        else:
+            user_prompt = (
+                "\n\n---\n\n".join(context_parts) +
+                f"\n\n---\n\nСоставь черновик промта для Главы {chapter_num}.\n\n"
+                "Формат строго такой:\n"
+                f"Гл.{chapter_num} — [НАЗВАНИЕ ЗАГЛАВНЫМИ]\n\n"
+                "ЗАДАЧА: [одно предложение — что должна сделать эта глава с читателем]\n\n"
+                "СЦЕНЫ:\n"
+                "1. [Локация — краткое описание]\n"
+                "2. [Локация — краткое описание]\n"
+                "3. [Локация — краткое описание]\n\n"
+                "ТОНАЛЬНОСТЬ: [2-3 слова]\n"
+                "ЗАКАНЧИВАЕТСЯ НА: [крючок или состояние]\n\n"
+                "Не добавляй объяснений — только сам промт."
+            )
 
         # 6. Call LLM
         from engine.pipeline import call_llm
-        result = call_llm(model_value, sys_prompt, user_prompt, max_tokens=600)
+        result = _without_model_notes(call_llm(model_value, sys_prompt, user_prompt, max_tokens=600) or "")
 
-        if not result or len(result.strip()) < 50:
+        if len(result) < 50:
             return jsonify({"error": "Модель вернула пустой ответ"}), 500
 
-        return jsonify({"ok": True, "prompt": result.strip()})
+        return jsonify({"ok": True, "prompt": result, "with_plan": bool(chapter_plan)})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

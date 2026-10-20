@@ -21,6 +21,10 @@ BOOK = json.load(open(B / "book.json", encoding="utf-8"))
 FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")
 PL = os.environ.get("BOOK_PL", "http://127.0.0.1:5001")
 SMOKE = os.environ.get("BOOK_SMOKE") == "1"
+# BOOK_TASK=assist — задачу главы готовит кнопка «Подготовить промт»; у главы без "task" — всегда
+ASSIST = os.environ.get("BOOK_TASK") == "assist"
+# BOOK_TASK=plain — в поле задачи только «Напиши главу N.»: всё остальное — план из планировщика
+PLAIN = os.environ.get("BOOK_TASK") == "plain"
 TOKEN = (Path.home() / "fiction_engine" / "api_token").read_text().strip()
 H = {"X-FE-Token": TOKEN}
 DB = Path.home() / "fiction_engine" / "projects.db"
@@ -326,7 +330,20 @@ def chapter(n):
     ids, exp = planner_chapter(n, ch)
     rec["planner"] = {"scene_ids": ids, "export": {k: exp.get(k) for k in ("sent", "facts", "error", "message")}}
     log(f"гл.{n}: план из планировщика — {rec['planner']['export']}")
-    task = ch["task"] + "\n\nОбъём: " + BOOK.get("volume", "2800–3300 слов — в каждой из трёх сцен не меньше 900 слов.")
+    if PLAIN:
+        # Без кнопки и без своей задачи: глава идёт по плану из планировщика
+        task = f"Напиши главу {n}."
+    elif ASSIST or not ch.get("task"):
+        # «🧠 Подготовить промт» → «← Вставить в поле задачи», без правки: задачу готовит приложение
+        code, pa = fe("/api/prompt-assist", {"chapter_num": n, "model": ROLES["model_gen"]})
+        if code != 200 or not pa.get("prompt"):
+            check_limit_error(f"гл.{n} подготовка промта", pa)
+            raise Stop(f"гл.{n}: «Подготовить промт» — {code} {str(pa)[:300]}")
+        task = pa["prompt"]
+        log(f"гл.{n}: задача от «Подготовить промт»:\n{task}")
+    else:
+        task = ch["task"] + "\n\nОбъём: " + BOOK.get("volume", "2800–3300 слов — в каждой из трёх сцен не меньше 900 слов.")
+    rec["task"] = task
     code, pv = fe("/pipeline/preview", {"chapter_num": n, "task": task, "engine_mode": "quick",
                                         "model_gen": ROLES["model_gen"]})
     rec["prompt_chars"] = pv.get("chars")
