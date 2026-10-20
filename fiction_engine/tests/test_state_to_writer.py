@@ -70,3 +70,46 @@ def test_prompt_assist_uses_model_from_page_and_sees_state(project_id, monkeypat
     body = r.get_json()
     assert r.status_code == 200 and "error" not in body, body
     assert seen["model"] == "nano_gpt::x/y" and "единственный выживший" in seen["user"]
+
+
+def _assist(project_id, monkeypatch, answer, chapter=2):
+    from unittest.mock import patch
+    from web.app import app
+    from engine.db_settings import set_active_project
+    monkeypatch.setenv("NANO_GPT_API_KEY", "test-key")
+    app.config.update(TESTING=True, FE_CSRF=False)
+    set_active_project(project_id)
+    seen = {}
+
+    def fake(model, system, user, **kw):
+        seen["user"] = user
+        return answer
+    with patch("engine.pipeline.call_llm", side_effect=fake):
+        r = app.test_client().post("/api/prompt-assist", json={"chapter_num": chapter, "model": "nano_gpt::x/y"})
+    return r.get_json(), seen.get("user", "")
+
+
+def test_prompt_assist_works_over_chapter_plan(project_id, monkeypatch):
+    """«Ночная смена» (20.10): кнопка не видела план главы и сочиняла свою — теперь задача поверх плана."""
+    from engine.db import save_director_note
+    save_director_note(project_id, 1, "ПЛАН ГЛАВЫ 2\nСЦЕНА 1: Морг\n  Когда: понедельник, 8:00\n"
+                                      "ПОКА НЕ РАСКРЫВАТЬ:\n- кто сделал укол")
+    body, user = _assist(project_id, monkeypatch, "Гл.2 — МОРГ\n\nЗАДАЧА: Вера идёт до конца.\n\n"
+                                                  "ТОНАЛЬНОСТЬ: сухая\nЗАКАНЧИВАЕТСЯ НА: признание")
+    assert body["ok"] and body["with_plan"] is True
+    assert "СЦЕНА 1: Морг" in user and "кто сделал укол" in user
+    assert "Не пересказывай план" in user and "СЦЕНЫ:" not in user
+    assert "последняя сцена плана" in user
+
+
+def test_prompt_assist_without_plan_and_model_notes(project_id, monkeypatch):
+    """Без плана — прежний формат; приписка модели после промта в задачу не идёт."""
+    from engine.db_settings import save_prep
+    save_prep(project_id, "plot", "Пролог в 2016 году.\nГл.12 — чужое.\nГл.2 — Вера в морге.\nГл.3 — дальше.")
+    body, user = _assist(project_id, monkeypatch, "Гл.2 — МОРГ\n\nЗАДАЧА: Вера в морге, ищет улику, которую все пропустили.\n\n---\n\n"
+                                                  "Примечание: в заголовке опечатка.")
+    assert body.get("ok"), body
+    assert body["with_plan"] is False and "СЦЕНЫ:" in user
+    assert "Примечание" not in body["prompt"] and body["prompt"].endswith("все пропустили.")
+    # Номер главы — отдельным числом: не «2016» и не «Гл.12»
+    assert "(фрагмент про гл.2):\nГл.2 — Вера в морге." in user
