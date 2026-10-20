@@ -77,10 +77,11 @@ def test_walk_without_live_calls(project_id):
     assert not [c for c in calls if "запрещён" in c.get("answer", "")]
 
 
-# Обход 20.10, ждут исправления. Исправят все — тест пройдёт, strict уронит его:
-# снять xfail, и снимок станет проверкой в CI
-@pytest.mark.xfail(strict=True, reason="эталон голоса из последних глав проекта (будущее при переписывании); "
-                                       "дрейф голоса по первым 1200 символам; судье — история с этой главой")
-def test_no_known_prompt_faults(project_id):
+def test_no_prompt_faults(project_id):
+    """
+    Переписывание гл.3 в книге из пяти глав — без ошибок снимка. Обход 20.10:
+    эталон голоса из гл.4–5, дрейф по первым 1200 символам, судье — история с
+    этой главой; исправлено, и снимок держит это в CI.
+    """
     _, found, _ = _rewrite_ch3(project_id)
     assert not [f for f in found if f["kind"] in ps.ERRORS + ("ИСТОРИЯ",)], found

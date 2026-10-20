@@ -38,23 +38,89 @@ def clip_profile(text: str, limit: int = VOICE_PROFILE_MAX_CHARS) -> str:
     return text[:cut if cut > 0 else limit].rstrip()
 
 
+def _norm_words(text: str) -> str:
+    import re
+    return " ".join(re.findall(r"\w+", (text or "").lower().replace("ё", "е")))
+
+
+def drop_future_excerpts(profile: str, future_texts: list[str]) -> str:
+    """
+    Профиль голоса без строк эталона, которые дословно стоят в этой главе или
+    в следующих. Эталоны из книги выбираются при обновлении голоса по уже
+    написанным главам; при переписывании ранней главы они — её будущее
+    («Фон», гл.12: эталоны из гл.16, 17, 19 — у писателя и в дрейфе голоса).
+    Правила профиля не трогаются: только строки после заголовка «ЭТАЛОН».
+    """
+    future = f" {' '.join(_norm_words(t) for t in future_texts if t)} "
+    if not profile or not future.strip():
+        return profile
+    out, in_etalon = [], False
+    for line in profile.splitlines():
+        if line.strip().upper().startswith("ЭТАЛОН"):
+            in_etalon = True
+            out.append(line)
+            continue
+        words = _norm_words(line)
+        if in_etalon and len(words.split()) >= 2 and f" {words} " in future:
+            continue
+        out.append(line)
+    import re
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    # Заголовок эталона, под которым ничего не осталось
+    return re.sub(r"(?m)^\s*ЭТАЛОН[^\n]*\n*(?=\Z|^\s*ЭТАЛОН)", "", text).strip()
+
+
+def voice_sample(text: str, size: int) -> str:
+    """
+    Отрывок из середины главы по границам абзацев и предложений. Начала глав
+    писатель повторял: гл.22–24 «Фона» открываются одинаково («— Сорок тысяч,
+    — шепнул Лёва» / «— Семьдесят шесть тысяч…» / «— Сто тысяч…»), а эталоном
+    шли как раз первые 700 символов (обход 20.10).
+    """
+    import re
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text or "") if p.strip()]
+    if not paras:
+        return ""
+    out: list[str] = []
+    used = 0
+    for p in paras[len(paras) // 2:]:
+        if out and used + len(p) > size:
+            break
+        out.append(p)
+        used += len(p) + 2
+    s = "\n\n".join(out)
+    if len(s) <= size:
+        return s
+    ends = [m.end() for m in re.finditer(r"[.!?…][»”\"]?(?=\s)", s[:size + 1])]
+    return s[:ends[-1]] if ends else s[:size].rsplit(" ", 1)[0]
+
+
 def build_consolidated_voice(active_voice: dict | None,
                               last_chapters: list,
-                              mode: str) -> str:
+                              mode: str,
+                              future_texts: list[str] | None = None) -> str:
+    """
+    Блок голоса писателю. last_chapters — главы перед этой; future_texts —
+    тексты этой главы и следующих (при переписывании), их строк в эталоне быть не должно.
+    """
     lines = []
 
     # Во всех режимах. До 03.10.2026 профиль шёл только в QUALITY и MASTER:
     # в QUICK — режиме по умолчанию и режиме пайплайна — голос, выбранный
     # автором на странице «Голос», молча не действовал. Профиль ≤ 1800 символов.
     if active_voice and active_voice.get("profile"):
-        profile_short = clip_profile(active_voice["profile"])
+        profile_short = clip_profile(drop_future_excerpts(active_voice["profile"], future_texts or []))
         lines.append(f"ГОЛОСОВОЙ ПРОФИЛЬ ({active_voice['name']}):\n{profile_short}")
 
+    samples = []
     if last_chapters:
         sample_size = {"quick": 700, "quality": 400, "master": 300}.get(mode, 500)
-        lines.append("ГОЛОС — ЭТАЛОН (последние главы):")
-        for ch in last_chapters:
-            lines.append(f"[Гл.{ch['number']}]: {ch['content'][:sample_size].strip()}")
+        samples = [(ch["number"], voice_sample(ch["content"], sample_size)) for ch in last_chapters]
+        samples = [(n, s) for n, s in samples if s]
+    if samples:
+        lines.append("ГОЛОС — ЭТАЛОН (отрывки из середины прошлых глав — манера, не сюжет и не зачин):")
+        for n, s in samples:
+            lines.append(f"[Гл.{n}]: {s}")
 
     if mode == "master" and active_voice and active_voice.get("source"):
         try:
@@ -262,13 +328,14 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
       base_prompt → голос → эталоны → KB → L3 → prep → engine → символы → state
     """
     state   = get_state(project_id)
-    last    = get_last_chapters_content(project_id, n=2)
+    last    = get_last_chapters_content(project_id, n=2, before_chapter=chapter_num)
     project = get_project(project_id)
 
-    from .db import get_prep_context
+    from .db import get_chapter_texts_from, get_prep_context
     prep = get_prep_context(project_id)
 
-    voice_block    = build_consolidated_voice(get_active_voice(project_id), last, mode)
+    voice_block    = build_consolidated_voice(get_active_voice(project_id), last, mode,
+                                              future_texts=get_chapter_texts_from(project_id, chapter_num))
     exemplar_block = _build_exemplar_block(project_id)
     kb_block       = _build_kb_block(project_id, task_text)
     l3_ctx         = get_cognitive_context(project_id, before_chapter=chapter_num)

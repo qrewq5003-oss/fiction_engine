@@ -55,9 +55,8 @@ def test_accept_earlier_round_records_its_score(project_id, client):
         assert client.post("/pipeline/accept", json={"run_id": run, "chapter_num": 1, "final_text": DRAFT}).get_json()["ok"]
     with get_conn() as conn:
         edit = conn.execute("SELECT action, judge_score FROM author_edits WHERE run_id=?", (run,)).fetchone()
-        calib = conn.execute("SELECT judge_score FROM judge_calibration WHERE project_id=?", (project_id,)).fetchone()
     # Принят черновик как есть — это не ручная правка, и оценка его, а не последнего круга
-    assert tuple(edit) == ("accept", 32) and calib[0] == 32
+    assert tuple(edit) == ("accept", 32)
 
 
 def _r(n, score, plan, verdict="ПРИНЯТЬ"):

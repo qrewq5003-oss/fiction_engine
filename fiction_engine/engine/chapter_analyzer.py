@@ -201,6 +201,33 @@ _ANALYSIS_PROMPT = """Проанализируй главу {chapter_num} сер
 - Только JSON. Без пояснений."""
 
 
+def _clip_words(text: str, limit: int) -> str:
+    """Не длиннее limit символов, по границе слова."""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def _promises_text(promises: object, limit: int = 200) -> str:
+    """
+    Открытые обещания прошлой главы строкой. В L3 это список словарей, и в
+    задание анализа уходил его repr: «{'id': '7_1', 'text': …, 'resolved':
+    False, 'resolved_chapter': None}» (снимок заданий, 20.10).
+    """
+    if not promises:
+        return ""
+    if isinstance(promises, str):
+        return _clip_words(promises, limit)
+    items: list[str] = []
+    for p in promises if isinstance(promises, list) else [promises]:
+        if isinstance(p, dict):
+            if p.get("resolved"):
+                continue
+            p = p.get("text") or p.get("promise") or ""
+        if str(p).strip():
+            items.append(str(p).strip())
+    return _clip_words("; ".join(items), limit)
+
+
 # ─── ChapterAnalyzer ─────────────────────────────────────────────────────────
 
 class ChapterAnalyzer:
@@ -297,12 +324,12 @@ class ChapterAnalyzer:
             lines = []
             for s in summaries:
                 ch = s.get("chapter_num", "?")
-                events = s.get("events", "")[:150]
-                promises = s.get("promises", "")
+                events = _clip_words(str(s.get("events") or ""), 150)
+                promises = _promises_text(s.get("promises"))
                 if events or promises:
                     parts = [f"Гл.{ch}: {events}"]
                     if promises:
-                        parts.append(f"(обещания: {promises[:100]})")
+                        parts.append(f"(обещания: {promises})")
                     lines.append(" ".join(parts))
             return "\n".join(lines)
         except Exception as e:

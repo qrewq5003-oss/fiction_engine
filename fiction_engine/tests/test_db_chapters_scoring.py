@@ -78,3 +78,21 @@ class TestFormatScoreHistory:
         from engine.db_chapters import format_score_history
         r = format_score_history([{"chapter_num":1,"score":38.0}], 2)
         assert isinstance(r, str) and "38" in r
+
+    def test_only_earlier_chapters_and_last_is_latest(self):
+        """Обход 20.10: судье гл.12 — «Лучший: 34 (гл.23)», «Последний» — самая ранняя глава окна."""
+        from engine.db_chapters import format_score_history
+        h = [{"chapter_num": 23, "score": 34.0}, {"chapter_num": 12, "score": 29.0},
+             {"chapter_num": 11, "score": 31.0}, {"chapter_num": 9, "score": 33.0}]
+        r = format_score_history(h, current_chapter=12)
+        assert "гл.23" not in r and "гл.12" not in r
+        assert "Лучший: 33.0/50 (гл.9)" in r and "Последний: 31.0/50 (гл.11)" in r
+
+
+def test_history_before_chapter(project_id):
+    from engine.db import create_pipeline_run, save_pipeline_iteration
+    from engine.db_chapters import get_judge_score_history
+    for ch in (1, 2, 3, 4):
+        save_pipeline_iteration(create_pipeline_run(project_id, ch, "m", "m", "m", "m"),
+                                1, "judge", "m", "p", "t", score=30.0 + ch)
+    assert [h["chapter_num"] for h in get_judge_score_history(project_id, before_chapter=3)] == [2, 1]

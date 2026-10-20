@@ -97,7 +97,8 @@ class ChapterStore(Protocol):
     def get_chapters(self, project_id: int) -> list[dict]:
         ...
 
-    def get_last_chapters_content(self, project_id: int, n: int) -> list[dict]:
+    def get_last_chapters_content(self, project_id: int, n: int,
+                                  before_chapter: int | None = None) -> list[dict]:
         ...
 
 
