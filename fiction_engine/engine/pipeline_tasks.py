@@ -647,14 +647,20 @@ def run_batch_l3(project_id: int, model_value: str,
 
 
 def check_voice_drift(project_id: int, chapter_num: int,
-                      chapter_text: str, model_value: str) -> dict:
+                      chapter_text: str, model_value: str, writer: str = "") -> dict:
     from .pipeline_drift import check_voice_drift as _drift
-    return _drift(project_id, chapter_num, chapter_text, model_value, _call)
+    return _drift(project_id, chapter_num, chapter_text, model_value, _call, writer=writer)
 
 
 def auto_drift_check_if_needed(project_id: int, chapter_num: int,
                                 chapter_text: str, model_value: str) -> dict | None:
+    """
+    После сохранения или анализа главы. Писатель — из принятого запуска главы,
+    иначе model_value; проверяет модель другой семьи, чем писатель.
+    """
     from .pipeline_drift import should_check_drift
     if not should_check_drift(project_id, chapter_num):
         return None
-    return check_voice_drift(project_id, chapter_num, chapter_text, model_value)
+    from .db import chapter_writers
+    writer = chapter_writers(project_id).get(chapter_num) or model_value
+    return check_voice_drift(project_id, chapter_num, chapter_text, model_value, writer=writer)

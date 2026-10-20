@@ -217,7 +217,7 @@ def _execute_steps(
             if series:
                 results["text_signals"] = list(results.get("text_signals") or []) + series
             step_drift_check(project_id, chapter_num,
-                             gen_text, model_critic, step_call, results)
+                             gen_text, model_critic, step_call, results, model_gen=model_gen)
             step_chapter_analysis(project_id, chapter_num,
                                   gen_text, model_critic, step_call, results)
 
@@ -520,27 +520,10 @@ def accept_pipeline(run_id: int, final_text: str = ""):
     if not run:
         return
     finish_pipeline_run(run["project_id"], run_id, "accepted")
-    # Записываем judge_score принятой главы для get_project_accept_threshold (IDEA 5).
-    # Используется для вычисления проектного стандарта качества.
-    try:
-        run   = get_pipeline_run(run_id)
-        iters = get_pipeline_iterations(run_id)
-        # Оценка принятого круга; текст правлен вручную или не передан — последняя
-        judge_iters = [i for i in iters if i.get("stage") == "judge" and i.get("score")]
-        chosen = round_of_text(pipeline_rounds(iters), final_text)
-        if judge_iters and run:
-            last_score = chosen["score"] if chosen and chosen["score"] else judge_iters[-1]["score"]
-            from .db_chapters import save_judge_calibration
-            # author_score == judge_score при принятии без авторской правки
-            save_judge_calibration(
-                project_id=run["project_id"],
-                chapter_num=run["chapter_num"],
-                judge_score=last_score,
-                author_score=last_score,
-                note="auto_accept",
-            )
-    except Exception as e:
-        handle_error("accept_pipeline threshold_record", e, level=ErrorLevel.RECOVERABLE)
+    # Строки калибровки судьи здесь больше не пишутся (20.10): «Принять» писал
+    # оценку автора, равную оценке судьи, — затирал настоящую оценку автора
+    # главы, и судья всегда слышал «твои оценки точны (+0.0)». Калибровка — только
+    # из оценок автора (ideas_bp); принятые запуски и так в pipeline_runs.
 
 
 def reject_pipeline(run_id: int):

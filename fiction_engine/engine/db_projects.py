@@ -14,7 +14,7 @@ from .error_policy import handle_error, ErrorLevel
 
 # Реэкспорт для обратной совместимости
 from .db_chapters import (
-    save_chapter, get_chapter, get_chapters, chapter_writers, get_last_chapters_content, delete_chapter,
+    save_chapter, get_chapter, get_chapters, chapter_writers, get_last_chapters_content, get_chapter_texts_from, delete_chapter,
     rollback_chapter, rollback_info,
     purge_orphan_chapter_data,
     save_generation_score, save_chapter_score,

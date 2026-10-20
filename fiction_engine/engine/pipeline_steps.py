@@ -379,13 +379,14 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
 
 def step_drift_check(project_id: int, chapter_num: int,
                      gen_text: str, model_critic: str,
-                     call_fn, results: dict) -> None:
-    """Проверка дрейфа голоса — RECOVERABLE, не блокирует."""
+                     call_fn, results: dict, model_gen: str = "") -> None:
+    """Проверка дрейфа голоса — RECOVERABLE, не блокирует. Критик той же семьи, что писатель, — не проверяет."""
     try:
         from .pipeline_drift import check_voice_drift, should_check_drift
         if not should_check_drift(project_id, chapter_num):
             return
-        drift = check_voice_drift(project_id, chapter_num, gen_text, model_critic, call_fn)
+        drift = check_voice_drift(project_id, chapter_num, gen_text, model_critic, call_fn,
+                                  writer=model_gen)
         if drift and drift.get("warning"):
             results["drift_warning"] = drift["warning"]
             results["drift_score"]   = drift.get("score")
@@ -767,7 +768,7 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     if project_id:
         try:
             from .db import get_judge_score_history, format_score_history
-            history      = get_judge_score_history(project_id, n=10)
+            history      = get_judge_score_history(project_id, n=10, before_chapter=chapter_num)
             score_context = format_score_history(history, chapter_num)
         except Exception as e:
             handle_error(f"step_judge score_history ({project_id})", e,
@@ -860,17 +861,9 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
             handle_error(f"step_judge calibration_hint ({project_id})", e,
                          level=ErrorLevel.RECOVERABLE)
 
-    # ── Проектный порог принятия (IDEA 5) ────────────────────────────────────
-    if project_id:
-        try:
-            from .db_chapters import get_project_accept_threshold, format_project_threshold_hint
-            threshold_data = get_project_accept_threshold(project_id)
-            threshold_hint = format_project_threshold_hint(threshold_data)
-            if threshold_hint:
-                sys_judge += f"\n\n{threshold_hint}"
-        except Exception as e:
-            handle_error(f"step_judge threshold_hint ({project_id})", e,
-                         level=ErrorLevel.RECOVERABLE)
+    # «СТАНДАРТ ПРОЕКТА» (IDEA 5) судье не даётся с 20.10: второй порог рядом
+    # с правилом вердикта и «завышаешь» по перекосу распределения, а не по
+    # ошибке судьи (db_chapters.format_project_threshold_hint)
 
     judgment = call_fn(model_judge, sys_judge, judge_prompt, max_tokens=2000)
 

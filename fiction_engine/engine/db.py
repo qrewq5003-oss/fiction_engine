@@ -59,6 +59,7 @@ from .db_projects import (
     rollback_info,
     purge_orphan_chapter_data,
     get_last_chapters_content,
+    get_chapter_texts_from,
     # State Engine
     get_state,
     update_state,

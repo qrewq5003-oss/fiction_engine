@@ -175,13 +175,28 @@ def get_chapters(project_id: int) -> list[dict]:
         ).fetchall()]
 
 
-def get_last_chapters_content(project_id: int, n: int = 2) -> list[dict]:
+def get_last_chapters_content(project_id: int, n: int = 2,
+                              before_chapter: int | None = None) -> list[dict]:
+    """
+    Последние n глав по номеру; before_chapter — только главы перед ней.
+    Без него при переписывании ранней главы шли последние главы книги:
+    писателю гл.12 «Фона» эталоном голоса — начала гл.23–24 (обход 20.10).
+    """
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT number, content FROM chapters WHERE project_id=? "
-            "ORDER BY number DESC LIMIT ?", (project_id, n)
+            "SELECT number, content FROM chapters WHERE project_id=? AND number < ? "
+            "ORDER BY number DESC LIMIT ?",
+            (project_id, before_chapter if before_chapter else 1 << 30, n)
         ).fetchall()
         return [dict(r) for r in reversed(rows)]
+
+
+def get_chapter_texts_from(project_id: int, first: int) -> list[str]:
+    """Тексты глав с номером ≥ first — то, чего пишущий главу first ещё не знает."""
+    with get_conn() as conn:
+        return [r[0] or "" for r in conn.execute(
+            "SELECT content FROM chapters WHERE project_id=? AND number >= ? ORDER BY number",
+            (project_id, first)).fetchall()]
 
 
 # ─── История генераций ────────────────────────────────────────────────────────
@@ -347,10 +362,15 @@ def get_all_logical_gaps(project_id: int, before_chapter: int) -> list[dict]:
 # ─── История оценок судьи (пункт 3: score calibration) ───────────────────────
 
 @error_boundary(level=ErrorLevel.RECOVERABLE, fallback=[])
-def get_judge_score_history(project_id: int, n: int = 10) -> list[dict]:
+def get_judge_score_history(project_id: int, n: int = 10,
+                            before_chapter: int | None = None) -> list[dict]:
     """
     Последние n финальных оценок judge по проекту (по одной на главу — лучшая).
     Используется в step_judge чтобы дать судье контекст: «38/50 — выше среднего».
+
+    before_chapter — только главы перед ней. Без него в историю входила сама
+    оцениваемая глава (на втором круге судья видел свою оценку первого) и
+    следующие главы: судье гл.12 «Фона» — «Лучший: 34 (гл.23)» (обход 20.10).
     """
     with get_conn() as conn:
         rows = conn.execute("""
@@ -358,10 +378,11 @@ def get_judge_score_history(project_id: int, n: int = 10) -> list[dict]:
             FROM pipeline_iterations i
             JOIN pipeline_runs r ON i.run_id = r.id
             WHERE r.project_id = ? AND i.stage = 'judge' AND i.score IS NOT NULL
+              AND r.chapter_num < ?
             GROUP BY r.chapter_num
             ORDER BY r.chapter_num DESC
             LIMIT ?
-        """, (project_id, n)).fetchall()
+        """, (project_id, before_chapter if before_chapter else 1 << 30, n)).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -370,6 +391,7 @@ def format_score_history(history: list[dict], current_chapter: int) -> str:
     Форматирует историю оценок в строку для промпта судьи.
     Пример: «Средний score за 8 глав: 34.2. Лучший: 42 (гл.7). Последний: 36 (гл.11).»
     """
+    history = [h for h in history if h["chapter_num"] < current_chapter]
     if not history:
         return ""
     scores = [h["score"] for h in history if h["score"] is not None]
@@ -377,7 +399,8 @@ def format_score_history(history: list[dict], current_chapter: int) -> str:
         return ""
     avg   = round(sum(scores) / len(scores), 1)
     best  = max(history, key=lambda h: h["score"] or 0)
-    last  = min(history, key=lambda h: h["chapter_num"])  # DESC → последняя глава = min chapter_num в выборке
+    # Последняя по номеру глава. Было min — самая ранняя глава окна
+    last  = max(history, key=lambda h: h["chapter_num"])
     parts = [f"Средний score проекта за {len(scores)} гл.: {avg}/50."]
     parts.append(f"Лучший: {best['score']}/50 (гл.{best['chapter_num']}).")
     if last["chapter_num"] != best["chapter_num"]:
@@ -498,10 +521,13 @@ def get_judge_calibration_hint(project_id: int, min_samples: int = 3) -> str:
         if not tbl:
             return ""
 
+        # Только оценки автора. «Принять» до 20.10 писал строку «auto_accept» с
+        # оценкой автора, равной оценке судьи: подсказка всегда была «точны
+        # (+0.0)», а настоящая оценка автора главы затиралась
         rows = conn.execute("""
             SELECT judge_score, author_score
             FROM judge_calibration
-            WHERE project_id = ?
+            WHERE project_id = ? AND COALESCE(note, '') != 'auto_accept'
             ORDER BY chapter_num DESC
             LIMIT 20
         """, (project_id,)).fetchall()
@@ -620,9 +646,12 @@ def get_project_accept_threshold(project_id: int, min_accepted: int = 5) -> dict
 
 def format_project_threshold_hint(threshold_data: dict | None) -> str:
     """
-    Форматирует подсказку для SYS_JUDGE на основе get_project_accept_threshold().
+    Подсказка «СТАНДАРТ ПРОЕКТА» по get_project_accept_threshold(); данных нет — «».
 
-    Возвращает пустую строку если данных нет.
+    С 20.10 судье не уходит (pipeline_steps.step_judge): это второй порог
+    рядом с правилом вердикта — max(медиана − 3, 30) против порога судьи (у
+    Sonnet 33), а «систематически завышаешь» — среднее минус медиана, то есть
+    перекос распределения оценок, а не ошибка судьи.
     """
     if not threshold_data:
         return ""

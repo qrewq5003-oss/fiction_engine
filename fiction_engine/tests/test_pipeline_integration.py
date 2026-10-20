@@ -244,29 +244,27 @@ class TestAcceptPipeline:
         run = get_pipeline_run(run_id)
         assert run["status"] == "accepted"
 
-    def test_accept_records_judge_calibration(self, pid):
-        """accept_pipeline записывает judge_score в таблицу judge_calibration."""
+    def test_accept_keeps_author_calibration(self, pid):
+        """
+        «Принять» не трогает калибровку судьи: до 20.10 он писал оценку автора,
+        равную оценке судьи, и затирал настоящую оценку автора этой главы.
+        """
+        from engine.db_chapters import get_judge_calibration_hint, save_judge_calibration
+        from engine.db_core import get_conn
+        save_judge_calibration(pid, 1, 42.0, 35.0, "автор")
         result = self._run(pid)
-        run_id = result["run_id"]
 
         from engine.pipeline import accept_pipeline
-        accept_pipeline(run_id)
+        accept_pipeline(result["run_id"])
 
-        # Проверяем через db_chapters напрямую — таблица создаётся lazy внутри save_judge_calibration
-        from engine.db_chapters import get_judge_calibration_hint
-        # С 1 записью get_judge_calibration_hint требует min_samples=3, используем min=1
-        from engine.db_core import get_conn
         with get_conn() as conn:
-            try:
-                rows = conn.execute(
-                    "SELECT judge_score FROM judge_calibration WHERE project_id = ?",
-                    (pid,)
-                ).fetchall()
-                assert len(rows) >= 1
-                assert rows[-1]["judge_score"] == pytest.approx(42.0)
-            except Exception:
-                # Таблица не создана — значит save_judge_calibration не вызвался
-                pytest.fail("judge_calibration table missing — accept_pipeline не записал score")
+            rows = conn.execute("SELECT author_score, note FROM judge_calibration WHERE project_id = ?",
+                                (pid,)).fetchall()
+        assert [tuple(r) for r in rows] == [(35.0, "автор")]
+        # Строки «auto_accept» старых баз подсказку не делают «точной»
+        for ch in (2, 3, 4):
+            save_judge_calibration(pid, ch, 30.0, 30.0, "auto_accept")
+        assert get_judge_calibration_hint(pid, min_samples=1).startswith("Внимание: твои оценки обычно завышены на 7.0")
 
     def test_double_accept_does_not_raise(self, pid):
         """Двойной accept не бросает исключений — RECOVERABLE."""

@@ -4,7 +4,7 @@ test_pipeline_drift.py — engine/pipeline_drift.py
 Покрываем:
   A. _parse_drift_result — парсинг ответа LLM
      1. Полный корректный ответ → score, issues, critical
-     2. Нет ОЦЕНКА: → fallback 7.0
+     2. Нет ОЦЕНКА: → None, проверка не засчитана
      3. КРИТИЧНО: нет → critical=False
      4. КРИТИЧНО: да → critical=True
      5. Нет ПРОБЛЕМЫ: → issues=""
@@ -45,10 +45,11 @@ class TestParseDriftResult:
         assert issues == "нет"
         assert critical is False
 
-    def test_no_score_fallback(self):
+    def test_no_score_is_none(self):
+        # Раньше — 7.0, и она записывалась в журнал дрейфа как настоящая
         from engine.pipeline_drift import _parse_drift_result
         score, _, _ = _parse_drift_result("ПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
-        assert score == pytest.approx(7.0)
+        assert score is None
 
     def test_critical_da(self):
         from engine.pipeline_drift import _parse_drift_result
@@ -205,6 +206,41 @@ class TestCheckVoiceDrift:
 
         assert result["warning"] is None
 
+    def test_whole_chapter_and_other_family(self, project_id):
+        """Обход 20.10: модель видела первые 1200 символов, а Claude судил текст Claude."""
+        from engine.pipeline_drift import check_voice_drift
+        text = "Начало главы. " + "Середина. " * 400 + "Финал главы."
+        seen = {}
+
+        def call(model, system, prompt, **kw):
+            seen.update(model=model, prompt=prompt)
+            return "ОЦЕНКА: 8/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: нет"
+        sol = "chatgpt_subscription::gpt-6.1-sol@medium"
+        with patch("engine.pipeline_drift._get_reference", return_value=("Профиль", "эталон")), \
+             patch("engine.pipeline_drift.save_drift_check"), \
+             patch("engine.plan_check.plan_checker_model", return_value=(sol, "")):
+            res = check_voice_drift(project_id, 5, text, "claude_subscription::claude-haiku-5-5",
+                                    call_fn=call, writer="claude_subscription::claude-sonnet-5-5")
+        assert res["checked"] and seen["model"] == sol
+        assert "Финал главы." in seen["prompt"] and "первые 1200" not in seen["prompt"]
+
+    def test_no_checker_of_other_family(self, project_id):
+        from engine.pipeline_drift import check_voice_drift
+        with patch("engine.plan_check.plan_checker_model", return_value=("", "нет")):
+            res = check_voice_drift(project_id, 5, "А" * 300, "claude_subscription::claude-haiku-5-5",
+                                    call_fn=lambda *a, **k: "ОЦЕНКА: 8/10",
+                                    writer="claude_subscription::claude-sonnet-5-5")
+        assert res == {"checked": False, "reason": "no_checker_of_other_family"}
+
+    def test_unparsed_not_saved(self, project_id):
+        from engine.pipeline_drift import check_voice_drift
+        with patch("engine.pipeline_drift._get_reference", return_value=("Профиль", "эталон")), \
+             patch("engine.pipeline_drift.save_drift_check") as save:
+            res = check_voice_drift(project_id, 5, "А" * 300, "model:v1",
+                                    call_fn=lambda *a, **k: "Голос в целом держится.")
+        assert res["checked"] is False and res["reason"] == "unparsed"
+        save.assert_not_called()
+
 
 class TestGetReference:
     """D. _get_reference."""
@@ -239,6 +275,23 @@ class TestGetReference:
         label, text = result
         assert "1" in label
         assert len(text) > 0
+
+    def test_fallback_only_from_earlier_chapters(self, project_id):
+        # У гл.1 прошлых нет — эталоном не берётся гл.2 (её будущее)
+        from engine.pipeline_drift import _get_reference
+        from engine.db_projects import save_chapter
+        save_chapter(project_id, 2, "Герой шёл по дороге. " * 20, "Дальше")
+        with patch("engine.pipeline_drift.get_active_voice", return_value=None):
+            assert _get_reference(project_id, chapter_num=1) is None
+
+    def test_profile_without_future_excerpts(self, project_id):
+        from engine.pipeline_drift import _get_reference
+        from engine.db_projects import save_chapter
+        save_chapter(project_id, 7, "Пролог. Каждый кадр новый, пар тут нет. Конец.", "Будущее")
+        voice = {"name": "Варя", "profile": "Первое лицо.\n\nЭТАЛОН (из книги)\nКаждый кадр новый, пар тут нет."}
+        with patch("engine.pipeline_drift.get_active_voice", return_value=voice):
+            _, text = _get_reference(project_id, chapter_num=5)
+        assert "Каждый кадр" not in text and "Первое лицо." in text
 
     def test_no_voice_short_chapter_returns_none(self, project_id):
         from engine.pipeline_drift import _get_reference
