@@ -56,6 +56,8 @@ def test_v2_prompts(v2):
 def test_v2_gate_sends_back(project_id, v2):
     res, system = _judge(project_id, _answer("ГРУБО"), "detective_classic")
     assert "ЛОГИКА ВЫВОДОВ" in system and "не ГРУБО" in system and "ИТОГ ≥ 30" in system
+    # «Фон» 20.10: «ГРУБО» ставили за даты и по одному разбору критика
+    assert "ЕСТЬ, а не ГРУБО" in system and "только из разбора критика" in system
     assert res["judge_gates"] == {"СВЯЗНОСТЬ": "ГРУБО"}
     assert res["verdict"] == "НА ДОРАБОТКУ" and "ВЕРДИКТ: НА ДОРАБОТКУ" in res["judgment"]
     res, _ = _judge(project_id, _answer("ЕСТЬ", logic="ГРУБО"), "detective_classic")
@@ -67,6 +69,40 @@ def test_v2_gate_sends_back(project_id, v2):
     assert res["verdict"] == "НА ДОРАБОТКУ"
 
 
+def test_critic_has_no_judge_line(v2):
+    from engine.pipeline_steps import _build_sys_critic
+    critic = _build_sys_critic("детектив")
+    assert "ЕСТЬ, а не ГРУБО" in critic and "только из разбора критика" not in critic
+
+
+def test_rough_lines_go_to_editor(project_id, v2, monkeypatch):
+    """«ГРУБО» критика и судьи прошлого круга — задание редактору первым, без повторов."""
+    from engine import pipeline_steps, point_edit
+    from engine.db_narrative import create_pipeline_run, save_pipeline_iteration
+    from engine.judge_rubric import rough_lines
+    critique = ("ГОЛОС: 7 — ок\n**СВЯЗНОСТЬ:** ГРУБО — Лёша в гл.3 не видел записи, а здесь цитирует её\n"
+                "ЛОГИКА ВЫВОДОВ: ЕСТЬ — «жетон» не доказывает поездок")
+    judgment = "СВЯЗНОСТЬ: ОК — нет\nЛОГИКА ВЫВОДОВ: ГРУБО — вывод «это он» без улики"
+    assert rough_lines("СВЯЗНОСТЬ: ЕСТЬ — четверг при пятнице") == []
+    run = create_pipeline_run(project_id, 1, "w", "c", "e", JUDGE)
+    save_pipeline_iteration(run, 1, "judge", JUDGE, "текст", judgment, score=34, verdict="ПРИНЯТЬ")
+    seen = {}
+    def fake_point_edit(text, critique, task, call):
+        seen["critique"] = critique
+        return {"text": text, "applied": [], "failed": [], "changed": 0}
+    monkeypatch.setattr(point_edit, "point_edit", fake_point_edit)
+    monkeypatch.setattr(pipeline_steps, "_plan_misses", lambda *a, **k: ([], ""))
+    monkeypatch.setattr(pipeline_steps, "_ahead_reveals", lambda *a, **k: ([], ""))
+    res = {}
+    pipeline_steps.step_edit(run, 2, "задача", "Глава. " * 50, critique, "e", lambda *a, **k: "", res,
+                             project_id=project_id, chapter_num=1)
+    task = seen["critique"]
+    assert task.startswith("СНАЧАЛА — СВЯЗНОСТЬ")
+    assert "Лёша в гл.3 не видел записи" in task and "вывод «это он» без улики" in task
+    assert "«жетон» не доказывает" not in task.split("\n\n")[0]
+    assert res["edit_report"]["rough"] == 2
+
+
 def test_parse_gates():
     from engine.judge_rubric import parse_gates
     assert parse_gates("СВЯЗНОСТЬ: OK\nЛОГИКА ВЫВОДОВ: грубо — вывод из воздуха") == \
@@ -76,8 +112,8 @@ def test_parse_gates():
 
 
 def test_rubric_setting_route(project_id):
-    from web.app import app
     from engine.db_settings import set_active_project
+    from web.app import app
     set_active_project(project_id)
     app.config.update(TESTING=True, FE_CSRF=False)
     c = app.test_client()
