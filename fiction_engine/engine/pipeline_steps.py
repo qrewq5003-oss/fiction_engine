@@ -526,6 +526,26 @@ def _ahead_reveals(project_id: int, chapter_num: int, text: str, model_editor: s
         return [], f"{type(e).__name__}: {e}"[:200]
 
 
+def _rough_lines(run_id: int, iteration: int, critique: str) -> list[str]:
+    """
+    → строки «ГРУБО» (правила v2) из разбора критика и ответа судьи на текст,
+    который правит редактор, — задание ему (judge_rubric.gate_task). При v1
+    строк вне балла нет — пусто.
+    """
+    from .judge_rubric import rough_lines, rubric
+    if rubric() != "v2":
+        return []
+    judgment = ""
+    try:
+        from .db import get_pipeline_iterations
+        judged = [i for i in get_pipeline_iterations(run_id)
+                  if i["stage"] == "judge" and i["iteration"] < iteration]
+        judgment = judged[-1]["output_text"] if judged else ""
+    except Exception as e:
+        handle_error("step_edit: ответ судьи прошлого круга", e, level=ErrorLevel.RECOVERABLE)
+    return rough_lines(critique, judgment)
+
+
 def step_edit(run_id: int, iteration: int, generation_prompt: str,
               previous_text: str, previous_critique: str,
               model_editor: str, call_fn, results: dict, model_judge: str = "",
@@ -552,6 +572,9 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
         return
     from .point_edit import SELF_REVIEW, SYS_POINT_EDITOR, edit_mode, point_edit
     mode = edit_mode()
+    # Строки «ГРУБО» критика и судьи прошлого круга — до замены разбора в
+    # режиме self: иначе они пропадают вместе с ним
+    rough = _rough_lines(run_id, iteration, critique)
     if mode == "self":
         # Места выбирает редактор сам: по разбору критика правки выходили
         # лучше исходника через раз (point_edit.EDIT_MODES). Круг по-прежнему
@@ -576,6 +599,9 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
     if reveals:
         from .point_edit import ahead_task
         critique = ahead_task(reveals) + "\n\n" + critique
+    if rough:
+        from .judge_rubric import gate_task
+        critique = gate_task(rough) + "\n\n" + critique
     # Задача главы — с правкой автора («Изменить промпт для следующей
     # итерации»). Раньше редактор её не видел вовсе: правка задачи на круг
     # редактуры не действовала
@@ -584,6 +610,7 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                          lambda p: call_fn(model_editor, SYS_POINT_EDITOR, p))
         edited_text = rep["text"]
         results["edit_report"] = {"mode": mode, "applied": len(rep["applied"]), "plan_missing": len(plan_misses),
+                                  **({"rough": len(rough)} if rough else {}),
                                   "failed": [f"{(f.get('old') or f.get('after') or '')[:60]} — {f['why']}"
                                              for f in rep["failed"]][:8],
                                   "changed": rep["changed"]}
@@ -875,7 +902,8 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     from .pipeline_llm import parse_criteria, set_verdict
     from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for
     crit = parse_criteria(judgment)
-    # v2: связность и логика выводов вне балла; «ГРУБО» — на доработку (judge_rubric)
+    # v2: связность и логика выводов вне балла; «ГРУБО» — на доработку, и
+    # редактор следующего круга получает эти строки первыми (judge_rubric.gate_task)
     failed: list[str] = []
     if v2:
         from .judge_rubric import failed_gates, parse_gates

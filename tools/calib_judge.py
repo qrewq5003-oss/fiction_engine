@@ -4,6 +4,7 @@
 
 Окружение: CALIB_CRITIC — критик (по умолчанию Haiku 5.5, как CRITIC_MODEL движка),
 CALIB_NO_CRITIC=1 — судья без разбора, CALIB_PICK=0/1 — выборка глав, CALIB_LIMIT — сколько,
+CALIB_FAMILIES=gpt,deepseek — чьи главы (по умолчанию три семьи, кроме семьи судьи),
 CALIB_RUBRIC=v2 — правила оценки v2 (engine/judge_rubric: определения, шкала, строки связности).
 Калибровки 16–19.10 — bench/judges-*, critic-no-nano-*, judge-repeat-*.
 
@@ -40,7 +41,9 @@ ws = json.loads((ROOT / "bench/ab-writers-sonnet-2026-10-13.json").read_text(enc
 wg = json.loads((ROOT / "bench/ab-writers-gpt61-2026-10-15.json").read_text(encoding="utf-8"))
 SOURCES = {"claude": ws["chapters_sonnet"], "deepseek": ws["chapters_deepseek"],
            "kimi": ws["chapters_kimi"], "gpt": wg["chapters_gpt"]}
-fams = [f for f in ("claude", "gpt", "deepseek", "kimi") if f != EXCLUDE][:3]
+# CALIB_FAMILIES=gpt,deepseek — свои семейства (20.10: Kimi в наборах ролей не пишет)
+fams = ([f for f in os.environ.get("CALIB_FAMILIES", "").split(",") if f and f != EXCLUDE]
+        or [f for f in ("claude", "gpt", "deepseek", "kimi") if f != EXCLUDE][:3])
 real = []
 for fam in fams:
     for g in GENRES:
@@ -102,8 +105,10 @@ if RUBRIC != "v1":
     from engine.db import set_setting
     from engine.judge_rubric import RUBRIC_KEY
     set_setting(RUBRIC_KEY, RUBRIC)
+keys = {(it["family"], it["genre"], it["kind"]) for it in items}
 done = [d for d in (json.loads(OUT.read_text(encoding="utf-8"))["items"] if OUT.exists() else [])
-        if not d.get("error")]          # с ошибкой — перепроверить
+        if not d.get("error")           # с ошибкой — перепроверить
+        and (d["family"], d["genre"], d["kind"]) in keys]   # другой набор семейств — не в счёт
 import os
 for n, it in enumerate(items[:int(os.environ.get("CALIB_LIMIT", "999"))]):
     key = (it["family"], it["genre"], it["kind"])
