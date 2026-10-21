@@ -80,7 +80,13 @@ def start(work: Path) -> list:
 
 def stop(procs: list) -> None:
     for p in procs:                       # только свои процессы, не всё на портах
-        p.terminate()
+        # На Windows — деревом и до смерти родителя: claude / codex, запущенные
+        # копией, после terminate() оставались жить и держали подписку (разбор 21.10)
+        if os.name == "nt":
+            subprocess.Popen(["taskkill", "/T", "/F", "/PID", str(p.pid)], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL).communicate(timeout=30)
+        else:
+            p.terminate()
     for p in procs:
         try:
             p.wait(timeout=20)

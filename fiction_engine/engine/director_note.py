@@ -71,5 +71,8 @@ def generate_director_note(
 
         return note
 
-    except Exception:
+    except Exception as e:
+        # Сбой — в журнал: раньше заметка пропадала без следа (разбор 21.10)
+        from engine.error_policy import ErrorLevel, handle_error
+        handle_error(f"director_note: заметка к гл.{chapter_num + 1}", e, level=ErrorLevel.RECOVERABLE)
         return None

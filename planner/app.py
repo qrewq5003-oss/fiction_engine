@@ -5,6 +5,17 @@ app.py — планировщик истории.
 """
 from flask import Flask, redirect, url_for, session, request, jsonify, render_template
 import os
+from pathlib import Path
+
+# Окружение FE (fiction_engine/.env): FE_PASSWORD оттуда — и токен вызовов FE, и
+# вход. Без него при заданном пароле все вызовы планировщика к FE получали 401
+# (разбор 21.10). Своё .env планировщика — важнее
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+    load_dotenv(Path(__file__).parent.parent / "fiction_engine" / ".env")
+except ImportError:
+    pass
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
 # Ключ подписи сессий. Константа в коде — это публичный ключ: любой,

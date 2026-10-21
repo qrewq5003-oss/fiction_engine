@@ -180,10 +180,14 @@ def point_edit(text: str, critique: str, task: str, api_call_fn: Callable[[str],
         head = " ".join(str(raw or "").split())[:160]
         return {"text": text, "applied": [], "changed": 0.0,
                 "failed": [{"why": f"ответ редактора не разобран (дважды): «{head}»"}]}
-    edits = [e for e in edits if isinstance(e, dict)][:POINT_EDITS_MAX]
+    edits = [e for e in edits if isinstance(e, dict)]
+    # Сверх потолка — в отчёт, а не молча (разбор 21.10)
+    extra = [dict(e, why=f"сверх {POINT_EDITS_MAX} правок за круг") for e in edits[POINT_EDITS_MAX:]]
+    edits = edits[:POINT_EDITS_MAX]
     replaces = [e for e in edits if not e.get("after")]
     inserts = [e for e in edits if e.get("after")]
     out, applied, failed = apply_edits(text, replaces)
+    failed += extra
     for e in inserts:
         new = str(e.get("new") or "").strip()
         if not new:
@@ -192,6 +196,7 @@ def point_edit(text: str, critique: str, task: str, api_call_fn: Callable[[str],
         if len(new.split()) > INSERT_WORDS_MAX:
             new = " ".join(new.split()[:INSERT_WORDS_MAX])
             new = new[:new.rfind(".") + 1] or new
+            e = dict(e, cut=f"вставка урезана до {INSERT_WORDS_MAX} слов")
         got = _insert_after(out, str(e["after"]), new)
         if got is None:
             failed.append(dict(e, why="место вставки не найдено в главе"))

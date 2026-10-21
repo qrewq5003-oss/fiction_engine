@@ -140,6 +140,9 @@ def delete_project(project_id: int):
     и ещё восьми таблицах.
     """
     from .db_core import project_scoped_tables
+    # Ошибки — после транзакции: запись в журнал из открытой транзакции ждала
+    # её же блокировку и терялась (разбор 21.10)
+    failed: list[tuple[str, Exception]] = []
     with get_conn() as conn:
         scoped = project_scoped_tables(conn)
         # Сначала строки, которые ссылаются на строки проекта через другую
@@ -161,12 +164,13 @@ def delete_project(project_id: int):
             try:
                 conn.execute(f"DELETE FROM {table} WHERE project_id=?", (project_id,))
             except Exception as e:
-                handle_error(f"delete_project({project_id}) table={table}", e,
-                             level=ErrorLevel.RECOVERABLE)
+                failed.append((table, e))
         conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
         row = conn.execute("SELECT value FROM settings WHERE key='active_project'").fetchone()
         if row and row["value"] == str(project_id):
             conn.execute("DELETE FROM settings WHERE key='active_project'")
+    for table, err in failed:
+        handle_error(f"delete_project({project_id}) table={table}", err, level=ErrorLevel.RECOVERABLE)
 
 
 def _empty_structured_state(state: dict) -> dict:

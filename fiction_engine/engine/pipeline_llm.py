@@ -245,7 +245,9 @@ def parse_verdict(text: str) -> str:
 
 def set_verdict(text: str, verdict: str) -> str:
     """Заменить вердикт в тексте судьи — так, чтобы parse_verdict прочёл новый."""
-    new, n = re.subn(r'(ВЕРДИКТ:\s*\[?\s*)(ПРИНЯТЬ|НА ДОРАБОТКУ)', lambda m: m.group(1) + verdict,
+    # Разметка между словом и вердиктом («**ВЕРДИКТ:** ПРИНЯТЬ») — тоже: иначе
+    # дописывался второй вердикт, а parse_verdict читал первый (разбор 21.10)
+    new, n = re.subn(r'(ВЕРДИКТ:[\s*_\[]*)(ПРИНЯТЬ|НА ДОРАБОТКУ)', lambda m: m.group(1) + verdict,
                      text, count=1, flags=re.IGNORECASE)
     return new if n else f"{text}\nВЕРДИКТ: {verdict}"
 

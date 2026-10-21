@@ -289,15 +289,25 @@ def run_pipeline_step(
 ) -> dict:
     if steps is None:
         steps = PIPELINE_WITH_EDIT if (previous_text and previous_critique) else DEFAULT_PIPELINE
-    return _execute_steps(
-        steps=steps, run_id=run_id, iteration=iteration,
-        project_id=project_id, chapter_num=chapter_num,
-        generation_prompt=generation_prompt,
-        model_gen=model_gen, model_critic=model_critic,
-        model_editor=model_editor, model_judge=model_judge,
-        previous_text=previous_text, previous_critique=previous_critique,
-        prefill=prefill, engine_mode=engine_mode,
-    )
+    ACTIVE_RUNS.add(run_id)
+    try:
+        return _execute_steps(
+            steps=steps, run_id=run_id, iteration=iteration,
+            project_id=project_id, chapter_num=chapter_num,
+            generation_prompt=generation_prompt,
+            model_gen=model_gen, model_critic=model_critic,
+            model_editor=model_editor, model_judge=model_judge,
+            previous_text=previous_text, previous_critique=previous_critique,
+            prefill=prefill, engine_mode=engine_mode,
+        )
+    finally:
+        ACTIVE_RUNS.discard(run_id)
+
+
+# Запуски, круг которых идёт сейчас в этом процессе: «Сбросить зависшие»
+# их не трогает. Раньше зависшим считался любой запуск с паузой больше
+# STALE_MINUTES — у «Фона» живой запуск 76 стоял 102 минуты (разбор 21.10)
+ACTIVE_RUNS: set[int] = set()
 
 
 def _resolve_pipeline_steps(

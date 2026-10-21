@@ -187,7 +187,7 @@ function showTooltip(e) {
   const comment = e.currentTarget.dataset.comment;
   const score = e.currentTarget.dataset.score;
   if (!comment) return;
-  tooltip.innerHTML = `<strong>${score}/10</strong> — ${comment}`;
+  tooltip.innerHTML = `<strong>${escapeHtml(score)}/10</strong> — ${escapeHtml(comment)}`;
   tooltip.style.display = 'block';
   moveTooltip(e);
 }

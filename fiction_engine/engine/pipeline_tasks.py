@@ -550,7 +550,8 @@ def analyze_voice_match(voice_profile: str, text: str, model_value: str) -> dict
         "ОЦЕНКА: X/10\n\nСОВПАДАЕТ:\n-\n\nНЕ СОВПАДАЕТ:\n-\n\nИСПРАВИТЬ:\n-"
     )
     result      = _call(model_value, SYS, prompt, max_tokens=800)
-    score_match = re.search(r'ОЦЕНКА:\s*(\d+)/10', result)
+    from .pipeline_llm import _plain          # «**ОЦЕНКА:** 7/10» тоже (разбор 21.10)
+    score_match = re.search(r'ОЦЕНКА:\s*(\d+)\s*/\s*10', _plain(result))
     return {"analysis": result, "score": int(score_match.group(1)) if score_match else None}
 
 

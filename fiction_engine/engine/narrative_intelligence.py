@@ -500,7 +500,7 @@ class NarrativeIntelligence:
         if not raw_promises or not events_by_chapter:
             return {}
 
-        promises_block = "\n".join(f"- Гл.{ch}: {text}" for ch, text in raw_promises[:10])
+        promises_block = "\n".join(f"- Гл.{ch}: {text}" for ch, text in raw_promises[-40:])  # все, а не первые 10 (разбор 21.10)
         events_lines   = [
             f"Гл.{ch}: {events[:150]}"
             for ch, events in sorted(events_by_chapter.items())
@@ -571,7 +571,8 @@ class NarrativeIntelligence:
             return result
         except Exception as e:
             log.error("NIL _detect_contradictions failed", exc=e, project_id=project_id)
-            return []
+            # Сбой — не «противоречий нет» (разбор 21.10)
+            return [f"⚠️ Проверка противоречий между главами не прошла: {str(e)[:150]}"]
 
     # ─── Метрики ──────────────────────────────────────────────────────────────
 

@@ -13,11 +13,14 @@ BOOK = json.load(open(B / "book.json", encoding="utf-8"))
 # Копия приложения (дымовая книга) — свои адреса
 FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")
 PL = os.environ.get("BOOK_PL", "http://127.0.0.1:5001")
-H = {"X-FE-Token": (Path.home() / "fiction_engine" / "api_token").read_text().strip()}
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fe_auth                                          # noqa: E402
+H = fe_auth.headers()
 OUT = B / "setup.json"
 done = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
 
-fe = requests.Session()
+fe = fe_auth.Session()
 fe.headers.update(H)
 names = {p["name"]: p["id"] for p in fe.get(FE + "/api/projects/list", timeout=30).json().get("projects", [])}
 if BOOK["name"] in names:
@@ -39,7 +42,7 @@ print("голос:", v)
 print("голос активен:", fe.post(FE + "/voice/activate", json={"id": v["id"]}).json())
 done["voice_id"] = v["id"]
 
-pl = requests.Session()
+pl = fe_auth.Session()
 csrf = re.search(r'name="csrf-token" content="([^"]+)"', pl.get(PL + "/projects", timeout=30).text).group(1)
 r = pl.post(PL + "/projects/new", json={"name": BOOK["name"], "genre": BOOK["genre"],
                                          "description": BOOK.get("description", "")},

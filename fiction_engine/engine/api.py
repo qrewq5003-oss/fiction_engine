@@ -335,34 +335,39 @@ def call_model(model_value: str, system: str, user: str,
 # Расход последнего вызова: (input_tokens, output_tokens, цена провайдера).
 # Тот же приём, что _remember_stop_reason — функции провайдеров возвращают
 # только текст, а учёт нужен диспетчеру.
-_LAST_USAGE: dict = {}
+# Свои у каждого потока: фоновая обработка «Принять» и круг «Мастерской» идут
+# одновременно и перетирали друг другу расход и метку шага (разбор 21.10)
+import threading as _threading
+_USAGE = _threading.local()
+
+
+def _usage_local():
+    if not hasattr(_USAGE, "last"):
+        _USAGE.last, _USAGE.operation = {}, ""
+    return _USAGE
 
 
 def _remember_usage(input_tokens: int, output_tokens: int,
                     reported_cost: float | None = None) -> None:
-    _LAST_USAGE.clear()
-    _LAST_USAGE.update({"input_tokens": int(input_tokens or 0),
-                        "output_tokens": int(output_tokens or 0),
-                        "reported_cost": reported_cost})
+    _usage_local().last = {"input_tokens": int(input_tokens or 0),
+                           "output_tokens": int(output_tokens or 0),
+                           "reported_cost": reported_cost}
 
 
 def get_last_usage() -> dict:
-    """Расход последнего вызова. Пустой словарь — провайдер ничего не сообщил."""
-    return dict(_LAST_USAGE)
+    """Расход последнего вызова этого потока. Пустой словарь — провайдер ничего не сообщил."""
+    return dict(_usage_local().last)
 
 
 # Метка текущего шага для учёта расходов. Через контекст, а не аргументом
 # call_model: шаговые функции зовут call_fn, который подменяется в тестах
 # заглушками с фиксированной сигнатурой — лишний параметр их ломает.
-_CURRENT_OPERATION = {"name": ""}
-
-
 def set_current_operation(name: str) -> None:
-    _CURRENT_OPERATION["name"] = name or ""
+    _usage_local().operation = name or ""
 
 
 def get_current_operation() -> str:
-    return _CURRENT_OPERATION["name"]
+    return _usage_local().operation
 
 
 def _record_usage(provider: str, model_id: str, operation: str = "") -> None:

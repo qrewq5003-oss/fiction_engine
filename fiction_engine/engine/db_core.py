@@ -42,13 +42,14 @@ def get_conn() -> sqlite3.Connection:
                         удаление проекта годами оставляло сирот в 11 таблицах.
       journal_mode=WAL — читатели не блокируют писателя. Генерация идёт в
                         фоновых потоках параллельно запросам веб-интерфейса.
-      busy_timeout    — вместо мгновенного "database is locked" ждать до 5 с.
+      busy_timeout    — вместо мгновенного "database is locked" ждать до 15 с
+                        (тот же предел, что timeout соединения: PRAGMA его перебивала).
     """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), timeout=15.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA busy_timeout = 15000")
     # WAL не везде доступен (сетевые ФС). Логировать отсюда нельзя: DBHandler
     # логгера сам вызывает get_conn — получилась бы рекурсия. Поэтому причина
     # отказа сохраняется в модульной переменной, её видно в /settings и в CLI.
