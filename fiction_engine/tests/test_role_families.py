@@ -24,7 +24,7 @@ def test_scorer_is_never_the_writers_family(project_id, monkeypatch):
 def test_score_verdict_uses_scorers_threshold(monkeypatch):
     """Порог оценщика — как у судьи: Sol 31 при своём пороге 30 — «ПРИНЯТЬ» (был общий 35)."""
     from engine import pipeline_tasks
-    answer = "ГОЛОС: 6\nСТРУКТУРА: 6\nПЕРСОНАЖИ: 6\nСЦЕНЫ: 6\nДИАЛОГ: 7\nИТОГ: 31"
+    answer = "ГОЛОС: 6\nСТРУКТУРА: 6\nПЕРСОНАЖИ: 6\nСЦЕНЫ: 6\nДИАЛОГ: 7\nИТОГ: 31\nСВЯЗНОСТЬ: ОК — нет"
     monkeypatch.setattr(pipeline_tasks, "_call", lambda *a, **k: answer)
     assert pipeline_tasks.score_text("Глава. " * 60, "", SOL)["verdict"] == "ПРИНЯТЬ"
     assert pipeline_tasks.score_text("Глава. " * 60, "", SONNET)["verdict"] == "НА ДОРАБОТКУ"   # порог 33

@@ -491,6 +491,11 @@ def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dic
     # строку и «**1. ...**».
     from .pipeline_llm import parse_first_item
     main_issue = parse_first_item(raw, "ГЛАВНЫЕ ПРОБЛЕМЫ")
+    # v2: строка вне балла «ГРУБО» или её нет — не «ПРИНЯТЬ», как у судьи (разбор 21.10)
+    from .judge_rubric import failed_gates, gate_names, parse_gates, rubric
+    gates = parse_gates(raw) if rubric() == "v2" else {}
+    gate_fail = bool(rubric() == "v2" and (failed_gates(gates)
+                                          or any(n not in gates for n in gate_names(genre))))
 
     return {
         "voice":      voice,
@@ -504,7 +509,11 @@ def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dic
                        # Sol с 31 при своём пороге 30 получал «НА ДОРАБОТКУ»
                        if total >= accept_total_for(model_value)
                        and min(voice, structure, characters, scenes, dialog) >= ACCEPT_MIN_CRITERION
+                       and not gate_fail
                        else "НА ДОРАБОТКУ"),
+        "gates":      gates,
+        "source":     "оценщик",
+        "model":      model_value,
         "main_issue": main_issue,
         "rhythm":     rhythm,
         "raw":        raw,

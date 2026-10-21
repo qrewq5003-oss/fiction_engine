@@ -536,7 +536,17 @@ def _rough_lines(run_id: int, iteration: int, critique: str) -> list[str]:
         judgment = judged[-1]["output_text"] if judged else ""
     except Exception as e:
         handle_error("step_edit: ответ судьи прошлого круга", e, level=ErrorLevel.RECOVERABLE)
-    return rough_lines(critique, judgment)
+    # Судья видел разбор критика и мог снизить его «ГРУБО» до «ЕСТЬ»: тогда
+    # срочным заданием редактору идёт только подтверждённое судьёй, а пункт
+    # критика остаётся обычным замечанием в разборе (разбор 21.10). Судьи не
+    # было (ответа нет) — как раньше, по критику
+    if judgment:
+        from .judge_rubric import parse_gates
+        confirmed = {k for k, v in parse_gates(judgment).items() if v == "ГРУБО"}
+        critic_rough = [x for x in rough_lines(critique)
+                        if any(x.upper().startswith(k) for k in confirmed)]
+        return rough_lines(judgment) + [x for x in critic_rough if x not in rough_lines(judgment)]
+    return rough_lines(critique)
 
 
 def step_edit(run_id: int, iteration: int, generation_prompt: str,

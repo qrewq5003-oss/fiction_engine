@@ -43,6 +43,12 @@ COHERENCE = "СВЯЗНОСТЬ"
 LOGIC = "ЛОГИКА ВЫВОДОВ"
 
 
+# Правила запуска: шаги круга судят по правилам, с которыми запуск начат,
+# а не по нынешней настройке (pipeline.run_pipeline_step, разбор 21.10)
+from contextvars import ContextVar
+RUN_RUBRIC: ContextVar[str] = ContextVar("fe_run_rubric", default="")
+
+
 def rubric() -> str:
     """
     Правила оценки из настроек: v1 (прежние) или v2. По умолчанию v2 (21.10):
@@ -51,6 +57,8 @@ def rubric() -> str:
     судьи тот же: испорченные главы останавливает «ГРУБО» (0 из 8 при любом
     пороге), живые при нынешних порогах проходят.
     """
+    if RUN_RUBRIC.get() in RUBRICS:
+        return RUN_RUBRIC.get()
     try:
         from .db_settings import get_setting
         r = (get_setting(RUBRIC_KEY) or "").strip()

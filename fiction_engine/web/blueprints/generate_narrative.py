@@ -215,12 +215,12 @@ def quality_graph():
             scores.append({
                 "chapter_num": r["chapter_num"],
                 "total": r["total"],
-                "literary_quality": d.get("literary_quality"),
-                "voice_genre":      d.get("voice_genre"),
-                "commercial":       d.get("commercial"),
-                "scene_health":     d.get("scene_health"),
+                # Нынешние критерии (0–10) и итог из 50; раньше график ждал
+                # прежний формат и рисовал итог 37 по шкале 10 (разбор 21.10)
+                **{k: d.get(k) for k in ("voice", "structure", "characters", "scenes", "dialog")},
                 "verdict":          d.get("verdict", ""),
                 "main_issue":       d.get("main_issue", ""),
+                "source":           d.get("source", ""),
                 "scored_at":        r["scored_at"],
             })
         return jsonify({"scores": scores})

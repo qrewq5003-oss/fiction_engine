@@ -355,13 +355,17 @@ def init_voice_drift_table(): pass
 def create_pipeline_run(project_id: int, chapter_num: int,
                         model_gen: str, model_critic: str,
                         model_editor: str, model_judge: str) -> int:
+    from .judge_rubric import rubric
     with get_conn() as conn:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(pipeline_runs)")}
+        if "rubric" not in cols:           # база, где миграция ещё не прошла
+            conn.execute("ALTER TABLE pipeline_runs ADD COLUMN rubric TEXT DEFAULT ''")
         cur = conn.execute(
             """INSERT INTO pipeline_runs
-               (project_id, chapter_num, status, model_gen, model_critic, model_editor, model_judge)
-               VALUES (?,?,?,?,?,?,?)""",
+               (project_id, chapter_num, status, model_gen, model_critic, model_editor, model_judge, rubric)
+               VALUES (?,?,?,?,?,?,?,?)""",
             (project_id, chapter_num, 'running',
-             model_gen, model_critic, model_editor, model_judge)
+             model_gen, model_critic, model_editor, model_judge, rubric())
         )
         return cur.lastrowid
 

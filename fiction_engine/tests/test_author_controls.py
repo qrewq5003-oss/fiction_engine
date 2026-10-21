@@ -232,7 +232,7 @@ def test_accept_runs_after_save_hooks_and_drops_draft_updates(project_id, client
     def fake_analyze(pid, ch, model):
         return {"update_id": save_state_update(pid, ch, '{"global_state_changes": []}')}
 
-    def fake_after(pid, ch, text, model, alive=None, step=None):
+    def fake_after(pid, ch, text, model, alive=None, step=None, run_id=0):
         calls.append((pid, ch, len(text)))
         return {}
     with patch("engine.state.analyze_chapter", side_effect=fake_analyze), \

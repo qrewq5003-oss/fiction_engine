@@ -352,7 +352,8 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         # 17.10), и анализ серии был пуст. После State — по одному вызову за раз
         if text and alive():
             from .helpers import after_chapter_saved
-            done = after_chapter_saved(project_id, chapter_num, text, model_value, alive=alive, step=step)
+            done = after_chapter_saved(project_id, chapter_num, text, model_value, alive=alive, step=step,
+                                       run_id=int(run_id or 0))
             for name in done.get("failed") or []:
                 failed(name)
 

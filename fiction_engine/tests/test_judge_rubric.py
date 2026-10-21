@@ -79,7 +79,8 @@ def test_critic_has_no_judge_line(v2):
 
 
 def test_rough_lines_go_to_editor(project_id, v2, monkeypatch):
-    """«ГРУБО» критика и судьи прошлого круга — задание редактору первым, без повторов."""
+    """«ГРУБО» судьи прошлого круга — задание редактору первым; «ГРУБО» критика —
+    только по строке, которую судья тоже счёл грубой (судья снизил — обычное замечание)."""
     from engine import pipeline_steps, point_edit
     from engine.db_narrative import create_pipeline_run, save_pipeline_iteration
     from engine.judge_rubric import rough_lines
@@ -100,10 +101,14 @@ def test_rough_lines_go_to_editor(project_id, v2, monkeypatch):
     pipeline_steps.step_edit(run, 2, "задача", "Глава. " * 50, critique, "e", lambda *a, **k: "", res,
                              project_id=project_id, chapter_num=1)
     task = seen["critique"]
+    first = task.split("\n\n")[0]
     assert task.startswith("СНАЧАЛА — СВЯЗНОСТЬ")
-    assert "Лёша в гл.3 не видел записи" in task and "вывод «это он» без улики" in task
-    assert "«жетон» не доказывает" not in task.split("\n\n")[0]
-    assert res["edit_report"]["rough"] == 2
+    assert "вывод «это он» без улики" in first
+    # СВЯЗНОСТЬ судья счёл ОК — «ГРУБО» критика не срочное задание (в режиме self
+    # разбор критика редактору не идёт вовсе)
+    assert "Лёша в гл.3 не видел записи" not in task
+    assert "«жетон» не доказывает" not in first
+    assert res["edit_report"]["rough"] == 1
 
 
 def test_parse_gates():
