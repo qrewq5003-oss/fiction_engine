@@ -155,6 +155,39 @@ def get_acts(project_id: int) -> list:
         ).fetchall()]
 
 
+def save_acts(project_id: int, acts: list[dict]) -> list[int]:
+    """
+    Все акты проекта разом, в одной транзакции: номера уникальны в проекте, и
+    обмен номерами 1↔2 или новый акт после удаления давали по отдельности
+    конфликт — изменения молча не сохранялись (разбор планировщика 21.10).
+    acts: [{id|None, number, title, color}]. ValueError — номера неверны.
+    """
+    nums = [int(a.get("number") or 0) for a in acts]
+    if any(n < 1 for n in nums) or len(set(nums)) != len(nums):
+        raise ValueError("номера актов — разные целые числа от 1")
+    ids = []
+    with get_conn() as conn:
+        own = {r[0] for r in conn.execute("SELECT id FROM acts WHERE project_id=?", (project_id,))}
+        # Сначала временные номера: иначе обмен упирается в UNIQUE на полпути
+        conn.execute("UPDATE acts SET number=-id WHERE project_id=?", (project_id,))
+        for a, n in zip(acts, nums):
+            if a.get("id") and int(a["id"]) in own:
+                conn.execute("UPDATE acts SET number=?, title=?, color=? WHERE id=? AND project_id=?",
+                             (n, a.get("title") or "Акт", a.get("color") or "#6b7280", int(a["id"]), project_id))
+                ids.append(int(a["id"]))
+            else:
+                cur = conn.execute("INSERT INTO acts (project_id, number, title, color) VALUES (?,?,?,?)",
+                                   (project_id, n, a.get("title") or "Акт", a.get("color") or "#6b7280"))
+                ids.append(cur.lastrowid)
+        # Акты проекта, которых нет в списке, — с прежними номерами за концом
+        rest = conn.execute("SELECT id FROM acts WHERE project_id=? AND number < 0 ORDER BY -number",
+                            (project_id,)).fetchall()
+        top = max(nums, default=0)
+        for i, (aid,) in enumerate(rest, 1):
+            conn.execute("UPDATE acts SET number=? WHERE id=?", (top + i, aid))
+    return ids
+
+
 def save_act(project_id: int, act_id: int | None, number: int, title: str, color: str) -> int:
     with get_conn() as conn:
         if act_id:
@@ -179,9 +212,11 @@ def delete_act(act_id: int):
 # ─── Scenes ───────────────────────────────────────────────────────────────────
 
 def get_scenes(project_id: int) -> list:
+    """Сцены проекта в порядке доски: по номеру акта (не по id), без акта — в конце."""
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM scenes WHERE project_id=? ORDER BY act_id, position",
+            "SELECT s.* FROM scenes s LEFT JOIN acts a ON a.id = s.act_id WHERE s.project_id=? "
+            "ORDER BY a.number IS NULL, a.number, s.position, s.id",
             (project_id,)
         ).fetchall()]
 
@@ -194,9 +229,10 @@ def get_scene(scene_id: int) -> dict | None:
 
 def create_scene(project_id: int, act_id: int | None = None) -> int:
     with get_conn() as conn:
-        # Позиция — последняя в акте
+        # Позиция — последняя в акте; «IS»: у сцен без акта act_id=NULL, и «=»
+        # не находил ни одной — все получали позицию 1 (разбор 21.10)
         max_pos = conn.execute(
-            "SELECT COALESCE(MAX(position),0) FROM scenes WHERE project_id=? AND act_id=?",
+            "SELECT COALESCE(MAX(position),0) FROM scenes WHERE project_id=? AND act_id IS ?",
             (project_id, act_id)
         ).fetchone()[0]
         cur = conn.execute(
@@ -229,23 +265,90 @@ def update_scene(scene_id: int, data: dict, reason: str = "изменена", sn
 
 
 def delete_scene(scene_id: int):
+    """Удалить сцену; она и её связи — в корзину проекта (scene_trash): снимок
+    «удалена» стирался каскадом, и вернуть сцену было нельзя."""
     old = get_scene(scene_id)
-    if old:
-        _create_snapshot(scene_id, old, "удалена")
     with get_conn() as conn:
+        if old:
+            links = [dict(r) for r in conn.execute(
+                "SELECT from_id, to_id, link_type, label FROM scene_links WHERE from_id=? OR to_id=?",
+                (scene_id, scene_id))]
+            conn.execute("INSERT INTO scene_trash (project_id, data, links) VALUES (?,?,?)",
+                         (old["project_id"], json.dumps(old, ensure_ascii=False),
+                          json.dumps(links, ensure_ascii=False)))
+            conn.execute("DELETE FROM scene_trash WHERE project_id=? AND id NOT IN (SELECT id FROM scene_trash "
+                         "WHERE project_id=? ORDER BY id DESC LIMIT 50)", (old["project_id"], old["project_id"]))
         conn.execute("DELETE FROM scenes WHERE id=?", (scene_id,))
 
 
-def move_scene(scene_id: int, new_act_id: int | None, new_position: int):
-    old = get_scene(scene_id)
-    if old:
-        _create_snapshot(scene_id, old, "перемещена")
+def get_trash(project_id: int) -> list[dict]:
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE scenes SET act_id=?, position=?, updated_at=datetime('now') WHERE id=?",
-            (new_act_id, new_position, scene_id)
-        )
-    _trim_snapshots(scene_id)
+        rows = conn.execute("SELECT id, data, deleted_at FROM scene_trash WHERE project_id=? ORDER BY id DESC",
+                            (project_id,)).fetchall()
+    out = []
+    for r in rows:
+        d = json.loads(r["data"])
+        out.append({"id": r["id"], "title": d.get("title") or "Без названия",
+                    "chapter_num": d.get("chapter_num"), "deleted_at": r["deleted_at"]})
+    return out
+
+
+def restore_from_trash(project_id: int, trash_id: int) -> int | None:
+    """Вернуть сцену из корзины: новая запись в конце её акта (или «без акта»,
+    если акта нет), связи — с теми сценами, что ещё есть. → id сцены или None."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT data, links FROM scene_trash WHERE id=? AND project_id=?",
+                           (trash_id, project_id)).fetchone()
+        if not row:
+            return None
+        d = json.loads(row["data"])
+        act = d.get("act_id")
+        if act and not conn.execute("SELECT 1 FROM acts WHERE id=? AND project_id=?", (act, project_id)).fetchone():
+            act = None
+        pos = conn.execute("SELECT COALESCE(MAX(position),0) FROM scenes WHERE project_id=? AND act_id IS ?",
+                           (project_id, act)).fetchone()[0] + 1
+        cols = [c for c in ("title", "location", "day", "time_of_day", "characters", "what_happens",
+                            "emotion", "hold", "notes") if c in d]
+        cur = conn.execute(
+            f"INSERT INTO scenes (project_id, act_id, position, {', '.join(cols)}) "
+            f"VALUES (?,?,?,{','.join('?' * len(cols))})", (project_id, act, pos, *[d[c] for c in cols]))
+        new_id = cur.lastrowid
+        own = {r[0] for r in conn.execute("SELECT id FROM scenes WHERE project_id=?", (project_id,))}
+        for ln in json.loads(row["links"] or "[]"):
+            a = new_id if ln["from_id"] == d["id"] else ln["from_id"]
+            b = new_id if ln["to_id"] == d["id"] else ln["to_id"]
+            if a in own and b in own and a != b:
+                conn.execute("INSERT INTO scene_links (from_id, to_id, link_type, label) VALUES (?,?,?,?) "
+                             "ON CONFLICT(from_id, to_id) DO NOTHING", (a, b, ln["link_type"], ln["label"]))
+        conn.execute("DELETE FROM scene_trash WHERE id=?", (trash_id,))
+    return new_id
+
+
+def move_scene(scene_id: int, new_act_id: int | None, index: int):
+    """
+    Поставить сцену в акт на место index (0 — первой), перенумеровав сцены
+    обоих актов, в одной транзакции. Раньше позиция была «длина колонки»
+    без учёта места бросания и без перенумерации — дубли позиций, порядок
+    сцен (а с ним план главы) не определён. Снимок не пишется: текст не
+    меняется, а «перемещена» вытесняла из истории настоящие версии (21.10).
+    """
+    old = get_scene(scene_id)
+    if not old:
+        return
+    with get_conn() as conn:
+        pid = old["project_id"]
+        target = [r[0] for r in conn.execute(
+            "SELECT id FROM scenes WHERE project_id=? AND act_id IS ? AND id != ? ORDER BY position, id",
+            (pid, new_act_id, scene_id))]
+        index = max(0, min(int(index or 0), len(target)))
+        target.insert(index, scene_id)
+        conn.execute("UPDATE scenes SET act_id=?, updated_at=datetime('now') WHERE id=?", (new_act_id, scene_id))
+        conn.executemany("UPDATE scenes SET position=? WHERE id=?", [(i + 1, s) for i, s in enumerate(target)])
+        if old["act_id"] != new_act_id:
+            rest = [r[0] for r in conn.execute(
+                "SELECT id FROM scenes WHERE project_id=? AND act_id IS ? ORDER BY position, id",
+                (pid, old["act_id"]))]
+            conn.executemany("UPDATE scenes SET position=? WHERE id=?", [(i + 1, s) for i, s in enumerate(rest)])
 
 
 def import_chapter(project_id: int, act_id: int | None, chapter_num: int,
@@ -303,14 +406,17 @@ def get_links(project_id: int) -> list:
 
 def save_link(from_id: int, to_id: int, link_type: str, label: str = "") -> int:
     with get_conn() as conn:
-        cur = conn.execute(
+        conn.execute(
             """INSERT INTO scene_links (from_id, to_id, link_type, label)
                VALUES (?,?,?,?)
                ON CONFLICT(from_id, to_id) DO UPDATE SET
                link_type=excluded.link_type, label=excluded.label""",
             (from_id, to_id, link_type, label)
         )
-        return cur.lastrowid
+        # id — настоящей связи: при повторе (upsert) lastrowid давал 0, и граф
+        # рисовал дубль ребра с id 0 (разбор планировщика 21.10)
+        return conn.execute("SELECT id FROM scene_links WHERE from_id=? AND to_id=?",
+                            (from_id, to_id)).fetchone()[0]
 
 
 def delete_link(link_id: int):

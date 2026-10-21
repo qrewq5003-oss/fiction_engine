@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="planner-project" content="{{ current.id if current else '' }}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Планировщик{% endblock %}</title>
 <style>
@@ -166,6 +167,24 @@ function showToast(msg, type='success') {
 }
 
 function csrfToken() { return document.querySelector('meta[name=csrf-token]').content; }
+function pageProject() { return document.querySelector('meta[name=planner-project]').content; }
+
+// Каждый изменяющий запрос несёт проект страницы: проект — в общей сессии, и
+// вкладка, открытая для одной книги, после переключения в другой вкладке
+// писала в другую (разбор планировщика 21.10). Сервер отвечает 409
+(function () {
+  const orig = window.fetch;
+  window.fetch = function (input, init) {
+    init = init || {};
+    const method = (init.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && pageProject()) {
+      const h = new Headers(init.headers || {});
+      if (!h.has('X-Planner-Project')) h.set('X-Planner-Project', pageProject());
+      init.headers = h;
+    }
+    return orig.call(this, input, init);
+  };
+})();
 
 async function apiPost(url, data) {
   try {
@@ -174,7 +193,12 @@ async function apiPost(url, data) {
       headers: {'Content-Type':'application/json', 'X-CSRF-Token': csrfToken()},
       body: JSON.stringify(data)
     });
-    return await r.json();
+    // Ответ не JSON (500 страницей) — ошибка с кодом, а не «Unexpected token <»
+    let j;
+    try { j = await r.json(); } catch (e) { return {error: `сервер ответил ${r.status}`, status: r.status}; }
+    if (!r.ok && !j.error) j.error = `сервер ответил ${r.status}`;
+    j.status = r.status;
+    return j;
   } catch(e) { return {error: e.message}; }
 }
 

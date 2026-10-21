@@ -24,27 +24,38 @@ def current_pid() -> int | None:
 def owned_scene(scene_id: object) -> dict | None:
     """Сцена текущего проекта — или None."""
     from engine.db import get_scene
-    scene = get_scene(scene_id) if scene_id is not None else None
+    sid = _as_id(scene_id)
+    scene = get_scene(sid) if sid is not None else None
     pid = current_pid()
     return scene if scene and pid and scene["project_id"] == pid else None
+
+
+def _as_id(v: object) -> int | None:
+    """Номер из запроса; не число — None (было ValueError и 500)."""
+    try:
+        return int(v)        # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return None
 
 
 def owned_act(act_id: object) -> dict | None:
     """Акт текущего проекта — или None."""
     from engine.db import get_acts
     pid = current_pid()
-    if not pid or act_id is None:
+    aid = _as_id(act_id)
+    if not pid or aid is None:
         return None
-    return next((a for a in get_acts(pid) if a["id"] == int(act_id)), None)
+    return next((a for a in get_acts(pid) if a["id"] == aid), None)
 
 
 def owned_link(link_id: object) -> dict | None:
     """Связь текущего проекта — или None."""
     from engine.db import get_links
     pid = current_pid()
-    if not pid or link_id is None:
+    lid = _as_id(link_id)
+    if not pid or lid is None:
         return None
-    return next((l for l in get_links(pid) if l["id"] == int(link_id)), None)
+    return next((l for l in get_links(pid) if l["id"] == lid), None)
 
 
 def owned_snapshot(scene_id: object, snap_id: object) -> dict | None:

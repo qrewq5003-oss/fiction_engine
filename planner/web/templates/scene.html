@@ -152,7 +152,20 @@
 <script>
 // null — карточка ещё не сохранена (/scene/new): запись появится при первом сохранении
 let SCENE_ID = {{ scene.id | tojson }};
+// Версия карточки, с которой открыта страница: сервер не даст перетереть
+// правки из другой вкладки, «Восстановить» и перенос на доске (разбор 21.10)
+let VERSION = {{ (scene.updated_at or '') | tojson }};
 let currentSnapId = null;
+let ORIG = null;          // поля при открытии — уходят только изменённые
+let creating = false;     // новая карточка создаётся — второй раз не создавать
+const DRAFT_KEY = 'planner_draft_' + pageProject() + '_' + (SCENE_ID || 'new');
+
+function changedFields() {
+  const d = getFormData();
+  const out = {};
+  for (const k of Object.keys(d)) if (!ORIG || String(d[k] ?? '') !== String(ORIG[k] ?? '')) out[k] = d[k];
+  return out;
+}
 
 function getFormData() {
   return {
@@ -173,20 +186,59 @@ function formEmpty(d) {
   return !['title','location','day','time_of_day','characters','what_happens','emotion','hold','notes'].some(k => d[k]);
 }
 
-async function saveScene() {
+async function saveScene(force = false) {
   const d = getFormData();
   if (!SCENE_ID) {
     if (formEmpty(d)) { showToast('Карточка пустая — нечего сохранять', 'error'); return; }
+    if (creating) return;
+    creating = true;
     const r = await apiPost('/api/scenes/new', d);
+    creating = false;
     if (!r.ok) { showToast(r.error || 'Ошибка', 'error'); return; }
     SCENE_ID = r.id;
+    ORIG = d;
+    VERSION = r.version || VERSION;
+    dropDraft();
     history.replaceState(null, '', '/scene/' + r.id);
     showToast('Сцена создана');
     return;
   }
-  const r = await apiPost(`/scene/${SCENE_ID}/save`, d);
-  if (r.ok) showToast('Сохранено');
-  else showToast(r.error || 'Ошибка', 'error');
+  const changed = changedFields();
+  if (!Object.keys(changed).length) { showToast('Изменений нет'); return; }
+  const r = await apiPost(`/scene/${SCENE_ID}/save`, {...changed, _version: VERSION, ...(force ? {_force: true} : {})});
+  if (r.ok) {
+    ORIG = getFormData(); VERSION = r.version || VERSION; dropDraft();
+    showToast('Сохранено');
+  } else if (r.conflict) {
+    if (confirm('Сцену изменили в другом месте (другая вкладка, «Восстановить», доска).\n\n' +
+                'OK — сохранить ваши правки поверх; Отмена — оставить как есть и обновить страницу ' +
+                '(ваши правки останутся черновиком на этой карточке).')) saveScene(true);
+    else { keepDraft(); skipAutosave = true; location.reload(); }
+  } else showToast(r.error || 'Ошибка', 'error');
+}
+
+// Черновик в браузере: автосохранение при уходе не узнаёт об отказе, и правки
+// пропадали молча (после перезапуска, при чужой вкладке)
+function keepDraft() {
+  const changed = changedFields();
+  try {
+    if (Object.keys(changed).length) localStorage.setItem(DRAFT_KEY, JSON.stringify({version: VERSION, fields: changed}));
+  } catch (e) { /* без хранилища — без черновика */ }
+}
+function dropDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* без хранилища */ } }
+function offerDraft() {
+  let draft = null;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { draft = null; }
+  if (!draft || !draft.fields) return;
+  const cur = getFormData();
+  const differs = Object.keys(draft.fields).filter(k => String(draft.fields[k] ?? '') !== String(cur[k] ?? ''));
+  if (!differs.length) { dropDraft(); return; }
+  if (confirm('На этой карточке есть несохранённые правки (поля: ' + differs.join(', ') + '). Вернуть их в форму?')) {
+    const ids = {title:'f-title', location:'f-location', day:'f-day', time_of_day:'f-time', act_id:'f-act',
+                 characters:'f-characters', what_happens:'f-what', emotion:'f-emotion', hold:'f-hold', notes:'f-notes'};
+    for (const k of differs) if (ids[k]) document.getElementById(ids[k]).value = draft.fields[k] ?? '';
+    showToast('Правки возвращены — проверьте и сохраните');
+  } else dropDraft();
 }
 
 function toggleHistory() {
@@ -267,14 +319,21 @@ async function aiAction(action) {
 // Автосохранение при уходе: тихо, keepalive — чтобы запрос пережил уход со
 // страницы. Пустую несохранённую карточку не создаём
 let skipAutosave = false;
+ORIG = getFormData();
+offerDraft();
 window.addEventListener('beforeunload', () => {
-  if (skipAutosave) return;
+  if (skipAutosave || creating) return;
   const d = getFormData();
   if (!SCENE_ID && formEmpty(d)) return;
+  // Только изменённые поля и версия: прежде уходила вся форма, открытая
+  // давно, и затирала правки из другой вкладки и перенос на доске
+  const changed = SCENE_ID ? changedFields() : d;
+  if (!Object.keys(changed).length) return;
+  keepDraft();                 // отказ (версия, перезапуск) — правки не пропадут
   fetch(SCENE_ID ? `/scene/${SCENE_ID}/save` : '/api/scenes/new', {
     method: 'POST', keepalive: true,
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken()},
-    body: JSON.stringify(d)
+    body: JSON.stringify(SCENE_ID ? {...changed, _version: VERSION} : d)
   }).catch(() => {});
 });
 </script>

@@ -216,6 +216,10 @@ def foreign(client, project_id):
     link_id = save_link(s1, s2, "cause", "чужая связь")
     act = get_acts(other)[0]
     snaps = get_snapshots(s1)
+    from engine.db import delete_scene, get_trash
+    s3 = create_scene(other)
+    delete_scene(s3)                       # удалённая сцена чужого проекта — в его корзине
+    trash_id = get_trash(other)[0]["id"]
 
     with client.session_transaction() as sess:
         sess["project_id"] = project_id
@@ -227,6 +231,7 @@ def foreign(client, project_id):
         "act_id": act["id"],
         "link_id": link_id,
         "snap_id": snaps[0]["id"] if snaps else None,
+        "trash_id": trash_id,
     }
 
 
@@ -254,6 +259,11 @@ def _probes(f: dict) -> dict:
             ("POST", "/api/acts/save",
              {"id": f["act_id"], "act_id": f["act_id"],
               "number": 9, "title": "взлом", "color": "#000"}),
+        "/api/acts/save_all":
+            ("POST", "/api/acts/save_all",
+             {"acts": [{"id": f["act_id"], "number": 9, "title": "взлом", "color": "#000000"}]}),
+        "/api/scenes/trash/<int:trash_id>/restore":
+            ("POST", f"/api/scenes/trash/{f['trash_id']}/restore", None),
         "/api/acts/<int:act_id>/delete":
             ("POST", f"/api/acts/{f['act_id']}/delete", None),
         "/api/links/save":

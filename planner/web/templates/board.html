@@ -5,6 +5,7 @@
 <div style="margin-left:auto;display:flex;gap:8px;">
   <button class="btn btn-secondary btn-sm" onclick="openImport()" title="Разбить написанную главу на сцены и поставить их на доску">📥 Импорт главы</button>
   <button class="btn btn-secondary btn-sm" onclick="openModal('modal-acts')">⚙ Акты</button>
+  <button class="btn btn-secondary btn-sm" onclick="openTrash()" title="Удалённые сцены — можно вернуть">🗑 Корзина</button>
   <button class="btn btn-primary btn-sm" onclick="addScene(null)">+ Сцена</button>
 </div>
 {% endblock %}
@@ -171,6 +172,17 @@
     </div>
   </div>
 </div>
+
+<!-- Корзина удалённых сцен -->
+<div class="modal-overlay" id="modal-trash">
+  <div class="modal" style="width:480px;">
+    <div class="modal-title">Удалённые сцены</div>
+    <div id="trash-list" style="font-size:13px;max-height:360px;overflow:auto;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <button class="btn btn-secondary" onclick="closeModal('modal-trash')">Закрыть</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -202,10 +214,12 @@ async function onDrop(e, actId) {
   e.currentTarget.classList.remove('drag-over');
   if (!dragId) return;
 
-  // Определяем позицию по карточкам в колонке
+  // Место — по точке бросания среди остальных карточек колонки (было «в конец»
+  // без перенумерации — дубли позиций, разбор 21.10); сервер перенумерует
   const col = e.currentTarget;
-  const cards = [...col.querySelectorAll('.scene-card')];
-  const pos = cards.length;
+  const cards = [...col.querySelectorAll('.scene-card')].filter(c => c.id !== 'sc-' + dragId);
+  let pos = cards.findIndex(c => { const b = c.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
+  if (pos < 0) pos = cards.length;
 
   const r = await apiPost('/api/scenes/move', {
     scene_id: dragId, act_id: actId, position: pos
@@ -419,11 +433,16 @@ async function impSave() {
     const a = end(l.from), b = end(l.to);
     if (cb && cb.checked && a && b) links.push({ from: a, to: b, type: l.type, label: l.label });
   });
+  // Повторный импорт: прежние сцены главы — заменить (в корзину) или оставить рядом.
+  // Раньше оставались всегда, и экспорт уносил в план оба комплекта (разбор 21.10)
+  const replace = IMP.already > 0 && confirm(
+    `На доске уже ${IMP.already} сцен главы ${IMP.chapter_num}.\n\nOK — заменить их новыми (прежние уйдут ` +
+    'в корзину доски, их можно вернуть); Отмена — оставить и добавить новые рядом.');
   const btn = document.getElementById('imp-save-btn');
   btn.disabled = true;
   const act = document.getElementById('imp-act').value;
   const r = await apiPost('/api/chapter_import/save', {
-    chapter_num: IMP.chapter_num, act_id: act ? parseInt(act) : null, scenes: keep, links });
+    chapter_num: IMP.chapter_num, act_id: act ? parseInt(act) : null, scenes: keep, links, replace });
   btn.disabled = false;
   if (r.ok) { showToast(`Глава ${IMP.chapter_num}: сцен на доске — ${r.ids.length}`); setTimeout(() => location.reload(), 600); }
   else showToast(r.error || 'Ошибка', 'error');
@@ -438,7 +457,7 @@ function renderActsList() {
              onchange="ACTS[${i}].number=parseInt(this.value)">
       <input type="text" value="${String(a.title).replace(/"/g, '&quot;')}"
              onchange="ACTS[${i}].title=this.value">
-      <input type="color" value="${a.color}" style="height:34px;padding:2px;"
+      <input type="color" value="${/^#[0-9a-fA-F]{6}$/.test(a.color) ? a.color : '#6b7280'}" style="height:34px;padding:2px;"
              onchange="ACTS[${i}].color=this.value">
       <button class="btn btn-secondary btn-sm" title="Удалить акт" onclick="deleteAct(${i})">🗑</button>
     </div>`).join('');
@@ -464,15 +483,41 @@ function closeActs() {
 }
 
 function addActRow() {
-  ACTS.push({ id: null, number: ACTS.length + 1, title: 'Новый акт', color: '#6b7280' });
+  // Номер — после самого большого: «длина+1» после удаления среднего акта совпадал с занятым
+  const top = ACTS.reduce((m, a) => Math.max(m, parseInt(a.number) || 0), 0);
+  ACTS.push({ id: null, number: top + 1, title: 'Новый акт', color: '#6b7280' });
   renderActsList();
 }
 
 async function saveActs() {
-  for (const a of ACTS) {
-    await apiPost('/api/acts/save', a);
-  }
+  // Разом и с ответом: по одному обмен номерами молча не сохранялся
+  const r = await apiPost('/api/acts/save_all', {acts: ACTS});
+  if (!r.ok) { showToast(r.error || 'Ошибка', 'error'); return; }
   location.reload();
+}
+
+// Корзина: удалённые сцены можно вернуть
+async function openTrash() {
+  const r = await fetch('/api/scenes/trash').then(x => x.json()).catch(() => ({scenes: []}));
+  const box = document.getElementById('trash-list');
+  box.replaceChildren();
+  if (!(r.scenes || []).length) box.textContent = 'Корзина пуста';
+  for (const s of r.scenes || []) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;';
+    const t = document.createElement('span');
+    t.style.flex = '1';
+    t.textContent = s.title + (s.chapter_num ? ` (гл.${s.chapter_num})` : '') + ' — удалена ' + String(s.deleted_at).slice(0, 16);
+    const b = document.createElement('button');
+    b.className = 'btn btn-secondary btn-sm'; b.textContent = '↩ Вернуть';
+    b.onclick = async () => {
+      const x = await apiPost('/api/scenes/trash/' + s.id + '/restore', {});
+      if (x.ok) location.reload(); else showToast(x.error || 'Ошибка', 'error');
+    };
+    row.append(t, b);
+    box.append(row);
+  }
+  openModal('modal-trash');
 }
 
 document.getElementById('modal-acts').addEventListener('shown', renderActsList);

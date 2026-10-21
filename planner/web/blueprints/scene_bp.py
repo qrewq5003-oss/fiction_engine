@@ -46,12 +46,26 @@ def scene_new_form():
 
 @bp.route("/scene/<int:scene_id>/save", methods=["POST"])
 def scene_save(scene_id):
-    from engine.db import update_scene
-    if not owned_scene(scene_id):
+    from engine.db import get_scene, update_scene
+    scene = owned_scene(scene_id)
+    if not scene:
         return deny("Сцена")
-    data = request.json or {}
+    data = dict(request.json or {})
+    # Версия, с которой страница открыта: сцену поправили в другой вкладке,
+    # восстановили или перетащили на доске — правки не перетирают это молча
+    # (разбор планировщика 21.10). force — автор решил сохранить своё
+    version = data.pop("_version", None)
+    force = data.pop("_force", False)
+    if version and not force and str(version) != str(scene.get("updated_at") or ""):
+        return jsonify({"error": "Сцену изменили в другом месте (другая вкладка, «Восстановить», доска).",
+                        "conflict": True, "current": scene}), 409
+    # Акт — только свой: чужой акт принимался как есть (разбор 21.10)
+    if data.get("act_id") not in (None, "") and not owned_act(data["act_id"]):
+        return deny("Акт")
+    if data.get("act_id") == "":
+        data["act_id"] = None
     update_scene(scene_id, data, reason="изменена")
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "version": (get_scene(scene_id) or {}).get("updated_at")})
 
 
 @bp.route("/scene/<int:scene_id>/delete", methods=["POST"])
@@ -74,5 +88,8 @@ def snapshot_restore(scene_id, snap_id):
     snap  = next((s for s in snaps if s["id"] == snap_id), None)
     if not snap:
         return jsonify({"error": "Снапшот не найден"}), 404
-    update_scene(scene_id, snap["data"], reason="восстановлена")
+    # Только текст карточки: акт и позиция из снимка двигали сцену на старое
+    # место, а с удалённым актом — 500 (разбор планировщика 21.10)
+    text = {k: v for k, v in snap["data"].items() if k not in ("act_id", "position")}
+    update_scene(scene_id, text, reason="восстановлена")
     return jsonify({"ok": True})

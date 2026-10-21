@@ -115,6 +115,22 @@ def init_security(app: Flask) -> None:
         return None
 
     @app.before_request
+    def _same_project():
+        """
+        Запрос для проекта, который сейчас не открыт, — 409. Проект — в общей
+        сессии браузера: вкладка, открытая для одной книги, после переключения
+        в другой вкладке писала в другую (разбор планировщика 21.10). Страница
+        шлёт X-Planner-Project; без него — как раньше.
+        """
+        want = (request.headers.get("X-Planner-Project") or "").strip()
+        if not want or request.method in SAFE_METHODS:
+            return None
+        if str(session.get("project_id") or "") != want:
+            return jsonify({"error": "Страница открыта для другого проекта — в другой вкладке открыт "
+                                     "другой. Обновите страницу.", "project_mismatch": True}), 409
+        return None
+
+    @app.before_request
     def _guard():
         if password() and not session.get("planner_auth") and request.endpoint not in ("login", "static"):
             if request.method in SAFE_METHODS and not request.path.startswith("/api/"):

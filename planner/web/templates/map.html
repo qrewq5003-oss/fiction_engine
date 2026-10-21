@@ -69,16 +69,21 @@ const net = new vis.Network(document.getElementById('map-canvas'), { nodes, edge
       const lt = document.getElementById('link-type-sel').value;
       const r  = await apiPost('/api/links/save', { from_id: data.from, to_id: data.to, link_type: lt });
       if (r.ok) {
-        edges.add({ id: r.id, from: data.from, to: data.to,
+        // Повтор связи — та же связь с новым типом, а не второе ребро
+        edges.update({ id: r.id, from: data.from, to: data.to,
           label: LINK_LABELS[lt], color: { color: LINK_COLORS[lt] }, arrows: 'to' });
         cb(null); showToast('Связь добавлена');
       } else { cb(null); showToast(r.error || 'Ошибка', 'error'); }
     },
     deleteEdge: async (data, cb) => {
+      // Удалять с графа — только то, что удалил сервер (было «удалена» и при отказе)
+      const gone = [];
       for (const id of data.edges) {
-        await apiPost('/api/links/'+id+'/delete', {});
+        const r = await apiPost('/api/links/'+id+'/delete', {});
+        if (r.ok) gone.push(id); else showToast(r.error || 'Ошибка', 'error');
       }
-      cb(data); showToast('Связь удалена');
+      cb(gone.length ? {...data, edges: gone} : null);
+      if (gone.length) showToast('Связь удалена');
     }
   }
 });

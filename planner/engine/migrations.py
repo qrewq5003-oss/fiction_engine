@@ -112,8 +112,20 @@ MIGRATIONS = {
         # в кабинете убийцы за пять глав до плана
         "ALTER TABLE scenes ADD COLUMN hold TEXT DEFAULT ''",
     ],
+    8: [
+        # Удалённые сцены: снимок «удалена» стирался каскадом вместе со сценой,
+        # и вернуть её было нельзя (разбор планировщика 21.10). Без внешнего
+        # ключа на сцену — переживает её удаление
+        """CREATE TABLE IF NOT EXISTS scene_trash (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            data       TEXT NOT NULL,
+            links      TEXT DEFAULT '[]',
+            deleted_at TEXT DEFAULT (datetime('now'))
+        )""",
+    ],
     # Следующие миграции добавлять здесь:
-    # 8: [ "ALTER TABLE scenes ADD COLUMN ..." ],
+    # 9: [ "ALTER TABLE scenes ADD COLUMN ..." ],
 }
 
 

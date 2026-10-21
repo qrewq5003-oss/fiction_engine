@@ -181,7 +181,8 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `FE_SECRET_KEY_FILE` | Файл ключа шифрования (на POSIX — с правами 600) | `%USERPROFILE%\fiction_engine\secret.key` |
 | `FE_API_TOKEN_FILE` | Токен для планировщика (`X-FE-Token`), если `FE_PASSWORD` не задан | `%USERPROFILE%\fiction_engine\api_token` |
 | `FE_CSRF` | `0` — выключить проверку CSRF; только для тестов | включено |
-| `SECRET_KEY` | Подпись сессий планировщика | случайный при старте |
+| `SECRET_KEY` | Подпись сессий планировщика (иначе `FLASK_SECRET_KEY`, иначе файл `PLANNER_SECRET_FILE`) | файл |
+| `PLANNER_SECRET_FILE` | Постоянный ключ сессий планировщика, если ключ не задан | `%USERPROFILE%\fiction_engine\planner_secret.key` |
 | `PLANNER_PASSWORD` | Пароль входа в планировщик; обязателен, если `PLANNER_HOST` не петля | `FE_PASSWORD` |
 | `PLANNER_HOST` / `PLANNER_PORT` | Адрес планировщика | `127.0.0.1` / `5001` |
 | `PLANNER_TRUSTED_HOSTS` | То же, что `FE_TRUSTED_HOSTS`, для планировщика | только петля |
