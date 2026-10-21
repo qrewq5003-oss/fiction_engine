@@ -60,7 +60,7 @@ def captured(monkeypatch):
 
     monkeypatch.setattr(pipeline, "_call", fake)
     gen = "anthropic_direct::claude-sonnet-5"
-    judge = "anthropic_direct::claude-haiku-4-5-20251001"
+    judge = "openai_direct::gpt-4o"            # судья другой семьи, чем писатель
     run_id = create_pipeline_run(pid, 1, gen, judge, gen, judge)
     pipeline.run_pipeline_step(run_id=run_id, iteration=1, project_id=pid, chapter_num=1,
                                generation_prompt="задача", model_gen=gen,
@@ -131,7 +131,7 @@ def test_roles_never_judge_own_family_and_critic_is_not_judge(monkeypatch):
             monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", gpt)
             r = default_role_models()
             assert model_family(r["judge"]) != model_family(r["gen"]) or claude + gpt != "11", r
-            # Критик Haiku — по подписке Claude; без неё прежний Kimi (nano), не судья
+            # Критик Haiku — по подписке Claude; без неё Luna (не nano), не судья
             assert r["critic"] == (CRITIC_MODEL if claude == "1" else CRITIC_FALLBACK) and r["critic"] != r["judge"]
 
 

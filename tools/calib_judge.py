@@ -4,13 +4,13 @@
 
 Окружение: CALIB_CRITIC — критик (по умолчанию Haiku 5.5, как CRITIC_MODEL движка),
 CALIB_NO_CRITIC=1 — судья без разбора, CALIB_PICK=0/1 — выборка глав, CALIB_LIMIT — сколько,
-CALIB_FAMILIES=gpt,deepseek — чьи главы (по умолчанию три семьи, кроме семьи судьи),
+CALIB_FAMILIES=gpt,claude — чьи главы (по умолчанию — писатели приложения, Claude и GPT, кроме семьи судьи),
 CALIB_RUBRIC=v1 — прежние правила оценки (по умолчанию v2, как в приложении: engine/judge_rubric).
 Калибровки 16–19.10 — bench/judges-*, critic-no-nano-*, judge-repeat-*.
 
 Как в Pipeline: критик → судья (step_critique, step_judge движка),
 временная база с ключами (рабочая только читается). Живые — 12 глав
-(4 жанра × 3 семьи, кроме семьи судьи), испорченные — те же главы, каждая
+(4 жанра × писатели приложения, кроме семьи судьи), испорченные — те же главы, каждая
 одной порчей: перемешаны абзацы / обратный порядок / продублирован кусок.
 Перед каждым вызовом судьи по подписке ChatGPT — лимит.
 """
@@ -41,9 +41,11 @@ ws = json.loads((ROOT / "bench/ab-writers-sonnet-2026-10-13.json").read_text(enc
 wg = json.loads((ROOT / "bench/ab-writers-gpt61-2026-10-15.json").read_text(encoding="utf-8"))
 SOURCES = {"claude": ws["chapters_sonnet"], "deepseek": ws["chapters_deepseek"],
            "kimi": ws["chapters_kimi"], "gpt": wg["chapters_gpt"]}
-# CALIB_FAMILIES=gpt,deepseek — свои семейства (20.10: Kimi в наборах ролей не пишет)
+# CALIB_FAMILIES — свои семейства. По умолчанию — только писатели приложения:
+# калибровать на главах Kimi/DeepSeek, которые в наборах ролей не пишут, — мерить
+# не то (решение автора 18.10; было «три семьи, кроме семьи судьи»)
 fams = ([f for f in os.environ.get("CALIB_FAMILIES", "").split(",") if f and f != EXCLUDE]
-        or [f for f in ("claude", "gpt", "deepseek", "kimi") if f != EXCLUDE][:3])
+        or [f for f in ("claude", "gpt") if f != EXCLUDE])
 real = []
 for fam in fams:
     for g in GENRES:

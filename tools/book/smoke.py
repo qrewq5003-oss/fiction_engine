@@ -1,7 +1,7 @@
 """Дымовая книга: три главы на копии приложения — проверка движка целиком, как на настоящей книге.
 
     python tools/book/smoke.py              — поднять копию, написать книгу, проверить, погасить
-    python tools/book/smoke.py --check DIR  — только проверки по готовому прогону в DIR
+    python tools/book/smoke.py --check DIR  — только проверки по готовому прогону в DIR (в smoke_check.txt)
 
 Зачем. Четыре ошибки «Фона» (19.10) нашлись только на настоящей книге: удаление
 проекта (500), обрезка профиля голоса, рабочие заметки писателя в главе, дубль
@@ -153,15 +153,28 @@ def checks(work: Path, live: bool = True) -> list[tuple[str, bool, str]]:
     need = set(range(1, last))
     out.append(("план вперёд дошёл до сторожа приложения", need <= set(fut), f"есть для глав {sorted(fut)}"))
 
+    # Лучший круг — заново по записанным баллам, вердиктам и сверке с планом,
+    # правилом приложения (pipeline.best_round). Раньше сравнивался выбор
+    # приложения с ним же (run_book принимает app_best) — проверка проходила
+    # всегда, а глава без данных о кругах пропускалась молча (разбор 21.10)
+    from engine.pipeline import best_round
     worse = []
     for n, r in res["chapters"].items():
         rounds = r.get("rounds") or []
-        if rounds and r.get("accepted_round"):
-            # Выбор приложения (балл судьи и план, pipeline.best_round); нет его — лучший по судье
-            best = r.get("app_best") or max(
-                rounds, key=lambda x: (x.get("verdict") == "ПРИНЯТЬ", float(x.get("judge_score") or 0), x["round"]))["round"]
-            if best != r["accepted_round"]:
-                worse.append(f"гл.{n}: принят {r['accepted_round']}, лучший {best}")
+        if not rounds or not r.get("accepted_round"):
+            worse.append(f"гл.{n}: нет данных о кругах или принятом круге")
+            continue
+        if not r.get("app_best"):
+            worse.append(f"гл.{n}: приложение не назвало лучший круг (/pipeline/N/rounds)")
+        mine = []
+        for x in rounds:
+            plan = x.get("plan") if isinstance(x.get("plan"), list) else None
+            mine.append({"round": x["round"], "score": float(x.get("judge_score") or 0), "verdict": x.get("verdict"),
+                         "text": "", "plan": {"missing": sum(p[0] == "нет" for p in plan),
+                                              "partial": sum(p[0] == "частично" for p in plan)} if plan else None})
+        best = best_round(mine)
+        if best and best["round"] != r["accepted_round"]:
+            worse.append(f"гл.{n}: принят {r['accepted_round']}, по правилу лучший {best['round']}")
     out.append(("принят лучший круг (судья и план)", not worse, "; ".join(worse)))
 
     conflicts = c.execute("SELECT chapter_num, name, attr, value, reason FROM series_bible WHERE project_id=? "
@@ -183,11 +196,11 @@ def checks(work: Path, live: bool = True) -> list[tuple[str, bool, str]]:
     return out
 
 
-def report(work: Path, rows: list) -> bool:
+def report(work: Path, rows: list, name: str = "smoke_report.txt") -> bool:
     ok = all(r[1] for r in rows)
     lines = [f"{'✓' if r[1] else '✗'} {r[0]}" + (f" — {r[2]}" if r[2] else "") for r in rows]
     text = f"Дымовая книга: {work}\n" + "\n".join(lines) + f"\n\nИТОГ: {'всё прошло' if ok else 'есть поломки'}\n"
-    (work / "smoke_report.txt").write_text(text, encoding="utf-8")
+    (work / name).write_text(text, encoding="utf-8")
     print(text)
     return ok
 
@@ -195,7 +208,8 @@ def report(work: Path, rows: list) -> bool:
 def main() -> int:
     if len(sys.argv) > 2 and sys.argv[1] == "--check":
         work = Path(sys.argv[2]).resolve()
-        return 0 if report(work, checks(work, live=False)) else 1
+        # Отдельным файлом: отчёт живого прогона (до отката и удаления проекта) не затирается
+        return 0 if report(work, checks(work, live=False), "smoke_check.txt") else 1
     work = REPO / ".ab_work" / "smoke" / time.strftime("%Y%m%d-%H%M")
     (work / "home" / "fiction_engine").mkdir(parents=True, exist_ok=True)
     (work / "book.json").write_text(BOOK_SRC.read_text(encoding="utf-8"), encoding="utf-8")

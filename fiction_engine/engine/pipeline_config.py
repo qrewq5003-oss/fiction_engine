@@ -526,7 +526,9 @@ def step_token_budget(step_name: str) -> int:
 # спасает только другой судья.
 #
 # Haiku — единственный из проверенных, кто поставил свой текст в середину
-# таблицы. Он же вдвое дешевле и на нём калиброван порог.
+# таблицы. Он же вдвое дешевле и на нём калиброван порог. Но с 21.10 судья
+# той же семьи, что писатель, запуск не начинает (pipeline.SameFamilyJudge):
+# без подписок писателя или судью надо выбрать другой семьи.
 DEFAULT_ROLE_MODELS = {
     "gen":    "anthropic_direct::claude-sonnet-5",
     "critic": "anthropic_direct::claude-haiku-4-5-20251001",
@@ -562,7 +564,8 @@ SUBSCRIPTION_WRITERS = (
 # Судье Sonnet разбор не передаётся (JUDGE_WITHOUT_CRITIQUE); критик в наборе
 # GPT нужен для анализа главы, дрейфа голоса и разбора автору.
 CRITIC_MODEL = "claude_subscription::claude-haiku-5-5"
-CRITIC_FALLBACK = "nano_gpt::moonshotai/kimi-k2.5"   # только вне наборов и без подписки Claude
+# Без подписки Claude — Luna по подписке ChatGPT; модели nano не используются нигде (решение автора)
+CRITIC_FALLBACK = "chatgpt_subscription::gpt-6-luna@medium"
 
 
 def default_role_models() -> dict[str, str]:
@@ -588,7 +591,7 @@ def default_role_models() -> dict[str, str]:
                       if on[m.split("::")[0]] and model_family(m) != model_family(gen)), "")
         if judge:
             roles["judge"] = judge
-        # Без подписки ChatGPT Luna недоступна — прежний критик, лишь бы не судья
+        # Haiku по подписке Claude, иначе Luna по подписке ChatGPT; нет обеих — критик по умолчанию
         critic = next((m for m in (CRITIC_MODEL, CRITIC_FALLBACK) if _has_key(m)), "")
         if critic:
             roles["critic"] = critic
