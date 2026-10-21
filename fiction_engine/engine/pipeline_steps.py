@@ -386,7 +386,7 @@ def step_drift_check(project_id: int, chapter_num: int,
         if not should_check_drift(project_id, chapter_num):
             return
         drift = check_voice_drift(project_id, chapter_num, gen_text, model_critic, call_fn,
-                                  writer=model_gen)
+                                  writer=model_gen, save=False)
         if drift and drift.get("warning"):
             results["drift_warning"] = drift["warning"]
             results["drift_score"]   = drift.get("score")
@@ -398,14 +398,22 @@ def step_drift_check(project_id: int, chapter_num: int,
 def step_chapter_analysis(project_id: int, chapter_num: int,
                            gen_text: str, model_critic: str,
                            call_fn, results: dict) -> None:
-    """Когнитивный анализ главы — RECOVERABLE, фоновый."""
+    """
+    Анализ черновика — RECOVERABLE. Только для этого круга (критику) и в
+    results["chapter_analysis_data"]: в chapter_analysis он не пишется, и в
+    очередь State черновик больше не ставится. Анализ главы и State пишутся при
+    «Принять» по принятому тексту (pipeline.record_accepted_analysis, разбор
+    21.10): черновик перезаписывал анализ принятой главы при её перезапуске, а
+    его строка в очереди State применялась «Применить» как факт серии.
+    """
     try:
         from .chapter_analyzer import analyze_chapter_deep, format_analysis_for_prompt
         analysis = analyze_chapter_deep(
             project_id, chapter_num, gen_text,
-            lambda p: call_fn(model_critic, "", p)
+            lambda p: call_fn(model_critic, "", p), persist=False,
         )
         if analysis and analysis.analysis_quality != "failed":
+            results["chapter_analysis_data"] = analysis.to_dict()
             block = format_analysis_for_prompt(analysis)
             if block:
                 results["chapter_analysis_block"] = block
@@ -421,21 +429,6 @@ def step_chapter_analysis(project_id: int, chapter_num: int,
     except Exception as e:
         handle_error(f"step_chapter_analysis ({project_id}, ch{chapter_num})", e,
                      level=ErrorLevel.RECOVERABLE)
-
-    # ── Авто-очередь State Engine (IDEA 1) ───────────────────────────────────
-    # Ставим State Engine update в pending-очередь без блокировки pipeline.
-    # Пользователь видит бейдж «N обновлений State Engine» и применяет одним кликом.
-    try:
-        from .state import queue_state_update_from_analysis
-        queue_state_update_from_analysis(
-            project_id, chapter_num, gen_text,
-            call_fn=lambda p: call_fn(model_critic, "", p),
-        )
-    except Exception as e:
-        handle_error(
-            f"step_chapter_analysis queue_state ({project_id}, ch{chapter_num})",
-            e, level=ErrorLevel.RECOVERABLE,
-        )
 
 
 def _flag_truncation(text: str, results: dict, where: str) -> None:
