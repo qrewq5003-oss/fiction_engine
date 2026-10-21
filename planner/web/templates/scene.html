@@ -103,7 +103,7 @@
            атрибут — окно версии не открывалось ни разу #}
         <div class="snap-item" onclick='previewSnap({{ s.id }}, {{ s.data | tojson }})'>
           <div class="snap-reason">{{ s.reason }}</div>
-          <div class="snap-date">{{ s.created_at }}</div>
+          <div class="snap-date">{{ s.created_at | local }}</div>
           {% if s.data.title %}<div style="font-size:11px;color:var(--text2);">{{ s.data.title }}</div>{% endif %}
         </div>
         {% endfor %}

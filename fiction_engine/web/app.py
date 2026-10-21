@@ -50,6 +50,19 @@ from web.security import check_host, init_security
 init_security(app)
 
 
+@app.template_filter("local")
+def local_time(value, n: int = 16) -> str:
+    """Время из базы (UTC, «YYYY-MM-DD HH:MM:SS») — в местном: показывалось в UTC
+    без пометки, принятая в 13:51 глава значилась в 10:51 (разбор 21.10)."""
+    from datetime import datetime, timezone
+    s = str(value or "")
+    try:
+        t = datetime.strptime(s[:19].replace("T", " "), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return s[:n]
+    return t.astimezone().strftime("%Y-%m-%d %H:%M:%S")[:n]
+
+
 # ─── Хелпер ──────────────────────────────────────────────────────────────────
 
 def get_current_project():
@@ -194,8 +207,11 @@ def project_switch(pid):
     # На GET его дёргал бы кто угодно, кроме пользователя: предзагрузка
     # ссылки браузером, восстановление вкладок, переход по истории.
     # Найдено tools/getcheck.py — единственная находка на всём коде.
-    set_active_project(pid)
     p = get_project(pid)
+    if not p:                       # нет такого проекта — не ставить его активным (было 500)
+        flash("Проект не найден", "error")
+        return redirect(url_for("index"))
+    set_active_project(pid)
     flash(f"Переключился на «{p['name']}»", "success")
     return redirect(url_for("index"))
 
@@ -203,12 +219,15 @@ def project_switch(pid):
 @app.route("/project/<int:pid>/delete", methods=["POST"])
 def project_delete(pid):
     from engine.db import delete_project
+    from engine.db_settings import get_active_project_id
     p = get_project(pid)
     name = p["name"] if p else f"#{pid}"
+    was_active = str(get_active_project_id() or "") == str(pid)
     delete_project(pid)
     flash(f"Проект «{name}» удалён", "info")
+    # Переключать — только если удалён открытый проект (раньше — при любом удалении)
     projects = get_projects()
-    if projects:
+    if was_active and projects:
         set_active_project(projects[0]["id"])
     return redirect(url_for("index"))
 

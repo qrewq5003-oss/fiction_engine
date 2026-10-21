@@ -177,7 +177,10 @@ def prepare_chapter_replace(project_id: int, number: int) -> dict:
     from .db_state import restore_state_snapshot
     info = rollback_info(project_id, number)
     restored = bool(info["last"] and info["snapshot"]) and restore_state_snapshot(project_id, info["snapshot"]["id"])
-    return {**forget_chapter_text(project_id, number), "state_restored": restored}
+    # Последняя глава, а снимка до неё нет (старая книга): State не откатить,
+    # в нём остаётся прежняя версия главы — автору сказать (разбор 21.10)
+    return {**forget_chapter_text(project_id, number), "state_restored": restored,
+            "state_stale": bool(info["last"] and not restored)}
 
 
 def purge_orphan_chapter_data(project_id: int) -> int:

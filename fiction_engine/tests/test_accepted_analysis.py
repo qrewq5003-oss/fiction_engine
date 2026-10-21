@@ -214,7 +214,7 @@ def test_manual_edit_offers_recompute(project_id, monkeypatch):
     assert c.post("/chapter/1/save", json={"text": FINAL}).get_json()["stale"] is False
     seen = {}
     monkeypatch.setattr(generate_pipeline, "_start_state_update",
-                        lambda p, n, m, t, run_id=0: seen.update(n=n, t=t, m=m) or "job-1")
+                        lambda p, n, m, t, run_id=0, state_stale=False: seen.update(n=n, t=t, m=m) or "job-1")
     monkeypatch.setattr("engine.pipeline_config.default_role_models", lambda: {"gen": "nano_gpt::x/y"})
     monkeypatch.setenv("NANO_GPT_API_KEY", "test-key")
     r = c.post("/chapter/1/recompute", json={}).get_json()

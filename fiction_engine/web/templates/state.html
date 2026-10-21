@@ -552,7 +552,8 @@ async function applyPending(updateId) {
 }
 
 async function discardPending(updateId) {
-  await apiPost(`/state/discard/${updateId}`, {});
+  const r = await apiPost(`/state/discard/${updateId}`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   document.getElementById('pending-' + updateId).remove();
   showToast('Отклонено', 'info');
 }

@@ -251,7 +251,8 @@ async function addSymbol() {
 
 async function deleteSymbol(id) {
   if (!confirm('Удалить символ?')) return;
-  await apiPost('/symbols/delete', { id });
+  const r = await apiPost('/symbols/delete', { id });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showToast('Удалено', 'info');
   setTimeout(() => location.reload(), 500);
 }

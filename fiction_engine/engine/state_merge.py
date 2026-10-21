@@ -604,6 +604,11 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     from .db_chapters import last_chapter_number
     last = last_chapter_number(project_id) if chapter_num else None
     middle = bool(chapter_num and last and chapter_num < last)
+    # Последняя глава пересчитывается, а снимка до неё нет (старая книга): State
+    # уже содержит её прежнюю версию. Снимок «перед анализом» был бы ложным —
+    # «Откатить» и State на момент главы вернули бы прежний текст (разбор 21.10)
+    stale = bool(chapter_num and not middle and _was_applied(project_id, chapter_num)
+                 and not _snapshot_before(project_id, chapter_num))
     if not middle:
         global_text = _merge_characters(data.get("global_state_changes", []), global_text, ch)
         world_moment = (data.get("world_moment") or "").strip()
@@ -624,11 +629,24 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
         # Снимок с номером главы — по нему «Откатить главу» и State на момент
         # главы находят State до неё. Глава из середины — другой пометкой: её
         # снимок — конец книги, и «перед анализом» сбил бы откат последней главы
-        reason = (f"{SNAPSHOT_RECOMPUTE if middle else SNAPSHOT_BEFORE}{chapter_num}"
+        reason = (f"{SNAPSHOT_RECOMPUTE if middle or stale else SNAPSHOT_BEFORE}{chapter_num}"
                   if chapter_num else "")
         update_state(project_id, global_text, plot_text, memory_text, _snapshot_reason=reason)
     return {"changed": changed, "fields": ch.fields, "new_chars": ch.new_chars,
             "bible_conflicts": ch.bible_conflicts}
+
+
+def _was_applied(project_id: int, chapter_num: int) -> bool:
+    """Анализ этой главы уже вливался в State (глава пересчитывается)."""
+    from .db_core import get_conn
+    with get_conn() as conn:
+        return bool(conn.execute("SELECT 1 FROM state_updates WHERE project_id=? AND chapter_num=? AND applied=1",
+                                 (project_id, chapter_num)).fetchone())
+
+
+def _snapshot_before(project_id: int, chapter_num: int) -> bool:
+    from .db_state import snapshot_before_chapter
+    return bool(snapshot_before_chapter(project_id, chapter_num))
 
 
 # ─── Детали серии ────────────────────────────────────────────────────────────

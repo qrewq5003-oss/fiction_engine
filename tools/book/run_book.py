@@ -460,7 +460,9 @@ def chapter(n):
     else:
         log(f"гл.{n}: проверка логики не разобрана: {lc.get('error')}")
     # Голос — «Голос → Проверить» приложения (судья набора, другая семья, чем писатель)
-    code, vc = fe("/voice/check", {"text": final, "model": CHECKER}, timeout=900)
+    # Номер главы — эталон из глав до неё; писатель — проверяющий другой семьи
+    code, vc = fe("/voice/check", {"text": final, "model": CHECKER, "chapter_num": n,
+                                   "writer": ROLES["model_gen"]}, timeout=900)
     rec["voice"] = {"score": vc.get("score"), "analysis": vc.get("analysis") or vc.get("error")}
     nm = re.search(r"НЕ СОВПАДАЕТ:(.*?)(ИСПРАВИТЬ:|\Z)", rec["voice"]["analysis"] or "", re.S)
     log(f"гл.{n}: голос {vc.get('score')}/10 — " + " / ".join(

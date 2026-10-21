@@ -9,7 +9,7 @@ import threading
 import uuid
 
 from flask import render_template, request, jsonify, redirect, url_for, flash
-from engine.db import (get_chapters, save_chapter, get_api_key,
+from engine.db import (get_chapter, get_chapters, save_chapter, get_api_key,
                        save_author_edit, get_pipeline_iterations)
 from engine.api import get_all_models_flat
 
@@ -277,13 +277,17 @@ _state_lock = threading.Lock()
 
 
 def _start_state_update(project_id: int, chapter_num: int, model_value: str,
-                        text: str = "", run_id: int = 0) -> str:
+                        text: str = "", run_id: int = 0, state_stale: bool = False) -> str:
     job_id = str(uuid.uuid4())
     with _state_lock:
         for k in list(_state_jobs)[:-50]:          # держим последние 50
             del _state_jobs[k]
         _state_jobs[job_id] = {"status": "running", "state_updated": False,
-                               "project_id": project_id, "step": "State", "failed": []}
+                               "project_id": project_id, "step": "State",
+                               # Снимка до главы нет — State не откатился к её началу
+                               "failed": (["откат State к началу главы (снимка до неё нет: в State "
+                                           "остались следы прежнего текста — проверь вкладку State)"]
+                                          if state_stale else [])}
 
     def step(name: str) -> None:
         with _state_lock:
@@ -384,6 +388,10 @@ def pipeline_accept():
     model_value = data.get("model_value")
     if not run_id:
         return jsonify({"error": "Нет run_id"}), 400
+    # Глава — запуска, а не из запроса: страница могла сменить номер (разбор 21.10)
+    from engine.db import get_pipeline_run
+    run = get_pipeline_run(int(run_id)) or {}
+    chapter_num = run.get("chapter_num") or chapter_num
 
     from engine.pipeline import accept_pipeline, pipeline_rounds, round_of_text
     accept_pipeline(run_id, final_text)
@@ -394,13 +402,17 @@ def pipeline_accept():
         # Глава уже есть — производное от прежнего текста убрать до нового
         # анализа (engine.db_chapters.prepare_chapter_replace)
         from engine.db_chapters import prepare_chapter_replace
-        prepare_chapter_replace(current["id"], int(chapter_num))
-        save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
+        old = get_chapter(current["id"], int(chapter_num))
+        prep = prepare_chapter_replace(current["id"], int(chapter_num))
+        # Название главы — прежнее, если оно было (не «Глава N (pipeline)» поверх авторского)
+        save_chapter(current["id"], chapter_num, final_text,
+                     (old or {}).get("title") or f"Глава {chapter_num}")
         # Глава дописана — инструкция «вторая часть» с плана главы снимается
         from engine.db_narrative import drop_continuation
         drop_continuation(current["id"], int(chapter_num))
         if model_value:
-            state_job = _start_state_update(current["id"], chapter_num, model_value, final_text, run_id)
+            state_job = _start_state_update(current["id"], chapter_num, model_value, final_text, run_id,
+                                            state_stale=bool(prep.get("state_stale")))
 
         # ── Записываем правку автора для DATA_DRIVEN_LEARNING ──────────────
         # Находим оригинальный текст (последняя итерация generate/edit)

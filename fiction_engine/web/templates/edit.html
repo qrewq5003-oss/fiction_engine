@@ -251,12 +251,17 @@ function setView(view) {
 
 // ─── Загрузить из главы ──────────────────────────────────────────────────────
 
+// Загруженная глава: «Проверить голос» по ней берёт эталон из глав ДО неё,
+// а не из всей книги вместе с ней самой (разбор 21.10: балл завышался)
+let loadedChapter = null;
+
 async function loadChapter() {
   const num = document.getElementById('chapter-select').value;
   // /api/chapters отдаёт список без текста — кнопка не загружала ни одной главы
   const r = await fetch(`/api/chapter/${num}/text`).then(x => x.json()).catch(() => null);
   if (r && r.text) {
     document.getElementById('edit-input').value = r.text;
+    loadedChapter = {num: parseInt(num), text: r.text};
     updateWordCount();
     showToast('Глава загружена', 'info');
   } else {
@@ -339,7 +344,10 @@ async function checkVoiceEdit() {
 
   showToast('Проверяю голос...', 'info');
   // Текст правила модель «Редактора» — проверяющий другой семьи берёт сервер
-  const r = await apiPost('/voice/check', { text, model, writer: model });
+  // Правка загруженной главы — та же глава: эталон из глав до неё
+  const src = document.getElementById('edit-input').value.trim();
+  const ch = loadedChapter && loadedChapter.text.trim() === src ? loadedChapter.num : null;
+  const r = await apiPost('/voice/check', { text, model, writer: model, ...(ch ? {chapter_num: ch} : {}) });
 
   if (r.error) { showToast(r.error, 'error'); return; }
 

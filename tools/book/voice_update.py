@@ -59,7 +59,8 @@ checks = run.setdefault("check", {})
 for n in range(a, b + 1):
     if str(n) in checks:
         continue
-    r = s.post(FE + "/voice/check", json={"text": chapter(n), "model": SOL}, timeout=900).json()
+    # Номер главы — эталон из глав до неё, писатель — из запусков этой главы (сервер)
+    r = s.post(FE + "/voice/check", json={"text": chapter(n), "model": SOL, "chapter_num": n}, timeout=900).json()
     checks[str(n)] = {"score": r.get("score"), "analysis": r.get("analysis") or r.get("error")}
     print(f"гл.{n}: голос {r.get('score')}/10", flush=True)
     OUT.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")

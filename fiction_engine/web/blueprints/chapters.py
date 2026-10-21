@@ -52,6 +52,9 @@ def chapter_view(num):
     if not current:
         return redirect(url_for("index"))
     ch = get_chapter(current["id"], num)
+    if not ch:                          # нет главы — не 500 из шаблона
+        flash(f"Главы {num} нет", "error")
+        return redirect(url_for("index"))
     return render_template("chapter.html", chapter=ch, current=current)
 
 
@@ -100,8 +103,9 @@ def chapter_recompute(num):
         return jsonify({"error": NO_MODEL}), 400
     from engine.db_chapters import prepare_chapter_replace
     from .generate_pipeline import _start_state_update
-    prepare_chapter_replace(current["id"], num)
-    return jsonify({"ok": True, "state_job": _start_state_update(current["id"], num, model, ch["content"])})
+    prep = prepare_chapter_replace(current["id"], num)
+    return jsonify({"ok": True, "state_job": _start_state_update(current["id"], num, model, ch["content"],
+                                                                 state_stale=bool(prep.get("state_stale")))})
 
 
 @bp.route("/chapter/<int:num>/delete", methods=["POST"])

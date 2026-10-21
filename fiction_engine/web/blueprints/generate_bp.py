@@ -1,164 +1,23 @@
 """Blueprint: генерация, pipeline, prep, prompt, edit, validate."""
 from flask import Blueprint, request, jsonify, redirect, url_for
-from engine.db import (save_chapter, get_api_key,
-                       get_generation_history, get_generation_by_id)
+from engine.db import get_api_key, get_generation_history, get_generation_by_id
 from engine.pipeline import score_text  # публичный API скоринга
 from ..ownership import owned_generation, deny
-from .helpers import get_current_project, after_chapter_saved
+from .helpers import get_current_project
 
 bp = Blueprint("generate", __name__)
 
 
 
-# ─── Фоновая генерация ────────────────────────────────────────────────────────
-import threading, uuid
-
-_jobs: dict[str, dict] = {}   # job_id -> dict
-_jobs_lock = threading.Lock()
-
-
-
-def _make_job(job_id: str):
-    return {"status": "running", "result": None, "error": None, "warning": None,
-            "gen_id": None, "truncated": False, "cut_reason": "", "word_count": 0}
-
-
-def _classify_api_error(err: str) -> str:
-    """Преобразовать техническое сообщение об ошибке в читаемое."""
-    err_l = err.lower()
-    if "rate_limit" in err_l or "429" in err_l:
-        return "Превышен лимит запросов. Подожди минуту."
-    if "context_length" in err_l:
-        return "Контекст слишком большой. Уменьши Подготовку."
-    if "invalid_api_key" in err_l or "authentication" in err_l:
-        return "Неверный API ключ."
-    if "timeout" in err_l:
-        return "Timeout — попробуй снова."
-    return f"Ошибка: {err}"
-
-
-def _set_job(job_id, **kwargs):
-    with _jobs_lock:
-        if job_id in _jobs:
-            _jobs[job_id].update(kwargs)
-
-
-def _cleanup_old_jobs():
-    """Держим не больше 50 последних задач в памяти."""
-    with _jobs_lock:
-        if len(_jobs) > 50:
-            oldest = list(_jobs.keys())[:-50]
-            for k in oldest:
-                del _jobs[k]
-
+# /generate/run, /generate/status, /generate/save удалены 21.10: страницу
+# «Генерация» слили с «Мастерской», и их не вызывал никто; /generate/save к тому
+# же откатывал State поверх главы, не вливая анализ нового текста
 
 @bp.route("/generate")
 def generate_page():
     """Страница слита с Pipeline в «Мастерскую» (переключатель «Критик и судья»).
     Адрес оставлен: закладки и старые ссылки ведут туда."""
     return redirect(url_for("generate.pipeline_page"))
-
-
-@bp.route("/generate/run", methods=["POST"])
-def generate_run():
-    current = get_current_project()
-    if not current:
-        return jsonify({"error": "Нет проекта"}), 400
-    data = request.json or {}
-    chapter_num = data.get("chapter_num")
-    mode        = data.get("mode", "quick")
-    model_value = data.get("model")
-    task        = data.get("task", "").strip()
-    if not all([chapter_num, model_value, task]):
-        return jsonify({"error": "Нужны chapter_num, model и task"}), 400
-    provider = model_value.split("::")[0]
-    if not get_api_key(provider):
-        return jsonify({"error": f"Нет API ключа для {provider}. Добавь в Настройках."}), 400
-
-    # Создаём задачу и запускаем в фоне
-    _cleanup_old_jobs()
-    job_id = str(uuid.uuid4())
-    with _jobs_lock:
-        _jobs[job_id] = _make_job(job_id)
-
-    project_snapshot = dict(current)  # копия чтобы не держать контекст запроса
-
-    def _worker():
-        try:
-            from engine.pipeline import run_generation
-            result = run_generation(project_snapshot, chapter_num, mode, model_value, task)
-            gen_id = _save_gen_history(project_snapshot["id"], chapter_num,
-                                       model_value, mode, task, result["text"])
-            _set_job(job_id, status="done", result=result["text"],
-                     gen_id=gen_id, warning=result["warning"],
-                     truncated=result.get("truncated", False),
-                     cut_reason=result.get("cut_reason", ""),
-                     word_count=result.get("word_count", 0),
-                     continuity=result.get("continuity"))
-
-        except Exception as e:
-            _set_job(job_id, status="error", error=_classify_api_error(str(e)))
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    return jsonify({"ok": True, "job_id": job_id})
-
-
-@bp.route("/generate/status/<job_id>")
-def generate_status(job_id):
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-    if not job:
-        return jsonify({"status": "not_found"}), 404
-    return jsonify({
-        "status":     job["status"],
-        "result":     job["result"],
-        "error":      job["error"],
-        "warning":    job["warning"],
-        "gen_id":     job["gen_id"],
-        # Флаг для интерфейса: глава не дописана — предложить продолжение
-        # одной кнопкой, вместо того чтобы автор сам заметил обрыв.
-        "truncated":  job.get("truncated", False),
-        "cut_reason": job.get("cut_reason", ""),
-        "word_count": job.get("word_count", 0),
-        # Карточка главы: проверка непрерывности и правка по её находкам
-        "continuity": job.get("continuity"),
-    })
-
-
-def _save_gen_history(project_id, chapter_num, model, mode, task, text):
-    from engine.db import get_conn, init_generation_history
-    try:
-        init_generation_history()
-        with get_conn() as conn:
-            cur = conn.execute(
-                "INSERT INTO generation_history (project_id,chapter_num,model,mode,task,result_text,word_count) VALUES (?,?,?,?,?,?,?)",
-                (project_id, chapter_num, model, mode, task, text, len(text.split()))
-            )
-            return cur.lastrowid
-    except Exception:
-        return None
-
-
-@bp.route("/generate/save", methods=["POST"])
-def generate_save():
-    current = get_current_project()
-    if not current:
-        return jsonify({"error": "Нет проекта"}), 400
-    data = request.json or {}
-    chapter_num = data.get("chapter_num")
-    text        = data.get("text", "").strip()
-    model_value = data.get("model", "")
-    if not chapter_num or not text:
-        return jsonify({"error": "Нужны chapter_num и text"}), 400
-    # Поверх главы — убрать посчитанное по прежнему тексту, как «Принять» (разбор 21.10)
-    from engine.db_chapters import prepare_chapter_replace
-    prepare_chapter_replace(current["id"], int(chapter_num))
-    save_chapter(current["id"], chapter_num, text, f"Глава {chapter_num}")
-    result = {"ok": True}
-    if model_value:
-        result.update(after_chapter_saved(current["id"], chapter_num, text, model_value))
-    return jsonify(result)
 
 
 @bp.route("/generate/validate", methods=["POST"])

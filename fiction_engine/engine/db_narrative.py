@@ -154,14 +154,20 @@ def save_voice_profile(project_id: int, name: str, profile: str,
         return cur.lastrowid
 
 
-def set_active_voice(project_id: int, profile_id: int | None):
+def set_active_voice(project_id: int, profile_id: int | None) -> bool:
+    """Включить профиль голоса (None — выключить все). False — профиля нет в
+    этом проекте: тогда ничего не меняется (раньше голос проекта гас, а ответ — ok)."""
     with get_conn() as conn:
+        if profile_id and not conn.execute("SELECT 1 FROM voice_profiles WHERE id=? AND project_id=?",
+                                           (profile_id, project_id)).fetchone():
+            return False
         conn.execute("UPDATE voice_profiles SET active=0 WHERE project_id=?", (project_id,))
         if profile_id:
             conn.execute(
                 "UPDATE voice_profiles SET active=1 WHERE id=? AND project_id=?",
                 (profile_id, project_id)
             )
+    return True
 
 
 def get_active_voice(project_id: int) -> dict | None:
@@ -557,14 +563,14 @@ def kb_save(project_id: int, title: str, content: str,
             article_id: int | None = None) -> int:
     with get_conn() as conn:
         if article_id:
-            conn.execute(
+            n = conn.execute(
                 """UPDATE knowledge_base
                    SET title=?, content=?, tags=?, auto_inject=?,
                        updated_at=datetime('now')
                    WHERE id=? AND project_id=?""",
                 (title, content, tags, auto_inject, article_id, project_id)
-            )
-            return article_id
+            ).rowcount
+            return article_id if n else 0      # 0 — статьи нет в этом проекте
         cur = conn.execute(
             """INSERT INTO knowledge_base
                (project_id, title, content, tags, auto_inject)
@@ -576,11 +582,10 @@ def kb_save(project_id: int, title: str, content: str,
 
 def kb_delete(article_id: int, project_id: int) -> bool:
     with get_conn() as conn:
-        conn.execute(
+        return conn.execute(
             "DELETE FROM knowledge_base WHERE id=? AND project_id=?",
             (article_id, project_id)
-        )
-    return True
+        ).rowcount > 0
 
 
 def kb_search(project_id: int, query: str, max_results: int = 3) -> list[dict]:

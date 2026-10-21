@@ -40,6 +40,8 @@ def knowledge_save():
         return jsonify({"error": "Нужны title и content"}), 400
 
     saved_id = kb_save(current["id"], title, content, tags, auto_inject, article_id)
+    if not saved_id:                    # статьи нет в этом проекте — правка ушла бы впустую
+        return jsonify({"error": "Статья не найдена"}), 404
     return jsonify({"ok": True, "id": saved_id})
 
 
@@ -59,7 +61,8 @@ def knowledge_delete(article_id):
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
-    kb_delete(article_id, current["id"])
+    if not kb_delete(article_id, current["id"]):
+        return jsonify({"error": "Статья не найдена"}), 404
     return jsonify({"ok": True})
 
 

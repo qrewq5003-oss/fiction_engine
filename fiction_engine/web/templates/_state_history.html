@@ -24,7 +24,7 @@ async function loadStateHistory() {
   data.history.forEach(h => {
     const el = document.createElement('div');
     el.style.cssText = 'padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);display:flex;gap:8px;align-items:center';
-    const ts = h.saved_at ? h.saved_at.slice(0, 16).replace('T', ' ') : '';
+    const ts = localTime(h.saved_at);
     el.innerHTML = `
       <div style="flex:1;min-width:0">
         <span style="color:var(--text)">${ts}</span>

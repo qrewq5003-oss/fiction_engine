@@ -6,7 +6,7 @@
     Глава {{ chapter.number }}{% if chapter.title %}: {{ chapter.title }}{% endif %}
   </div>
   <div class="page-sub">
-    {{ chapter.word_count }} слов · {{ chapter.created_at[:10] }}
+    {{ chapter.word_count }} слов · {{ chapter.created_at | local(10) }}
     · <a href="/" style="color:var(--accent2);">← Назад</a>
   </div>
 </div>
