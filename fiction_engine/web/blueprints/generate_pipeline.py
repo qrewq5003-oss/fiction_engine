@@ -344,6 +344,9 @@ def pipeline_accept():
         from engine.db_chapters import prepare_chapter_replace
         prepare_chapter_replace(current["id"], int(chapter_num))
         save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
+        # Глава дописана — инструкция «вторая часть» с плана главы снимается
+        from engine.db_narrative import drop_continuation
+        drop_continuation(current["id"], int(chapter_num))
         if model_value:
             state_job = _start_state_update(current["id"], chapter_num, model_value, final_text, run_id)
 
