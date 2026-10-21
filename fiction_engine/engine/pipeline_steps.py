@@ -790,16 +790,9 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     critique     = (critique_for_judge(results.get("critique", "")) if judge_sees_critique(model_judge)
                     else NO_CRITIQUE_FOR_JUDGE)
 
-    # ── История оценок для контекста судьи ──────────────────────────────────
-    score_context = ""
-    if project_id:
-        try:
-            from .db import get_judge_score_history, format_score_history
-            history      = get_judge_score_history(project_id, n=10, before_chapter=chapter_num)
-            score_context = format_score_history(history, chapter_num)
-        except Exception as e:
-            handle_error(f"step_judge score_history ({project_id})", e,
-                         level=ErrorLevel.RECOVERABLE)
+    # Истории оценок проекта судья не получает (21.10): 12 глав «Фона» с ней и
+    # без неё — 30.7 против 31.1, разница по главе 1.08 при разбросе Sol 1.6;
+    # пользы нет, а через неё уходила оценка этой же главы (обход 20.10)
 
     if previous_text and previous_text != current_text:
         judge_prompt = (
@@ -815,7 +808,6 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
             "Вынеси финальный вердикт."
         )
 
-    # Добавляем историю оценок и calibration hint в системную роль судьи
     # Правило вердикта — с порогом этого судьи (pipeline_config.accept_total_for)
     from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for, verdict_rule_for_prompt
     from .judge_rubric import rubric
@@ -825,8 +817,6 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         sys_judge = _sys_judge_v2(accept_total_for(model_judge), ACCEPT_MIN_CRITERION, genre_key)
     else:
         sys_judge = SYS_JUDGE.replace(_verdict_rule, verdict_rule_for_prompt(model_judge))
-    if score_context:
-        sys_judge += f"\n\nИСТОРИЯ ОЦЕНОК ПРОЕКТА: {score_context}"
 
     # ── Жанровый чеклист из 10_VALIDATION ───────────────────────────────────
     try:

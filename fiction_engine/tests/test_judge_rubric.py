@@ -124,3 +124,19 @@ def test_rubric_setting_route(project_id):
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v3"}).status_code == 400
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v2"}).get_json()["rubric"] == "v2"
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v1"}).get_json()["rubric"] == "v1"
+
+
+def test_judge_gets_no_score_history(project_id):
+    """История оценок проекта судье не уходит: на оценку не влияла, а раньше в ней была эта глава."""
+    from engine.db_narrative import create_pipeline_run, save_pipeline_iteration
+    run = create_pipeline_run(project_id, 1, "w", "c", "w", JUDGE)
+    save_pipeline_iteration(run, 1, "judge", JUDGE, "текст", "ИТОГ: 34", score=34, verdict="ПРИНЯТЬ")
+    from engine.pipeline_steps import step_judge
+    seen = {}
+    def call(model, system, prompt, max_tokens=None, **kw):
+        seen["system"] = system
+        return _answer()
+    res = {"generated_text": "Глава. " * 50, "critique": "разбор"}
+    step_judge(create_pipeline_run(project_id, 2, "w", "c", "w", JUDGE), 1, 2, JUDGE, call, res, project_id=project_id)
+    assert "ИСТОРИЯ ОЦЕНОК" not in seen["system"] and "34/50" not in seen["system"]
+
