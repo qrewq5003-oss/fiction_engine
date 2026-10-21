@@ -4,6 +4,7 @@
 Правило: этот файл не импортирует _call, _build_*, _make_* из pipeline.
 Только публичные функции engine-слоя.
 """
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from engine.db import get_project, get_active_project_id
@@ -129,7 +130,8 @@ def _get_scorer_model(writer: str) -> str:
         return ""
 
 
-def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_value: str) -> dict:
+def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_value: str,
+                        alive: Callable[[], bool] | None = None) -> dict:
     """
     Единый pipeline после сохранения главы:
       1. L3 саммари
@@ -138,12 +140,16 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
       4. Авто-оценка
 
     Возвращает dict с результатами (не кидает исключений).
+    alive() — глава всё ещё та же (её не откатили, пока шли шаги): каждый шаг —
+    вызов модели, и откат успевал между ними.
     """
     # Аннотация обязательна: без неё тип выводится по первому
     # присваиванию (bool), и последующая запись строки — ошибка типов
     result: dict[str, object] = {}
     cheap  = get_cheap_model(model_value)
 
+    if alive and not alive():
+        return result
     # 1. L3
     try:
         from engine.pipeline import generate_l3
@@ -156,6 +162,8 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
                       project_id=project_id, chapter_num=chapter_num)
         result["l3_generated"] = False
 
+    if alive and not alive():
+        return result
     # 2. Дрейф голоса
     try:
         from engine.pipeline import auto_drift_check_if_needed
@@ -167,6 +175,8 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
         log_web_error("после сохранения: проверка дрейфа голоса", e,
                       project_id=project_id, chapter_num=chapter_num)
 
+    if alive and not alive():
+        return result
     # 3. Режиссёрская заметка
     try:
         from engine.pipeline import generate_director_note_for_chapter
@@ -177,6 +187,8 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
         log_web_error("после сохранения: режиссёрская заметка", e,
                       project_id=project_id, chapter_num=chapter_num)
 
+    if alive and not alive():
+        return result
     # 4. Авто-оценка
     try:
         from engine.db import chapter_writers

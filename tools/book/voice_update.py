@@ -9,6 +9,11 @@
 3. Sol выбирает 3 эталонных отрывка из глав (не Claude: текст писал Sonnet); цитаты сверяются дословно.
 --apply — сохранить новый профиль, включить, старый удалить.
 Всё через маршруты приложения; результат — voice_update.json.
+
+Главы и профиль — из приложения, а не из файлов книги: chapters/chNN.txt и
+book.json не видели правок и откатов глав в FE, а --apply затирал правки
+профиля на странице «Голос» (разбор 21.10). Меняются только строка замера
+манеры и «ЭТАЛОН (из книги)»; остальное — активный профиль как есть.
 """
 import json, re, sys
 from pathlib import Path
@@ -37,7 +42,10 @@ assert SETUP["fe_pid"] in active
 
 
 def chapter(n):
-    return (B / "chapters" / f"ch{n:02}.txt").read_text(encoding="utf-8")
+    t = s.get(FE + f"/api/chapter/{n}/text", params={"pid": SETUP["fe_pid"]}, timeout=60).json().get("text")
+    if not t:
+        raise SystemExit(f"гл.{n} нет в приложении")
+    return t
 
 
 # 1. Проверка голоса
@@ -77,8 +85,12 @@ for x in run["excerpts"]:
     print(f"эталон гл.{x.get('chapter')} ({x.get('kind')}, найден дословно: {x['found']}): {x.get('text','')[:120]}")
 
 if apply:
-    prof = BOOK["voice"]["profile"]
-    head = prof.split("ЭТАЛОН")[0].rstrip()
+    voice = s.get(FE + "/api/voice/active", timeout=30).json().get("voice")
+    if not voice:
+        raise SystemExit("у проекта нет активного профиля голоса")
+    prof = voice["profile"]
+    # Прежние замер и эталон из книги — заменяются; всё остальное (правки автора) — как есть
+    head = re.sub(r"\n*ЗАМЕРЕНО ПО ГЛАВАМ[^\n]*", "", prof.split("ЭТАЛОН (из книги)")[0]).rstrip()
     numbers = (f"\n\nЗАМЕРЕНО ПО ГЛАВАМ 1–{b}: в среднем {manner['слов во фразе']} слов во фразе, "
                f"диалог {manner['диалог, %']:.0f}% текста. Держать эту манеру.")
     ex = [x for x in run["excerpts"] if x["found"]][:3]
@@ -91,7 +103,7 @@ if apply:
     name = f"Варя — «Разбор» (гл.{b})"
     v = s.post(FE + "/voice/save", json={"name": name, "profile": new, "source": "custom"}).json()
     print("новый голос:", v, s.post(FE + "/voice/activate", json={"id": v["id"]}).json())
-    print("старый удалён:", s.post(FE + "/voice/delete", json={"id": SETUP["voice_id"]}).status_code)
+    print("старый удалён:", s.post(FE + "/voice/delete", json={"id": voice["id"]}).status_code)
     SETUP["voice_id"] = v["id"]
     json.dump(SETUP, open(B / "setup.json", "w", encoding="utf-8"), ensure_ascii=False)
     BOOK["voice"] = {"name": name, "profile": new}

@@ -180,7 +180,7 @@ async function runAccept() {
     if (data.action === 'project') {
       const info = document.getElementById('new-project-info');
       info.style.display = 'block';
-      info.textContent = `✅ Новый проект: «${data.project_name}» уже создан и активирован`;
+      info.textContent = `✅ Новый проект: «${data.project_name}» создан и активирован — персонажи и сюжет в «Подготовке», события в State`;
     }
 
     // Добавляем в историю
@@ -200,10 +200,14 @@ async function applyPreview() {
 
   // Если уже новый проект — state уже применён на сервере
   if (pendingData.action === 'project') {
-    showToast('Проект создан, State Engine заполнен', 'success');
+    showToast('Проект создан: персонажи и сюжет — в «Подготовке», события — в State', 'success');
     discardPreview();
     return;
   }
+  // У проекта уже есть главы — State заменится целиком, со всем, что накопили главы
+  if (pendingData.chapters && !confirm(`У проекта ${pendingData.chapters} глав. State Engine заменится ` +
+      'разбором целиком — состояние персонажей, линии и детали, накопленные главами, пропадут ' +
+      '(снимок останется в истории State). Заменить?')) return;
 
   // Для action=state отправляем отредактированный предпросмотр
   const global_state = document.getElementById('prev-global').value;

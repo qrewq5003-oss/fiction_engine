@@ -66,6 +66,17 @@ def voice_save():
     return jsonify({"ok": True, "id": pid})
 
 
+@bp.route("/api/voice/active")
+def voice_active_get():
+    """Активный профиль голоса проекта — для инструментов (tools/book/voice_update.py)."""
+    current = get_current_project()
+    if not current:
+        return jsonify({"voice": None})
+    from engine.db import get_active_voice
+    v = get_active_voice(current["id"])
+    return jsonify({"voice": {"id": v["id"], "name": v["name"], "profile": v["profile"]} if v else None})
+
+
 @bp.route("/voice/activate", methods=["POST"])
 def voice_activate():
     current = get_current_project()
