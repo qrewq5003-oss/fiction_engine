@@ -474,13 +474,17 @@ def chapter_plan_save(chapter_num):
     if not note:
         return jsonify({"error": "Пустой план"}), 400
     from engine.db import save_director_note
-    from engine.series_bible import author_set
+    from engine.series_bible import PLAN_REASON, author_set
     # Как в director_note_save: заметка для главы N хранится «после главы N-1»
     save_director_note(project["id"], chapter_num - 1, note)
     # Сцены дальше по доске — только сторожу забеганий, писателю никогда
     if "future" in data:
         from engine.run_ahead import save_future
         save_future(project["id"], chapter_num, str(data.get("future") or ""))
+    # Новый план главы — вместо прежнего: его записи в библии убрать
+    if "facts" in data:
+        from engine.series_bible import drop_plan_facts
+        drop_plan_facts(project["id"], chapter_num)
     n = 0
     for f in data.get("facts") or []:
         if not isinstance(f, dict):
@@ -488,6 +492,6 @@ def chapter_plan_save(chapter_num):
         name, attr, value = (str(f.get(k) or "").strip() for k in ("name", "attr", "value"))
         if name and attr and value:
             author_set(project["id"], str(f.get("kind") or "событие"), name, attr, value,
-                       chapter_num, f"план главы {chapter_num}")
+                       chapter_num, PLAN_REASON.format(chapter_num))
             n += 1
     return jsonify({"ok": True, "facts": n})

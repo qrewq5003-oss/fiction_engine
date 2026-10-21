@@ -220,6 +220,14 @@ def _execute_steps(
                              gen_text, model_critic, step_call, results, model_gen=model_gen)
             step_chapter_analysis(project_id, chapter_num,
                                   gen_text, model_critic, step_call, results)
+            # Анализ черновика — в запуске, с хэшем текста: примут этот текст —
+            # анализ возьмётся без нового вызова (record_accepted_analysis)
+            if results.get("chapter_analysis_data"):
+                import json
+                from .db import save_pipeline_iteration
+                from .plan_check import _text_hash
+                save_pipeline_iteration(run_id, iteration, ANALYSIS_STAGE, model_critic, _text_hash(gen_text),
+                                        json.dumps(results["chapter_analysis_data"], ensure_ascii=False))
 
         elif step.name == "edit":
             step_edit(run_id, iteration, generation_prompt,
@@ -442,6 +450,14 @@ def continue_pipeline(
         ctx.info(f"pipeline continue iter={next_iter}")
 
     resolved_steps = (config.to_pipeline_steps() if config is not None else steps)
+    # Разбор готового текста (REVIEW_ONLY, текст с правками автора) — текст
+    # пишется кругом: иначе круг брал текст прошлого круга, а балл — этого, и
+    # окно «Принять» могло выбрать «лучший» круг без правок автора (разбор 21.10)
+    if resolved_steps is not None and not any(s.name in ("generate", "edit") for s in resolved_steps)             and (previous_text or "").strip():
+        rounds = pipeline_rounds(iters)
+        if not rounds or rounds[-1]["text"].strip() != previous_text.strip():
+            from .db import save_pipeline_iteration
+            save_pipeline_iteration(run_id, next_iter, "review", "", "", previous_text)
     result = run_pipeline_step(
         run_id=run_id, iteration=next_iter,
         project_id=project_id, chapter_num=chapter_num,
@@ -459,7 +475,9 @@ def continue_pipeline(
     return result
 
 
-TEXT_STAGES = ("generate", "continuity_fix", "edit")
+TEXT_STAGES = ("generate", "continuity_fix", "edit", "review")
+# Анализ черновика круга: input_text — хэш текста, output_text — JSON анализа
+ANALYSIS_STAGE = "analysis"
 
 
 def pipeline_rounds(iters: list[dict]) -> list[dict]:
@@ -524,6 +542,46 @@ def accept_pipeline(run_id: int, final_text: str = ""):
     # оценку автора, равную оценке судьи, — затирал настоящую оценку автора
     # главы, и судья всегда слышал «твои оценки точны (+0.0)». Калибровка — только
     # из оценок автора (ideas_bp); принятые запуски и так в pipeline_runs.
+
+
+def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
+                             run_id: int = 0, model: str = "") -> bool:
+    """
+    Анализ главы (разрывы, обещания, причинные цепи, тип зачина и концовки —
+    chapter_analysis) по принятому тексту. True — записан.
+
+    Круг «Мастерской» анализирует черновик, но в базу его не пишет (step_chapter_
+    analysis): принят этот же текст — берётся анализ из запуска, без вызова;
+    другой (круг правки, ручная правка) — анализ заново моделью критика запуска
+    (model — без запуска). «Ночная смена» (20.10): анализ был по черновику, правка
+    гл.1 убрала ошибку «мы с тобой вдвоём в палате», а критик гл.3 упрекал главу
+    «нерешённым разрывом из гл.1». Анализ читают писатель следующей главы,
+    проверка непрерывности и предупреждение о монотонности.
+    """
+    if not (final_text or "").strip():
+        return False
+    import json
+    from .chapter_analyzer import ChapterAnalysis, analyze_chapter_deep
+    from .db import save_chapter_analysis
+    from .plan_check import _text_hash
+    run = get_pipeline_run(run_id) if run_id else None
+    if run:
+        h = _text_hash(final_text)
+        for it in reversed(get_pipeline_iterations(run_id)):
+            if it["stage"] == ANALYSIS_STAGE and it["input_text"] == h:
+                try:
+                    data = json.loads(it["output_text"])
+                    data.update(project_id=project_id, chapter_num=chapter_num)
+                    save_chapter_analysis(project_id, chapter_num, ChapterAnalysis(**data).to_dict())
+                    return True
+                except Exception as e:
+                    handle_error("record_accepted_analysis: анализ из запуска", e, level=ErrorLevel.RECOVERABLE)
+                break
+        model = run.get("model_critic") or run.get("model_gen") or model
+    if not model:
+        return False
+    analysis = analyze_chapter_deep(project_id, chapter_num, final_text, lambda p: _call(model, "", p))
+    return analysis.analysis_quality != "failed"
 
 
 def reject_pipeline(run_id: int):

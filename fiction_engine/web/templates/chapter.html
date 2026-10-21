@@ -20,6 +20,8 @@
   <button class="btn btn-secondary btn-sm" id="btn-edit" onclick="startEdit()">✏️ Редактировать</button>
   <button class="btn btn-success btn-sm" id="btn-save-edit" onclick="saveEdit()" style="display:none;">💾 Сохранить</button>
   <button class="btn btn-secondary btn-sm" id="btn-cancel-edit" onclick="cancelEdit()" style="display:none;">Отмена</button>
+  <button class="btn btn-secondary btn-sm" onclick="recomputeChapter()"
+          title="L3, анализ главы, State и библия — заново по нынешнему тексту (после правки текста)">🔄 Пересчитать по тексту</button>
   <button class="btn btn-secondary btn-sm" onclick="deleteChapter()" title="Удалить главу">🗑 Удалить</button>
 </div>
 
@@ -68,6 +70,21 @@ async function saveEdit() {
   el.contentEditable = 'false'; el.style.border = ''; el.style.padding = '';
   _editButtons(false);
   showToast(`Глава сохранена · ${r.word_count} слов`, 'success');
+  // Производное главы (L3, анализ, State, библия) — от прежнего текста
+  if (r.stale && confirm('L3, анализ главы, State и библия посчитаны по прежнему тексту — ' +
+      'их получают писатель и проверки следующих глав. Пересчитать по новому тексту сейчас? ' +
+      'Это несколько вызовов моделей.')) recomputeChapter();
+}
+
+async function recomputeChapter() {
+  const r = await apiPost(`/chapter/${CHAPTER_NUM}/recompute`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+  showToast('Пересчитываю главу по тексту…', 'info', 6000);
+  for (let i = 0; i < 120; i++) {
+    await new Promise(res => setTimeout(res, 3000));
+    const s = await fetch(`/pipeline/state_status/${r.state_job}`).then(x => x.json()).catch(() => null);
+    if (s && s.status === 'done') { showToast('State обновлён, L3 и анализ — в фоне', 'success'); return; }
+  }
 }
 
 async function deleteChapter() {

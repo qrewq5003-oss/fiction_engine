@@ -64,7 +64,7 @@ def generate_director_note(
         note = note.strip()
 
         from engine.db import save_director_note
-        save_director_note(project_id, chapter_num, note)
+        save_director_note(project_id, chapter_num, note, source="auto")
 
         return note
 

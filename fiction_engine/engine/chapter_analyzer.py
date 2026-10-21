@@ -259,6 +259,7 @@ class ChapterAnalyzer:
         chapter_text: str,
         api_call_fn: LLMCaller,
         n_previous: int = 5,
+        persist: bool = True,
     ) -> ChapterAnalysis:
         """
         Запустить анализ главы.
@@ -269,6 +270,9 @@ class ChapterAnalyzer:
             chapter_text: текст главы
             api_call_fn:  функция вызова LLM (prompt → str)
             n_previous:   сколько предыдущих саммари загружать для контекста
+            persist:      записать в chapter_analysis. Круги «Мастерской» — нет: это
+                          черновик, анализ главы пишется при «Принять» (pipeline.
+                          record_accepted_analysis)
 
         Returns:
             ChapterAnalysis — всегда, даже при ошибке (analysis_quality="failed")
@@ -298,8 +302,8 @@ class ChapterAnalyzer:
                       project_id=project_id, chapter_num=chapter_num)
             return ChapterAnalysis.failed(project_id, chapter_num)
 
-        # Сохраняем в БД (если функция доступна)
-        self._persist(analysis)
+        if persist:
+            self._persist(analysis)
 
         with log.context(project_id=project_id, chapter_num=chapter_num) as ctx:
             ctx.info(
@@ -507,6 +511,7 @@ def analyze_chapter_deep(
     chapter_num: int,
     chapter_text: str,
     api_call_fn: LLMCaller,
+    persist: bool = True,
 ) -> ChapterAnalysis:
     """
     Удобная функция для вызова без создания объекта.
@@ -514,4 +519,4 @@ def analyze_chapter_deep(
     from .chapter_analyzer import analyze_chapter_deep
     analysis = analyze_chapter_deep(1, 5, text, api_fn)
     """
-    return get_analyzer().analyze(project_id, chapter_num, chapter_text, api_call_fn)
+    return get_analyzer().analyze(project_id, chapter_num, chapter_text, api_call_fn, persist=persist)

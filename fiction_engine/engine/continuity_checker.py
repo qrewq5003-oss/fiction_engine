@@ -127,7 +127,6 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
 
         promise_lines = []
         causal_lines  = []
-        gap_lines     = []
 
         for a in analyses:
             ch_n = a.get("chapter_num", "?")
@@ -140,10 +139,6 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
                 if isinstance(c, dict) and c.get("is_setup") and c.get("effect"):
                     causal_lines.append(f"  гл.{ch_n}: {c.get('cause', '')} → {c['effect']}")
 
-            for g in (a.get("logical_gaps") or []):
-                if g and isinstance(g, str):
-                    gap_lines.append(f"  гл.{ch_n}: {g}")
-
         if promise_lines:
             # Берём последние 10 — самые релевантные
             parts.append(
@@ -155,11 +150,8 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
                 "ПРИЧИННО-СЛЕДСТВЕННЫЕ ЦЕПИ (установленные факты):\n"
                 + "\n".join(causal_lines[-8:])
             )
-        if gap_lines:
-            parts.append(
-                "РАНЕЕ НАЙДЕННЫЕ РАЗРЫВЫ (для контекста):\n"
-                + "\n".join(gap_lines[-5:])
-            )
+        # Разрывы прошлых глав — не факты серии, а их ошибки: проверяющий
+        # приписывал их новой главе (как критик, step_critique, 21.10)
 
     except Exception as e:
         handle_error(f"continuity_checker _build_series_facts analyses ({project_id})", e,
