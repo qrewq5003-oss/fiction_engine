@@ -165,5 +165,7 @@ def project_new():
 def project_delete(pid):
     from engine.db import delete_project
     delete_project(pid)
-    session.pop("project_id", None)
+    # Сбрасывать открытый проект — только если удалён он (разбор 21.10)
+    if session.get("project_id") == pid:
+        session.pop("project_id", None)
     return jsonify({"ok": True})

@@ -53,6 +53,8 @@
 // Импорт из FE. Окно было, а функций — нет (с первого коммита): кнопка
 // «Импорт из FE» падала с «openFEImport is not defined».
 const CURRENT_PLANNER_PROJECT = {{ (current.name if current else '')|tojson }};
+// Книга FE, с которой текущий проект уже связан (перепривязка — только с вопросом)
+const CURRENT_FE_LINK = {{ (current.fe_project_id if current else None)|tojson }};
 
 function _escFE(s) {
   return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -84,11 +86,16 @@ async function doFEImport() {
   const spin = document.getElementById('fe-import-spin');
   spin.style.display = 'inline-block';
   try {
+    if (CURRENT_PLANNER_PROJECT && CURRENT_FE_LINK && String(CURRENT_FE_LINK) !== String(feId) &&
+        !confirm(`Проект «${CURRENT_PLANNER_PROJECT}» уже связан с другой книгой FE. Перепривязать? ` +
+                 'Метки глав на доске останутся от прежней книги.')) return;
     if (!CURRENT_PLANNER_PROJECT) {
       // Импорт пишет в текущий проект планировщика — на пустом создаём его
       const name = sel.options[sel.selectedIndex].dataset.name || 'Проект из FE';
       const c = await apiPost('/projects/new', {name, genre: '', description: ''});
       if (!c.ok) { showToast(c.error || 'Не удалось создать проект', 'error'); return; }
+      // Страница теперь — нового проекта: иначе импорт получил бы отказ «другой проект»
+      document.querySelector('meta[name=planner-project]').content = String(c.id);
     }
     const r = await apiPost(`/api/fe/import/${feId}`, {});
     if (!r.ok) { showToast(r.error || 'Импорт не удался', 'error'); return; }

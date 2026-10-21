@@ -69,14 +69,14 @@ def scene_new():
     act_id = data.get("act_id")
     if act_id is not None and not owned_act(act_id):
         return deny("Акт")
-    from engine.db import create_scene, update_scene
+    from engine.db import create_scene, get_scene, update_scene
     sid = create_scene(pid, act_id)
     # Карточка /scene/new сохраняется впервые — поля приходят сразу.
     # Снапшот пустой карточки не нужен: откатываться к пустоте незачем
-    fields = {k: v for k, v in data.items() if k != "act_id"}
+    fields = {k: v for k, v in data.items() if k not in ("act_id", "_version", "_force")}
     if fields:
         update_scene(sid, fields, snapshot=False)
-    return jsonify({"ok": True, "id": sid})
+    return jsonify({"ok": True, "id": sid, "version": (get_scene(sid) or {}).get("updated_at")})
 
 
 @bp.route("/scenes/move", methods=["POST"])
@@ -93,7 +93,10 @@ def scene_move():
     if act_id is not None and not owned_act(act_id):
         return deny("Акт")
     from engine.db import move_scene
-    move_scene(sid, act_id, position)
+    try:
+        move_scene(sid, act_id, int(position or 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Неверная позиция"}), 400
     return jsonify({"ok": True})
 
 
@@ -114,13 +117,32 @@ def scene_reorder():
             return deny("Сцена")
 
     from engine.db import get_conn
+    try:
+        rows = [(act_id, int(item["position"]), int(item["scene_id"])) for item in order]
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Нужны scene_id и position"}), 400
     with get_conn() as conn:
-        for item in order:
-            conn.execute(
-                "UPDATE scenes SET act_id=?, position=? WHERE id=?",
-                (act_id, item["position"], item["scene_id"])
-            )
+        conn.executemany("UPDATE scenes SET act_id=?, position=? WHERE id=?", rows)
     return jsonify({"ok": True})
+
+
+@bp.route("/scenes/trash")
+def scenes_trash():
+    pid = current_pid()
+    if not pid: return jsonify({"scenes": []})
+    from engine.db import get_trash
+    return jsonify({"scenes": get_trash(pid)})
+
+
+@bp.route("/scenes/trash/<int:trash_id>/restore", methods=["POST"])
+def scenes_trash_restore(trash_id):
+    pid = current_pid()
+    if not pid: return jsonify({"error": "Нет проекта"}), 400
+    from engine.db import restore_from_trash
+    sid = restore_from_trash(pid, trash_id)
+    if not sid:
+        return deny("Удалённая сцена")
+    return jsonify({"ok": True, "id": sid})
 
 
 # ─── Acts ─────────────────────────────────────────────────────────────────────
@@ -147,6 +169,23 @@ def act_save():
     aid = save_act(pid, data.get("id"), data.get("number", 1),
                    data.get("title", "Акт"), data.get("color", "#6b7280"))
     return jsonify({"ok": True, "id": aid})
+
+
+@bp.route("/acts/save_all", methods=["POST"])
+def acts_save_all():
+    """Все акты разом (окно «Акты»): обмен номерами и новый акт после удаления
+    по одному упирались в уникальность номера и молча не сохранялись."""
+    pid = current_pid()
+    if not pid: return jsonify({"error": "Нет проекта"}), 400
+    acts = (request.json or {}).get("acts") or []
+    for a in acts:
+        if a.get("id") and not owned_act(a["id"]):
+            return deny("Акт")
+    from engine.db import save_acts
+    try:
+        return jsonify({"ok": True, "ids": save_acts(pid, acts)})
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"Акты не сохранены: {e}"}), 400
 
 
 @bp.route("/acts/<int:act_id>/delete", methods=["POST"])
@@ -407,8 +446,15 @@ def chapter_import_save():
             links.append({"from": ends[0], "to": ends[1],
                           "type": ln.get("type") if ln.get("type") in ("cause", "parallel", "mirror", "contrast")
                           else "cause", "label": str(ln.get("label") or "")[:80]})
-    from engine.db import import_chapter
-    ids = import_chapter(pid, act_id, _chapter_num(data), scenes, links)
+    from engine.db import delete_scene, get_scenes, import_chapter
+    chapter = _chapter_num(data)
+    if data.get("replace"):
+        # Прежние сцены главы — в корзину (их можно вернуть): иначе экспорт
+        # главы уносил в план оба комплекта (разбор планировщика 21.10)
+        for s in get_scenes(pid):
+            if s.get("chapter_num") == chapter:
+                delete_scene(s["id"])
+    ids = import_chapter(pid, act_id, chapter, scenes, links)
     return jsonify({"ok": True, "ids": ids})
 
 

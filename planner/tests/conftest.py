@@ -16,6 +16,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+# Тесты не ходят в настоящий FE на :5000 с настоящим токеном и не пишут ключ
+# сессий в домашнюю папку (разбор планировщика 21.10). Тесты связки с FE
+# поднимают свою заглушку и задают FE_URL сами
+_iso = tempfile.mkdtemp(prefix="planner_test_")
+os.environ.setdefault("FE_URL", "http://127.0.0.1:1")
+os.environ.setdefault("FE_API_TOKEN_FILE", os.path.join(_iso, "api_token"))
+os.environ.setdefault("PLANNER_SECRET_FILE", os.path.join(_iso, "secret.key"))
+Path(os.environ["FE_API_TOKEN_FILE"]).write_text("test-token", encoding="utf-8")
+
 
 REAL_DB = (ROOT / "planner.db").resolve()
 

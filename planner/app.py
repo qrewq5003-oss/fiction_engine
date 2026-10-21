@@ -18,20 +18,35 @@ except ImportError:
     pass
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
-# Ключ подписи сессий. Константа в коде — это публичный ключ: любой,
-# у кого есть доступ к репозиторию, подделает cookie. Если переменной нет,
-# генерируем случайный: сессии сбросятся при перезапуске, но не будут
-# подписаны общеизвестной строкой.
-_secret = os.environ.get("SECRET_KEY", "")
-if not _secret:
-    import secrets as _secrets, logging as _logging
-    _secret = _secrets.token_hex(32)
-    _logging.warning(
-        "SECRET_KEY не задан — используется случайный ключ, сессии сбросятся "
-        "при перезапуске. Задайте SECRET_KEY в окружении."
-    )
-app.secret_key = _secret
-del _secret
+
+
+def _session_secret() -> str:
+    """
+    Ключ подписи сессий. Константа в коде — публичный ключ (подделка cookie).
+    Порядок: SECRET_KEY, FLASK_SECRET_KEY (так он называется в .env FE), иначе
+    постоянный файл PLANNER_SECRET_FILE (~/fiction_engine/planner_secret.key).
+    Раньше без SECRET_KEY ключ был новым при каждом запуске: после перезапуска
+    открытые карточки получали отказ, а автосохранение теряло правки молча
+    (разбор планировщика 21.10).
+    """
+    env = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
+    if env:
+        return env
+    import secrets
+    path = Path(os.environ.get("PLANNER_SECRET_FILE") or Path.home() / "fiction_engine" / "planner_secret.key")
+    if path.exists() and path.read_text(encoding="utf-8").strip():
+        return path.read_text(encoding="utf-8").strip()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    key = secrets.token_hex(32)
+    path.write_text(key, encoding="utf-8")
+    try:
+        os.chmod(path, 0o600)
+    except OSError:                 # Windows: права NTFS, chmod ничего не даёт
+        pass
+    return key
+
+
+app.secret_key = _session_secret()
 
 # Вход по паролю и CSRF — web/security.py
 from web.security import check_host, init_security
@@ -83,6 +98,16 @@ def ensure_current_project():
         session["project_id"] = projects[0]["id"]
     else:
         session.pop("project_id", None)
+
+
+@app.errorhandler(500)
+def _json_500(e):
+    """Сбой запроса страницы (/api/…, POST) — JSON с причиной, а не HTML: JS
+    показывал «Unexpected token <» (разбор планировщика 21.10)."""
+    if request.path.startswith("/api/") or request.method != "GET":
+        err = getattr(e, "original_exception", None) or e
+        return jsonify({"error": f"сбой сервера: {type(err).__name__}: {str(err)[:200]}"}), 500
+    return "Внутренняя ошибка планировщика", 500
 
 
 @app.context_processor
