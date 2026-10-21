@@ -419,6 +419,41 @@ def save_director_note(project_id: int, after_chapter: int, note: str):
         )
 
 
+# «Продолжить главу» (pipeline.html): инструкция второй части. Дописывается к
+# плану главы, а не вместо него — раньше затирала план и «пока не раскрывать»
+# из планировщика, и при новом прогоне главы писателю оставалось «это вторая
+# часть» (разбор 21.10). После «Принять» снимается (drop_continuation)
+CONTINUE_MARK = "⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ"
+
+
+def without_continuation(note: str) -> str:
+    return (note or "").split(CONTINUE_MARK)[0].rstrip()
+
+
+def add_continuation(project_id: int, for_chapter: int, instruction: str) -> None:
+    """Инструкция продолжения главы for_chapter — к её плану (прежняя инструкция уходит)."""
+    base = without_continuation(get_director_note(project_id, for_chapter) or "")
+    note = f"{base}\n\n{instruction}" if base else instruction
+    save_director_note(project_id, for_chapter - 1, note.strip())
+
+
+def drop_continuation(project_id: int, for_chapter: int) -> bool:
+    """Снять инструкцию продолжения с плана главы — глава принята. True — была."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT note FROM director_notes WHERE project_id=? AND after_chapter=?",
+                           (project_id, for_chapter - 1)).fetchone()
+        if not row or CONTINUE_MARK not in (row["note"] or ""):
+            return False
+        base = without_continuation(row["note"])
+        if base:
+            conn.execute("UPDATE director_notes SET note=? WHERE project_id=? AND after_chapter=?",
+                         (base, project_id, for_chapter - 1))
+        else:
+            conn.execute("DELETE FROM director_notes WHERE project_id=? AND after_chapter=?",
+                         (project_id, for_chapter - 1))
+    return True
+
+
 def get_director_note(project_id: int, for_chapter: int) -> str | None:
     with get_conn() as conn:
         row = conn.execute(

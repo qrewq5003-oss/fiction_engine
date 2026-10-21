@@ -177,6 +177,11 @@ def director_note_save(chapter_num):
     note = (data.get("note") or "").strip()
     if not note:
         return jsonify({"error": "Пустая заметка"}), 400
+    if data.get("continue"):
+        # «Продолжить главу» — к плану, а не вместо него (db_narrative.add_continuation)
+        from engine.db_narrative import add_continuation
+        add_continuation(current["id"], chapter_num, note)
+        return jsonify({"ok": True})
     from engine.db import save_director_note
     save_director_note(current["id"], chapter_num - 1, note)
     return jsonify({"ok": True})

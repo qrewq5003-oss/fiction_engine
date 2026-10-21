@@ -330,6 +330,9 @@ def pipeline_accept():
     state_job = None
     if current and chapter_num and final_text:
         save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
+        # Глава дописана — инструкция «вторая часть» с плана главы снимается
+        from engine.db_narrative import drop_continuation
+        drop_continuation(current["id"], int(chapter_num))
         if model_value:
             state_job = _start_state_update(current["id"], chapter_num, model_value, final_text)
 

@@ -355,10 +355,13 @@ function showToast(msg, type='info', duration=3000) {
 
 // === Persist inputs across navigation ===
 (function() {
-  const ns = 'fe:' + location.pathname;
+  // По проекту: поля «Мастерской» (задача, глава) другого проекта сюда не
+  // восстанавливаются. data-nopersist — не восстанавливать (номер главы
+  // подставляет сервер: следующая глава этого проекта)
+  const ns = 'fe:{{ current.id if current else 0 }}:' + location.pathname;
 
   function save(el) {
-    if (!el.id) return;
+    if (!el.id || el.dataset.nopersist !== undefined) return;
     const key = ns + ':' + el.id;
     if (el.type === 'radio') {
       if (el.checked) localStorage.setItem(key + ':radio:' + el.name, el.value);
@@ -368,7 +371,7 @@ function showToast(msg, type='info', duration=3000) {
   }
 
   function restore(el) {
-    if (!el.id) return;
+    if (!el.id || el.dataset.nopersist !== undefined) return;
     const key = ns + ':' + el.id;
     if (el.type === 'radio') {
       const saved = localStorage.getItem(key + ':radio:' + el.name);
