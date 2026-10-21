@@ -43,7 +43,7 @@ def test_enabled_calls_cli_without_tools_and_settings(monkeypatch):
     from engine.api import call_model, get_last_stop_reason, get_last_usage
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+         patch("engine.api.run_cli", return_value=_proc(OK)) as run:
         out = call_model("claude_subscription::claude-sonnet-5-5", "сис", "юзер", max_tokens=300)
     cmd = run.call_args.args[0]
     assert out == "Дождь шёл всю ночь." and get_last_stop_reason() == "end_turn"
@@ -59,7 +59,7 @@ def test_prefill_glued_with_space(monkeypatch):
     from engine.api import call_model
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(dict(OK, result="а в щель тянуло."))):
+         patch("engine.api.run_cli", return_value=_proc(dict(OK, result="а в щель тянуло."))):
         out = call_model("claude_subscription::claude-haiku-4-5-20251001", "с", "у", prefill="Дождь стучал, и")
     assert out == "Дождь стучал, и а в щель тянуло."
 
@@ -68,7 +68,7 @@ def test_cli_error_raises(monkeypatch):
     from engine.api import call_model
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc({"is_error": True, "result": "limit"})):
+         patch("engine.api.run_cli", return_value=_proc({"is_error": True, "result": "limit"})):
         with pytest.raises(RuntimeError, match="limit"):
             call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
 
@@ -81,7 +81,7 @@ def test_setup_token_from_settings_goes_to_cli_env(monkeypatch):
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     save_api_key("claude_subscription", "sk-ant-oat01-test-token-0000")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+         patch("engine.api.run_cli", return_value=_proc(OK)) as run:
         call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert run.call_args.kwargs["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "sk-ant-oat01-test-token-0000"
 
@@ -91,7 +91,7 @@ def test_without_token_cli_login_is_used(monkeypatch):
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+         patch("engine.api.run_cli", return_value=_proc(OK)) as run:
         call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in run.call_args.kwargs["env"]
 
@@ -119,7 +119,7 @@ def test_continuation_after_output_limit_keeps_the_beginning(monkeypatch):
     out_payload = dict(OK, result="ень. Холод пошёл через рубашку.")
     turns = ["Лукаш нырнул под мост. Наступила т", "ень. Холод пошёл через рубашку."]
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(out_payload, turns=turns)) as run:
+         patch("engine.api.run_cli", return_value=_proc(out_payload, turns=turns)) as run:
         out = call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert out == "Лукаш нырнул под мост. Наступила тень. Холод пошёл через рубашку."
     cmd = run.call_args.args[0]
@@ -133,7 +133,7 @@ def test_output_limit_exhausted_returns_text_as_cut(monkeypatch):
     err = {"is_error": True, "api_error": "max_output_tokens", "stop_reason": "stop_sequence",
            "result": "API Error: Claude's response exceeded the output token maximum."}
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(err, turns=["Первая часть ", "вторая часть"])):
+         patch("engine.api.run_cli", return_value=_proc(err, turns=["Первая часть ", "вторая часть"])):
         out = call_model("claude_subscription::claude-sonnet-5-5", "с", "у")
     assert out == "Первая часть вторая часть" and get_last_stop_reason() == "max_tokens"
 
@@ -151,7 +151,7 @@ def test_cli_runs_outside_repo_without_dev_memory(monkeypatch):
     from engine.api import call_model
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
-         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+         patch("engine.api.run_cli", return_value=_proc(OK)) as run:
         call_model("claude_subscription::claude-haiku-5-5", "сис", "юзер", max_tokens=300)
     cwd = Path(run.call_args.kwargs["cwd"]).resolve()
     repo = Path(__file__).resolve().parents[2]

@@ -544,6 +544,41 @@ _CLAUDE_SUB_LOCK = threading.Lock()
 CLAUDE_SUB_TIMEOUT = 900          # секунд: длинная глава пишется минутами
 
 
+def kill_tree(proc: subprocess.Popen) -> None:
+    """Убить процесс со всеми потомками. На Windows `codex`/`claude` — node,
+    который запускает свой exe: kill() убивал только node, потомок держал
+    трубы открытыми, и чтение их ждало без конца (разбор 21.10)."""
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                       capture_output=True, timeout=30)
+    else:
+        import signal
+        try:
+            getattr(os, "killpg")(proc.pid, getattr(signal, "SIGKILL"))   # нет на Windows — для mypy там
+        except (ProcessLookupError, PermissionError):
+            proc.kill()
+
+
+def run_cli(cmd: list[str], input: str, timeout: float, **kw) -> subprocess.CompletedProcess:
+    """subprocess.run для CLI подписок: по таймауту — убить всё дерево процессов."""
+    if os.name != "nt":
+        kw.setdefault("start_new_session", True)          # своя группа — для killpg
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          text=True, encoding="utf-8", errors="replace", **kw) as proc:
+        try:
+            out, err = proc.communicate(input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_tree(proc)
+            try:
+                proc.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
+            raise
+        return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+
+
 def claude_cli_cwd() -> str:
     """
     Папка, из которой запускается claude CLI: пустая служебная, вне репозитория.
@@ -627,9 +662,7 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
     if token and token != "claude-cli":
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token
     with _CLAUDE_SUB_LOCK:
-        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace",
-                              timeout=CLAUDE_SUB_TIMEOUT, env=env, cwd=claude_cli_cwd())
+        proc = run_cli(cmd, input=prompt, timeout=CLAUDE_SUB_TIMEOUT, env=env, cwd=claude_cli_cwd())
     result, data = _parse_claude_stream(proc.stdout)
     if data is None:
         raise RuntimeError(f"claude CLI: нет итога (код {proc.returncode}): "
@@ -719,9 +752,7 @@ def _call_chatgpt_subscription(model_id, system, user, api_key, max_tokens, pref
             cmd += ["--disable", feat]
         cmd.append("-")
         with _CHATGPT_SUB_LOCK:
-            proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
-                                  encoding="utf-8", errors="replace",
-                                  timeout=CHATGPT_SUB_TIMEOUT)
+            proc = run_cli(cmd, input=prompt, timeout=CHATGPT_SUB_TIMEOUT)
         # --json пишет по событию в строку; прочие строки (предупреждения CLI) — не события
         events = [_json.loads(line) for line in (proc.stdout or "").splitlines()
                   if line.startswith("{") and line.rstrip().endswith("}")]
@@ -763,7 +794,10 @@ def chatgpt_limits() -> dict:
     import json as _json
     p = subprocess.Popen(_codex_cmd() + ["app-server"], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                         text=True, encoding="utf-8")
+                         text=True, encoding="utf-8", start_new_session=os.name != "nt")
+    # Не ответил — чтение ждало бы без конца: через 60 с убить (чтение кончится)
+    watchdog = threading.Timer(60, kill_tree, [p])
+    watchdog.start()
     try:
         def rpc(i, method, params):
             p.stdin.write(_json.dumps({"jsonrpc": "2.0", "id": i, "method": method,
@@ -778,7 +812,8 @@ def chatgpt_limits() -> dict:
         p.stdin.write(_json.dumps({"jsonrpc": "2.0", "method": "initialized"}) + "\n")
         snap = (rpc(2, "account/rateLimits/read", {}).get("result") or {}).get("rateLimits") or {}
     finally:
-        p.kill()
+        watchdog.cancel()
+        kill_tree(p)
     return {"primary": snap.get("primary"), "secondary": snap.get("secondary"),
             "plan": snap.get("planType"), "reached": snap.get("rateLimitReachedType")}
 

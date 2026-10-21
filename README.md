@@ -176,6 +176,7 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `FLASK_SECRET_KEY` | Подпись сессий Fiction Engine | производный от ключа шифрования |
 | `FE_HOST` / `FE_PORT` | Адрес веб-интерфейса | `127.0.0.1` / `5000` |
 | `FE_PASSWORD` | Пароль входа в Fiction Engine; обязателен, если `FE_HOST` не петля | нет — вход не спрашивается |
+| `FE_TRUSTED_HOSTS` | Имена, по которым открывают приложение, кроме `127.0.0.1` / `localhost` (через запятую). Запрос с другим именем в `Host` отклоняется — защита от DNS rebinding. Вне петли без списка проверки нет | только петля |
 | `FE_SECRET_KEY` | Ключ шифрования API-ключей в базе (ключ Fernet) | файл `FE_SECRET_KEY_FILE` |
 | `FE_SECRET_KEY_FILE` | Файл ключа шифрования (на POSIX — с правами 600) | `%USERPROFILE%\fiction_engine\secret.key` |
 | `FE_API_TOKEN_FILE` | Токен для планировщика (`X-FE-Token`), если `FE_PASSWORD` не задан | `%USERPROFILE%\fiction_engine\api_token` |
@@ -183,6 +184,7 @@ fiction_engine\.venv\Scripts\python perenos.py pack            &rem на ста�
 | `SECRET_KEY` | Подпись сессий планировщика | случайный при старте |
 | `PLANNER_PASSWORD` | Пароль входа в планировщик; обязателен, если `PLANNER_HOST` не петля | `FE_PASSWORD` |
 | `PLANNER_HOST` / `PLANNER_PORT` | Адрес планировщика | `127.0.0.1` / `5001` |
+| `PLANNER_TRUSTED_HOSTS` | То же, что `FE_TRUSTED_HOSTS`, для планировщика | только петля |
 | `PLANNER_DB` | Путь к базе планировщика | `planner\planner.db` |
 | `FICTION_DEBUG` | Подробный лог в консоль | выключено |
 | `FE_URL` | Адрес Fiction Engine для планировщика | `http://127.0.0.1:5000` |

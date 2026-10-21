@@ -41,7 +41,7 @@ def test_enabled_calls_codex_read_only_without_tools(monkeypatch):
     monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
     fake = _run()
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=fake):
+         patch("engine.api.run_cli", side_effect=fake):
         out = call_model("chatgpt_subscription::gpt-6.1-sol@high", "сис", "юзер")
     cmd = fake.cmd
     assert out == "Дождь шёл всю ночь."
@@ -58,7 +58,7 @@ def test_tool_call_is_an_error(monkeypatch):
     evs = [{"type": "item.completed", "item": {"type": "command_execution", "command": "dir"}},
            {"type": "turn.completed", "usage": {}}]
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=_run(events=evs)):
+         patch("engine.api.run_cli", side_effect=_run(events=evs)):
         with pytest.raises(RuntimeError, match="инструмент"):
             call_model("chatgpt_subscription::gpt-6-luna", "с", "у")
 
@@ -68,7 +68,7 @@ def test_turn_failed_raises(monkeypatch):
     monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
     evs = [{"type": "turn.failed", "error": {"message": "usage limit reached"}}]
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=_run(text="", events=evs, code=1)):
+         patch("engine.api.run_cli", side_effect=_run(text="", events=evs, code=1)):
         with pytest.raises(RuntimeError, match="usage limit"):
             call_model("chatgpt_subscription::gpt-6-luna", "с", "у")
 
@@ -77,7 +77,7 @@ def test_prefill_glued_with_space(monkeypatch):
     from engine.api import call_model
     monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=_run(text="а в щель тянуло.")):
+         patch("engine.api.run_cli", side_effect=_run(text="а в щель тянуло.")):
         out = call_model("chatgpt_subscription::gpt-6-luna", "с", "у", prefill="Дождь стучал, и")
     assert out == "Дождь стучал, и а в щель тянуло."
 
@@ -98,7 +98,7 @@ def test_reconnect_then_completed_is_an_answer(monkeypatch):
            {"type": "item.completed", "item": {"type": "agent_message", "text": "Ответ."}},
            {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}]
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=_run(text="Ответ.", events=evs)):
+         patch("engine.api.run_cli", side_effect=_run(text="Ответ.", events=evs)):
         assert call_model("chatgpt_subscription::gpt-6-luna", "с", "у") == "Ответ."
 
 
@@ -109,7 +109,7 @@ def test_reconnect_without_completion_raises(monkeypatch):
     evs = [{"type": "error", "message": "Reconnecting... 5/5 (tls handshake eof)"},
            {"type": "turn.failed", "error": {"message": "stream disconnected"}}]
     with patch("engine.api.shutil.which", return_value="/usr/bin/codex"), \
-         patch("engine.api.subprocess.run", side_effect=_run(text="", events=evs, code=1)):
+         patch("engine.api.run_cli", side_effect=_run(text="", events=evs, code=1)):
         with pytest.raises(RuntimeError, match="stream disconnected"):
             call_model("chatgpt_subscription::gpt-6-luna", "с", "у")
 
@@ -121,5 +121,5 @@ def test_error_item_is_not_a_tool(monkeypatch):
     evs = [{"type": "item.completed", "item": {"type": "error", "message": "Reconnecting... 2/5"}},
            {"type": "item.completed", "item": {"type": "agent_message", "text": "Ответ."}},
            {"type": "turn.completed", "usage": {}}]
-    with patch("engine.api.shutil.which", return_value="/usr/bin/codex"),          patch("engine.api.subprocess.run", side_effect=_run(text="Ответ.", events=evs)):
+    with patch("engine.api.shutil.which", return_value="/usr/bin/codex"),          patch("engine.api.run_cli", side_effect=_run(text="Ответ.", events=evs)):
         assert call_model("chatgpt_subscription::gpt-6-luna", "с", "у") == "Ответ."

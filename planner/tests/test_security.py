@@ -85,3 +85,11 @@ def test_session_cookie_not_shared_with_fe():
     """Fiction Engine на том же 127.0.0.1: общий cookie «session» затирал его сессию."""
     from app import app
     assert app.config["SESSION_COOKIE_NAME"] == "planner_session"
+
+
+def test_foreign_host_is_refused(client, monkeypatch):
+    """DNS rebinding: чужое имя в Host — отказ (разбор 21.10)."""
+    monkeypatch.delenv("PLANNER_TRUSTED_HOSTS", raising=False)
+    monkeypatch.delenv("PLANNER_HOST", raising=False)
+    assert client.get("/projects", headers={"Host": "evil.example:5001"}).status_code == 403
+    assert client.get("/projects", headers={"Host": "127.0.0.1:5001"}).status_code == 200

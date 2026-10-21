@@ -38,6 +38,25 @@ def check_host(host: str) -> str | None:
     return None
 
 
+def allowed_request_host(host_header: str) -> bool:
+    """
+    Имя в Host — петля или из PLANNER_TRUSTED_HOSTS (через запятую). Защита от
+    DNS rebinding, как в Fiction Engine (web/security.allowed_request_host):
+    чужое имя, перепривязанное на 127.0.0.1, — отказ. Вне петли без списка
+    не действует (там нужен пароль).
+    """
+    import os
+    name = (host_header or "").strip().lower()
+    if name.startswith("["):
+        name = name[1:].split("]")[0]
+    elif name.count(":") == 1:
+        name = name.split(":")[0]
+    extra = {h.strip().lower() for h in os.environ.get("PLANNER_TRUSTED_HOSTS", "").split(",") if h.strip()}
+    if os.environ.get("PLANNER_HOST", "127.0.0.1") not in LOOPBACK and not extra:
+        return True
+    return name in LOOPBACK or name in extra
+
+
 def csrf_token() -> str:
     if "csrf" not in session:
         session["csrf"] = secrets.token_urlsafe(32)
@@ -87,6 +106,13 @@ def init_security(app: Flask) -> None:
                 return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
             error = "Неверный пароль"
         return render_template_string(_LOGIN_PAGE, error=error)
+
+    @app.before_request
+    def _host_guard():
+        if not allowed_request_host(request.host):
+            return jsonify({"error": "запрос на чужое имя хоста отклонён: открывайте планировщик по "
+                                     "127.0.0.1 или localhost (в сети — PLANNER_TRUSTED_HOSTS)"}), 403
+        return None
 
     @app.before_request
     def _guard():
