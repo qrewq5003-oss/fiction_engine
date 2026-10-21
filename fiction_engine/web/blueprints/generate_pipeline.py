@@ -193,10 +193,12 @@ def pipeline_continue():
 
 
 def _try_state_update_after_accept(project_id: int, chapter_num: int,
-                                    model_value: str) -> bool:
+                                    model_value: str, alive=None) -> bool:
     """
     Запустить анализ главы и применить изменения к State Engine.
     Возвращает True если State успешно обновлён. Никогда не бросает исключений.
+    alive() — глава всё ещё та же: анализ — вызов модели на десятки секунд,
+    за это время главу могли откатить, и State получил бы удалённую главу.
     """
     provider = model_value.split("::")[0] if "::" in model_value else model_value
     if not get_api_key(provider):
@@ -207,7 +209,7 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                                merge_analysis_into_state)
         result   = analyze_chapter(project_id, chapter_num, model_value)
         auto_id  = result.get("update_id")
-        if not auto_id:
+        if not auto_id or (alive and not alive()):
             return False
         # Применяем через тот же merge, что и ручной путь /state/apply.
         # Раньше здесь читались ключи new_global_state / new_plot_matrix,
@@ -277,10 +279,32 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         _state_jobs[job_id] = {"status": "running", "state_updated": False,
                                "project_id": project_id}
 
+    def alive() -> bool:
+        """Глава та же, что принимали: её не откатили и не заменили, пока шла обработка."""
+        if not text:
+            return True
+        from engine.db import get_chapter
+        ch = get_chapter(project_id, int(chapter_num))
+        return bool(ch) and (ch.get("content") or "").strip() == text.strip()
+
     def worker():
-        updated = _try_state_update_after_accept(project_id, chapter_num, model_value)
+        updated = _try_state_update_after_accept(project_id, chapter_num, model_value, alive)
         with _state_lock:
             _state_jobs[job_id].update(status="done", state_updated=updated)
+        try:
+            _after_accept(alive)
+        finally:
+            # Главу откатили, пока шла обработка, — записанное по ней убрать
+            # (разбор 21.10: страница перезагружается по «State обновлён», и
+            # «Откатить» успевал раньше L3, заметки и оценки)
+            from engine.db import get_chapter
+            if text and not get_chapter(project_id, int(chapter_num)):
+                from engine.db_chapters import forget_chapter_text
+                forget_chapter_text(project_id, int(chapter_num))
+
+    def _after_accept(alive) -> None:
+        if not alive():
+            return
         # Анализ главы — по принятому тексту (engine.pipeline.record_accepted_
         # analysis): из запуска, если принят проанализированный черновик, иначе
         # заново. До L3 и заметки: следующая глава берёт из него контекст
@@ -295,9 +319,9 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         # делала только «Сохранить как главу» прежней «Генерации»: глава,
         # принятая в Pipeline / «Мастерской», оставалась без L3 (у автора
         # 17.10), и анализ серии был пуст. После State — по одному вызову за раз
-        if text:
+        if text and alive():
             from .helpers import after_chapter_saved
-            after_chapter_saved(project_id, chapter_num, text, model_value)
+            after_chapter_saved(project_id, chapter_num, text, model_value, alive=alive)
 
     threading.Thread(target=worker, daemon=True).start()
     return job_id
@@ -405,7 +429,10 @@ def pipeline_reject():
             orig_text  = gen_iter["output_text"] if gen_iter else ""
             j_score    = judge_iter["score"] if judge_iter else None
             reason     = data_r.get("rejection_reason", "")
-            ch_num     = data_r.get("chapter_num") or (judge_iter or {}).get("chapter_num")
+            # Номер главы — из запуска: у итераций его нет, а страница шлёт
+            # только run_id, и отклонение не записывалось никогда (разбор 21.10)
+            from engine.db import get_pipeline_run
+            ch_num     = data_r.get("chapter_num") or (get_pipeline_run(run_id) or {}).get("chapter_num")
             if orig_text and ch_num:
                 save_author_edit(
                     project_id=current["id"],

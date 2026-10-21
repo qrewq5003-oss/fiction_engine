@@ -49,7 +49,17 @@ def ideas_accept():
             g    = genre or parsed.get("genre") or ""
             pid  = create_project(name, g)
             set_active_project(pid)
-            update_state(pid, gs, pm, mg)
+            # Карточки персонажей и линия сюжета — в «Подготовку» автора, в State —
+            # только ключевые события. Раньше всё шло в State, и карточки жили
+            # в двух местах и расходились (проект 6: «карточки → Подготовка»
+            # разделяли вручную; разбор 21.10)
+            from engine.db_settings import save_prep
+            if gs:
+                save_prep(pid, "characters", gs)
+            if pm:
+                save_prep(pid, "plot", pm)
+            if mg:
+                update_state(pid, memory_graph=mg)
             return jsonify({"ok": True, "action": "project", "project_id": pid,
                             "project_name": name, "global_state": gs,
                             "plot_matrix": pm, "memory_graph": mg})
@@ -57,8 +67,11 @@ def ideas_accept():
             current = get_current_project()
             if not current:
                 return jsonify({"error": "Нет активного проекта"}), 400
-            update_state(current["id"], gs, pm, mg)
-            return jsonify({"ok": True, "action": "state",
+            # Только разбор для предпросмотра: записывает «Применить» (/state/apply/0)
+            # после правки автора. Раньше State заменялся здесь же — до
+            # предпросмотра, и «Отмена» его не возвращала
+            from engine.db import get_chapters
+            return jsonify({"ok": True, "action": "state", "chapters": len(get_chapters(current["id"])),
                             "global_state": gs, "plot_matrix": pm, "memory_graph": mg})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

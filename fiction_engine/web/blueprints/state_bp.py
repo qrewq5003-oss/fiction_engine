@@ -111,7 +111,8 @@ def state_analyze():
     _cleanup_analyze_jobs()
     job_id = str(_uuid.uuid4())
     with _analyze_lock:
-        _analyze_jobs[job_id] = {"status": "running", "result": None, "error": None}
+        _analyze_jobs[job_id] = {"status": "running", "result": None, "error": None,
+                                 "project_id": current["id"]}
 
     project_id = current["id"]
 
@@ -148,9 +149,12 @@ def state_analyze():
 
 @bp.route("/state/analyze/status/<job_id>")
 def state_analyze_status(job_id):
+    current = get_current_project()
     with _analyze_lock:
         job = _analyze_jobs.get(job_id)
-    if not job:
+    # Анализ другого проекта — как несуществующий: после переключения проекта
+    # страница State показывала чужой разбор (разбор 21.10)
+    if not job or not current or job.get("project_id") != current["id"]:
         return jsonify({"status": "not_found"}), 404
     return jsonify({"status": job["status"], "result": job["result"], "error": job["error"]})
 
