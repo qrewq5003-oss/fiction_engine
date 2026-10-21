@@ -590,29 +590,43 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     Применить структурированный JSON-анализ к State Engine.
     Надёжный путь: никаких regex по свободному тексту.
     """
-    from .db_state import SNAPSHOT_BEFORE, get_state, update_state
+    from .db_state import SNAPSHOT_BEFORE, SNAPSHOT_RECOMPUTE, get_state, update_state
     state = get_state(project_id)
     ch = _Changes()
-    global_text = _merge_characters(data.get("global_state_changes", []),
-                                    state.get("global_state", ""), ch)
-    world_moment = (data.get("world_moment") or "").strip()
-    if _is_real_value(world_moment):
-        global_text = _apply_doc_field("момент", "МОМЕНТ", world_moment[:200],
-                                       global_text, "Мир.момент", ch.record)
-    plot = data.get("plot_changes") or {}
-    plot_text = _merge_plot(plot, state.get("plot_matrix", ""), ch)
-    plot_text = _merge_side_lines(plot if isinstance(plot, dict) else {}, plot_text, chapter_num, ch)
-    plot_text = _merge_open_questions(data.get("open_questions") or [], plot_text, chapter_num, ch)
-    memory_text = _merge_memory(data.get("memory_changes", []), state.get("memory_graph", ""), ch)
+    global_text = state.get("global_state", "")
+    plot_text = state.get("plot_matrix", "")
+    memory_text = state.get("memory_graph", "")
+    # Глава из середины книги (после неё есть принятые): State — это конец
+    # книги, его «сейчас» — где герои, что дальше, состояние и цели, открытые
+    # вопросы, побочные линии — не откатываем к этой главе. Из неё — только её
+    # факты: детали, библия, события, закрытые обещания (разбор 21.10: анализ
+    # переписанной гл.12 ставил писателю гл.25 «ГДЕ_СЕЙЧАС» из гл.12)
+    from .db_chapters import last_chapter_number
+    last = last_chapter_number(project_id) if chapter_num else None
+    middle = bool(chapter_num and last and chapter_num < last)
+    if not middle:
+        global_text = _merge_characters(data.get("global_state_changes", []), global_text, ch)
+        world_moment = (data.get("world_moment") or "").strip()
+        if _is_real_value(world_moment):
+            global_text = _apply_doc_field("момент", "МОМЕНТ", world_moment[:200],
+                                           global_text, "Мир.момент", ch.record)
+        plot = data.get("plot_changes") or {}
+        plot_text = _merge_plot(plot, plot_text, ch)
+        plot_text = _merge_side_lines(plot if isinstance(plot, dict) else {}, plot_text, chapter_num, ch)
+        plot_text = _merge_open_questions(data.get("open_questions") or [], plot_text, chapter_num, ch)
+    memory_text = _merge_memory(data.get("memory_changes", []), memory_text, ch)
     _merge_promises(data.get("resolved_promises", []), project_id, chapter_num, ch)
     plot_text = _merge_details(data.get("details") or [], plot_text, chapter_num, ch)
     _merge_bible(data.get("bible") or [], project_id, chapter_num, ch)
 
     changed = bool(ch.fields)
     if changed:
-        # Снимок с номером главы — по нему «Откатить главу» находит State до неё
-        update_state(project_id, global_text, plot_text, memory_text,
-                     _snapshot_reason=f"{SNAPSHOT_BEFORE}{chapter_num}" if chapter_num else "")
+        # Снимок с номером главы — по нему «Откатить главу» и State на момент
+        # главы находят State до неё. Глава из середины — другой пометкой: её
+        # снимок — конец книги, и «перед анализом» сбил бы откат последней главы
+        reason = (f"{SNAPSHOT_RECOMPUTE if middle else SNAPSHOT_BEFORE}{chapter_num}"
+                  if chapter_num else "")
+        update_state(project_id, global_text, plot_text, memory_text, _snapshot_reason=reason)
     return {"changed": changed, "fields": ch.fields, "new_chars": ch.new_chars,
             "bible_conflicts": ch.bible_conflicts}
 

@@ -7,7 +7,7 @@ from unittest.mock import patch
 def _validate(project_id, llm_response):
     from engine.prevalidation import prevalidate_chapter
     empty_state = {"global_state":"","plot_matrix":"","memory_graph":""}
-    with patch("engine.prevalidation.get_state",    return_value=empty_state),\
+    with patch("engine.prevalidation.state_for_chapter", return_value=empty_state),\
          patch("engine.prevalidation.get_prep",     return_value={}),\
          patch("engine.prevalidation.get_weighted_promises", return_value=""),\
          patch("engine.prevalidation.check_structural_monotony", return_value=None),\

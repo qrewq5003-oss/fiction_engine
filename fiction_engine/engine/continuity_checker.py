@@ -68,9 +68,8 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
 
     # ── State Engine: персонажи и их состояние ────────────────────────────
     try:
-        from .db import get_state
-        from .db_state import parse_structured_state
-        state = get_state(project_id)
+        from .db_state import parse_structured_state, state_for_chapter
+        state = state_for_chapter(project_id, chapter_num)
         structured = parse_structured_state(state)
 
         char_lines = []
