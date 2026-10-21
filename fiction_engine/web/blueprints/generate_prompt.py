@@ -189,7 +189,9 @@ def prompt_assist():
 
         # 3. State Engine — персонажи и сюжет. Раньше читался ключ «content»,
         # которого у State нет, — ассистент не видел State никогда
-        state = get_state(project_id) or {}
+        # State на момент главы (db_state.state_for_chapter)
+        from engine.db_state import state_for_chapter
+        state = state_for_chapter(project_id, int(chapter_num)) or {}
         state_text = "\n\n".join(x for x in ((state.get("global_state") or "").strip()[:3000],
                                             (state.get("plot_matrix") or "").strip()[:1500]) if x)
 

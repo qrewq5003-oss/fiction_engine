@@ -16,7 +16,7 @@
   <div class="grid-2">
     <div class="form-group">
       <label>Глава</label>
-      <input type="number" id="pl-chapter" min="1"
+      <input type="number" id="pl-chapter" min="1" data-nopersist
              value="{{ (chapters[-1].number + 1) if chapters else 1 }}"
              style="max-width:100px;">
     </div>
@@ -1077,8 +1077,8 @@ async function openRun(runId) {
   const its = r.iterations || [];
   const last = Math.max(0, ...its.map(i => i.iteration));
   const mine = its.filter(i => i.iteration === last);
-  const textIt = [...mine].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage))
-              || [...its].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage));
+  const textIt = [...mine].reverse().find(i => ['review', 'edit', 'continuity_fix', 'generate'].includes(i.stage))
+              || [...its].reverse().find(i => ['review', 'edit', 'continuity_fix', 'generate'].includes(i.stage));
   if (!textIt) { showToast('В запуске нет текста главы', 'error'); return; }
   const critique = [...mine].reverse().find(i => i.stage === 'critique');
   const judge    = [...mine].reverse().find(i => i.stage === 'judge');
@@ -1112,16 +1112,23 @@ async function openRun(runId) {
 }
 
 async function acceptResult() {
-  // Пункта плана нет в главе — спросить: судья его не проверяет
-  const missing = (state.planItems || []).filter(x => x.status === 'нет');
-  if (missing.length && !confirm('В главе нет пунктов плана:\n' +
-      missing.map(x => '— ' + x.item.split('\n')[0]).join('\n') + '\n\nВсё равно принять?')) return;
-  // Глава раскрыла то, что по плану позже — после «Принять» это уже канон серии
-  const reveals = (state.ahead || []).filter(x => x.kind === 'раскрытие');
-  if (reveals.length && !confirm('Глава забегает вперёд — раскрыто то, что по плану позже:\n' +
-      reveals.map(x => `— ${x.plan}: ${x.why}`).join('\n') + '\n\nВсё равно принять?')) return;
+  // Сначала — какой круг принять, потом вопросы: сверка с планом и сторож
+  // забеганий проверяли текст на экране, а принимается и другой круг (разбор 21.10)
   const finalText = await chooseAcceptedText();
   if (finalText === null) return;
+  const onScreen = finalText === state.currentText;
+  if (onScreen) {
+    // Пункта плана нет в главе — спросить: судья его не проверяет. Для другого
+    // круга о плане говорит окно выбора круга
+    const missing = (state.planItems || []).filter(x => x.status === 'нет');
+    if (missing.length && !confirm('В главе нет пунктов плана:\n' +
+        missing.map(x => '— ' + x.item.split('\n')[0]).join('\n') + '\n\nВсё равно принять?')) return;
+  }
+  // Глава раскрыла то, что по плану позже — после «Принять» это уже канон серии
+  const reveals = (state.ahead || []).filter(x => x.kind === 'раскрытие');
+  if (reveals.length && !confirm((onScreen ? 'Глава забегает вперёд — раскрыто то, что по плану позже:\n'
+        : 'В тексте на экране сторож нашёл раскрытие раньше плана; выбранный круг он не проверял:\n') +
+      reveals.map(x => `— ${x.plan}: ${x.why}`).join('\n') + '\n\nВсё равно принять?')) return;
   const modelGen = document.getElementById('pl-model-gen').value;
   const r = await apiPost('/pipeline/accept', {
     run_id: state.runId,
@@ -1297,7 +1304,7 @@ async function plSetContinue() {
   const r = await fetch(`/api/director_note/${chapterNum}/save`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ note })
+    body: JSON.stringify({ note, continue: true })     // к плану главы, а не вместо него
   }).then(x=>x.json()).catch(()=>null);
 
   if (r && r.ok) {
@@ -1354,7 +1361,7 @@ async function continuePipeline() {
   const saveR = await fetch(`/api/director_note/${chapterNum}/save`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ note })
+    body: JSON.stringify({ note, continue: true })     // к плану главы, а не вместо него
   }).then(x=>x.json()).catch(()=>null);
 
   if (!saveR || !saveR.ok) {

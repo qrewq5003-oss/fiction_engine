@@ -321,11 +321,19 @@ def _rows(project_id: int) -> list[dict]:
     return rows
 
 
-def current(project_id: int) -> list[dict]:
-    """Текущие факты: по каждой (сущность, признак) — последняя запись, кроме противоречий."""
+def current(project_id: int, before_chapter: int | None = None) -> list[dict]:
+    """
+    Текущие факты: по каждой (сущность, признак) — последняя запись, кроме
+    противоречий. before_chapter — на момент перед этой главой: записи поздних
+    глав не берутся. Раньше срез делал bible_block уже после выбора последней
+    записи, и факт, уточнённый поздней главой, пропадал целиком (переписывание
+    гл.20 «Фона» — 5 фактов).
+    """
     cur: dict[tuple[str, str], dict] = {}
     for r in _rows(project_id):
         if r["status"] == "противоречие":
+            continue
+        if before_chapter is not None and (r["chapter_num"] or 0) >= before_chapter:
             continue
         cur[_fact_key(r["name"], r["attr"])] = r
     return list(cur.values())
@@ -399,13 +407,22 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
             _add(project_id, e, chapter_num, "изменено", e["changed"])
             out["changed"].append(dict(e, was=old["value"], was_chapter=old["chapter_num"]))
             result = "changed"
+        elif _from_plan(old) and chapter_num >= (old.get("chapter_num") or 0):
+            # План — намерение, текст главы — канон: расходится — верен текст.
+            # Раньше текст писался «противоречием», а текущим оставался план:
+            # «Фон», блок библии для гл.25 — 26 строк из 40 — копии плана
+            # (гл.23 «пятница, ночь (план)», в тексте «суббота, 2:10»)
+            _add(project_id, e, chapter_num, "изменено", f"по тексту главы; в плане «{old['value']}»")
+            out["changed"].append(dict(e, was=old["value"], was_chapter=old["chapter_num"]))
+            result = "changed"
         else:
             # Не перезаписываем: прежнее значение остаётся текущим
             _add(project_id, e, chapter_num, "противоречие",
                  f"было «{old['value']}» (гл.{old['chapter_num']})" + (f", {where}" if where else ""))
             out["conflicts"].append(dict(e, was=old["value"], was_chapter=old["chapter_num"], src=src))
             return "conflict"
-        now[k] = {"name": e["name"], "attr": e["attr"], "value": e["value"], "chapter_num": chapter_num}
+        now[k] = {"name": e["name"], "attr": e["attr"], "value": e["value"], "chapter_num": chapter_num,
+                  "status": "", "reason": ""}
         return result
 
     for e in entries or []:
@@ -427,6 +444,26 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
                 continue
             one(d, f"{e['attr']}: {e['value']}")
     return out
+
+
+PLAN_REASON = "план главы {}"
+
+
+def _from_plan(row: dict) -> bool:
+    """Запись — из плана главы (планировщик), а не правка автора вручную."""
+    return row.get("status") == "автор" and str(row.get("reason") or "").startswith("план главы")
+
+
+def drop_plan_facts(project_id: int, chapter_num: int) -> int:
+    """
+    Убрать записи прежнего плана главы — перед новым экспортом её плана. Иначе
+    оставались текущими сцены, которых в плане уже нет: «Фон», гл.20 — «Анонс»
+    (старый план) рядом с «Сделкой» (новый). Правки автора вручную остаются.
+    """
+    _ensure()
+    with get_conn() as conn:
+        return conn.execute("DELETE FROM series_bible WHERE project_id=? AND status='автор' AND reason=?",
+                            (project_id, PLAN_REASON.format(chapter_num))).rowcount
 
 
 def author_set(project_id: int, kind: str, name: str, attr: str, value: str,
@@ -465,8 +502,7 @@ def bible_block(project_id: int, focus_text: str = "", before_chapter: int | Non
     этой и записанные без главы: факты будущих глав писатель выдавал за
     предвидение.
     """
-    facts = [r for r in current(project_id)
-             if before_chapter is None or (r["chapter_num"] or 0) < before_chapter]
+    facts = current(project_id, before_chapter)
     if not facts:
         return ""
     focus = _key(focus_text)

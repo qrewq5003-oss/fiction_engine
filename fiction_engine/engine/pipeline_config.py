@@ -974,6 +974,23 @@ def list_presets() -> list[dict]:
 # Поэтому предупреждаем, когда Claude судит Claude, и когда судит та же
 # модель, что писала: генератор не должен судить себя.
 
+def scorer_model_for(writer: str) -> str:
+    """
+    Оценщик главы писателя writer: «scorer_model» из настроек, если он другой
+    семьи; иначе проверяющий другой семьи (plan_check.plan_checker_model); нет
+    такого — «» (оценки нет). Писатель неизвестен — настройка как есть.
+
+    Раньше без настройки оценщиком становился сам писатель (Sonnet оценивал
+    Sonnet), а настройка той же семьи бралась как есть (разбор 21.10).
+    """
+    from .db_settings import get_setting
+    m = (get_setting("scorer_model") or "").strip()
+    if not writer or (m and model_family(m) != model_family(writer)):
+        return m
+    from .plan_check import plan_checker_model
+    return plan_checker_model(writer)[0]
+
+
 def model_family(model_value: str) -> str:
     """Семейство модели по её значению «провайдер::модель»: claude, deepseek, kimi…"""
     provider, _, model = (model_value or "").partition("::")
