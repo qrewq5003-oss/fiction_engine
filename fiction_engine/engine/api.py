@@ -573,8 +573,8 @@ def run_cli(cmd: list[str], input: str, timeout: float, **kw) -> subprocess.Comp
             kill_tree(proc)
             try:
                 proc.communicate(timeout=30)
-            except subprocess.TimeoutExpired:
-                pass
+            except subprocess.TimeoutExpired as again:
+                raise RuntimeError(f"CLI не закрыл вывод и после убийства процессов (pid {proc.pid})") from again
             raise
         return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
 
