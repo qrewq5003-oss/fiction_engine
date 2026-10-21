@@ -1010,11 +1010,12 @@ def judge_bias_warning(model_gen: str, model_judge: str) -> str:
     """Предупреждение автору, если судья пристрастен к тексту генератора; иначе «»."""
     if not model_gen or not model_judge:
         return ""
-    if model_family(model_gen) == model_family(model_judge) == "claude":
-        return ("Судья и генератор — оба Claude: на замере Claude узнавал текст Claude 16 раз "
-                "из 16 и голосовал за него. Оценка судьи, скорее всего, завышена — поставьте "
-                "судьёй модель другого семейства (Kimi, DeepSeek).")
-    if model_gen.split("::")[-1] == model_judge.split("::")[-1]:
-        return ("Судья — та же модель, что писала главу: генератор не должен судить себя. "
-                "Поставьте судьёй модель другого семейства.")
+    # Любая семья, не только Claude: GPT не судит GPT (Sol и Luna — одна семья).
+    # Новый запуск с таким судьёй не стартует (pipeline.start_pipeline); здесь —
+    # для запусков, начатых раньше. Kimi и DeepSeek больше не советуем: модели
+    # nano убраны (18.10)
+    if model_family(model_gen) == model_family(model_judge):
+        return (f"Судья и писатель — одной семьи ({model_family(model_gen)}): модель узнаёт свой текст "
+                "и голосует за него (Claude — 16 раз из 16). Оценка судьи, скорее всего, завышена — "
+                "поставьте судьёй модель другой семьи (набор ролей).")
     return ""

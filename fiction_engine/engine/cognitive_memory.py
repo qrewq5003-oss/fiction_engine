@@ -138,7 +138,8 @@ def get_cognitive_context(
     recent_chapters = sorted(all_chapters)[-always_recent:]
 
     inclusions = _select_inclusions(by_chapter, all_chapters, recent_chapters, latest_chapter, max_chapters)
-    result = _format_cognitive_context(by_chapter, all_chapters, recent_chapters, inclusions, latest_chapter)
+    result = _format_cognitive_context(by_chapter, all_chapters, recent_chapters, inclusions, latest_chapter,
+                                       before_chapter)
     return result if len(result) > len("КОГНИТИВНАЯ ПАМЯТЬ СЕРИИ:") + 5 else ""
 
 
@@ -209,8 +210,10 @@ def _format_cognitive_context(
     recent_chapters: list[int],
     inclusions: dict[int, set[str]],
     latest_chapter: int,
+    before_chapter: int | None = None,
 ) -> str:
-    """Форматирует финальный блок когнитивной памяти для промпта."""
+    """Форматирует финальный блок когнитивной памяти для промпта.
+    before_chapter — обещания открыты на момент этой главы (get_active_promises)."""
     lines = ["КОГНИТИВНАЯ ПАМЯТЬ СЕРИИ:"]
     lines.append("(★ = высокий вес, актуальное; · = фоновое)\n")
 
@@ -230,7 +233,7 @@ def _format_cognitive_context(
             if field.key == "promises":
                 raw      = by_chapter[ch].get("promises", [])
                 promises = normalize_promises(raw, ch)
-                active   = get_active_promises(promises)
+                active   = get_active_promises(promises, before_chapter)
                 if not active:
                     continue
                 value = "; ".join(p["text"] for p in active)
@@ -274,7 +277,7 @@ def get_weighted_promises(
     for s in reversed(summaries):
         ch_num   = s["chapter_num"]
         promises = normalize_promises(s.get("promises", []), ch_num)
-        active   = get_active_promises(promises)
+        active   = get_active_promises(promises, before_chapter)
         if active:
             active_by_chapter.append((ch_num, active))
 

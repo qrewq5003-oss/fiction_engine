@@ -321,6 +321,15 @@ def _rows(project_id: int) -> list[dict]:
     return rows
 
 
+def _by_chapter(rows: list[dict]) -> list[dict]:
+    """Записи по главе (запись без главы — к последней главе на момент записи), затем по порядку."""
+    upto, keyed = 0, []
+    for r in rows:                     # rows — по id
+        upto = max(upto, r["chapter_num"] or 0)
+        keyed.append(((r["chapter_num"] or upto), r["id"], r))
+    return [r for *_, r in sorted(keyed, key=lambda x: (x[0], x[1]))]
+
+
 def current(project_id: int, before_chapter: int | None = None) -> list[dict]:
     """
     Текущие факты: по каждой (сущность, признак) — последняя запись, кроме
@@ -330,7 +339,11 @@ def current(project_id: int, before_chapter: int | None = None) -> list[dict]:
     гл.20 «Фона» — 5 фактов).
     """
     cur: dict[tuple[str, str], dict] = {}
-    for r in _rows(project_id):
+    # По главе, затем по порядку записи: пересчитанная гл.12 записывается
+    # после гл.24 и по порядку записи перебивала бы её значения для конца книги
+    # (разбор 21.10). Запись без главы (правка автора) — на момент записи:
+    # к последней главе, известной тогда
+    for r in _by_chapter(_rows(project_id)):
         if r["status"] == "противоречие":
             continue
         if before_chapter is not None and (r["chapter_num"] or 0) >= before_chapter:
@@ -365,7 +378,10 @@ def record(project_id: int, entries: list, chapter_num: int) -> dict:
     """
     _ensure()
     facts = current(project_id)
-    now = {_fact_key(r["name"], r["attr"]): r for r in facts}
+    # Сверка — с фактами на момент главы: факты переписанной гл.12 сверялись
+    # со значениями гл.20–24 и писались ложными «противоречиями» (разбор 21.10)
+    now = {_fact_key(r["name"], r["attr"]): r
+           for r in (current(project_id, chapter_num + 1) if chapter_num else facts)}
     names = {r["name"]: r["kind"] for r in facts}
     out: dict[str, list] = {"added": [], "changed": [], "conflicts": []}
 
@@ -482,9 +498,11 @@ def author_set(project_id: int, kind: str, name: str, attr: str, value: str,
         _add(project_id, dict(e, attr=a, value=v), chapter_num, "автор", reason)
 
 
-def known_for_analysis(project_id: int) -> str:
-    """Известные сущности для анализа главы: называть так же, сверять значения."""
-    facts = current(project_id)
+def known_for_analysis(project_id: int, chapter_num: int | None = None) -> str:
+    """Известные сущности для анализа главы: называть так же, сверять значения.
+    chapter_num — факты на момент главы: при пересчёте ранней главы анализ видел
+    факты конца книги (разбор 21.10)."""
+    facts = current(project_id, chapter_num)
     if not facts:
         return ""
     by_name: dict[str, list[str]] = {}

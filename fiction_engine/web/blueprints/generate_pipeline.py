@@ -73,6 +73,12 @@ def pipeline_start():
                                 **{k: data[k] for k in required})
         # start_pipeline кладёт truncated/cut_reason в results на шаге generate
         return jsonify({"ok": True, **result})
+    except ValueError as e:
+        # Судья той же семьи, что писатель (SameFamilyJudge) — ошибка выбора, не сбой
+        from engine.pipeline import SameFamilyJudge
+        if isinstance(e, SameFamilyJudge):
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

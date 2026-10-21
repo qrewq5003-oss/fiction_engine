@@ -24,6 +24,7 @@ from tests.llm_stubs import scripted_llm
 # ─── Фикстуры ────────────────────────────────────────────────────────────────
 
 MODEL = "anthropic_direct::claude-test"
+JUDGE = "chatgpt_subscription::gpt-6.1-sol@medium"
 
 # Полная глава по объёму (2600 слов): короче MIN_CHAPTER_WORDS её дописывает
 # второй вызов (extend_short_chapter), и заглушка перестаёт совпадать с текстом.
@@ -76,7 +77,7 @@ def _pipeline_kwargs(project_id, chapter_num=1):
         model_gen=MODEL,
         model_critic=MODEL,
         model_editor=MODEL,
-        model_judge=MODEL,
+        model_judge=JUDGE,       # другой семьи: судья той же семьи запуск не стартует
     )
 
 
@@ -357,8 +358,8 @@ class TestIterationsInDB:
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         for i in iters:
-            # колонка в схеме называется model_used
-            assert i["model_used"] == MODEL
+            # колонка в схеме называется model_used; судья — своей модели
+            assert i["model_used"] == (JUDGE if i["stage"] == "judge" else MODEL)
 
 
 # ─── H. Сквозной: текст судьи → результат dict ───────────────────────────────

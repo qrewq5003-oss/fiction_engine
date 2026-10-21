@@ -312,9 +312,17 @@ def continuity_check():
     data = request.json or {}
     chapter_num = data.get("chapter_num")
     text = data.get("text", "").strip()
-    # На странице главы выбора модели нет: проверяющий из «Настроек →
-    # Проверка непрерывности», иначе последняя или любая модель с ключом
-    model_value = page_model(data.get("model", ""), "continuity_model")
+    # На странице главы выбора модели нет: проверяющий другой семьи, чем писатель
+    # главы (plan_check.plan_checker_model — сначала «Настройки → Проверка
+    # непрерывности»). Раньше брался из настройки как есть: после смены набора
+    # ролей Sonnet проверял главы Sonnet (разбор 21.10)
+    from engine.db import chapter_writers
+    from engine.plan_check import plan_checker_model
+    writer = chapter_writers(current["id"]).get(int(data.get("chapter_num") or 0), "")
+    checker, why_none = plan_checker_model(writer) if writer else ("", "")
+    model_value = checker if writer else page_model(data.get("model", ""), "continuity_model")
+    if writer and not model_value:
+        return jsonify({"error": why_none}), 400
 
     if not chapter_num or not text:
         return jsonify({"error": "Нужны chapter_num и text"}), 400

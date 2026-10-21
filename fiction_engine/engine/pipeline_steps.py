@@ -646,7 +646,7 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
                   model_critic: str, call_fn, results: dict,
                   previous_text: str = "",
                   project_id: int = 0,
-                  genre: str = "") -> None:
+                  genre: str = "", model_gen: str = "") -> None:
     """
     Шаг критического анализа.
 
@@ -696,12 +696,21 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
     # ── Continuity check — кросс-главная проверка непрерывности ────────────
     # Отдельный LLM-вызов: «вот факты серии, вот новая глава — найди нарушения».
     # Запускается только если есть ≥2 прошлых глав с данными.
-    if project_id and chapter_num >= 3:
+    # Проверяет модель другой семьи, чем писатель (plan_check.plan_checker_model),
+    # а не критик: в наборе «Пишет Sonnet» сверял Haiku — Claude по тексту Claude
+    # (разбор 21.10). Нет такой — проверки нет. Писатель неизвестен — критик
+    checker = model_critic
+    if model_gen:
+        from .plan_check import plan_checker_model
+        checker = plan_checker_model(model_gen)[0]
+    if project_id and chapter_num >= 3 and checker:
         try:
             from .continuity_checker import check_continuity, format_continuity_for_prompt
+            # Подписка Claude тратит лимит вывода и на скрытое размышление (как у судей)
+            budget = 32000 if checker.startswith("claude_subscription::") else 1500
             violations = check_continuity(
                 project_id, chapter_num, current_text,
-                api_call_fn=lambda p: call_fn(model_critic, _SYS_CONTINUITY_INNER, p, max_tokens=600),
+                api_call_fn=lambda p: call_fn(checker, _SYS_CONTINUITY_INNER, p, max_tokens=budget),
             )
             if violations:
                 continuity_block = format_continuity_for_prompt(violations)

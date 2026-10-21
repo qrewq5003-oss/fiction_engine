@@ -247,7 +247,7 @@ def _execute_steps(
         elif step.name == "critique":
             step_critique(run_id, iteration, chapter_num,
                           model_critic, step_call, results, previous_text or "",
-                          project_id=project_id, genre=_genre)
+                          project_id=project_id, genre=_genre, model_gen=model_gen)
 
         elif step.name == "prevalidate":
             # Пре-валидация задачи перед генерацией — non-blocking.
@@ -323,6 +323,10 @@ def _resolve_pipeline_steps(
     return None  # run_pipeline_step выберет DEFAULT_PIPELINE
 
 
+class SameFamilyJudge(ValueError):
+    """Судья той же семьи, что писатель (start_pipeline)."""
+
+
 def start_pipeline(
     project_id: int, chapter_num: int, generation_prompt: str,
     model_gen: str, model_critic: str, model_editor: str, model_judge: str,
@@ -334,6 +338,16 @@ def start_pipeline(
 ) -> dict:
     with log.context(project_id=project_id, chapter_num=chapter_num) as ctx:
         ctx.info("pipeline start", model=model_gen)
+
+    # Судья той же семьи, что писатель, — запуска нет: «Claude не судит Claude,
+    # GPT не судит GPT». Было только предупреждение, и ручной выбор, CLI и роли
+    # из book.json запускали Haiku-судью по тексту Sonnet (разбор 21.10)
+    if not writer_only:
+        from .pipeline_config import model_family
+        if model_gen and model_judge and model_family(model_gen) == model_family(model_judge):
+            raise SameFamilyJudge(
+                f"Судья ({model_judge.split('::')[-1]}) той же семьи, что писатель "
+                f"({model_gen.split('::')[-1]}): своё не судит. Выберите судью другой семьи или набор ролей.")
 
     run_id = create_pipeline_run(project_id, chapter_num,
                                   model_gen, model_critic, model_editor, model_judge)

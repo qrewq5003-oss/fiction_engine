@@ -86,9 +86,14 @@ def normalize_promises(raw, chapter_num: int) -> list[dict]:
     return []
 
 
-def get_active_promises(promises: list[dict]) -> list[dict]:
-    """Возвращает только незакрытые обещания."""
-    return [p for p in promises if not p.get("resolved", False)]
+def get_active_promises(promises: list[dict], before_chapter: int | None = None) -> list[dict]:
+    """
+    Незакрытые обещания. before_chapter — на момент этой главы: закрытое главой
+    N и позже для неё ещё открыто. Без этого при переписывании гл.12 «Фона»
+    писатель не видел 9 обещаний, закрытых только в гл.14–19 (разбор 21.10).
+    """
+    return [p for p in promises if not p.get("resolved", False)
+            or (before_chapter is not None and (p.get("resolved_chapter") or 0) >= before_chapter)]
 
 
 def mark_promise_resolved(
@@ -334,7 +339,7 @@ def get_l3_context(project_id: int, before_chapter: int, n: int = 3) -> str:
         if s.get("conflicts"):
             lines.append(f"  Конфликты: {s['conflicts']}")
         promises = normalize_promises(s.get("promises", []), ch)
-        active   = get_active_promises(promises)
+        active   = get_active_promises(promises, before_chapter)
         if active:
             texts = "; ".join(p["text"] for p in active)
             lines.append(f"  Обещания сюжета: {texts}")

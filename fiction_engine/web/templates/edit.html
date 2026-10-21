@@ -338,7 +338,8 @@ async function checkVoiceEdit() {
   if (!text) { showToast('Нет текста для проверки', 'error'); return; }
 
   showToast('Проверяю голос...', 'info');
-  const r = await apiPost('/voice/check', { text, model });
+  // Текст правила модель «Редактора» — проверяющий другой семьи берёт сервер
+  const r = await apiPost('/voice/check', { text, model, writer: model });
 
   if (r.error) { showToast(r.error, 'error'); return; }
 

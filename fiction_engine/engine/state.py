@@ -24,7 +24,10 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
     if not ch:
         raise ValueError(f"Глава {chapter_num} не найдена")
 
-    state = get_state(project_id)
+    # State на момент главы: анализ переписанной главы из середины книги видел
+    # State конца книги и писал его факты с меткой этой главы (разбор 21.10)
+    from .db_state import state_for_chapter
+    state = state_for_chapter(project_id, chapter_num)
 
     # Загружаем активные promises чтобы модель могла отметить закрытые
     try:
@@ -36,13 +39,13 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
         for s in summaries:
             ch_num   = s["chapter_num"]
             promises = normalize_promises(s.get("promises", []), ch_num)
-            active_promises.extend(get_active_promises(promises))
+            active_promises.extend(get_active_promises(promises, chapter_num))
     except Exception:
         active_promises = []
 
     from .series_bible import known_for_analysis
     user_prompt = _build_analysis_prompt(chapter_num, state, ch["content"], active_promises,
-                                         known_for_analysis(project_id))
+                                         known_for_analysis(project_id, chapter_num))
 
     anthropic_key = get_api_key("anthropic_direct")
     nano_key = get_api_key("nano_gpt")
@@ -222,13 +225,13 @@ def queue_state_update_from_analysis(
             for s in summaries:
                 ch_num   = s["chapter_num"]
                 promises = normalize_promises(s.get("promises", []), ch_num)
-                active_promises.extend(get_active_promises(promises))
+                active_promises.extend(get_active_promises(promises, chapter_num))
         except Exception:
             active_promises = []
 
         from .series_bible import known_for_analysis
         prompt = _build_analysis_prompt(chapter_num, state, chapter_text, active_promises,
-                                        known_for_analysis(project_id))
+                                        known_for_analysis(project_id, chapter_num))
 
         analysis_text = call_fn(prompt)
         if not analysis_text or len(analysis_text.strip()) < 20:

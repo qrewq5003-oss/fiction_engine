@@ -753,7 +753,10 @@ async function checkVoice() {
   btn.disabled = true; spin.style.display = 'inline-block';
   document.getElementById('voice-check-block').style.display = 'block';
   document.getElementById('voice-check-result').textContent = 'Проверяю...';
-  const r = await apiPost('/voice/check', {text, model: document.getElementById('pl-model-critic').value});
+  // Писатель и глава — сервер берёт проверяющего другой семьи и эталон до этой главы
+  const r = await apiPost('/voice/check', {text, model: document.getElementById('pl-model-critic').value,
+                                           writer: document.getElementById('pl-model-gen').value,
+                                           chapter_num: state.chapterNum});
   btn.disabled = false; spin.style.display = 'none';
   if (r.error) { document.getElementById('voice-check-result').textContent = r.error; return; }
   const sc = document.getElementById('voice-check-score');

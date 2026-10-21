@@ -123,7 +123,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Герой выходит из дома",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         assert "run_id" in result
         assert isinstance(result["run_id"], int)
@@ -141,7 +141,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         from engine.db_narrative import get_pipeline_run
         run = get_pipeline_run(result["run_id"])
@@ -161,7 +161,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         assert result.get("generated_text", "").strip() != ""
 
@@ -177,7 +177,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         assert result.get("verdict") in ("ПРИНЯТЬ", "НА ДОРАБОТКУ")
 
@@ -193,7 +193,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         assert result["verdict"] == "ПРИНЯТЬ"
 
@@ -209,7 +209,7 @@ class TestBasicFlow:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         assert result.get("judge_score", 0) == pytest.approx(42.0)
 
@@ -229,7 +229,7 @@ class TestAcceptPipeline:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
 
     def test_accept_sets_status_accepted(self, pid):
@@ -292,7 +292,7 @@ class TestRejectPipeline:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         run_id = result["run_id"]
 
@@ -320,7 +320,7 @@ class TestContinuePipeline:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
         run_id = first["run_id"]
 
@@ -350,7 +350,7 @@ class TestContinuePipeline:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
 
         llm_cont = _make_llm_sequence(
@@ -383,7 +383,7 @@ class TestContinuePipeline:
         with patch("engine.pipeline._call", llm_start):
             from engine.pipeline import start_pipeline
             first = start_pipeline(project_id=pid, chapter_num=1, generation_prompt="Задача",
-                                   model_gen="m", model_critic="m", model_editor="m", model_judge="m")
+                                   model_gen="m", model_critic="m", model_editor="m", model_judge="j")
         edited = "Лукаш Кратохвил стоял у ленты. " * 60
         llm_cont = _make_llm_sequence(_llm_generate, _llm_critique, _llm_judge_accept, edit=edited)
         with patch("engine.pipeline._call", llm_cont):
@@ -432,7 +432,7 @@ class TestAutoRetry:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
                 config=AUTO_IMPROVE,
             )
         # score деградировал → retry прерван → осталось НА ДОРАБОТКУ
@@ -456,7 +456,7 @@ class TestQuickPreset:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
                 config=QUICK,
             )
         # QUICK не запускает judge → verdict отсутствует или пустой
@@ -499,7 +499,7 @@ class TestPrevalidation:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
                 steps=steps,
             )
         # Генерация произошла несмотря на warnings
@@ -522,7 +522,7 @@ class TestPipelineIterations:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
             accept_pipeline(result["run_id"])
 
@@ -545,7 +545,7 @@ class TestPipelineIterations:
                 project_id=pid, chapter_num=1,
                 generation_prompt="Задача",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
 
         from engine.db_narrative import get_pipeline_iterations
@@ -574,7 +574,7 @@ class TestAcceptSavesChapter:
                 project_id=pid, chapter_num=3,  # нестандартный номер
                 generation_prompt="Задача главы 3",
                 model_gen="m", model_critic="m",
-                model_editor="m", model_judge="m",
+                model_editor="m", model_judge="j",
             )
             accept_pipeline(result["run_id"])
 
