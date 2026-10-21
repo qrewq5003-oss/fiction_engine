@@ -194,8 +194,11 @@ def cmd_chapter_add():
         error("Пустой текст")
         return
 
+    replaced = bool(get_chapter(pid, num))
     save_chapter(pid, num, content, title)
     success(f"Глава {num} сохранена ({len(content.split())} слов)")
+    if replaced:
+        warn("L3, анализ, State и библия — ещё от прежнего текста: «Пересчитать по тексту» на странице главы")
 
 
 def cmd_state_view():
@@ -250,9 +253,15 @@ def cmd_state_analyze():
 
     print(f"\n  {yellow('Применить изменения к State Engine? (y/n):')} ", end="")
     if input().strip().lower() == "y":
+        # Влить анализ в State, как «Применить» на странице State. Раньше только
+        # помечалось применённым: State не менялся, а из очереди анализ пропадал
+        from engine.db import merge_analysis_into_state
+        merged = merge_analysis_into_state(pid, result["analysis"], num)
+        if merged.get("error"):
+            error(merged["error"] + ". Анализ остался в очереди: /state")
+            return
         mark_update_applied(pid, result["update_id"])
-        success("Обновление помечено.")
-        info("Открой браузер: http://localhost:5000/state")
+        success(f"State обновлён: {len(merged.get('fields') or [])} изменений")
     else:
         warn("Обновление отложено. Доступно в браузере: /state")
 
@@ -420,9 +429,15 @@ def _pipeline_decision(run_id: int, result: dict,
     choice = input("  (1/2/3): ").strip()
 
     if choice == "1":
-        accept_pipeline(run_id)
-        save_chapter(pid, chapter_num, result["generated_text"],
-                     f"Глава {chapter_num} (pipeline, {iteration} итер.)")
+        text = result["generated_text"]
+        accept_pipeline(run_id, text)
+        # Как «Принять» в Мастерской: поверх главы — убрать посчитанное по
+        # прежнему тексту, анализ — по принятому тексту (разбор 21.10)
+        from engine.db_chapters import prepare_chapter_replace
+        from engine.pipeline import record_accepted_analysis
+        prepare_chapter_replace(pid, chapter_num)
+        save_chapter(pid, chapter_num, text, f"Глава {chapter_num} (pipeline, {iteration} итер.)")
+        record_accepted_analysis(pid, chapter_num, text, run_id)
         success(f"Глава {chapter_num} принята и сохранена ({iteration} итераций)")
         return "accept"
 

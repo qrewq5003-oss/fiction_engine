@@ -19,8 +19,15 @@ def state_view():
     state = get_state(current["id"])
     pending = get_pending_updates(current["id"])
     models = get_all_models_flat()
-    return render_template("state.html", state=state, current=current,
+    return render_template("state.html", state=state, current=current, state_version=state_version(state),
                            pending=pending, models=models)
+
+
+def state_version(state: dict) -> str:
+    """Отпечаток State: форма несёт его с открытия страницы (state_edit)."""
+    import hashlib
+    return hashlib.sha1("|".join(state.get(k) or "" for k in ("global_state", "plot_matrix", "memory_graph"))
+                        .encode("utf-8")).hexdigest()
 
 
 @bp.route("/state/edit", methods=["POST"])
@@ -28,6 +35,17 @@ def state_edit():
     current = get_current_project()
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
+    # State изменился, пока страница была открыта (приняли или пересчитали
+    # главу) — не перетирать молча: форма сохраняет State целиком, и вписанное
+    # главами пропадало (разбор 21.10). Страница — с правками автора и
+    # предупреждением; повторное «Сохранить» (с новым отпечатком) пишет их
+    now = get_state(current["id"])
+    sent = request.form.get("state_version")
+    if sent and sent != state_version(now):
+        mine = {k: request.form.get(k) or "" for k in ("global_state", "plot_matrix", "memory_graph")}
+        return render_template("state.html", state=mine, current=current, state_version=state_version(now),
+                               state_conflict=True, pending=get_pending_updates(current["id"]),
+                               models=get_all_models_flat()), 409
     update_state(current["id"],
                  global_state=request.form.get("global_state"),
                  plot_matrix=request.form.get("plot_matrix"),
@@ -193,10 +211,11 @@ def state_apply(update_id):
                                     "message": "Изменений не обнаружено",
                                     "merge": {"changed": False, "fields": [], "new_chars": []}})
     except Exception as e:
-        # Обновление сейчас будет помечено применённым — если слияние
-        # сорвалось, об этом обязан остаться след, иначе анализ пропадёт молча
+        # Слияние сорвалось — анализ остаётся в очереди, а не «применён» молча
+        # (раньше помечался применённым и пропадал; разбор 21.10)
         log_web_error("state/apply: слияние анализа сорвалось", e,
                       project_id=current["id"])
+        return jsonify({"error": f"Слияние анализа сорвалось: {str(e)[:200]}. Анализ остался в очереди."}), 500
     if not mark_update_applied(current["id"], update_id):
         return deny("Обновление состояния")
     return jsonify({"ok": True, "message": "State Engine обновлён", "merge": None})

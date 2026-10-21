@@ -412,7 +412,7 @@ def step_chapter_analysis(project_id: int, chapter_num: int,
             project_id, chapter_num, gen_text,
             lambda p: call_fn(model_critic, "", p), persist=False,
         )
-        if analysis and analysis.analysis_quality != "failed":
+        if analysis and analysis.analysis_quality == "ok":
             results["chapter_analysis_data"] = analysis.to_dict()
             block = format_analysis_for_prompt(analysis)
             if block:
@@ -646,7 +646,7 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
                   model_critic: str, call_fn, results: dict,
                   previous_text: str = "",
                   project_id: int = 0,
-                  genre: str = "") -> None:
+                  genre: str = "", model_gen: str = "") -> None:
     """
     Шаг критического анализа.
 
@@ -696,12 +696,22 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
     # ── Continuity check — кросс-главная проверка непрерывности ────────────
     # Отдельный LLM-вызов: «вот факты серии, вот новая глава — найди нарушения».
     # Запускается только если есть ≥2 прошлых глав с данными.
-    if project_id and chapter_num >= 3:
+    # Проверяет модель другой семьи, чем писатель (plan_check.plan_checker_model),
+    # а не критик: в наборе «Пишет Sonnet» сверял Haiku — Claude по тексту Claude
+    # (разбор 21.10). Нет такой — проверки нет. Писатель неизвестен — критик
+    checker = model_critic
+    if model_gen:
+        from .plan_check import plan_checker_model
+        checker = plan_checker_model(model_gen)[0]
+    if project_id and chapter_num >= 3 and checker:
         try:
-            from .continuity_checker import check_continuity, format_continuity_for_prompt
+            from .continuity_checker import check_continuity_or_raise as check_continuity
+            from .continuity_checker import format_continuity_for_prompt
+            # Подписка Claude тратит лимит вывода и на скрытое размышление (как у судей)
+            budget = 32000 if checker.startswith("claude_subscription::") else 1500
             violations = check_continuity(
                 project_id, chapter_num, current_text,
-                api_call_fn=lambda p: call_fn(model_critic, _SYS_CONTINUITY_INNER, p, max_tokens=600),
+                api_call_fn=lambda p: call_fn(checker, _SYS_CONTINUITY_INNER, p, max_tokens=budget),
             )
             if violations:
                 continuity_block = format_continuity_for_prompt(violations)
@@ -711,6 +721,7 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
         except Exception as e:
             handle_error(f"step_critique continuity_check ({project_id}, ch{chapter_num})", e,
                          level=ErrorLevel.RECOVERABLE)
+            results["continuity_error"] = str(e)[:200]
 
     # ── R05: программный анализ ритма предложений ──────────────────────────
     try:
@@ -878,16 +889,28 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     # редактор следующего круга получает эти строки первыми (judge_rubric.gate_task)
     failed: list[str] = []
     if v2:
-        from .judge_rubric import failed_gates, parse_gates
+        from .judge_rubric import failed_gates, gate_names, parse_gates
         gates = parse_gates(judgment)
         results["judge_gates"] = gates
         failed = failed_gates(gates)
+        # Строки нет в ответе — она не проверена, а не «ОК»: раньше пропуск
+        # строки судьёй пропускал главу (разбор 21.10)
+        missing = [n for n in gate_names(genre_key) if n not in gates]
+        if missing:
+            results["judge_gates_missing"] = missing
+            failed += missing
+            judgment = (f"{judgment}\n\n⚠ В ответе судьи нет строк: {', '.join(missing)} — "
+                        "вне балла не проверено, принять по правилу нельзя.")
     if judge_score and len(crit) == 5:
         by_rule = ("ПРИНЯТЬ" if judge_score >= accept_total_for(model_judge)
                    and min(crit.values()) >= ACCEPT_MIN_CRITERION and not failed else "НА ДОРАБОТКУ")
         if by_rule != verdict:
             verdict = by_rule
             judgment = set_verdict(judgment, verdict)
+    elif failed and verdict == "ПРИНЯТЬ":
+        # Баллы не разобраны, а строка вне балла ГРУБО или её нет — слово модели не в счёт
+        verdict = "НА ДОРАБОТКУ"
+        judgment = set_verdict(judgment, verdict)
 
     # ── Вторая линия книги: конкретные вопросы о её ремесле (secondary_check) ──
     if project_id:

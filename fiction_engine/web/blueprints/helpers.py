@@ -131,7 +131,8 @@ def _get_scorer_model(writer: str) -> str:
 
 
 def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_value: str,
-                        alive: Callable[[], bool] | None = None) -> dict:
+                        alive: Callable[[], bool] | None = None,
+                        step: Callable[[str], None] | None = None) -> dict:
     """
     Единый pipeline после сохранения главы:
       1. L3 саммари
@@ -141,30 +142,39 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
 
     Возвращает dict с результатами (не кидает исключений).
     alive() — глава всё ещё та же (её не откатили, пока шли шаги): каждый шаг —
-    вызов модели, и откат успевал между ними.
+    вызов модели, и откат успевал между ними. step(название) — какой шаг идёт
+    (страница показывает); result["failed"] — названия сорвавшихся шагов.
     """
     # Аннотация обязательна: без неё тип выводится по первому
     # присваиванию (bool), и последующая запись строки — ошибка типов
     result: dict[str, object] = {}
+    failed: list[str] = []
+    result["failed"] = failed
     cheap  = get_cheap_model(model_value)
+    step = step or (lambda _name: None)
 
     if alive and not alive():
         return result
     # 1. L3
+    step("память L3")
     try:
         from engine.pipeline import generate_l3
         summary = generate_l3(project_id, chapter_num, text, cheap)
         result["l3_generated"] = summary is not None
+        if summary is None:
+            failed.append("память L3")
     except Exception as e:
         # Без L3 следующие главы теряют память о прошлых — отказ должен
         # быть виден (AUDIT_UNIFIED.md, F5)
         log_web_error("после сохранения: память L3", e,
                       project_id=project_id, chapter_num=chapter_num)
         result["l3_generated"] = False
+        failed.append("память L3")
 
     if alive and not alive():
         return result
     # 2. Дрейф голоса
+    step("дрейф голоса")
     try:
         from engine.pipeline import auto_drift_check_if_needed
         drift = auto_drift_check_if_needed(project_id, chapter_num, text, model_value)
@@ -174,10 +184,12 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
     except Exception as e:
         log_web_error("после сохранения: проверка дрейфа голоса", e,
                       project_id=project_id, chapter_num=chapter_num)
+        failed.append("дрейф голоса")
 
     if alive and not alive():
         return result
     # 3. Режиссёрская заметка
+    step("заметка к следующей главе")
     try:
         from engine.pipeline import generate_director_note_for_chapter
         note = generate_director_note_for_chapter(project_id, chapter_num, text, cheap)
@@ -186,10 +198,12 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
     except Exception as e:
         log_web_error("после сохранения: режиссёрская заметка", e,
                       project_id=project_id, chapter_num=chapter_num)
+        failed.append("заметка к следующей главе")
 
     if alive and not alive():
         return result
     # 4. Авто-оценка
+    step("оценка главы")
     try:
         from engine.db import chapter_writers
         scorer_model = _get_scorer_model(chapter_writers(project_id).get(chapter_num) or model_value)
@@ -200,6 +214,7 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
     except Exception as e:
         log_web_error("после сохранения: авто-оценка главы", e,
                       project_id=project_id, chapter_num=chapter_num)
+        failed.append("оценка главы")
 
     return result
 

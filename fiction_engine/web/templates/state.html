@@ -155,6 +155,14 @@
 </div>
 
 <form method="POST" action="/state/edit">
+  <!-- Отпечаток State при открытии страницы: изменился с тех пор (приняли главу) — сохранение не перетирает молча -->
+  <input type="hidden" name="state_version" value="{{ state_version }}">
+  {% if state_conflict %}
+  <div class="alert alert-warning" style="margin-bottom:12px;">⚠ Пока страница была открыта, State изменился
+    (приняли или пересчитали главу). В полях — ваши правки, они <b>не сохранены</b>. «Сохранить» ещё раз запишет
+    их поверх — изменения глав пропадут (снимок останется в истории State). Чтобы их сохранить, откройте State
+    заново и перенесите правки.</div>
+  {% endif %}
   <div class="tabs">
     <div class="tab active" data-group="state" data-target="state-global">🧍 Персонажи / Мир</div>
     <div class="tab" data-group="state" data-target="state-plot">📊 Сюжетные линии</div>
@@ -166,7 +174,7 @@
       <label>Global State — персонажи, мир, ситуация
         <span class="format-keys-inline">ключи: СОСТОЯНИЕ · ЛОКАЦИЯ · ЦЕЛЬ_СЕЙЧАС · ЦЕЛЬ_ГЛУБИННАЯ · ЗНАЕТ · НЕ_ЗНАЕТ · МОМЕНТ · УГРОЗА · НЕ_ДОЛЖНО_СЛУЧИТЬСЯ</span>
       </label>
-      <textarea id="ta-global" name="global_state" rows="22" style="font-family:monospace;font-size:12px;">{{ state.global_state }}</textarea>
+      <textarea id="ta-global" data-nopersist name="global_state" rows="22" style="font-family:monospace;font-size:12px;">{{ state.global_state }}</textarea>
     </div>
   </div>
 
@@ -175,7 +183,7 @@
       <label>Plot Matrix — сюжетные линии
         <span class="format-keys-inline">ключи: СТАТУС · ГДЕ_СЕЙЧАС · СЛЕДУЮЩИЙ_ШАГ · ЧТО НЕЛЬЗЯ ЗАБЫТЬ</span>
       </label>
-      <textarea id="ta-plot" name="plot_matrix" rows="22" style="font-family:monospace;font-size:12px;">{{ state.plot_matrix }}</textarea>
+      <textarea id="ta-plot" data-nopersist name="plot_matrix" rows="22" style="font-family:monospace;font-size:12px;">{{ state.plot_matrix }}</textarea>
     </div>
   </div>
 
@@ -184,7 +192,7 @@
       <label>Memory Graph — кто что знает
         <span class="format-keys-inline">ключи: ЗНАЕТ · НЕ_ЗНАЕТ · ДУМАЕТ_ЧТО_ЗНАЕТ</span>
       </label>
-      <textarea id="ta-memory" name="memory_graph" rows="22" style="font-family:monospace;font-size:12px;">{{ state.memory_graph }}</textarea>
+      <textarea id="ta-memory" data-nopersist name="memory_graph" rows="22" style="font-family:monospace;font-size:12px;">{{ state.memory_graph }}</textarea>
     </div>
   </div>
 

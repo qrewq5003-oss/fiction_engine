@@ -50,11 +50,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Генератор — лучший по замеру 2026-09-13 (bench/2026-09-13.json). Судьи —
-# другие семейства моделей: модель узнаёт свой слог (tests/test_blind_judging.py).
-DEFAULT_GEN = "nano_gpt::z-ai/glm-5.3"
-DEFAULT_JUDGES = ["nano_gpt::moonshotai/kimi-k2.5",
-                  "nano_gpt::deepseek/deepseek-v4-pro-0813"]
+# Писатель и судья — по подписке, разных семейств: модель узнаёт свой слог
+# (tests/test_blind_judging.py). Модели nano не используются нигде (решение
+# автора; были GLM-писатель и судьи Kimi/DeepSeek).
+DEFAULT_GEN = "claude_subscription::claude-sonnet-5-5"
+DEFAULT_JUDGES = ["chatgpt_subscription::gpt-6.1-sol@medium"]
 
 # GLM 5.3 примерно в половине вызовов отдаёт пустое содержимое (bench.py,
 # EMPTY_RETRIES). Без повтора такая глава выпала бы из пары.

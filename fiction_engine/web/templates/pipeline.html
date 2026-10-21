@@ -709,9 +709,10 @@ async function runValidate() {
   btn.disabled = false; spin.style.display = 'none';
   const block = document.getElementById('validation-result');
   const esc = s => String(s || '').replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+  // Сбой проверки — не «прошла»: при сбое blocking пуст, и раньше выходило «✅»
+  const failNote = r.error ? `<div style="background:#78350f33;border:1px solid #92400e;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px;">⚠ Проверка не прошла целиком: ${esc(r.error)}</div>` : '';
   let html = '';
-  if (r.error && !r.blocking) html = `<div style="font-size:12px;color:var(--text2);">Проверка недоступна: ${esc(r.error)}</div>`;
-  else if (r.skipped) html = `<div style="font-size:12px;color:var(--text2);">State Engine пуст — проверка пропущена.</div>`;
+  if (r.skipped) html = `<div style="font-size:12px;color:var(--text2);">State Engine пуст — проверка пропущена.</div>`;
   else {
     const box = (bg, bd, title, items, fmt) => items && items.length
       ? `<div style="background:${bg};border:1px solid ${bd};border-radius:8px;padding:10px 12px;margin-bottom:8px;">
@@ -722,10 +723,10 @@ async function runValidate() {
       w => `<div style="margin-bottom:6px;font-size:12px;">${esc(w.issue)}<div style="font-size:11px;color:var(--text2);">${esc(w.detail)}</div></div>`);
     html += box('var(--surface2)', 'var(--border)', '💡 Можно улучшить', r.suggestions,
       s => `<div style="font-size:11px;color:var(--text2);">· ${esc(s)}</div>`);
-    if (!r.blocking?.length && !r.warnings?.length)
+    if (!r.blocking?.length && !r.warnings?.length && !r.error)
       html = `<div style="background:#14532d33;border:1px solid #166534;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--success);">✅ Задача главы прошла проверку — противоречий не найдено.</div>`;
   }
-  block.innerHTML = html;
+  block.innerHTML = failNote + html;
   block.style.display = 'block';
 }
 
@@ -753,7 +754,10 @@ async function checkVoice() {
   btn.disabled = true; spin.style.display = 'inline-block';
   document.getElementById('voice-check-block').style.display = 'block';
   document.getElementById('voice-check-result').textContent = 'Проверяю...';
-  const r = await apiPost('/voice/check', {text, model: document.getElementById('pl-model-critic').value});
+  // Писатель и глава — сервер берёт проверяющего другой семьи и эталон до этой главы
+  const r = await apiPost('/voice/check', {text, model: document.getElementById('pl-model-critic').value,
+                                           writer: document.getElementById('pl-model-gen').value,
+                                           chapter_num: state.chapterNum});
   btn.disabled = false; spin.style.display = 'none';
   if (r.error) { document.getElementById('voice-check-result').textContent = r.error; return; }
   const sc = document.getElementById('voice-check-score');
@@ -956,6 +960,11 @@ function showResults(data) {
   else if (data.and_chains) showToast('🔗 ' + data.and_chains, 'info', 8000);
   // Раздел базы знаний не собрался — глава написана без него
   if (data.engine_issues) showToast('⚠ ' + data.engine_issues, 'warning', 12000);
+  // Сбой проверок — не «нарушений нет»
+  if (data.continuity_error) showToast('⚠ Проверка непрерывности не прошла: ' + data.continuity_error, 'warning', 12000);
+  if (data.prevalidation_error) showToast('⚠ Предпроверка задачи не прошла: ' + data.prevalidation_error, 'warning', 12000);
+  if (data.prevalidation_warnings && data.prevalidation_warnings.length)
+    showToast('📋 Предпроверка задачи: ' + data.prevalidation_warnings.map(w => w.issue || w).join(' · '), 'warning', 12000);
   if (data.context_trimmed) showToast('✂️ ' + data.context_trimmed, 'warning', 8000);
   if (data.judge_warning) showToast('⚖️ ' + data.judge_warning, 'warning', 12000);
 
@@ -1142,18 +1151,10 @@ async function acceptResult() {
     setTimeout(() => location.reload(), 2000);
     return;
   }
-  // State обновляется в фоне: анализ главы — вызов модели на десятки секунд
-  showToast('Глава принята. State Engine обновляется…', 'info', 6000);
-  for (let i = 0; i < 90; i++) {
-    await new Promise(res => setTimeout(res, 3000));
-    const s = await fetch(`/pipeline/state_status/${r.state_job}`).then(x => x.json()).catch(() => null);
-    if (s && s.status === 'done') {
-      showToast(s.state_updated ? 'State Engine обновлён ✓'
-                                : 'State Engine не изменился — проверь вкладку State', s.state_updated ? 'success' : 'warning');
-      break;
-    }
-  }
-  setTimeout(() => location.reload(), 2000);
+  // Обработка в фоне: State, анализ, L3, заметка, оценка — вызовы моделей
+  showToast('Глава принята. Обрабатываю: State, анализ, L3, заметка…', 'info', 6000);
+  const done = await followChapterJob(r.state_job);
+  if (done) setTimeout(() => location.reload(), done.failed && done.failed.length ? 6000 : 2000);
 }
 
 // Какой текст принять. «Принять» брал последний круг, а правка бывает хуже
@@ -1328,6 +1329,8 @@ async function plMergeWithPrev() {
 
   const merged = r.text.trimEnd() + '\n\n' + currentText;
   document.getElementById('result-text').textContent = merged;
+  // «Принять» берёт state.currentText: без этого принималась одна вторая часть
+  state.currentText = merged;
   document.getElementById('pl-btn-merge').style.display = 'none';
   const words = merged.trim().split(/\s+/).length;
   alert(`🔗 Склеено. Итого ~${words} слов. Теперь можно сохранить как главу.`);

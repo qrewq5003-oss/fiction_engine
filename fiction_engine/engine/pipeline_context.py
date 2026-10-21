@@ -175,6 +175,10 @@ DIRECTOR_MARKER = "ЗАМЕТКА ДЛЯ ЭТОЙ ГЛАВЫ (от редакт�
 PLOT_RAW_MAX_CHARS = 4000
 MEMORY_RAW_MAX_CHARS = 2000
 
+DETAILS_RECENT = 20     # последних деталей серии писателю — всегда
+DETAILS_RELATED = 15    # и ранних, где есть слова задачи и плана главы
+
+
 def extract_relevant_state(state: dict, prompt_text: str,
                            api_call_fn=None, before_chapter: int | None = None) -> str:
     import re
@@ -224,8 +228,15 @@ def extract_relevant_state(state: dict, prompt_text: str,
     from .db_state import series_details
     details = series_details(state.get("plot_matrix", ""), before_chapter)
     if details:
+        # Свежие и те ранние, что касаются этой главы (слова задачи и плана)
+        recent, older = details[-DETAILS_RECENT:], details[:-DETAILS_RECENT]
+        # Слово — без окончания: «подсобку» в задаче, «подсобка» в детали
+        def stems(t: str) -> set[str]:
+            return {w[:max(5, len(w) - 2)] for w in re.findall(r"\w{6,}", t)}
+        focus = stems(prompt_lower)
+        related = [d for d in older if focus & stems(d.lower())][-DETAILS_RELATED:]
         lines.append("ДЕТАЛИ СЕРИИ (не противоречь им):\n"
-                     + "\n".join(f"- {d}" for d in details[-30:]))
+                     + "\n".join(f"- {d}" for d in related + recent))
 
     if lines:
         return "\n\n".join(lines)
@@ -387,7 +398,12 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         from .db import check_structural_monotony
         monotony_warning = check_structural_monotony(project_id, before_chapter=chapter_num)
         if monotony_warning:
-            monotony_block = f"\nСТРУКТУРНОЕ ПРЕДУПРЕЖДЕНИЕ:\n{monotony_warning}\nИспользуй другой тип открытия/закрытия главы.\n"
+            # Стиль может требовать крючка в конце главы («Коммерческий»): тогда
+            # «другой тип закрытия» спорил с ним — крючок остаётся, меняется его вид (разбор 21.10)
+            monotony_block = (f"\nСТРУКТУРНОЕ ПРЕДУПРЕЖДЕНИЕ:\n{monotony_warning}\n"
+                              "Используй другой тип открытия/закрытия главы. Если стиль требует крючка "
+                              "в конце — крючок остаётся, но другого вида: не тот же обрыв, а новый факт, "
+                              "вопрос, решение героя или тихий удар.\n")
     except Exception as e:
         handle_error("build_context monotony_check", e, level=ErrorLevel.RECOVERABLE)
 
@@ -437,7 +453,15 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     if any(m in base_prompt for m in state_markers):
         state_block = ""
     else:
-        smart_state = extract_relevant_state(state, base_prompt, api_call_fn, chapter_num)
+        # Герои — по задаче и плану главы: по одной задаче писатель гл.12 «Фона»
+        # получил State одной Вари, хотя Лёва — во всех трёх сценах плана (21.10)
+        try:
+            from .db import get_director_note
+            plan_note = get_director_note(project_id, chapter_num) or ""
+        except Exception as e:
+            handle_error("build_context: план главы для State", e, level=ErrorLevel.RECOVERABLE)
+            plan_note = ""
+        smart_state = extract_relevant_state(state, base_prompt + "\n" + plan_note, api_call_fn, chapter_num)
         state_block = f"\n{STATE_HEADER}\n{smart_state}\n"
 
     # ── ChapterAnalysis предыдущей главы — замыкаем петлю ────────────────────

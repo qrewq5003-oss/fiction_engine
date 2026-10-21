@@ -29,10 +29,15 @@ def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) ->
     Собрать базовый промпт для генерации главы.
     mode: 'quick' | 'quality' | 'master'
     """
-    from .db import get_state, get_last_update, parse_structured_state, get_director_note
+    from .db import get_last_update, parse_structured_state, get_director_note
+    from .db_state import state_for_chapter
 
-    state = get_state(project_id)
-    last_update = get_last_update(project_id)
+    # State на момент главы и «контекст для следующей» — из применённого анализа
+    # прошлой главы. Раньше — State конца книги и последний анализ любой главы,
+    # а маркер старого текстового формата в JSON-анализах не находился: вместо
+    # «где закончилась прошлая глава» всегда шла заглушка (разбор 21.10)
+    state = state_for_chapter(project_id, chapter_num)
+    last_update = get_last_update(project_id, before_chapter=chapter_num)
 
     next_context = _extract_next_context(last_update)
     genre = project.get("genre", "[жанр]")
@@ -63,11 +68,9 @@ def _extract_next_context(last_update: dict | None) -> str:
     """Извлечь блок контекста для следующей главы из последнего обновления."""
     if not last_update:
         return ""
-    raw = last_update.get("raw_analysis", "")
-    marker = "=== КОНТЕКСТ ДЛЯ СЛЕДУЮЩЕЙ ГЛАВЫ ==="
-    if marker not in raw:
-        return ""
-    return raw.split(marker)[-1].strip()
+    # JSON-анализ и старый текстовый формат — общим разбором (state._extract_next_context)
+    from .state import _extract_next_context as from_analysis
+    return from_analysis(last_update.get("raw_analysis", "") or "")
 
 
 def _build_char_prefill(structured: dict) -> str:

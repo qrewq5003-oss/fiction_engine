@@ -641,7 +641,9 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
 # следующих глав и проверке непрерывности.
 
 SERIES_DETAILS_HEADER = "## ДЕТАЛИ СЕРИИ"
-SERIES_DETAILS_MAX = 60
+# Было 60: у «Фона» детали гл.1–16 уже вытеснены — ранние приметы и вещи для
+# поздних глав пропали насовсем (разбор 21.10). Писателю — выборка (pipeline_context)
+SERIES_DETAILS_MAX = 300
 
 
 _DETAIL_CHAPTER = re.compile(r"^гл\.(\d+):")

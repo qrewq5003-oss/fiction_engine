@@ -94,8 +94,10 @@ def forget_chapter_text(project_id: int, number: int) -> dict:
     версии в библии побеждали новые, заметка к следующей главе писалась по
     прежней концовке.
     """
-    from .l3_memory import reopen_promises
+    from .l3_memory import reopen_promises, stash_later_closures
     reopened = reopen_promises(project_id, number)
+    # Закрытия её обещаний поздними главами — отложить: новый L3 главы их вернёт
+    stash_later_closures(project_id, number)
     with get_conn() as conn:
         derived = _delete_derived(conn, project_id, "chapter_num=?", (number,))
         from .db_narrative import ensure_note_source

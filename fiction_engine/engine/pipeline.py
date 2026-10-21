@@ -247,7 +247,7 @@ def _execute_steps(
         elif step.name == "critique":
             step_critique(run_id, iteration, chapter_num,
                           model_critic, step_call, results, previous_text or "",
-                          project_id=project_id, genre=_genre)
+                          project_id=project_id, genre=_genre, model_gen=model_gen)
 
         elif step.name == "prevalidate":
             # Пре-валидация задачи перед генерацией — non-blocking.
@@ -256,12 +256,16 @@ def _execute_steps(
                 from .prevalidation import prevalidate_chapter
                 pv = prevalidate_chapter(project_id, chapter_num,
                                           generation_prompt, model_critic)
-                if not pv.get("ok", True):
-                    results["prevalidation_warnings"] = pv.get("blocking", [])
-                elif pv.get("warnings"):
-                    results["prevalidation_warnings"] = pv.get("warnings", [])
+                # Блокирующие и предупреждения вместе (при ok=False предупреждения
+                # пропадали), сбой проверки — виден, а не «замечаний нет»
+                found = (pv.get("blocking") or []) + (pv.get("warnings") or [])
+                if found:
+                    results["prevalidation_warnings"] = found
+                if pv.get("error"):
+                    results["prevalidation_error"] = pv["error"]
             except Exception as e:
                 handle_error("pipeline prevalidate", e, level=ErrorLevel.RECOVERABLE)
+                results["prevalidation_error"] = str(e)[:200]
 
         elif step.name == "judge":
             step_judge(run_id, iteration, chapter_num,
@@ -323,6 +327,10 @@ def _resolve_pipeline_steps(
     return None  # run_pipeline_step выберет DEFAULT_PIPELINE
 
 
+class SameFamilyJudge(ValueError):
+    """Судья той же семьи, что писатель (start_pipeline)."""
+
+
 def start_pipeline(
     project_id: int, chapter_num: int, generation_prompt: str,
     model_gen: str, model_critic: str, model_editor: str, model_judge: str,
@@ -334,6 +342,16 @@ def start_pipeline(
 ) -> dict:
     with log.context(project_id=project_id, chapter_num=chapter_num) as ctx:
         ctx.info("pipeline start", model=model_gen)
+
+    # Судья той же семьи, что писатель, — запуска нет: «Claude не судит Claude,
+    # GPT не судит GPT». Было только предупреждение, и ручной выбор, CLI и роли
+    # из book.json запускали Haiku-судью по тексту Sonnet (разбор 21.10)
+    if not writer_only:
+        from .pipeline_config import model_family
+        if model_gen and model_judge and model_family(model_gen) == model_family(model_judge):
+            raise SameFamilyJudge(
+                f"Судья ({model_judge.split('::')[-1]}) той же семьи, что писатель "
+                f"({model_gen.split('::')[-1]}): своё не судит. Выберите судью другой семьи или набор ролей.")
 
     run_id = create_pipeline_run(project_id, chapter_num,
                                   model_gen, model_critic, model_editor, model_judge)
@@ -581,7 +599,7 @@ def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
     if not model:
         return False
     analysis = analyze_chapter_deep(project_id, chapter_num, final_text, lambda p: _call(model, "", p))
-    return analysis.analysis_quality != "failed"
+    return analysis.analysis_quality == "ok"
 
 
 def reject_pipeline(run_id: int):

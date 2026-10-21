@@ -610,7 +610,7 @@ def get_active_promises_for_project(project_id: int,
             continue
         collected.extend(normalize_promises(raw, s.get("chapter_num", 0)))
 
-    return [p.get("text", "") for p in get_active_promises(collected) if p.get("text")]
+    return [p.get("text", "") for p in get_active_promises(collected, before) if p.get("text")]
 
 
 def get_story_so_far(project_id: int, through_chapter: int, n: int = 3) -> str:

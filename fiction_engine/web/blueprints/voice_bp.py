@@ -108,9 +108,19 @@ def voice_check():
         return jsonify({"error": "Нет проекта"}), 400
     data = request.json or {}
     text = data.get("text", "").strip()
-    model_value = data.get("model")
     if not text:
         return jsonify({"error": "Нет текста"}), 400
+    # Сверяет голос модель другой семьи, чем писатель (pipeline_drift.drift_checker):
+    # «Мастерская» слала модель критика — Haiku оценивал голос текста Sonnet
+    # (разбор 21.10). Писатель — со страницы или из принятого запуска главы
+    from engine.db import chapter_writers
+    from engine.pipeline_drift import drift_checker
+    writer = (data.get("writer") or "").strip() or chapter_writers(current["id"]).get(
+        int(data.get("chapter_num") or 0), "")
+    model_value = drift_checker((data.get("model") or "").strip(), writer)
+    if not model_value:
+        return jsonify({"error": "Нет проверяющего другого семейства, чем писатель: выбери его в "
+                                 "«Настройки → Проверка непрерывности» или набор ролей"}), 400
     from engine.db import get_active_voice
     active_voice = get_active_voice(current["id"])
     if not active_voice:

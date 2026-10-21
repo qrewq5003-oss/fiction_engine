@@ -82,7 +82,10 @@ def test_accept_answers_at_once_and_state_updates_in_background(client):
         release.wait(5)                     # модель «думает», пока тест не отпустит
         return True
 
-    with patch.object(gp, "_try_state_update_after_accept", side_effect=slow_update):
+    # «Готово» — после всех шагов (анализ, L3, заметка): здесь они мгновенные
+    with patch.object(gp, "_try_state_update_after_accept", side_effect=slow_update), \
+         patch("engine.pipeline.record_accepted_analysis", return_value=True), \
+         patch("web.blueprints.helpers.after_chapter_saved", return_value={"failed": ["оценка главы"]}):
         r = client.post("/pipeline/accept", json={"run_id": run_id, "chapter_num": 1,
                                                   "final_text": "Глава. " * 50,
                                                   "model_value": "m::x"})
@@ -92,7 +95,8 @@ def test_accept_answers_at_once_and_state_updates_in_background(client):
         assert get_chapter(pid, 1)
         assert client.get(f"/pipeline/state_status/{body['state_job']}").get_json()["status"] == "running"
         release.set()
-        assert _wait_done(client, body["state_job"])["state_updated"] is True
+        done = _wait_done(client, body["state_job"])
+        assert done["state_updated"] is True and done["failed"] == ["оценка главы"]   # сорвавшийся шаг назван
 
 
 def test_state_status_of_other_project_is_hidden(client):

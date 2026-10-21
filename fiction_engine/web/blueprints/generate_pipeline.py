@@ -73,6 +73,12 @@ def pipeline_start():
                                 **{k: data[k] for k in required})
         # start_pipeline кладёт truncated/cut_reason в results на шаге generate
         return jsonify({"ok": True, **result})
+    except ValueError as e:
+        # Судья той же семьи, что писатель (SameFamilyJudge) — ошибка выбора, не сбой
+        from engine.pipeline import SameFamilyJudge
+        if isinstance(e, SameFamilyJudge):
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -277,7 +283,15 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         for k in list(_state_jobs)[:-50]:          # держим последние 50
             del _state_jobs[k]
         _state_jobs[job_id] = {"status": "running", "state_updated": False,
-                               "project_id": project_id}
+                               "project_id": project_id, "step": "State", "failed": []}
+
+    def step(name: str) -> None:
+        with _state_lock:
+            _state_jobs[job_id]["step"] = name
+
+    def failed(name: str) -> None:
+        with _state_lock:
+            _state_jobs[job_id]["failed"].append(name)
 
     def alive() -> bool:
         """Глава та же, что принимали: её не откатили и не заменили, пока шла обработка."""
@@ -288,12 +302,20 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         return bool(ch) and (ch.get("content") or "").strip() == text.strip()
 
     def worker():
-        updated = _try_state_update_after_accept(project_id, chapter_num, model_value, alive)
-        with _state_lock:
-            _state_jobs[job_id].update(status="done", state_updated=updated)
+        # «Готово» — после всех шагов, а не после State: страница по «готово»
+        # перезагружается, и автор шёл дальше (откатывал, писал следующую
+        # главу), пока анализ, L3 и заметка ещё писались (разбор 21.10)
         try:
+            updated = _try_state_update_after_accept(project_id, chapter_num, model_value, alive)
+            with _state_lock:
+                _state_jobs[job_id]["state_updated"] = updated
             _after_accept(alive)
+        except Exception as e:
+            log_web_error("accept: обработка принятой главы", e, project_id=project_id, chapter_num=chapter_num)
+            failed(_state_jobs[job_id].get("step") or "обработка")
         finally:
+            with _state_lock:
+                _state_jobs[job_id].update(status="done", step="")
             # Главу откатили, пока шла обработка, — записанное по ней убрать
             # (разбор 21.10: страница перезагружается по «State обновлён», и
             # «Откатить» успевал раньше L3, заметки и оценки)
@@ -309,19 +331,24 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         # analysis): из запуска, если принят проанализированный черновик, иначе
         # заново. До L3 и заметки: следующая глава берёт из него контекст
         if text:
+            step("анализ главы")
             try:
                 from engine.pipeline import record_accepted_analysis
-                record_accepted_analysis(project_id, int(chapter_num), text, int(run_id or 0), model_value)
+                if not record_accepted_analysis(project_id, int(chapter_num), text, int(run_id or 0), model_value):
+                    failed("анализ главы")
             except Exception as e:
                 log_web_error("accept: анализ принятой главы", e,
                               project_id=project_id, chapter_num=chapter_num)
+                failed("анализ главы")
         # Шаги после сохранения главы — L3, дрейф голоса, заметка, оценка. Их
         # делала только «Сохранить как главу» прежней «Генерации»: глава,
         # принятая в Pipeline / «Мастерской», оставалась без L3 (у автора
         # 17.10), и анализ серии был пуст. После State — по одному вызову за раз
         if text and alive():
             from .helpers import after_chapter_saved
-            after_chapter_saved(project_id, chapter_num, text, model_value, alive=alive)
+            done = after_chapter_saved(project_id, chapter_num, text, model_value, alive=alive, step=step)
+            for name in done.get("failed") or []:
+                failed(name)
 
     threading.Thread(target=worker, daemon=True).start()
     return job_id
@@ -335,7 +362,8 @@ def pipeline_state_status(job_id):
     # Чужой проект — как несуществующая задача
     if not job or not current or job["project_id"] != current["id"]:
         return jsonify({"status": "not_found"}), 404
-    return jsonify({"status": job["status"], "state_updated": job["state_updated"]})
+    return jsonify({"status": job["status"], "state_updated": job["state_updated"],
+                    "step": job.get("step", ""), "failed": job.get("failed", [])})
 
 
 def _log_state_update_failure(project_id: int, chapter_num: int, exc: Exception) -> None:

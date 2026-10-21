@@ -17,32 +17,31 @@ def test_model_family():
 
 
 def test_warning_cases():
+    """Любая семья: Claude не судит Claude, GPT не судит GPT (21.10 — было только про Claude)."""
     from engine.pipeline_config import judge_bias_warning
-    assert "оба Claude" in judge_bias_warning("claude_subscription::claude-sonnet-5-5",
-                                              "anthropic_direct::claude-opus-5-5")
-    assert "та же модель" in judge_bias_warning("nano_gpt::z-ai/glm-5.3", "nano_gpt::z-ai/glm-5.3")
-    # Разные модели одного семейства, кроме Claude, — не узнают свой текст (6 из 16)
-    assert judge_bias_warning("nano_gpt::deepseek/deepseek-v4-pro-0813",
-                              "deepseek_direct::deepseek-chat") == ""
+    assert "одной семьи" in judge_bias_warning("claude_subscription::claude-sonnet-5-5",
+                                               "anthropic_direct::claude-opus-5-5")
+    assert "одной семьи" in judge_bias_warning("chatgpt_subscription::gpt-6.1-sol@medium",
+                                               "chatgpt_subscription::gpt-6.1-luna")
+    assert "Kimi" not in judge_bias_warning("claude_subscription::claude-sonnet-5-5",
+                                            "claude_subscription::claude-haiku-5-5")
     assert judge_bias_warning("claude_subscription::claude-sonnet-5-5",
-                              "nano_gpt::moonshotai/kimi-k2.5") == ""
-    assert judge_bias_warning("", "nano_gpt::moonshotai/kimi-k2.5") == ""
+                              "chatgpt_subscription::gpt-6.1-sol@medium") == ""
+    assert judge_bias_warning("", "chatgpt_subscription::gpt-6.1-sol@medium") == ""
 
 
-def test_start_pipeline_returns_warning_after_auto_cycle(project_id):
+def test_same_family_judge_does_not_start(project_id):
+    import pytest
     from engine import pipeline
-    from engine.pipeline_config import AUTO_IMPROVE
-    calls = []
+    with pytest.raises(pipeline.SameFamilyJudge):
+        pipeline.start_pipeline(project_id, 3, "задача", "claude_subscription::claude-sonnet-5-5",
+                                "c", "e", "claude_subscription::claude-haiku-5-5")
 
-    def fake_step(**kw):
-        calls.append(1)
-        return {"verdict": "НА ДОРАБОТКУ", "judge_score": len(calls), "generated_text": "т"}
-    with patch.object(pipeline, "run_pipeline_step", side_effect=fake_step):
+
+def test_start_pipeline_without_warning_for_other_family(project_id):
+    from engine import pipeline
+    with patch.object(pipeline, "run_pipeline_step",
+                      side_effect=lambda **kw: {"verdict": "ПРИНЯТЬ", "judge_score": 35, "generated_text": "т"}):
         res = pipeline.start_pipeline(project_id, 3, "задача", "claude_subscription::claude-sonnet-5-5",
-                                      "m", "m", "claude_subscription::claude-sonnet-5-5", config=AUTO_IMPROVE)
-    assert len(calls) > 1, "авто-цикл не сработал — тест не про то"
-    assert "оба Claude" in res["judge_warning"]
-    with patch.object(pipeline, "run_pipeline_step", side_effect=fake_step):
-        res = pipeline.start_pipeline(project_id, 3, "задача", "claude_subscription::claude-sonnet-5-5",
-                                      "m", "m", "nano_gpt::moonshotai/kimi-k2.5")
+                                      "m", "m", "chatgpt_subscription::gpt-6.1-sol@medium")
     assert "judge_warning" not in res

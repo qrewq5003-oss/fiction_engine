@@ -24,6 +24,7 @@ from tests.llm_stubs import scripted_llm
 # ─── Фикстуры ────────────────────────────────────────────────────────────────
 
 MODEL = "anthropic_direct::claude-test"
+JUDGE = "chatgpt_subscription::gpt-6.1-sol@medium"
 
 # Полная глава по объёму (2600 слов): короче MIN_CHAPTER_WORDS её дописывает
 # второй вызов (extend_short_chapter), и заглушка перестаёт совпадать с текстом.
@@ -49,7 +50,7 @@ CRITIQUE_REJECT = (
 
 JUDGE_ACCEPT = (
     "ИТОГ: 40\n"
-    "ВЕРДИКТ: ПРИНЯТЬ\n"
+    "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
     "ОБОСНОВАНИЕ: Хороший текст.\n"
 )
 
@@ -63,7 +64,7 @@ EDIT_RESPONSE = "Отредактированный текст главы. " * 2
 
 JUDGE_AFTER_EDIT = (
     "ИТОГ: 39\n"
-    "ВЕРДИКТ: ПРИНЯТЬ\n"
+    "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
     "ОБОСНОВАНИЕ: После правки стало лучше.\n"
 )
 
@@ -76,7 +77,7 @@ def _pipeline_kwargs(project_id, chapter_num=1):
         model_gen=MODEL,
         model_critic=MODEL,
         model_editor=MODEL,
-        model_judge=MODEL,
+        model_judge=JUDGE,       # другой семьи: судья той же семьи запуск не стартует
     )
 
 
@@ -357,8 +358,8 @@ class TestIterationsInDB:
             result = start_pipeline(**_pipeline_kwargs(project_id))
         iters = get_pipeline_iterations(result["run_id"])
         for i in iters:
-            # колонка в схеме называется model_used
-            assert i["model_used"] == MODEL
+            # колонка в схеме называется model_used; судья — своей модели
+            assert i["model_used"] == (JUDGE if i["stage"] == "judge" else MODEL)
 
 
 # ─── H. Сквозной: текст судьи → результат dict ───────────────────────────────
@@ -367,7 +368,7 @@ class TestEndToEndScoring:
     def test_score_flows_through_pipeline(self, project_id):
         """parse_score и parse_verdict читают то что вернул _call → попадает в result."""
         from engine.pipeline import start_pipeline
-        custom_judge = "ИТОГ: 42.5\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: Отлично.\n"
+        custom_judge = "ИТОГ: 42.5\nСВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: Отлично.\n"
         with patch("engine.pipeline._call",
                    side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=custom_judge)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
@@ -388,7 +389,7 @@ class TestEndToEndScoring:
         from engine.pipeline import start_pipeline
         judge_no_itog = (
             "ГОЛОС: 8\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 8\nСЦЕНЫ: 8\nДИАЛОГ: 8\n"
-            "ВЕРДИКТ: ПРИНЯТЬ\n"
+            "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
         )
         with patch("engine.pipeline._call",
                    side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=judge_no_itog)):

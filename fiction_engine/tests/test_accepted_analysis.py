@@ -66,7 +66,7 @@ def test_accepted_edit_is_analysed_again(project_id, monkeypatch):
     seen = []
 
     class Done:
-        analysis_quality = "full"
+        analysis_quality = "ok"
     monkeypatch.setattr(chapter_analyzer, "analyze_chapter_deep",
                         lambda pid, ch, text, call, persist=True: seen.append(text) or Done())
     run = _run(project_id)

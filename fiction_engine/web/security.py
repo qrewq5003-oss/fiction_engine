@@ -68,6 +68,28 @@ def check_host(host: str) -> str | None:
     return None
 
 
+def allowed_request_host(host_header: str) -> bool:
+    """
+    Имя в заголовке Host — петля или из FE_TRUSTED_HOSTS (через запятую).
+
+    Защита от DNS rebinding: чужой сайт перепривязывает своё имя на 127.0.0.1,
+    и страница с него становится «своей» для браузера — читает ответы и шлёт
+    запросы без CSRF (cookie и токен у неё свои). Браузер при этом шлёт Host
+    чужого имени — по нему и отказ. Приложение в сети (FE_HOST не петля)
+    открывают по его адресу или имени — их задают в FE_TRUSTED_HOSTS; без
+    него вне петли проверка не действует (там и так нужен пароль).
+    """
+    name = (host_header or "").strip().lower()
+    if name.startswith("["):                       # [::1]:5000
+        name = name[1:].split("]")[0]
+    elif name.count(":") == 1:
+        name = name.split(":")[0]
+    extra = {h.strip().lower() for h in os.environ.get("FE_TRUSTED_HOSTS", "").split(",") if h.strip()}
+    if os.environ.get("FE_HOST", "127.0.0.1") not in LOOPBACK and not extra:
+        return True
+    return name in LOOPBACK or name in extra
+
+
 def csrf_token() -> str:
     if "csrf" not in session:
         session["csrf"] = secrets.token_urlsafe(32)
@@ -118,6 +140,14 @@ def init_security(app: Flask) -> None:
                 return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
             error = "Неверный пароль"
         return render_template_string(_LOGIN_PAGE, error=error)
+
+    @app.before_request
+    def _host_guard() -> ResponseReturnValue | None:
+        if not allowed_request_host(request.host):
+            return jsonify({"error": f"запрос на чужое имя хоста ({request.host[:60]}) отклонён: "
+                                     "открывайте приложение по адресу 127.0.0.1 или localhost "
+                                     "(в сети — добавьте имя в FE_TRUSTED_HOSTS)"}), 403
+        return None
 
     @app.before_request
     def _guard() -> ResponseReturnValue | None:

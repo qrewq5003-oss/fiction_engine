@@ -118,13 +118,22 @@ def get_pending_updates(project_id: int) -> list[dict]:
         ).fetchall()]
 
 
-def get_last_update(project_id: int) -> dict | None:
+def get_last_update(project_id: int, before_chapter: int | None = None) -> dict | None:
+    """Последний анализ главы; before_chapter — последний ПРИМЕНЁННЫЙ анализ глав до этой
+    (раньше — последний любой: чужой главы, черновой, неприменённый)."""
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM state_updates WHERE project_id=? "
-            "ORDER BY created_at DESC, id DESC LIMIT 1",
-            (project_id,)
-        ).fetchone()
+        if before_chapter is None:
+            row = conn.execute(
+                "SELECT * FROM state_updates WHERE project_id=? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (project_id,)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM state_updates WHERE project_id=? AND applied=1 AND chapter_num < ? "
+                "ORDER BY chapter_num DESC, id DESC LIMIT 1",
+                (project_id, before_chapter)
+            ).fetchone()
         return dict(row) if row else None
 
 
@@ -203,10 +212,31 @@ def state_for_chapter(project_id: int, chapter_num: int) -> dict:
                 with get_conn() as conn:
                     row = conn.execute("SELECT * FROM state_history WHERE id=?", (snap["id"],)).fetchone()
                 return {k: _lf(row[k]) for k in STATE_FIELDS}
-            handle_error(f"state_for_chapter ({project_id}, гл.{chapter_num})",
-                         LookupError("нет снимка State до главы — работа над ней видит State на конец книги"),
-                         level=ErrorLevel.RECOVERABLE)
+            # Старая книга: снимков до глав нет (вытеснялись). State — конец
+            # книги; его «сейчас» (где, что дальше, что знают герои) — будущее
+            # для этой главы: не отдаём, автору — предупреждение (разбор 21.10)
+            from .engine_issues import note_engine_issue
+            note_engine_issue(f"нет снимка State до гл.{chapter_num} — работе над ней не даны поля «сейчас» "
+                              "(где герои, что знают, что дальше): они с конца книги")
+            st = without_now_fields(get_state(project_id))
+            # И детали серии этой главы и поздних
+            from .state_merge import drop_series_details
+            return {**st, "plot_matrix": drop_series_details(st["plot_matrix"], set(range(chapter_num, last + 1)))}
     return get_state(project_id)
+
+
+# Поля «сейчас» State: на конец книги они — будущее для главы из середины
+_NOW_KEYS = ("СОСТОЯНИЕ", "Состояние", "Статус", "ЛОКАЦИЯ", "Локация", "Место", "ЦЕЛЬ_СЕЙЧАС", "Цель текущая",
+             "Цель сейчас", "ЗНАЕТ", "Знает", "НЕ_ЗНАЕТ", "Не знает", "ДУМАЕТ_ЧТО_ЗНАЕТ", "МОМЕНТ", "Момент",
+             "Текущий момент", "УГРОЗА", "НЕ_ДОЛЖНО_СЛУЧИТЬСЯ", "ГДЕ_СЕЙЧАС", "Где сейчас", "СЛЕДУЮЩИЙ_ШАГ",
+             "Следующий шаг", "СТАТУС", "ИЗМЕНЕНИЕ")
+_NOW_LINE = re.compile(r"^\s*(?:" + "|".join(map(re.escape, _NOW_KEYS)) + r")\s*[:\-][^\n]*\n?", re.M)
+
+
+def without_now_fields(state: dict) -> dict:
+    """State без полей «сейчас» и без «кто что знает»: карточки, линии, детали — остаются."""
+    return {**state, "global_state": _NOW_LINE.sub("", state.get("global_state") or ""),
+            "plot_matrix": _NOW_LINE.sub("", state.get("plot_matrix") or ""), "memory_graph": ""}
 
 
 def restore_state_snapshot(project_id: int, snapshot_id: int) -> bool:

@@ -194,12 +194,15 @@ class TestPrevalidation:
                 {"global_state": "### Марк\nСОСТОЯНИЕ: мёртв\n"})
         assert isinstance(out, list)
 
-    def test_bad_json_is_survived(self, project_id):
-        from engine.prevalidation import _check_state_contradictions
+    def test_bad_json_is_a_failure_not_clean(self, project_id):
+        """Неразобранный ответ — сбой проверки, а не «противоречий нет» (разбор 21.10)."""
+        import pytest
+        from engine.prevalidation import _check_state_contradictions, prevalidate_chapter
         with patch("engine.prevalidation.call_model", return_value="не json"):
-            out = _check_state_contradictions(project_id, 3, "задача", "m::x",
-                                              {"global_state": "текст"})
-        assert out == []
+            with pytest.raises(ValueError):
+                _check_state_contradictions(project_id, 3, "задача", "m::x", {"global_state": "текст"})
+            out = prevalidate_chapter(project_id, 3, "задача", "m::x")
+        assert out["ok"] is False and "не разобран" in out["error"]
 
     def test_empty_state_skips_check(self, project_id):
         from engine.prevalidation import _check_state_contradictions

@@ -151,6 +151,9 @@ def generate_save():
     model_value = data.get("model", "")
     if not chapter_num or not text:
         return jsonify({"error": "Нужны chapter_num и text"}), 400
+    # Поверх главы — убрать посчитанное по прежнему тексту, как «Принять» (разбор 21.10)
+    from engine.db_chapters import prepare_chapter_replace
+    prepare_chapter_replace(current["id"], int(chapter_num))
     save_chapter(current["id"], chapter_num, text, f"Глава {chapter_num}")
     result = {"ok": True}
     if model_value:
@@ -173,7 +176,7 @@ def generate_validate():
         from engine.prevalidation import prevalidate_chapter
         return jsonify(prevalidate_chapter(current["id"], chapter_num, task, model_value))
     except Exception as e:
-        return jsonify({"ok": True, "blocking": [], "warnings": [], "error": str(e)})
+        return jsonify({"ok": False, "blocking": [], "warnings": [], "error": str(e)})
 
 
 @bp.route("/api/generation/history")

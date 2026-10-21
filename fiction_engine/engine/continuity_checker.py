@@ -202,7 +202,7 @@ def _has_enough_data(project_id: int, chapter_num: int) -> bool:
         # Проверяем что хотя бы одна прошлая глава проанализирована
         for n in range(chapter_num - 1, max(0, chapter_num - 4), -1):
             a = get_chapter_analysis(project_id, n)
-            if a and a.get("analysis_quality") != "failed":
+            if a and a.get("analysis_quality", "ok") == "ok":
                 return True
     except Exception as e:
         handle_error("_has_enough_data: не прочитать анализ глав", e,
@@ -223,7 +223,22 @@ def check_continuity(
     Возвращает список нарушений:
     [{"fact": str, "violation": str, "severity": "critical"|"warning"}, ...]
 
-    Пустой список если нарушений нет или данных недостаточно.
+    Пустой список если нарушений нет, данных недостаточно — или проверка
+    сорвалась. Где сбой надо показать — check_continuity_or_raise.
+    """
+    return check_continuity_or_raise(project_id, chapter_num, chapter_text, api_call_fn)
+
+
+def check_continuity_or_raise(
+    project_id: int,
+    chapter_num: int,
+    chapter_text: str,
+    api_call_fn: LLMCaller,
+) -> list[dict]:
+    """
+    То же, но сбой (модель не ответила, ответ не разобран) — исключение, а не
+    пустой список: «Проверить непрерывность» показывала «✓ Нарушений не найдено»
+    и на сбое (разбор 21.10).
     """
     if not _has_enough_data(project_id, chapter_num):
         return []
@@ -266,20 +281,11 @@ def check_continuity(
     # на обрамлении ```json и на ответе, обрезанном лимитом токенов.
     from .pipeline_llm import parse_json
     data = parse_json(raw)
-    if data is None:
-        return []
-
-    try:
-        violations = data.get("violations", []) if isinstance(data, dict) else []
-        # Фильтруем: только реальные нарушения со severity
-        return [
-            v for v in violations
-            if isinstance(v, dict) and v.get("violation") and v.get("fact")
-        ]
-    except Exception as e:
-        handle_error(f"continuity_checker parse JSON ({project_id}, ch{chapter_num})", e,
-                     level=ErrorLevel.RECOVERABLE)
-        return []
+    if not isinstance(data, dict):
+        raise ValueError("ответ проверки непрерывности не разобран")
+    violations = data.get("violations") or []
+    # Только настоящие нарушения: с фактом и описанием
+    return [v for v in violations if isinstance(v, dict) and v.get("violation") and v.get("fact")]
 
 
 def format_continuity_for_prompt(violations: list[dict]) -> str:

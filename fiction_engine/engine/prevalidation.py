@@ -119,14 +119,17 @@ def prevalidate_chapter(
     keys = _get_api_keys()
     raw = call_model(model_value, SYS_VALIDATOR, prompt, max_tokens=1200, **keys)
 
-    import json
-    import re
-    clean = re.sub(r"```json|```", "", raw).strip()
+    # Ответ не разобран — это сбой проверки, а не «противоречий нет»: страница
+    # показывала «✅ прошла проверку» (разбор 21.10)
+    from .pipeline_llm import parse_json
     try:
-        result = json.loads(clean)
-    except json.JSONDecodeError as e:
+        result = parse_json(raw)
+        if not isinstance(result, dict):
+            raise ValueError("ответ — не объект JSON")
+    except ValueError as e:
         log.error("prevalidate_chapter JSON parse", exc=e, project_id=project_id, chapter_num=chapter_num)
-        result = {"ok": True, "blocking": [], "warnings": [], "suggestions": [], "_raw": raw}
+        result = {"ok": False, "blocking": [], "warnings": [], "suggestions": [],
+                  "error": "ответ модели проверки не разобран — задача не проверена"}
 
     # ─── Проверка структурных паттернов (монотонность) ───────────────────────
     # Не LLM-вызов — статистика по БД. Быстро и бесплатно.
@@ -148,6 +151,8 @@ def prevalidate_chapter(
             result["ok"] = False
     except Exception as e:
         log.error("prevalidate_chapter contradiction check", exc=e, project_id=project_id, chapter_num=chapter_num)
+        result["error"] = "; ".join(filter(None, [result.get("error"),
+                                                  "проверка противоречий с State не прошла: " + str(e)[:200]]))
 
     return result
 
@@ -201,13 +206,10 @@ STATE ENGINE (персонажи, события):
 
 Только JSON."""
 
-    import json
-    import re
-    raw   = call_model(cheap, SYS_CONTRADICTION, prompt, max_tokens=400, **keys)
-    clean = re.sub(r"```json|```", "", raw).strip()
-    try:
-        data = json.loads(clean)
-        return data.get("contradictions", [])
-    except json.JSONDecodeError as e:
-        log.error("_check_state_contradictions JSON parse", exc=e, project_id=project_id, chapter_num=chapter_num)
-        return []
+    raw = call_model(cheap, SYS_CONTRADICTION, prompt, max_tokens=400, **keys)
+    # Не разобран — исключение: снаружи это сбой проверки, а не «противоречий нет»
+    from .pipeline_llm import parse_json
+    data = parse_json(raw)
+    if not isinstance(data, dict):
+        raise ValueError("ответ не разобран")
+    return data.get("contradictions") or []
