@@ -132,8 +132,9 @@ def build_consolidated_voice(active_voice: dict | None,
             handle_error("build_consolidated_voice peak_finale", e, level=ErrorLevel.RECOVERABLE)
 
     if not lines:
-        return ("ГОЛОС — ЭТАЛОН:\n"
-                "[Вставь 3-5 предложений из предыдущей главы — эталон голоса]")
+        # Ни профиля, ни прошлых глав — блока нет. Была строка-подсказка из
+        # шаблона «[Вставь 3-5 предложений…]»: писатель гл.1 получал её как есть
+        return ""
 
     return "\n\n".join(lines)
 

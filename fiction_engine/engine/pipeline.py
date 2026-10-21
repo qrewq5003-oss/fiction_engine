@@ -526,6 +526,30 @@ def accept_pipeline(run_id: int, final_text: str = ""):
     # из оценок автора (ideas_bp); принятые запуски и так в pipeline_runs.
 
 
+def reanalyze_accepted(project_id: int, chapter_num: int, run_id: int, final_text: str) -> bool:
+    """
+    Анализ главы (разрывы, обещания, причинные цепи, тип зачина и концовки —
+    chapter_analysis) — заново по принятому тексту, если он не черновик первого
+    круга. True — анализ переписан.
+
+    Анализ делается один раз, по черновику (step_chapter_analysis в круге 1), а
+    принимается часто круг правки. «Ночная смена» (20.10): правка гл.1 убрала
+    ошибку «мы с тобой вдвоём в палате», а в анализе она осталась, и критик гл.3
+    упрекал главу «нерешённым разрывом из гл.1». Анализ читают писатель следующей
+    главы, проверка непрерывности и предупреждение о монотонности.
+    """
+    rounds = pipeline_rounds(get_pipeline_iterations(run_id))
+    if not (rounds and (final_text or "").strip()) or rounds[0]["text"].strip() == final_text.strip():
+        return False
+    run = get_pipeline_run(run_id) or {}
+    model = run.get("model_critic") or run.get("model_gen")
+    if not model:
+        return False
+    from .chapter_analyzer import analyze_chapter_deep
+    analysis = analyze_chapter_deep(project_id, chapter_num, final_text, lambda p: _call(model, "", p))
+    return analysis.analysis_quality != "failed"
+
+
 def reject_pipeline(run_id: int):
     run = get_pipeline_run(run_id)
     if not run:

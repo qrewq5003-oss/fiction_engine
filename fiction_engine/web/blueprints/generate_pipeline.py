@@ -269,7 +269,7 @@ _state_lock = threading.Lock()
 
 
 def _start_state_update(project_id: int, chapter_num: int, model_value: str,
-                        text: str = "") -> str:
+                        text: str = "", run_id: int = 0) -> str:
     job_id = str(uuid.uuid4())
     with _state_lock:
         for k in list(_state_jobs)[:-50]:          # держим последние 50
@@ -281,6 +281,16 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         updated = _try_state_update_after_accept(project_id, chapter_num, model_value)
         with _state_lock:
             _state_jobs[job_id].update(status="done", state_updated=updated)
+        # Анализ главы — по принятому тексту, если принят не черновик первого
+        # круга (engine.pipeline.reanalyze_accepted). До L3 и заметки: следующая
+        # глава берёт из него контекст
+        if text and run_id:
+            try:
+                from engine.pipeline import reanalyze_accepted
+                reanalyze_accepted(project_id, int(chapter_num), int(run_id), text)
+            except Exception as e:
+                log_web_error("accept: анализ принятой главы", e,
+                              project_id=project_id, chapter_num=chapter_num)
         # Шаги после сохранения главы — L3, дрейф голоса, заметка, оценка. Их
         # делала только «Сохранить как главу» прежней «Генерации»: глава,
         # принятая в Pipeline / «Мастерской», оставалась без L3 (у автора
@@ -331,7 +341,7 @@ def pipeline_accept():
     if current and chapter_num and final_text:
         save_chapter(current["id"], chapter_num, final_text, f"Глава {chapter_num} (pipeline)")
         if model_value:
-            state_job = _start_state_update(current["id"], chapter_num, model_value, final_text)
+            state_job = _start_state_update(current["id"], chapter_num, model_value, final_text, run_id)
 
         # ── Записываем правку автора для DATA_DRIVEN_LEARNING ──────────────
         # Находим оригинальный текст (последняя итерация generate/edit)

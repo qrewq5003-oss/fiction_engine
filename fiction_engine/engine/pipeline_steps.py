@@ -695,23 +695,10 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
         except Exception as e:
             handle_error(f"step_critique layers ({project_id})", e, level=ErrorLevel.RECOVERABLE)
 
-    # Дополнительно: загрузить накопленные gaps из прошлых глав (не только текущей)
-    if project_id and chapter_num > 1:
-        try:
-            from .db import get_all_logical_gaps
-            past_gaps = get_all_logical_gaps(project_id, before_chapter=chapter_num)
-            if past_gaps:
-                past_text = "; ".join(
-                    f"гл.{g['chapter_num']}: {g['gaps'][0]}"
-                    for g in past_gaps[:3] if g.get("gaps")
-                )
-                if past_text:
-                    context_blocks.append(
-                        f"НЕЗАКРЫТЫЕ РАЗРЫВЫ ИЗ ПРОШЛЫХ ГЛАВ:\n{past_text}"
-                    )
-        except Exception as e:
-            handle_error(f"step_critique load past gaps ({project_id})", e,
-                         level=ErrorLevel.RECOVERABLE)
+    # Разрывов прошлых глав критик не получает (21.10): это ошибки уже принятых
+    # глав, в этой главе их не исправить, а критик снимал за них с этой главы —
+    # «Ночная смена», гл.3: «нерешённый разрыв из гл.1», которого в принятой
+    # гл.1 уже не было (анализ был по черновику)
 
     # ── Continuity check — кросс-главная проверка непрерывности ────────────
     # Отдельный LLM-вызов: «вот факты серии, вот новая глава — найди нарушения».
