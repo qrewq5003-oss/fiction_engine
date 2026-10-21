@@ -155,9 +155,8 @@ def _without_model_notes(text: str) -> str:
 def _open_promises(l3: dict, chapter_num: int) -> str:
     """Незакрытые обещания главы — текстом, на момент этой главы. Раньше уходил
     список Python целиком, с закрытыми и «resolved_chapter» поздних глав (разбор 21.10)."""
-    from engine.l3_memory import get_active_promises, normalize_promises
-    ps = get_active_promises(normalize_promises(l3.get("promises") or [], l3.get("chapter_num") or 0), chapter_num)
-    return "; ".join(p.get("text", "") for p in ps if p.get("text")) or "нет"
+    from engine.pipeline import open_promises_of
+    return "; ".join(open_promises_of(l3, chapter_num)) or "нет"
 
 
 @bp.route("/api/prompt-assist", methods=["POST"])

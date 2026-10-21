@@ -589,6 +589,13 @@ def run_narrative_analysis(project_id: int, through_chapter: int,
     return analyze_narrative(project_id, through_chapter, _make_model_caller(model_value))
 
 
+def open_promises_of(l3: dict, at_chapter: int) -> list[str]:
+    """Тексты обещаний одного саммари L3, открытых на момент главы at_chapter."""
+    from .l3_memory import get_active_promises, normalize_promises
+    ps = normalize_promises(l3.get("promises") or [], l3.get("chapter_num") or 0)
+    return [p["text"] for p in get_active_promises(ps, at_chapter) if p.get("text")]
+
+
 def get_active_promises_for_project(project_id: int,
                                    through_chapter: int | None = None,
                                    limit: int = 100) -> list[str]:

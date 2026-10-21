@@ -476,7 +476,9 @@ def _fix_old_data(conn: sqlite3.Connection) -> None:
         done = conn.execute("SELECT 1 FROM settings WHERE key='notes_source_fixed'").fetchone()
         cols = {r[1] for r in conn.execute("PRAGMA table_info(director_notes)")}
         if not done and "source" in cols:
-            conn.execute("UPDATE director_notes SET source='auto' WHERE source='author' "
+            # Все проекты сразу (миграция, а не запрос по id извне) — заметки существующих книг
+            conn.execute("UPDATE director_notes SET source='auto' WHERE project_id IN (SELECT id FROM projects) "
+                         "AND source='author' "
                          "AND note NOT LIKE 'ПЛАН ГЛАВЫ%' AND note NOT LIKE '%⚠️ РЕЖИМ%' "
                          "AND length(note) < 600 AND created_at IS NULL")
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('notes_source_fixed', '1')")
