@@ -328,7 +328,9 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     Порядок блоков:
       base_prompt → голос → эталоны → KB → L3 → prep → engine → символы → state
     """
-    state   = get_state(project_id)
+    # State на момент главы: переписывают главу из середины — без поздних глав
+    from .db_state import state_for_chapter
+    state   = state_for_chapter(project_id, chapter_num)
     last    = get_last_chapters_content(project_id, n=2, before_chapter=chapter_num)
     project = get_project(project_id)
 

@@ -145,11 +145,14 @@ def snapshot_state(project_id: int, reason: str = "") -> None:
              state.get("memory_graph", ""),
              reason)
         )
+        # Хранится 20 последних снимков, кроме «перед анализом гл.N»: по ним
+        # «Откатить главу» и State на момент главы (state_for_chapter). Они
+        # вытеснялись — в 24 главах «Фона» снимка до ранних глав уже не было
         conn.execute("""
-            DELETE FROM state_history WHERE project_id=? AND id NOT IN (
-                SELECT id FROM state_history WHERE project_id=?
+            DELETE FROM state_history WHERE project_id=? AND reason NOT LIKE ? AND id NOT IN (
+                SELECT id FROM state_history WHERE project_id=? AND reason NOT LIKE ?
                 ORDER BY id DESC LIMIT 20
-            )""", (project_id, project_id))
+            )""", (project_id, SNAPSHOT_BEFORE + "%", project_id, SNAPSHOT_BEFORE + "%"))
 
 
 def get_state_history(project_id: int) -> list[dict]:
@@ -176,6 +179,34 @@ def snapshot_before_chapter(project_id: int, chapter_num: int) -> dict | None:
               if (m := re.fullmatch(re.escape(SNAPSHOT_BEFORE) + r"(\d+)", r["reason"] or ""))]
     after = max((r["id"] for r, n in marked if n < chapter_num), default=0)
     return next((r for r, n in marked if n == chapter_num and r["id"] > after), None)
+
+
+# Снимок при анализе главы, после которой уже есть принятые (переписывание
+# главы из середины книги): «Откатить главу» и state_for_chapter его не берут
+SNAPSHOT_RECOMPUTE = "перед пересчётом гл."
+
+
+def state_for_chapter(project_id: int, chapter_num: int) -> dict:
+    """
+    State, который видит работа над главой N: для новой главы — нынешний, для
+    уже принятой (её переписывают) — снимок до её анализа, то есть State после
+    глав до неё. Раньше всегда нынешний: писатель переписываемой гл.12 «Фона»
+    получил бы «Марат обвинён», «МОМЕНТ 6.12» и всю разгадку в «ЗНАЕТ» героини
+    (разбор 21.10). Снимка нет (старая книга: снимки вытеснялись) — нынешний.
+    """
+    if chapter_num:
+        from .db_chapters import last_chapter_number
+        last = last_chapter_number(project_id)
+        if last and chapter_num <= last:
+            snap = snapshot_before_chapter(project_id, chapter_num)
+            if snap:
+                with get_conn() as conn:
+                    row = conn.execute("SELECT * FROM state_history WHERE id=?", (snap["id"],)).fetchone()
+                return {k: _lf(row[k]) for k in STATE_FIELDS}
+            handle_error(f"state_for_chapter ({project_id}, гл.{chapter_num})",
+                         LookupError("нет снимка State до главы — работа над ней видит State на конец книги"),
+                         level=ErrorLevel.RECOVERABLE)
+    return get_state(project_id)
 
 
 def restore_state_snapshot(project_id: int, snapshot_id: int) -> bool:
