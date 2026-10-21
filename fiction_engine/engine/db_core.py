@@ -411,6 +411,10 @@ def _run_migrations() -> None:
         # Второй жанр или модификатор (genre_mix.py). NULL — только основной
         ("projects",           "genre_secondary", "ALTER TABLE projects ADD COLUMN genre_secondary TEXT"),
         ("voice_profiles",     "source",         "ALTER TABLE voice_profiles ADD COLUMN source TEXT DEFAULT 'custom'"),
+        # Чья заметка к главе: «author» (план из планировщика, правка автора) или
+        # «auto» (модель по концу прошлой главы). Автоматическую убирает замена
+        # той главы (db_chapters.forget_chapter_text); прежние строки — «author»
+        ("director_notes",     "source",         "ALTER TABLE director_notes ADD COLUMN source TEXT DEFAULT 'author'"),
         ("knowledge_base",     "auto_inject",    "ALTER TABLE knowledge_base ADD COLUMN auto_inject INTEGER DEFAULT 0"),
         ("engine_error_log",   "context",        "CREATE TABLE IF NOT EXISTS engine_error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, context TEXT NOT NULL, error TEXT NOT NULL, logged_at TEXT DEFAULT (datetime('now')))"),
         ("chapter_analysis",   "project_id",     "CREATE TABLE IF NOT EXISTS chapter_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, chapter_num INTEGER NOT NULL, arc_progress TEXT DEFAULT '{}', character_deltas TEXT DEFAULT '[]', opened_promises TEXT DEFAULT '[]', closed_promises TEXT DEFAULT '[]', causal_chains TEXT DEFAULT '[]', logical_gaps TEXT DEFAULT '[]', conflict_score REAL DEFAULT 0.0, pacing_note TEXT DEFAULT '', plot_threads TEXT DEFAULT '{}', analysis_quality TEXT DEFAULT 'ok', raw_data TEXT DEFAULT '{}', created_at TEXT DEFAULT (datetime('now')), UNIQUE(project_id, chapter_num))"),

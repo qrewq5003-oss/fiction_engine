@@ -120,9 +120,14 @@ def drift_checker(model_value: str, writer: str) -> str:
 def check_voice_drift(project_id: int, chapter_num: int,
                       chapter_text: str, model_value: str,
                       call_fn: Callable[..., str] | None = None,
-                      writer: str = "") -> dict:
+                      writer: str = "", save: bool = True) -> dict:
     """
     Проверить дрейф голоса новой главы.
+
+    save — записать в журнал (расписание проверок, should_check_drift). Круг
+    «Мастерской» не пишет: это черновик, журнал — по принятому тексту (после
+    «Принять», auto_drift_check_if_needed). Раньше круг 1 писал оценку черновика,
+    и принятый текст не проверялся вовсе: «Фон» — 7 из 8 записей до принятия.
 
     call_fn — функция (model, system, user, max_tokens) → str.
     Если не передана — использует внутренний _call из pipeline.
@@ -157,7 +162,8 @@ def check_voice_drift(project_id: int, chapter_num: int,
         score, issues, critical = _parse_drift_result(raw)
         if score is None:
             return {"checked": False, "reason": "unparsed", "raw": (raw or "")[:300]}
-        save_drift_check(project_id, chapter_num, score, issues)
+        if save:
+            save_drift_check(project_id, chapter_num, score, issues)
         return {
             "checked":   True,
             "score":     score,
