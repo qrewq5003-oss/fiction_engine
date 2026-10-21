@@ -139,6 +139,27 @@ def set_chapter_scenes(pid: int, chapter_num: int, scene_ids: list[int]) -> None
                      (pid, chapter_num))
         conn.executemany("UPDATE scenes SET chapter_num=? WHERE id=? AND project_id=?",
                          [(chapter_num, sid, pid) for sid in scene_ids])
+        # Метка не трогает updated_at сцен — время отправки хранится отдельно
+        conn.execute("INSERT INTO chapter_exports (project_id, chapter_num, exported_at) "
+                     "VALUES (?,?,datetime('now')) ON CONFLICT(project_id, chapter_num) "
+                     "DO UPDATE SET exported_at=excluded.exported_at", (pid, chapter_num))
+
+
+def stale_chapter_plans(pid: int) -> list[int]:
+    """
+    Главы, чей план в FE устарел: после отправки сцену главы правили,
+    переставляли или удаляли. Повторная отправка плана снимает отметку.
+    """
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT e.chapter_num FROM chapter_exports e WHERE e.project_id=? AND (
+                 EXISTS (SELECT 1 FROM scenes s WHERE s.project_id=e.project_id
+                         AND s.chapter_num=e.chapter_num AND s.updated_at > e.exported_at)
+                 OR EXISTS (SELECT 1 FROM scene_trash t WHERE t.project_id=e.project_id
+                            AND t.deleted_at > e.exported_at
+                            AND json_extract(t.data, '$.chapter_num')=e.chapter_num))
+               ORDER BY e.chapter_num""", (pid,)).fetchall()
+    return [r[0] for r in rows]
 
 
 def delete_project(pid: int):

@@ -124,8 +124,19 @@ MIGRATIONS = {
             deleted_at TEXT DEFAULT (datetime('now'))
         )""",
     ],
+    9: [
+        # Когда план главы ушёл в FE: правка, удаление или перестановка сцен
+        # после этого — план в FE устарел, доска говорит «отправь заново»
+        # (разбор планировщика 21.10: копия в FE не знала, что карточки изменились)
+        """CREATE TABLE IF NOT EXISTS chapter_exports (
+            project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            chapter_num INTEGER NOT NULL,
+            exported_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (project_id, chapter_num)
+        )""",
+    ],
     # Следующие миграции добавлять здесь:
-    # 9: [ "ALTER TABLE scenes ADD COLUMN ..." ],
+    # 10: [ "ALTER TABLE scenes ADD COLUMN ..." ],
 }
 
 

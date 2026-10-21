@@ -67,18 +67,18 @@ function render() {
     for (const f of facts) {
       const h = hist[key(f)] || [];
       const more = h.length > 1 ? `<details style="margin-top:4px;"><summary style="cursor:pointer;">история (${h.length})</summary>` +
-        h.map(x => `<div style="padding-left:10px;">гл.${x.chapter_num}: ${esc(x.value)} — ${esc(x.status)}${x.reason ? ' (' + esc(x.reason) + ')' : ''}</div>`).join('') +
+        h.map(x => `<div style="padding-left:10px;">гл.${+x.chapter_num || 0}: ${esc(x.value)} — ${esc(x.status)}${x.reason ? ' (' + esc(x.reason) + ')' : ''}</div>`).join('') +
         '</details>' : '';
       html += `<div style="padding:6px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;">
         <b>${esc(f.name)}</b> — ${esc(f.attr)}: <span style="color:var(--text);">${esc(f.value)}</span>
-        <span style="color:var(--text2);"> · с гл.${f.chapter_num}${f.status !== 'введено' ? ' · ' + esc(f.status) : ''}</span>${more}</div>`;
+        <span style="color:var(--text2);"> · с гл.${+f.chapter_num || 0}${f.status !== 'введено' ? ' · ' + esc(f.status) : ''}</span>${more}</div>`;
     }
   }
   document.getElementById('facts').innerHTML = html || 'Фактов пока нет — они появятся после анализа глав в Fiction Engine.';
   const c = BIBLE.conflicts || [];
   document.getElementById('conflicts-card').style.display = c.length ? '' : 'none';
   document.getElementById('conflicts').innerHTML = c.map(x =>
-    `<div style="margin-bottom:4px;">гл.${x.chapter_num}: <b>${esc(x.name)}</b> — ${esc(x.attr)}: «${esc(x.value)}», ${esc(x.reason)}</div>`).join('');
+    `<div style="margin-bottom:4px;">гл.${+x.chapter_num || 0}: <b>${esc(x.name)}</b> — ${esc(x.attr)}: «${esc(x.value)}», ${esc(x.reason)}</div>`).join('');
 }
 
 async function saveFact() {

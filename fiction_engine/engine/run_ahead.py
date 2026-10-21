@@ -58,11 +58,32 @@ def save_future(project_id: int, chapter_num: int, text: str) -> None:
 
 
 def get_future(project_id: int, chapter_num: int) -> str:
+    """
+    План вперёд для главы chapter_num: снимок доски на момент её плана, но
+    главы, чей план с тех пор пришёл в FE, — их нынешним планом. Снимок
+    устаревал: план всей книги отправлен заранее, позже главу 15 перепланировали,
+    а сторож гл.12 сверялся со старой гл.15 (разбор планировщика 21.10).
+    """
     _ensure()
     with get_conn() as conn:
         row = conn.execute("SELECT text FROM chapter_future_plans WHERE project_id=? AND chapter_num=?",
                            (project_id, chapter_num)).fetchone()
-    return row[0] if row else ""
+        later = conn.execute(
+            "SELECT after_chapter + 1, note FROM director_notes WHERE project_id=? AND after_chapter >= ? "
+            "AND note LIKE 'ПЛАН ГЛАВЫ%' ORDER BY after_chapter", (project_id, chapter_num)).fetchall()
+    stored = row[0] if row else ""
+    if not stored:
+        return ""
+    fresh = {int(n): note for n, note in later if int(n) > chapter_num}
+    from .db_narrative import without_continuation
+    keep = [ln for ln in stored.splitlines()
+            if not ((m := _CH_LINE.match(ln)) and int(m.group(1)) in fresh)]
+    blocks = [f"- гл.{n} (план из FE): " + " ".join(without_continuation(note).split())[:1500]
+              for n, note in sorted(fresh.items())]
+    return "\n".join(keep + blocks).strip()
+
+
+_CH_LINE = re.compile(r"^- гл\.(\d+)\b")
 
 
 _PROMPT = """Ниже глава {num} книги, её план и планы СЛЕДУЮЩИХ глав. Найди, где

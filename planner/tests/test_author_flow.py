@@ -153,5 +153,12 @@ def test_export_suggests_next_chapter(client, project_id, monkeypatch):
     assert 'value="1"' in client.get("/export").get_data(as_text=True)
 
     set_fe_project(project_id, 6)
-    monkeypatch.setattr(api, "_fe_get", lambda path, timeout: io.BytesIO(b'{"last_chapter": 3}'))
+    monkeypatch.setattr(api, "_fe_get", lambda path, timeout: io.BytesIO(
+        b'{"chapters": [{"number": 1}, {"number": 3}]}'))
     assert 'id="chapter-num" value="4"' in client.get("/export").get_data(as_text=True)
+    # FE не ответил — номер не подставляется (было молча 1 и перезапись плана гл.1)
+    def down(path, timeout):
+        raise OSError("connection refused")
+    monkeypatch.setattr(api, "_fe_get", down)
+    html = client.get("/export").get_data(as_text=True)
+    assert 'id="chapter-num" value=""' in html and "укажи его сам" in html

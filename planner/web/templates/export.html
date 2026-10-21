@@ -8,7 +8,8 @@
       <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Выбери сцены для главы</div>
       <div class="form-group">
         <label>Номер главы в Fiction Engine</label>
-        <input type="number" id="chapter-num" value="{{ next_chapter }}" min="1" style="width:120px;">
+        <input type="number" id="chapter-num" value="{{ next_chapter or '' }}" min="1" style="width:120px;">
+        {% if next_warning %}<div style="font-size:11px;color:var(--warning, #f59e0b);margin-top:4px;">⚠️ {{ next_warning }}</div>{% endif %}
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Выдели нужные сцены:</div>
       {% for a in acts %}
@@ -115,8 +116,16 @@ async function generatePrompt() {
 }
 
 function copyPrompt() {
-  navigator.clipboard.writeText(document.getElementById('prompt-output').value);
-  showToast('Скопировано');
+  // По сети без https navigator.clipboard нет, а тост «Скопировано» шёл всё равно
+  const area = document.getElementById('prompt-output');
+  const done = () => showToast('Скопировано');
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(area.value).then(done, () => showToast('Не скопировалось — выдели текст и Ctrl+C', 'error'));
+    return;
+  }
+  area.select();
+  try { document.execCommand('copy') ? done() : showToast('Выдели текст и Ctrl+C', 'error'); }
+  catch (e) { showToast('Выдели текст и Ctrl+C', 'error'); }
 }
 
 async function sendToFE() {
@@ -136,7 +145,7 @@ async function sendToFE() {
 
   if (r.sent) {
     status.textContent = `✅ План главы ${chNum} в Fiction Engine — «Мастерская», глава ${chNum}` +
-      (r.facts ? `; фактов в библию: ${r.facts}` : '');
+      (r.facts ? `; фактов в библию: ${r.facts}` : '') + (r.warning ? ` ⚠️ ${r.warning}` : '');
     showToast('Отправлено в FE');
   } else {
     // Отказ FE и недоступный FE — разные беды, сообщение — от сервера
