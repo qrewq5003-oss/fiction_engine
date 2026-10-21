@@ -145,6 +145,13 @@ def checks(work: Path, live: bool = True) -> list[tuple[str, bool, str]]:
            for n, r in res["chapters"].items()}
     out.append(("сторож приложения (в отчёт)", True,
                 "; ".join(f"гл.{n}: {len(xs)} раскрытий по кругам" for n, xs in app.items() if xs) or "раскрытий нет"))
+    # Принятый круг — без раскрытий по сторожу приложения: раньше строка выше
+    # проходила всегда, что бы сторож ни нашёл (разбор 21.10)
+    took = {n: [x for rd in (r.get("rounds") or []) if rd.get("round") == r.get("accepted_round")
+                for x in (rd.get("app_ahead") or []) if x.get("kind") == "раскрытие"]
+            for n, r in res["chapters"].items()}
+    out.append(("принятый круг без раскрытий сторожа приложения", not any(took.values()),
+                "; ".join(f"гл.{n}: {x.get('why', '')[:80]}" for n, xs in took.items() for x in xs)))
     try:
         fut = dict(c.execute("SELECT chapter_num, length(text) FROM chapter_future_plans WHERE project_id=?",
                              (pid,)).fetchall())

@@ -216,7 +216,9 @@ function previewSnap(snapId, data) {
 async function restoreSnap() {
   if (!currentSnapId) return;
   const r = await apiPost(`/scene/${SCENE_ID}/snapshot/${currentSnapId}/restore`, {});
-  if (r.ok) { closeModal('modal-snap'); location.reload(); }
+  // Перезагрузка — без автосохранения: оно отправляло старую форму и
+  // перетирало только что восстановленный снимок (разбор 21.10)
+  if (r.ok) { closeModal('modal-snap'); skipAutosave = true; location.reload(); }
   else showToast(r.error || 'Ошибка', 'error');
 }
 
@@ -240,6 +242,7 @@ async function aiAction(action) {
   if (r.ok) {
     result.textContent = r.result;
     result.style.display = 'block';
+    if (r.warning) showToast(r.warning, 'warning');
   } else {
     showToast(r.error || 'Ошибка', 'error');
   }
@@ -263,7 +266,9 @@ async function aiAction(action) {
 
 // Автосохранение при уходе: тихо, keepalive — чтобы запрос пережил уход со
 // страницы. Пустую несохранённую карточку не создаём
+let skipAutosave = false;
 window.addEventListener('beforeunload', () => {
+  if (skipAutosave) return;
   const d = getFormData();
   if (!SCENE_ID && formEmpty(d)) return;
   fetch(SCENE_ID ? `/scene/${SCENE_ID}/save` : '/api/scenes/new', {

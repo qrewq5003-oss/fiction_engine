@@ -88,7 +88,10 @@ def index():
 
 @app.route("/switch/<int:pid>")
 def switch_project(pid):
-    session["project_id"] = pid
+    # Несуществующий проект в сессию не ставить
+    from engine.db import get_project
+    if get_project(pid):
+        session["project_id"] = pid
     return redirect(url_for("main.board"))
 
 

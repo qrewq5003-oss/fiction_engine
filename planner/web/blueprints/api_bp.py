@@ -194,31 +194,36 @@ def link_delete(link_id):
 # ─── AI Assistant ─────────────────────────────────────────────────────────────
 
 BOOK_CONTEXT_MAX = 9000        # символов о книге в запросе AI-помощи
+FE_UNREACHABLE = "Fiction Engine не ответил — помощь без контекста книги"
 
 
-def _book_context() -> str:
+def _book_context() -> tuple[str, str]:
     """
     Что известно о связанной книге FE: что уже случилось (L3), сюжетные
-    линии и состояние мира. FE молчит или проекта нет — «».
+    линии и состояние мира → (текст, предупреждение). Проекта нет — («», «»),
+    FE молчит — («», FE_UNREACHABLE): раньше помощь шла без книги молча.
+    Каждому блоку — своя треть бюджета: общий обрез с конца отбрасывал
+    State героев целиком (разбор 21.10).
     """
     from engine.db import get_project
     fe_pid = (get_project(current_pid()) or {}).get("fe_project_id")
     if not fe_pid:
-        return ""
+        return "", ""
     import json as _json
     try:
         with _fe_get(f"/api/project/context?pid={fe_pid}", timeout=5) as r:
             d = _json.loads(r.read())
     except Exception:
-        return ""
-    parts = [(d.get("story_so_far") or "").strip(),
-             "СЮЖЕТНЫЕ ЛИНИИ:\n" + d["plot_matrix"].strip() if d.get("plot_matrix") else "",
-             "СОСТОЯНИЕ МИРА И ГЕРОЕВ:\n" + d["global_state"].strip() if d.get("global_state") else ""]
-    text = "\n\n".join(p for p in parts if p)[:BOOK_CONTEXT_MAX]
+        return "", FE_UNREACHABLE
+    share = BOOK_CONTEXT_MAX // 3
+    parts = [(d.get("story_so_far") or "").strip()[-share:],
+             "СЮЖЕТНЫЕ ЛИНИИ:\n" + d["plot_matrix"].strip()[:share] if d.get("plot_matrix") else "",
+             "СОСТОЯНИЕ МИРА И ГЕРОЕВ:\n" + d["global_state"].strip()[:share] if d.get("global_state") else ""]
+    text = "\n\n".join(p for p in parts if p)
     if not text:
-        return ""
+        return "", ""
     last = d.get("last_chapter") or 0
-    return f"=== КНИГА (написано глав: {last}) ===\n{text}\n\n"
+    return f"=== КНИГА (написано глав: {last}) ===\n{text}\n\n", ""
 
 
 def _neighbours(scene_id) -> str:
@@ -265,7 +270,8 @@ def ai_assist():
     )
     # Книга и соседние сцены: без них «что дальше» и «конфликт» придумывались
     # с нуля и спорили с тем, что уже написано
-    context = _book_context() + _neighbours(data.get("scene_id"))
+    book, book_warning = _book_context()
+    context = book + _neighbours(data.get("scene_id"))
     prompt = f"{instruction}\n\n{context}=== ЭТА СЦЕНА ===\n{scene_text}"
     if context:
         prompt += ("\n\nДержись того, что уже есть в книге и в соседних сценах: "
@@ -279,9 +285,11 @@ def ai_assist():
             "system": "Ты помощник сценариста и писателя. Отвечаешь конкретно и по делу.",
             "prompt": prompt,
             "max_tokens": 900
-        }, timeout=90)
+        # Вызов по подписке идёт минутами (у FE предел 900 с): 90 с обрывали ответ
+        }, timeout=900)
         if resp.ok:
-            return jsonify({"ok": True, "result": resp.json().get("result", "")})
+            return jsonify({"ok": True, "result": resp.json().get("result", ""),
+                            **({"warning": book_warning} if book_warning else {})})
 
         # Осмысленный отказ FE (нет ключа, пустой ответ модели) раньше
         # схлопывался в «FE недоступен» — автор видел не ту причину и не
@@ -506,6 +514,12 @@ def export_preview():
 def export_send():
     data       = request.json or {}
     scene_ids  = data.get("scene_ids", [])
+    # Без номера главы план уходил главой 1 (разбор 21.10)
+    try:
+        if int(data.get("chapter_num") or 0) < 1:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"error": "Укажи номер главы"}), 400
     chapter_num = _chapter_num(data)
 
     # Номера сцен приходят из запроса. Без фильтра по проекту содержимое
@@ -551,28 +565,12 @@ def export_send():
             return jsonify({"ok": True, "prompt": prompt_text, "sent": False,
                             "message": "Fiction Engine недоступен — скопируй план вручную"})
 
-    # Отправляем в FE как режиссёрскую заметку к главе.
-    # Путь именно такой: /api/director_note/<N>/save. Прежний вариант бил
-    # в /api/director_note без номера главы — такого маршрута в FE нет,
-    # запрос всегда падал, а ответ приходил с sent: false, будто FE просто
-    # не запущен.
-    import requests as req
-    try:
-        resp = req.post(f"{_fe_base_url()}/api/director_note/{chapter_num}/save",
-                        json={"note": prompt_text}, headers=_fe_headers(), timeout=10)
-        if resp.ok:
-            _mark_chapter(chapter_num, scenes)
-            return jsonify({"ok": True, "prompt": prompt_text, "sent": True})
-    except req.exceptions.RequestException:
-        # Ловим ТОЛЬКО сетевой отказ. Голый `except Exception` здесь означал,
-        # что ошибка нашего же кода — NameError, TypeError, опечатка в имени —
-        # возвращалась автору как «FE недоступен». Ровно так шесть вызовов
-        # планировщика падали на удалённом `_fe_base_url()`, а набор из 55
-        # тестов оставался зелёным: ответ выглядел штатным.
-        pass
-
-    # FE недоступен или ответил отказом — отдаём промт для ручного копирования
-    return jsonify({"ok": True, "prompt": prompt_text, "sent": False})
+    # Проект не связан с книгой FE — план не отправляется: раньше он уходил в
+    # проект, открытый в FE сейчас, — то есть, возможно, в чужую книгу, без
+    # фактов сцен и без плана вперёд (разбор 21.10)
+    return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
+                    "error": "Проект планировщика не связан с книгой в Fiction Engine (связь создаёт "
+                             "«Импорт из FE») — план не отправлен."})
 
 
 # ─── Статус системы ───────────────────────────────────────────────────────────
@@ -666,7 +664,11 @@ def fe_bible_set():
                         headers=_fe_headers(), timeout=10)
     except req.exceptions.RequestException as e:
         return jsonify({"error": f"FE недоступен: {e}"}), 503
-    return jsonify(resp.json()), resp.status_code
+    # Ответ не JSON (500 страницей) — сказать, а не упасть самим
+    try:
+        return jsonify(resp.json()), resp.status_code
+    except ValueError:
+        return jsonify({"error": f"Fiction Engine ответил {resp.status_code}: {resp.text[:200]}"}), 502
 
 
 @bp.route("/fe/import/<int:fe_pid>", methods=["POST"])
@@ -676,10 +678,14 @@ def fe_import(fe_pid):
     if not pid:
         return jsonify({"error": "Нет проекта в планировщике"}), 400
 
+    import json as _json
+    import urllib.error
     try:
-        import json as _json
         with _fe_get(f"/api/project/context?pid={fe_pid}", timeout=10) as r:
             data = _json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        # FE ответил — это не «недоступен»: нет проекта, нет входа (разбор 21.10)
+        return jsonify({"error": f"Fiction Engine ответил {e.code}: проекта {fe_pid} нет или нет доступа"}), 502
     except Exception as e:
         return jsonify({"error": f"FE недоступен: {e}"}), 503
 

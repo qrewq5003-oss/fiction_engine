@@ -37,6 +37,9 @@ import re
 import shutil
 import sqlite3
 import sys
+# Консоль Windows (cp1251/cp866) падала на «→» и «≥» в выводе (разбор 21.10)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import tempfile
 import threading
 from collections import Counter
@@ -262,13 +265,10 @@ def describe(spans: list[tuple[int, int]], n_tok: int, words: list[str]) -> str:
 
 
 def family(m: str) -> str:
-    m = (m or "").lower()
-    for fam, keys in (("claude", ("claude", "anthropic")), ("gpt", ("gpt", "chatgpt", "openai")),
-                      ("deepseek", ("deepseek",)), ("kimi", ("kimi", "moonshot")), ("gemini", ("gemini",)),
-                      ("mimo", ("mimo",))):
-        if any(k in m for k in keys):
-            return fam
-    return m.split("::")[-1]
+    """Семья модели — правилом приложения (pipeline_config.model_family). Своя
+    копия относила Kimi через nano_gpt к «gpt» (разбор 21.10)."""
+    from engine.pipeline_config import model_family
+    return model_family(m or "")
 
 
 def blocks(text: str) -> list[tuple[str, int]]:
