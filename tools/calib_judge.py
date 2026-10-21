@@ -5,7 +5,7 @@
 Окружение: CALIB_CRITIC — критик (по умолчанию Haiku 5.5, как CRITIC_MODEL движка),
 CALIB_NO_CRITIC=1 — судья без разбора, CALIB_PICK=0/1 — выборка глав, CALIB_LIMIT — сколько,
 CALIB_FAMILIES=gpt,deepseek — чьи главы (по умолчанию три семьи, кроме семьи судьи),
-CALIB_RUBRIC=v2 — правила оценки v2 (engine/judge_rubric: определения, шкала, строки связности).
+CALIB_RUBRIC=v1 — прежние правила оценки (по умолчанию v2, как в приложении: engine/judge_rubric).
 Калибровки 16–19.10 — bench/judges-*, critic-no-nano-*, judge-repeat-*.
 
 Как в Pipeline: критик → судья (step_critique, step_judge движка),
@@ -100,11 +100,11 @@ def call(model, system, user, max_tokens=None, prefill=""):
 
 CRIT = re.compile(r"(ГОЛОС|СТРУКТУРА|ПЕРСОНАЖИ|СЦЕНЫ|ДИАЛОГ)\s*:\s*\[?(\d+(?:[.,]\d+)?)")
 pid = create_project("Калибровка", "калибровка")
-RUBRIC = os.environ.get("CALIB_RUBRIC", "v1")
-if RUBRIC != "v1":
-    from engine.db import set_setting
-    from engine.judge_rubric import RUBRIC_KEY
-    set_setting(RUBRIC_KEY, RUBRIC)
+# Правила — всегда явно: с 21.10 умолчание приложения v2, и CALIB_RUBRIC=v1 без записи шёл бы по v2
+RUBRIC = os.environ.get("CALIB_RUBRIC", "v2")
+from engine.db import set_setting
+from engine.judge_rubric import RUBRIC_KEY
+set_setting(RUBRIC_KEY, RUBRIC)
 keys = {(it["family"], it["genre"], it["kind"]) for it in items}
 done = [d for d in (json.loads(OUT.read_text(encoding="utf-8"))["items"] if OUT.exists() else [])
         if not d.get("error")           # с ошибкой — перепроверить

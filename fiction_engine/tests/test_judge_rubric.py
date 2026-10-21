@@ -34,9 +34,12 @@ def _judge(project_id, answer, genre=""):
     return res, seen["system"]
 
 
-def test_v1_by_default_and_unchanged(project_id):
-    from engine.judge_rubric import rubric
+def test_v2_by_default_v1_unchanged(project_id):
+    from engine.db import set_setting
+    from engine.judge_rubric import RUBRIC_KEY, rubric
     from engine.pipeline_steps import _build_sys_critic
+    assert rubric() == "v2"
+    set_setting(RUBRIC_KEY, "v1")
     assert rubric() == "v1"
     assert "СТРУКТУРА — темп, крюк, финал, движение" in _build_sys_critic("детектив")
     res, system = _judge(project_id, _answer("ГРУБО"), "detective_classic")
@@ -117,7 +120,7 @@ def test_rubric_setting_route(project_id):
     set_active_project(project_id)
     app.config.update(TESTING=True, FE_CSRF=False)
     c = app.test_client()
-    assert c.get("/api/settings/judge_rubric").get_json()["rubric"] == "v1"
+    assert c.get("/api/settings/judge_rubric").get_json()["rubric"] == "v2"
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v3"}).status_code == 400
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v2"}).get_json()["rubric"] == "v2"
     assert c.post("/api/settings/judge_rubric", json={"rubric": "v1"}).get_json()["rubric"] == "v1"
