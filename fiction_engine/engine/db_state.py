@@ -234,11 +234,18 @@ _EXCLUDE_WORDS = {
 }
 
 
+# Незаполненное поле шаблона State: «[]», «[что нельзя допустить в следующей
+# главе]». Писатель «Фона» получал его как «⚠ НЕЛЬЗЯ: [что нельзя допустить…]»
+# (разбор 21.10)
+_TEMPLATE_VALUE = re.compile(r"\[[^\]]*\]")
+
+
 def _extract_field(text: str, *keys: str) -> str:
     for key in keys:
         m = re.search(rf"(?:{re.escape(key)})\s*[:\-]\s*([^\n]+)", text, re.IGNORECASE)
-        if m and m.group(1).strip() not in ("[]", "", "-"):
-            return m.group(1).strip()
+        v = m.group(1).strip() if m else ""
+        if v not in ("", "-") and not _TEMPLATE_VALUE.fullmatch(v):
+            return v
     return ""
 
 
