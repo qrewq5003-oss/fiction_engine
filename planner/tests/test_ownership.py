@@ -46,8 +46,7 @@ def _proof_ai_assist(client, f):
     Ничего не пишет. Читает соседние сцены по scene_id — только своего
     проекта, и книгу FE — только связанную с проектом СЕССИИ.
     Доказательство: с номером чужой сцены (у чужого проекта и связь с FE
-    есть) в запрос к модели не попадает ни чужая сцена, ни её соседи, и
-    за книгой планировщик в FE не ходит.
+    есть) — отказ 404, запроса к модели нет, за книгой в FE не ходили.
     """
     import requests
     from engine.db import get_scene, set_fe_project, update_scene
@@ -60,12 +59,14 @@ def _proof_ai_assist(client, f):
     real_get, fetched = api._fe_get, []
     api._fe_get = lambda path, timeout: (fetched.append(path), _raise())[1]
     try:
-        client.post("/api/ai/assist", json={"scene_id": f["scene_id"], "action": "develop",
-                                            "model": "x::y", "scene": {"title": "своя"}})
+        r = client.post("/api/ai/assist", json={"scene_id": f["scene_id"], "action": "develop",
+                                                "model": "x::y", "scene": {"title": "своя"}})
     finally:
         requests.post, api._fe_get = real_post, real_get
     prompt = json.dumps(sent, ensure_ascii=False)
-    assert sent and "ЧУЖ" not in prompt, f"в запрос попало чужое: {prompt[:300]}"
+    # С 21.10 чужая сцена — отказ ещё до запроса к модели (устаревшая вкладка
+    # отправляла сцену одной книги с контекстом другой)
+    assert r.status_code == 404 and not sent, f"в запрос попало чужое: {prompt[:300]}"
     assert not fetched, f"за книгой ходили в FE: {fetched}"
     assert get_scene(f["scene_id"])["title"] == "ЧУЖАЯ-2", "чужая сцена изменена"
 

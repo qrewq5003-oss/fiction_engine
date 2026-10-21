@@ -8,7 +8,8 @@
       <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Выбери сцены для главы</div>
       <div class="form-group">
         <label>Номер главы в Fiction Engine</label>
-        <input type="number" id="chapter-num" value="{{ next_chapter }}" min="1" style="width:120px;">
+        <input type="number" id="chapter-num" value="{{ next_chapter or '' }}" min="1" style="width:120px;">
+        {% if next_warning %}<div style="font-size:11px;color:var(--warning, #f59e0b);margin-top:4px;">⚠️ {{ next_warning }}</div>{% endif %}
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Выдели нужные сцены:</div>
       {% for a in acts %}
@@ -136,7 +137,7 @@ async function sendToFE() {
 
   if (r.sent) {
     status.textContent = `✅ План главы ${chNum} в Fiction Engine — «Мастерская», глава ${chNum}` +
-      (r.facts ? `; фактов в библию: ${r.facts}` : '');
+      (r.facts ? `; фактов в библию: ${r.facts}` : '') + (r.warning ? ` ⚠️ ${r.warning}` : '');
     showToast('Отправлено в FE');
   } else {
     // Отказ FE и недоступный FE — разные беды, сообщение — от сервера

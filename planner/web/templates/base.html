@@ -238,7 +238,9 @@ async function loadStatus() {
     } else { feKeys.className='st-row st-warn'; feKeys.textContent='⚠️ Нет API ключей'; }
 
     const feServer = document.getElementById('st-fe-server');
-    if (r.fe_server) { feServer.className='st-row st-ok'; feServer.textContent='✅ FE сервер'; }
+    // FE работает, но отказал (не тот токен) — не «выключен»
+    if (r.fe_server && r.fe_error) { feServer.className='st-row st-warn'; feServer.textContent='⚠️ ' + r.fe_error; }
+    else if (r.fe_server) { feServer.className='st-row st-ok'; feServer.textContent='✅ FE сервер'; }
     else { feServer.className='st-row st-warn'; feServer.textContent='○ FE сервер выкл.'; }
   } catch(e) {}
 }

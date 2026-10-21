@@ -318,10 +318,18 @@ def project_context():
         if not current:
             return jsonify({"error": "Нет проекта"}), 400
     pid = current["id"]
+    # chapter — контекст на момент этой главы (ИИ-помощь для сцены гл.5 видела
+    # книгу на её конец: L3 гл.22–24 и State последней главы, разбор
+    # планировщика 21.10). State героев сцены — POST /api/project/scene_context
+    chapter = request.args.get("chapter", type=int)
 
     try:
-        from engine.db import get_state
-        state = get_state(pid)
+        if chapter:
+            from engine.db_state import state_for_chapter
+            state = state_for_chapter(pid, chapter)
+        else:
+            from engine.db import get_state
+            state = get_state(pid)
     except Exception:
         state = {}
 
@@ -343,10 +351,11 @@ def project_context():
     # написанной главы: L3 непринятой главы — не история книги
     try:
         from engine.pipeline import get_story_so_far
-        story = get_story_so_far(pid, last)
+        story = get_story_so_far(pid, min(last, chapter - 1) if chapter else last)
     except Exception as e:
         log_web_error("project/context: L3", e, project_id=pid)
         story = ""
+
     return jsonify({
         "project": {
             "id":          pid,
@@ -361,6 +370,35 @@ def project_context():
         "plot_matrix":  state.get("plot_matrix", ""),
         "active_promises": promises,
     })
+
+
+@bp.route("/api/project/scene_context", methods=["POST"])
+def project_scene_context():
+    """
+    State героев сцены планировщика на момент её главы — для ИИ-помощи: герои
+    и детали по тексту сцены, а не обрезка State с начала (у «Фона» главная
+    героиня начиналась с 11 650-го знака, разбор планировщика 21.10). POST:
+    отбор героев может вызвать модель, а GET обязан быть безопасным.
+    """
+    data = request.json or {}
+    project, err = _project_from(data.get("pid"))
+    if err:
+        return err
+    chapter = int(data.get("chapter") or 0) or None
+    focus = str(data.get("focus") or "").strip()
+    try:
+        if chapter:
+            from engine.db_state import state_for_chapter
+            state = state_for_chapter(project["id"], chapter)
+        else:
+            from engine.db import get_state
+            state = get_state(project["id"])
+        from engine.pipeline_context import extract_relevant_state
+        return jsonify({"state_focus": extract_relevant_state(state, focus, before_chapter=chapter)[:8000]
+                        if focus else ""})
+    except Exception as e:
+        log_web_error("project/scene_context", e, project_id=project["id"])
+        return jsonify({"error": str(e)[:200]}), 500
 
 
 @bp.route("/api/inline_call", methods=["POST"])

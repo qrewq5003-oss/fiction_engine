@@ -14,9 +14,10 @@ def board():
     p = current_project()
     if not p:
         return redirect(url_for("main.projects"))
-    from engine.db import get_acts, get_scenes
+    from engine.db import get_acts, get_scenes, stale_chapter_plans
     acts   = get_acts(p["id"])
     scenes = get_scenes(p["id"])
+    stale  = stale_chapter_plans(p["id"]) if p.get("fe_project_id") else []
     # Группируем сцены по act_id
     by_act = {a["id"]: [] for a in acts}
     unassigned = []
@@ -28,7 +29,7 @@ def board():
     # Главы сцен — «Импорт главы» ставит новую главу в акт, где лежит предыдущая
     chapters = [{"act_id": s["act_id"], "chapter_num": s["chapter_num"]} for s in scenes if s["chapter_num"]]
     return render_template("board.html", acts=acts, by_act=by_act, unassigned=unassigned,
-                           chapters=chapters, linked=bool(p.get("fe_project_id")))
+                           chapters=chapters, linked=bool(p.get("fe_project_id")), stale=stale)
 
 
 @bp.route("/map")
@@ -121,21 +122,28 @@ def export():
     for s in scenes:
         s["act_title"] = act_map.get(s["act_id"], {}).get("title", "") if s["act_id"] else ""
     loose = [s for s in scenes if s["act_id"] not in act_map]
+    nxt, why = _next_chapter(p)
     return render_template("export.html", acts=acts, scenes=scenes, loose=loose,
-                           next_chapter=_next_chapter(p))
+                           next_chapter=nxt, next_warning=why)
 
 
-def _next_chapter(project: dict) -> int:
-    """Глава после последней написанной в связанном проекте FE; FE молчит — 1."""
+def _next_chapter(project: dict) -> tuple[int | None, str]:
+    """
+    → (глава после последней написанной в связанной книге FE, предупреждение).
+    FE не ответил — (None, причина): раньше молча 1, и «Отправить» перезаписывал
+    план главы 1 (разбор планировщика 21.10). Список глав — лёгкий запрос, а не
+    контекст с L3 и обещаниями, который не успевал за 2 с.
+    """
     if not project.get("fe_project_id"):
-        return 1
+        return 1, ""
     import json
-    from .api_bp import _fe_get
+    from .api_bp import _fe_error, _fe_get
     try:
-        with _fe_get(f"/api/project/context?pid={project['fe_project_id']}", timeout=2) as r:
-            return int(json.loads(r.read()).get("last_chapter") or 0) + 1
-    except Exception:
-        return 1
+        with _fe_get(f"/api/chapters/list?pid={project['fe_project_id']}", timeout=5) as r:
+            chapters = json.loads(r.read()).get("chapters") or []
+        return max((int(c.get("number") or 0) for c in chapters), default=0) + 1, ""
+    except Exception as e:
+        return None, f"{_fe_error(e)} — номер главы не подставлен, укажи его сам"
 
 
 @bp.route("/bible")

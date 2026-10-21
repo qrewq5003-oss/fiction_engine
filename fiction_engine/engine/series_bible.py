@@ -346,7 +346,12 @@ def current(project_id: int, before_chapter: int | None = None) -> list[dict]:
     for r in _by_chapter(_rows(project_id)):
         if r["status"] == "противоречие":
             continue
-        if before_chapter is not None and (r["chapter_num"] or 0) >= before_chapter:
+        # Записи автора «с главы N» — план главы N из планировщика и правка
+        # «с главы N» — действуют уже в главе N: писатель и анализ главы N их
+        # не видели, и правило «текст важнее плана» не срабатывало (разбор
+        # планировщика 21.10)
+        own_plan = r["status"] == "автор" and r["chapter_num"] == before_chapter
+        if before_chapter is not None and (r["chapter_num"] or 0) >= before_chapter and not own_plan:
             continue
         cur[_fact_key(r["name"], r["attr"])] = r
     return list(cur.values())

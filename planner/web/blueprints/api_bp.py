@@ -236,7 +236,22 @@ BOOK_CONTEXT_MAX = 9000        # символов о книге в запрос�
 FE_UNREACHABLE = "Fiction Engine не ответил — помощь без контекста книги"
 
 
-def _book_context() -> tuple[str, str]:
+def _fe_error(e: Exception) -> str:
+    """Причина сбоя запроса к FE: ответил с кодом — это не «FE выключен» (401 —
+    токен, 404 — нет проекта); иначе сеть (разбор планировщика 21.10)."""
+    import urllib.error
+    import requests as req
+    if isinstance(e, urllib.error.HTTPError):
+        return f"Fiction Engine ответил {e.code}" + (" — не подошёл токен (FE_PASSWORD / api_token)"
+                                                     if e.code in (401, 403) else "")
+    if isinstance(e, req.exceptions.HTTPError) and e.response is not None:
+        return f"Fiction Engine ответил {e.response.status_code}"
+    if isinstance(e, (req.exceptions.Timeout, TimeoutError)):
+        return "Fiction Engine не ответил вовремя"
+    return f"Fiction Engine недоступен ({_fe_base_url()}): {e}"
+
+
+def _book_context(scene: dict | None = None) -> tuple[str, str]:
     """
     Что известно о связанной книге FE: что уже случилось (L3), сюжетные
     линии и состояние мира → (текст, предупреждение). Проекта нет — («», «»),
@@ -249,15 +264,31 @@ def _book_context() -> tuple[str, str]:
     if not fe_pid:
         return "", ""
     import json as _json
+    from urllib.parse import urlencode
+    scene = scene or {}
+    # Глава сцены — книга на её момент; текст сцены — State её героев (FE отбирает)
+    q = {"pid": fe_pid}
+    if scene.get("chapter_num"):
+        q["chapter"] = scene["chapter_num"]
+    focus = " ".join(str(scene.get(k) or "") for k in ("title", "characters", "location", "what_happens")).strip()
     try:
-        with _fe_get(f"/api/project/context?pid={fe_pid}", timeout=5) as r:
+        with _fe_get("/api/project/context?" + urlencode(q), timeout=15) as r:
             d = _json.loads(r.read())
-    except Exception:
-        return "", FE_UNREACHABLE
+        if focus:
+            import requests as req
+            resp = req.post(f"{_fe_base_url()}/api/project/scene_context", headers=_fe_headers(),
+                            json={**q, "focus": focus[:2000]}, timeout=60)
+            resp.raise_for_status()
+            d["state_focus"] = resp.json().get("state_focus") or ""
+    except Exception as e:
+        return "", f"{_fe_error(e)} — помощь без контекста книги"
     share = BOOK_CONTEXT_MAX // 3
+    state = (d.get("state_focus") or "").strip()
     parts = [(d.get("story_so_far") or "").strip()[-share:],
-             "СЮЖЕТНЫЕ ЛИНИИ:\n" + d["plot_matrix"].strip()[:share] if d.get("plot_matrix") else "",
-             "СОСТОЯНИЕ МИРА И ГЕРОЕВ:\n" + d["global_state"].strip()[:share] if d.get("global_state") else ""]
+             # Сюжетные линии — с конца: там свежие линии и детали серии
+             "СЮЖЕТНЫЕ ЛИНИИ:\n" + d["plot_matrix"].strip()[-share:] if d.get("plot_matrix") else "",
+             ("ГЕРОИ СЦЕНЫ И ДЕТАЛИ (на момент главы):\n" + state[:share]) if state else
+             ("СОСТОЯНИЕ МИРА И ГЕРОЕВ:\n" + d["global_state"].strip()[:share] if d.get("global_state") else "")]
     text = "\n\n".join(p for p in parts if p)
     if not text:
         return "", ""
@@ -287,7 +318,7 @@ def _neighbours(scene_id) -> str:
 def ai_assist():
     data   = request.json or {}
     action = data.get("action", "develop")
-    scene  = data.get("scene", {})
+    scene  = data.get("scene") if isinstance(data.get("scene"), dict) else {}
     model  = data.get("model", "")
 
     ACTIONS = {
@@ -309,7 +340,14 @@ def ai_assist():
     )
     # Книга и соседние сцены: без них «что дальше» и «конфликт» придумывались
     # с нуля и спорили с тем, что уже написано
-    book, book_warning = _book_context()
+    # Сцена — только своего проекта: из устаревшей вкладки сцена одной книги
+    # уходила модели с контекстом другой (разбор планировщика 21.10)
+    sid = data.get("scene_id")
+    if sid and not owned_scene(sid):
+        return deny("Сцена")
+    if not isinstance(scene, dict):
+        scene = {}
+    book, book_warning = _book_context({**(owned_scene(sid) or {}), **scene} if sid else scene)
     context = book + _neighbours(data.get("scene_id"))
     prompt = f"{instruction}\n\n{context}=== ЭТА СЦЕНА ===\n{scene_text}"
     if context:
@@ -325,7 +363,7 @@ def ai_assist():
             "prompt": prompt,
             "max_tokens": 900
         # Вызов по подписке идёт минутами (у FE предел 900 с): 90 с обрывали ответ
-        }, timeout=900)
+        }, timeout=960)
         if resp.ok:
             return jsonify({"ok": True, "result": resp.json().get("result", ""),
                             **({"warning": book_warning} if book_warning else {})})
@@ -361,7 +399,7 @@ def fe_chapters():
         with _fe_get(f"/api/chapters/list?pid={fe_pid}", timeout=5) as r:
             return jsonify({"chapters": _json.loads(r.read()).get("chapters", []), "linked": True})
     except Exception as e:
-        return jsonify({"chapters": [], "linked": True, "error": f"FE недоступен: {e}"})
+        return jsonify({"chapters": [], "linked": True, "error": _fe_error(e)})
 
 
 @bp.route("/chapter_import/split", methods=["POST"])
@@ -389,7 +427,7 @@ def chapter_import_split():
             with _fe_get(f"/api/chapter/{chapter}/text?pid={fe_pid}", timeout=10) as r:
                 text = (_json.loads(r.read()).get("text") or "").strip()
         except Exception as e:
-            return jsonify({"error": f"FE недоступен: {e}"}), 503
+            return jsonify({"error": _fe_error(e)}), 503
         if not text:
             return jsonify({"error": f"Главы {chapter} в Fiction Engine нет"}), 404
 
@@ -401,7 +439,9 @@ def chapter_import_split():
         # Глава целиком и ответ на десяток сцен: подписке нужно время
         resp = req.post(f"{_fe_base_url()}/api/inline_call", headers=_fe_headers(), json={
             "model": model, "system": SYSTEM, "prompt": build_prompt(text, chapter, board),
-            "max_tokens": 8000}, timeout=600)
+            # Дольше предела FE для подписки (900 с): иначе «недоступен», а FE
+            # дорабатывает и тратит лимит впустую (разбор планировщика 21.10)
+            "max_tokens": 8000}, timeout=960)
     except req.exceptions.RequestException as e:
         return jsonify({"error": f"Fiction Engine недоступен ({_fe_base_url()}): {e}"}), 503
     if not resp.ok:
@@ -541,6 +581,19 @@ def _chapter_num(data: dict) -> int:
         return 1
 
 
+def _export_warnings(scenes: list, chapter_num: int, data: dict) -> str:
+    """Что автору знать после отправки: сцена была в плане другой главы; план
+    в окне правлен — факты библии всё равно из карточек (разбор 21.10)."""
+    out = []
+    other = sorted({s["chapter_num"] for s in scenes if s.get("chapter_num") and s["chapter_num"] != chapter_num})
+    if other:
+        out.append("сцены были в плане глав " + ", ".join(map(str, other)) +
+                   " — в FE они остались и там; отправь те главы заново")
+    if (data.get("text") or "").strip() and (data.get("text") or "").strip() != plan_text(scenes, chapter_num).strip():
+        out.append("план правлен в окне: факты для библии (место, время, кто) взяты из карточек сцен")
+    return "; ".join(out)
+
+
 def _mark_chapter(chapter_num: int, scenes: list) -> None:
     """План ушёл в FE — сцены помнят главу (метка на доске, выбор в экспорте)."""
     from engine.db import set_chapter_scenes
@@ -600,16 +653,26 @@ def export_send():
             resp = req.post(f"{_fe_base_url()}/api/chapter_plan/{chapter_num}/save",
                             json={"pid": fe_pid, "note": prompt_text, "facts": facts,
                                   "future": future_text(current_pid(), chapter_num, scenes)},
-                            headers=_fe_headers(), timeout=10)
+                            # FE ждёт занятую базу до 15 с: 10 с хватало не всегда
+                            headers=_fe_headers(), timeout=60)
             if resp.ok:
                 _mark_chapter(chapter_num, scenes)
-                return jsonify({"ok": True, "prompt": prompt_text, "sent": True,
-                                "facts": resp.json().get("facts", 0)})
+                try:
+                    facts_n = resp.json().get("facts", 0)
+                except ValueError:
+                    facts_n = None
+                return jsonify({"ok": True, "prompt": prompt_text, "sent": True, "facts": facts_n,
+                                **({"warning": warn} if (warn := _export_warnings(scenes, chapter_num, data)) else {})})
             return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
                             "error": f"Fiction Engine ответил отказом: {resp.text[:200]}"}), 502
-        except req.exceptions.RequestException:
-            return jsonify({"ok": True, "prompt": prompt_text, "sent": False,
-                            "message": "Fiction Engine недоступен — скопируй план вручную"})
+        except req.exceptions.Timeout:
+            # Мог и дойти: повтор безопасен, он заменяет план целиком (разбор 21.10)
+            return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
+                            "error": "Fiction Engine не ответил за 60 с — неизвестно, дошёл ли план. "
+                                     "Отправь ещё раз: повтор заменяет план главы целиком."}), 504
+        except req.exceptions.RequestException as e:
+            return jsonify({"ok": False, "prompt": prompt_text, "sent": False,
+                            "error": f"{_fe_error(e)} — скопируй план вручную"}), 503
 
     # Проект не связан с книгой FE — план не отправляется: раньше он уходил в
     # проект, открытый в FE сейчас, — то есть, возможно, в чужую книгу, без
@@ -634,9 +697,10 @@ def system_status():
     import json as _json
     import urllib.request
 
-    fe_server, keys = False, {}
+    import urllib.error
+    fe_server, keys, fe_error = False, {}, ""
     try:
-        with _fe_get("/api/keys/status", timeout=2) as r:
+        with _fe_get("/api/keys/status", timeout=5) as r:
             raw = _json.loads(r.read())
         fe_server = True
         # FE отдаёт {провайдер: маскированный ключ}; нам нужен сам факт наличия
@@ -646,7 +710,12 @@ def system_status():
             "gemini":    "gemini_direct" in raw,
             "deepseek":  "deepseek_direct" in raw,
             "nano":      "nano_gpt" in raw,
+            # Подписки: при работе только по ним панель писала «Нет API ключей»
+            "subscription": "claude_subscription" in raw or "chatgpt_subscription" in raw,
         }
+    except urllib.error.HTTPError as e:
+        # FE работает, но ответил отказом (401 — токен): это не «FE выключен»
+        fe_server, fe_error = True, _fe_error(e)
     except Exception:
         # FE не запущен — это штатное состояние, а не ошибка:
         # планировщиком можно пользоваться и без него
@@ -656,6 +725,7 @@ def system_status():
         "fe_server": fe_server,
         "keys":      keys,
         "has_keys":  any(keys.values()),
+        "fe_error":  fe_error,
     })
 
 
@@ -664,10 +734,10 @@ def fe_projects():
     """Список проектов FE."""
     try:
         import json as _json
-        with _fe_get("/api/projects/list", timeout=3) as r:
+        with _fe_get("/api/projects/list", timeout=5) as r:
             return jsonify(_json.loads(r.read()))
     except Exception as e:
-        return jsonify({"error": str(e), "projects": []})
+        return jsonify({"error": _fe_error(e), "projects": []})
 
 
 @bp.route("/fe/models")
@@ -678,7 +748,7 @@ def fe_models():
         with _fe_get("/api/models", timeout=5) as r:
             return jsonify({"models": _json.loads(r.read())})
     except Exception as e:
-        return jsonify({"error": str(e), "models": []})
+        return jsonify({"error": _fe_error(e), "models": []})
 
 
 @bp.route("/fe/bible")
@@ -693,7 +763,7 @@ def fe_bible():
         with _fe_get(f"/api/bible?pid={fe_pid}", timeout=10) as r:
             return jsonify(_json.loads(r.read()))
     except Exception as e:
-        return jsonify({"error": f"FE недоступен: {e}"}), 503
+        return jsonify({"error": _fe_error(e)}), 503
 
 
 @bp.route("/fe/bible/set", methods=["POST"])

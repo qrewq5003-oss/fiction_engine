@@ -276,6 +276,10 @@ def api_keys_status():
     for provider in ("anthropic_direct", "nano_gpt", "openai_direct", "gemini_direct", "deepseek_direct"):
         if provider not in result and get_api_key(provider):
             result[provider] = "\u0438\u0437 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f"
+    # Подписки — тоже ключи: при работе только по ним планировщик писал «Нет API ключей»
+    for provider in ("claude_subscription", "chatgpt_subscription"):
+        if provider not in result and get_api_key(provider):
+            result[provider] = "по подписке"
     return jsonify(result)
 
 
