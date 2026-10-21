@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 # поднимают свою заглушку и задают FE_URL сами
 _iso = tempfile.mkdtemp(prefix="planner_test_")
 os.environ.setdefault("FE_URL", "http://127.0.0.1:1")
+os.environ.setdefault("PLANNER_NO_DOTENV", "1")
 os.environ.setdefault("FE_API_TOKEN_FILE", os.path.join(_iso, "api_token"))
 os.environ.setdefault("PLANNER_SECRET_FILE", os.path.join(_iso, "secret.key"))
 Path(os.environ["FE_API_TOKEN_FILE"]).write_text("test-token", encoding="utf-8")
@@ -44,8 +45,6 @@ def temp_db(tmp_path, monkeypatch):
         "тесты нацелились на рабочую БД планировщика"
     )
 
-    import engine.migrations as mig
-    monkeypatch.setattr(mig, "DB_PATH", str(db), raising=False)
 
     db_mod.init_db()
     return db

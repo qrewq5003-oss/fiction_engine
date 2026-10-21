@@ -57,6 +57,20 @@ def allowed_request_host(host_header: str) -> bool:
     return name in LOOPBACK or name in extra
 
 
+def safe_next(nxt: str | None) -> str:
+    """
+    Куда вернуть после входа: только свой путь. Управляющие символы и обратный
+    слеш вырезаются ДО проверки: «/<табуляция>/evil.example» проходил проверку, а
+    браузер, выкинув табуляцию, шёл на //evil.example (разбор планировщика 21.10).
+    """
+    from urllib.parse import urlsplit
+    s = "".join(ch for ch in str(nxt or "") if ch >= " " and ch != "\x7f").replace("\\", "/")
+    parts = urlsplit(s)
+    if not s.startswith("/") or s.startswith("//") or parts.scheme or parts.netloc:
+        return "/"
+    return s
+
+
 def csrf_token() -> str:
     if "csrf" not in session:
         session["csrf"] = secrets.token_urlsafe(32)
@@ -103,7 +117,7 @@ def init_security(app: Flask) -> None:
                 session.permanent = True
                 nxt = request.args.get("next") or "/"
                 # Только свой путь — не уводить на чужой сайт после входа
-                return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
+                return redirect(safe_next(nxt))
             error = "Неверный пароль"
         return render_template_string(_LOGIN_PAGE, error=error)
 

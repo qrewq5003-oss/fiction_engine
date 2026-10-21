@@ -12,10 +12,14 @@ from pathlib import Path
 # (разбор 21.10). Своё .env планировщика — важнее
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent / ".env")
-    load_dotenv(Path(__file__).parent.parent / "fiction_engine" / ".env")
+    # Тесты — без .env разработчика (PLANNER_NO_DOTENV): результаты от него зависели
+    if not os.environ.get("PLANNER_NO_DOTENV"):
+        load_dotenv(Path(__file__).parent / ".env")
+        load_dotenv(Path(__file__).parent.parent / "fiction_engine" / ".env")
 except ImportError:
-    pass
+    import logging as _logging
+    _logging.warning("python-dotenv не установлен — .env FE не прочитан: без FE_PASSWORD вход и токен FE "
+                     "не работают, если пароль задан только там")
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
 

@@ -90,6 +90,13 @@ def _day_of_year(date: tuple[int, int]) -> int:
     return sum(_MONTH_DAYS[:month - 1]) + day
 
 
+def _days_after(prev: tuple[int, int], cur: tuple[int, int]) -> int:
+    """Сколько дней от prev до cur; скачок «назад» больше чем на 300 дней — новый
+    год (31 декабря → 1 января), а не «дата раньше» (разбор планировщика 21.10)."""
+    d = _day_of_year(cur) - _day_of_year(prev)
+    return d + 365 if d < -300 else d
+
+
 def _ddmm(d: tuple[int, int]) -> str:
     return f"{d[1]:02d}.{d[0]:02d}"
 
@@ -122,10 +129,10 @@ def check(scenes: list[dict]) -> list[dict]:
             pw, cw, pd, cd = last["weekday"], cur["weekday"], last["date"], cur["date"]
             ref = f"«{last['title']}»"
             adjacent = prev is last
-            if pd and cd and _day_of_year(cd) < _day_of_year(pd):
+            if pd and cd and _days_after(pd, cd) < 0:
                 warn(s, f"дата {_ddmm(cd)} раньше, чем в сцене {ref} ({_ddmm(pd)})")
             elif pd and cd and pw is not None and cw is not None \
-                    and (_day_of_year(cd) - _day_of_year(pd) - (cw - pw)) % 7:
+                    and (_days_after(pd, cd) - (cw - pw)) % 7:
                 warn(s, f"{_ddmm(cd)} — {_WD_NAMES[cw]}, а {_ddmm(pd)} в {ref} — {_WD_NAMES[pw]}: "
                         f"даты и дни недели не сходятся")
             elif cur["next_day"] and adjacent and pw is not None and cw is not None \

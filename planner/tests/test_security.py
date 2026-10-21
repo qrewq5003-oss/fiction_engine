@@ -93,3 +93,26 @@ def test_foreign_host_is_refused(client, monkeypatch):
     monkeypatch.delenv("PLANNER_HOST", raising=False)
     assert client.get("/projects", headers={"Host": "evil.example:5001"}).status_code == 403
     assert client.get("/projects", headers={"Host": "127.0.0.1:5001"}).status_code == 200
+
+
+def test_login_next_cannot_leave_site():
+    """«/<табуляция>/evil.example» проходил проверку и уводил на чужой сайт (разбор 21.10)."""
+    from web.security import safe_next
+    for bad in ("/\t/evil.example", r"/\evil.example", "//evil.example", "https://evil.example",
+                r"\\evil.example", "/\n/evil.example", "evil.example"):
+        assert safe_next(bad) == "/", bad
+    assert safe_next("/scene/5?x=1") == "/scene/5?x=1"
+
+
+def test_timeline_new_year_is_not_earlier_date():
+    from engine.timeline import check
+    scenes = [{"id": 1, "title": "Канун", "day": "среда, 31 декабря"},
+              {"id": 2, "title": "Утро", "day": "четверг, 1 января"}]
+    assert check(scenes) == []
+
+
+def test_fe_url_follows_fe_port(monkeypatch):
+    from web.blueprints.api_bp import _fe_base_url
+    monkeypatch.delenv("FE_URL", raising=False)
+    monkeypatch.setenv("FE_PORT", "5050")
+    assert _fe_base_url() == "http://127.0.0.1:5050"

@@ -281,7 +281,7 @@ async function openImport() {
     FE_CHAPTERS = r.chapters || [];
     const onBoard = new Set(BOARD_CHAPTERS.map(c => c.chapter_num));
     src.innerHTML = (r.chapters || []).map(c =>
-      `<option value="${c.number}">Глава ${c.number}${c.title && !/^глава\s*\d/i.test(c.title) ? ' · ' + esc(c.title) : ''} · ${c.words} сл.${onBoard.has(c.number) ? ' · уже на доске' : ''}</option>`
+      `<option value="${+c.number || 0}">Глава ${+c.number || 0}${c.title && !/^глава\s*\d/i.test(c.title) ? ' · ' + esc(c.title) : ''} · ${+c.words || 0} сл.${onBoard.has(c.number) ? ' · уже на доске' : ''}</option>`
     ).join('') + '<option value="">— вставить текст —</option>';
     if (r.error) document.getElementById('imp-status').textContent = r.error;
     // Первая глава, которой ещё нет на доске
@@ -356,6 +356,7 @@ function renderImport() {
   const n = IMP.chapter_num;
   document.getElementById('imp-summary').textContent =
     `Глава ${n}: ${IMP.words} слов, сцен ${IMP.scenes.length}, связей ${IMP.links.length}. ` +
+    (IMP.cut_words ? `⚠️ Конец главы (около ${IMP.cut_words} слов) в разбивку не вошёл — глава длиннее предела. ` : '') +
     'Поправь, что нужно, и сними галочку с лишнего.' +
     (IMP.already ? ` На доске уже ${IMP.already} сцен главы ${n} — новые встанут рядом, прежние останутся.` : '');
   const act = document.getElementById('imp-act');

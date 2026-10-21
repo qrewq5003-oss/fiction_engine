@@ -116,8 +116,16 @@ async function generatePrompt() {
 }
 
 function copyPrompt() {
-  navigator.clipboard.writeText(document.getElementById('prompt-output').value);
-  showToast('Скопировано');
+  // По сети без https navigator.clipboard нет, а тост «Скопировано» шёл всё равно
+  const area = document.getElementById('prompt-output');
+  const done = () => showToast('Скопировано');
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(area.value).then(done, () => showToast('Не скопировалось — выдели текст и Ctrl+C', 'error'));
+    return;
+  }
+  area.select();
+  try { document.execCommand('copy') ? done() : showToast('Выдели текст и Ctrl+C', 'error'); }
+  catch (e) { showToast('Выдели текст и Ctrl+C', 'error'); }
 }
 
 async function sendToFE() {

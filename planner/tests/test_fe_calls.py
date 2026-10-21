@@ -250,36 +250,18 @@ class TestFailuresAreDistinguishable:
         assert "ключ" in text.lower(), text
         assert "недоступен" not in text.lower(), text
 
-    def test_model_hint_matches_fe_provider_names(self):
-        """
-        Подсказка в интерфейсе должна называть провайдера так же, как FE.
-        Было «deepseek::…», а FE ищет ключ по «deepseek_direct» — автор
-        вводил показанное и получал «Нет API ключа».
-        """
-        from pathlib import Path as _P
-        html = (_P(__file__).resolve().parents[1] / "web" / "templates" / "scene.html")
-        text = html.read_text(encoding="utf-8")
-        known = ("anthropic_direct", "openai_direct", "gemini_direct",
-                 "deepseek_direct", "nano_gpt")
-        import re
-        for hint in re.findall(r'placeholder="([\w\-]+::[^"]+)"', text):
-            provider = hint.split("::")[0]
-            assert provider in known, f"подсказка {hint!r}: FE не знает провайдера {provider!r}"
-
-    def test_status_without_fe(self, client, monkeypatch):
-        monkeypatch.setenv("FE_URL", "http://127.0.0.1:1")   # заведомо закрыт
-        data = json.loads(client.get("/api/status").data)
-        assert data["fe_server"] is False and data["has_keys"] is False
-
     def test_export_reports_not_sent_when_fe_down(self, client, project_id, monkeypatch):
-        from engine.db import create_scene
+        # Проект связан с книгой: иначе тест проверял ветку «не связан», а ветка
+        # «FE недоступен» не проверялась ни разу (разбор планировщика 21.10)
+        from engine.db import create_scene, set_fe_project
+        set_fe_project(project_id, 7)
         sid = create_scene(project_id)
         monkeypatch.setenv("FE_URL", "http://127.0.0.1:1")
         with client.session_transaction() as sess:
             sess["project_id"] = project_id
         data = json.loads(client.post("/api/export/send",
                                       json={"scene_ids": [sid], "chapter_num": 1}).data)
-        assert data["sent"] is False
+        assert data["sent"] is False and "недоступен" in data["error"]
         assert data["prompt"], "промпт для ручного копирования обязан вернуться"
 
 

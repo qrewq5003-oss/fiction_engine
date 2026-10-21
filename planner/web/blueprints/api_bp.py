@@ -20,7 +20,8 @@ def _fe_base_url() -> str:
     127.0.0.1, а не localhost-как-придётся.
     """
     import os
-    return os.environ.get("FE_URL", "http://127.0.0.1:5000").rstrip("/")
+    # Без FE_URL — порт FE_PORT, если задан (запуск не через start_all.bat)
+    return os.environ.get("FE_URL", f"http://127.0.0.1:{os.environ.get('FE_PORT') or 5000}").rstrip("/")
 
 
 def _fe_headers() -> dict:
@@ -459,7 +460,10 @@ def chapter_import_split():
         for end in ("from", "to"):
             if ln[end][0] == "board":
                 ln[end + "_title"] = titles[ln[end][1]]
+    from engine.chapter_import import TEXT_MAX
     return jsonify({"ok": True, "chapter_num": chapter, "words": len(text.split()),
+                    # Глава длиннее потолка разбита не вся — сказать (было молча)
+                    "cut_words": len(text[TEXT_MAX:].split()) if len(text) > TEXT_MAX else 0,
                     "already": sum(1 for s in board if s.get("chapter_num") == chapter), **got})
 
 

@@ -95,7 +95,9 @@ def _proof_projects_new(client, f):
     """Создаёт новый проект и не трогает существующие."""
     from engine.db import get_project
     before = dict(get_project(f["project_id"]))
-    client.post("/projects/new", data={"name": "Ещё один"})
+    # JSON, как шлёт страница: форма давала 415, и доказательство не проверяло ничего
+    r = client.post("/projects/new", json={"name": "Ещё один"})
+    assert r.status_code == 200 and r.get_json()["ok"], "маршрут не отработал — доказательство пустое"
     assert dict(get_project(f["project_id"])) == before, "чужой проект изменён"
 
 

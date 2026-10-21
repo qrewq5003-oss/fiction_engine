@@ -128,7 +128,10 @@ class TestSnapshots:
         sid = create_scene(project_id)
         update_scene(sid, {"title": "Версия 1"})
         update_scene(sid, {"title": "Версия 2"})
-        assert len(get_snapshots(sid)) >= 1
+        # Ровно два: пустая карточка до «Версии 1» и «Версия 1» до «Версии 2»
+        # (было «≥ 1» — проходило бы и при одном лишнем, и не ловило пропуск)
+        snaps = get_snapshots(sid)
+        assert [s["data"]["title"] for s in snaps] == ["Версия 1", ""]
 
     def test_trimmed_to_ten(self, project_id):
         """Хранится не больше десяти снапшотов на сцену."""
@@ -136,4 +139,6 @@ class TestSnapshots:
         sid = create_scene(project_id)
         for i in range(15):
             update_scene(sid, {"title": f"Версия {i}"})
-        assert len(get_snapshots(sid)) <= 10
+        # Ровно десять последних (было «≤ 10» — проходило и при нуле)
+        snaps = get_snapshots(sid)
+        assert len(snaps) == 10 and snaps[0]["data"]["title"] == "Версия 13"

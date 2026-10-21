@@ -109,3 +109,11 @@ def test_session_cookie_not_shared_with_planner():
     planner = (Path(__file__).resolve().parents[2] / "planner" / "web" / "security.py").read_text(encoding="utf-8")
     m = re.search(r'SESSION_COOKIE_NAME"\] = "(\w+)"', planner)
     assert m and app.config["SESSION_COOKIE_NAME"] not in ("session", m.group(1))
+
+
+def test_login_next_cannot_leave_site():
+    """Тот же разбор, что в планировщике: «/<табуляция>/evil.example» уводил на чужой сайт."""
+    from web.security import safe_next
+    for bad in ("/\t/evil.example", r"/\evil.example", "//evil.example", "https://evil.example"):
+        assert safe_next(bad) == "/", bad
+    assert safe_next("/state") == "/state"
