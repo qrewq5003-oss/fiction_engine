@@ -140,3 +140,10 @@ def test_judge_gets_no_score_history(project_id):
     step_judge(create_pipeline_run(project_id, 2, "w", "c", "w", JUDGE), 1, 2, JUDGE, call, res, project_id=project_id)
     assert "ИСТОРИЯ ОЦЕНОК" not in seen["system"] and "34/50" not in seen["system"]
 
+
+
+def test_genre_contract_does_not_promise_verdict(project_id, v2):
+    """«Нарушение контракта — доработка» код не применял: задание судьи — как считает код (21.10)."""
+    res, system = _judge(project_id, _answer("ОК", logic="ОК"), "detective_classic")
+    assert "независимо от prose score" not in system
+    assert "обещание книги" in system and "ЛОГИКА ВЫВОДОВ) — в ней" in system and "ОСТАТОК" in system
