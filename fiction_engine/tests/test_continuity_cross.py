@@ -104,15 +104,23 @@ def test_chosen_model_checks_against_previous_chapters(project_id):
                    "здесь «Вера поднялась на третий этаж к квартире вдовы»)."]
 
 
-def test_same_family_warned(project_id):
+def test_same_family_checker_replaced(project_id, monkeypatch):
+    """Проверяющий той же семьи, что писатель, — не проверяет (разбор 21.10): вместо него
+    проверяющий другой семьи, нет такого — проверки нет. Раньше — предупреждение и проверка."""
+    from engine import plan_check
     from engine.continuity_checker import cross_check_signals
     from engine.db_projects import save_chapter
     from engine.db_settings import set_setting
+    deepseek, sol = "nano_gpt::deepseek/deepseek-v4-pro-0813", "chatgpt_subscription::gpt-6.1-sol@medium"
     save_chapter(project_id, 3, CH3, "")
-    set_setting("continuity_model", "nano_gpt::deepseek/deepseek-v4-pro-0813")
-    got = cross_check_signals(project_id, 4, CH4, "nano_gpt::deepseek/deepseek-v4-pro-0813",
-                              _checker(FLOOR, []))
-    assert len(got) == 2 and "того же семейства" in got[0]
+    set_setting("continuity_model", deepseek)
+    seen = []
+    monkeypatch.setattr(plan_check, "plan_checker_model", lambda w: (sol, ""))
+    got = cross_check_signals(project_id, 4, CH4, deepseek, _checker(FLOOR, seen))
+    assert seen == [sol] and len(got) == 1 and "того же семейства" not in got[0]
+    monkeypatch.setattr(plan_check, "plan_checker_model", lambda w: ("", "нет"))
+    seen.clear()
+    assert cross_check_signals(project_id, 4, CH4, deepseek, _checker(FLOOR, seen)) == [] and not seen
 
 
 def test_checker_failure_is_silent(project_id):

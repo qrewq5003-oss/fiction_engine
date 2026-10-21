@@ -1077,8 +1077,8 @@ async function openRun(runId) {
   const its = r.iterations || [];
   const last = Math.max(0, ...its.map(i => i.iteration));
   const mine = its.filter(i => i.iteration === last);
-  const textIt = [...mine].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage))
-              || [...its].reverse().find(i => ['edit', 'continuity_fix', 'generate'].includes(i.stage));
+  const textIt = [...mine].reverse().find(i => ['review', 'edit', 'continuity_fix', 'generate'].includes(i.stage))
+              || [...its].reverse().find(i => ['review', 'edit', 'continuity_fix', 'generate'].includes(i.stage));
   if (!textIt) { showToast('В запуске нет текста главы', 'error'); return; }
   const critique = [...mine].reverse().find(i => i.stage === 'critique');
   const judge    = [...mine].reverse().find(i => i.stage === 'judge');
