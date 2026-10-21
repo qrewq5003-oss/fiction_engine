@@ -320,10 +320,16 @@ def get_last_drift_check(project_id: int) -> dict | None:
 
 
 def should_run_drift_check(project_id: int, current_chapter: int, every_n: int = 3) -> bool:
-    last = get_last_drift_check(project_id)
-    if not last:
+    """Пора ли проверять голос главы: от последней проверенной главы ДО этой.
+    Раньше — от последней проверенной вообще: переписанная гл.12 при проверенной
+    гл.24 не проверялась никогда (разность отрицательная)."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT MAX(chapter_num) FROM voice_drift_log WHERE project_id=? "
+                           "AND chapter_num < ?", (project_id, current_chapter)).fetchone()
+    last = row[0] if row else None
+    if last is None:
         return current_chapter >= every_n
-    return (current_chapter - last["chapter_num"]) >= every_n
+    return (current_chapter - last) >= every_n
 
 
 def init_voice_drift_table(): pass
@@ -407,15 +413,24 @@ def init_pipeline_tables(): pass
 
 # ─── Режиссёрские заметки ─────────────────────────────────────────────────────
 
-def save_director_note(project_id: int, after_chapter: int, note: str):
+def ensure_note_source(conn) -> None:
+    """Колонка source у заметок — и в базе, где миграция ещё не прошла (снимок
+    заданий на копии базы автора, 21.10: «no such column: source»)."""
+    if "source" not in {r[1] for r in conn.execute("PRAGMA table_info(director_notes)")}:
+        conn.execute("ALTER TABLE director_notes ADD COLUMN source TEXT DEFAULT 'author'")
+
+
+def save_director_note(project_id: int, after_chapter: int, note: str, source: str = "author"):
+    """source: «author» — план или правка автора, «auto» — заметка модели по концу главы."""
     with get_conn() as conn:
+        ensure_note_source(conn)
         conn.execute(
-            """INSERT INTO director_notes (project_id, after_chapter, note)
-               VALUES (?,?,?)
+            """INSERT INTO director_notes (project_id, after_chapter, note, source)
+               VALUES (?,?,?,?)
                ON CONFLICT(project_id, after_chapter) DO UPDATE SET
-                 note=excluded.note,
+                 note=excluded.note, source=excluded.source,
                  created_at=datetime('now')""",
-            (project_id, after_chapter, note)
+            (project_id, after_chapter, note, source)
         )
 
 
