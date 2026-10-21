@@ -847,16 +847,10 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         except Exception as e:
             handle_error(f"step_judge layers ({project_id})", e, level=ErrorLevel.RECOVERABLE)
 
-    # ── Calibration hint: «ты обычно завышаешь на +3.2» ─────────────────
-    if project_id:
-        try:
-            from .db_chapters import get_judge_calibration_hint
-            cal_hint = get_judge_calibration_hint(project_id)
-            if cal_hint:
-                sys_judge += f"\n\nКАЛИБРОВКА: {cal_hint}"
-        except Exception as e:
-            handle_error(f"step_judge calibration_hint ({project_id})", e,
-                         level=ErrorLevel.RECOVERABLE)
+    # «КАЛИБРОВКА» («ты обычно завышаешь на +3.2») судье не даётся с 21.10:
+    # строки оценок автора не помнят, какой судья и по каким правилам ставил
+    # оценку — оценки при Sol и v1 подсказывали бы судье Sonnet на v2 (разбор
+    # 21.10). Порог откалиброван под судью (pipeline_config.JUDGE_ACCEPT_TOTAL)
 
     # «СТАНДАРТ ПРОЕКТА» (IDEA 5) судье не даётся с 20.10: второй порог рядом
     # с правилом вердикта и «завышаешь» по перекосу распределения, а не по
