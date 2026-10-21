@@ -367,6 +367,30 @@ function showToast(msg, type='info', duration=3000) {
   setTimeout(() => t.remove(), duration);
 }
 
+// Обработка принятой / пересчитанной главы в фоне: State, анализ, L3, заметка,
+// оценка. «Готово» — после всех шагов; сорвавшиеся — названы (разбор 21.10:
+// «готово» приходило после State, и автор шёл дальше, пока остальное писалось)
+async function followChapterJob(jobId) {
+  let last = '';
+  for (let i = 0; i < 200; i++) {
+    await new Promise(res => setTimeout(res, 3000));
+    const s = await fetch(`/pipeline/state_status/${jobId}`).then(x => x.json()).catch(() => null);
+    if (!s) continue;
+    if (s.status === 'done') {
+      const bad = (s.failed || []);
+      if (bad.length) showToast('Глава обработана, но не вышло: ' + bad.join(', ') +
+                                '. Повторить — «Пересчитать по тексту» на странице главы', 'warning', 12000);
+      else showToast(s.state_updated ? 'Глава обработана: State, анализ, L3, заметка ✓'
+                                     : 'Глава обработана; State не изменился — проверь вкладку State',
+                     s.state_updated ? 'success' : 'warning', 6000);
+      return s;
+    }
+    if (s.step && s.step !== last) { last = s.step; showToast('Обработка главы: ' + s.step + '…', 'info', 4000); }
+  }
+  showToast('Обработка главы ещё идёт — не откатывай и не пересчитывай главу, пока не закончится', 'warning', 12000);
+  return null;
+}
+
 // === Persist inputs across navigation ===
 (function() {
   // По проекту: поля «Мастерской» (задача, глава) другого проекта сюда не

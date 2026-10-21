@@ -330,7 +330,7 @@ def continuity_check():
         return jsonify({"error": NO_MODEL}), 400
 
     try:
-        from engine.continuity_checker import check_continuity, skip_reason
+        from engine.continuity_checker import check_continuity_or_raise, skip_reason
         from engine.pipeline import call_llm as llm_call
         why = skip_reason(current["id"], int(chapter_num))
         if why:
@@ -341,7 +341,7 @@ def continuity_check():
                            "Ты редактор серии. Ищешь нарушения непрерывности. Только JSON.",
                            prompt, max_tokens=600)
 
-        violations = check_continuity(current["id"], chapter_num, text, api_fn)
+        violations = check_continuity_or_raise(current["id"], chapter_num, text, api_fn)
         return jsonify({"ok": True, "violations": violations, "count": len(violations)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

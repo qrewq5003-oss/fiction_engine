@@ -176,7 +176,7 @@ def generate_validate():
         from engine.prevalidation import prevalidate_chapter
         return jsonify(prevalidate_chapter(current["id"], chapter_num, task, model_value))
     except Exception as e:
-        return jsonify({"ok": True, "blocking": [], "warnings": [], "error": str(e)})
+        return jsonify({"ok": False, "blocking": [], "warnings": [], "error": str(e)})
 
 
 @bp.route("/api/generation/history")

@@ -211,10 +211,11 @@ def state_apply(update_id):
                                     "message": "Изменений не обнаружено",
                                     "merge": {"changed": False, "fields": [], "new_chars": []}})
     except Exception as e:
-        # Обновление сейчас будет помечено применённым — если слияние
-        # сорвалось, об этом обязан остаться след, иначе анализ пропадёт молча
+        # Слияние сорвалось — анализ остаётся в очереди, а не «применён» молча
+        # (раньше помечался применённым и пропадал; разбор 21.10)
         log_web_error("state/apply: слияние анализа сорвалось", e,
                       project_id=current["id"])
+        return jsonify({"error": f"Слияние анализа сорвалось: {str(e)[:200]}. Анализ остался в очереди."}), 500
     if not mark_update_applied(current["id"], update_id):
         return deny("Обновление состояния")
     return jsonify({"ok": True, "message": "State Engine обновлён", "merge": None})

@@ -302,7 +302,9 @@ class ChapterAnalyzer:
                       project_id=project_id, chapter_num=chapter_num)
             return ChapterAnalysis.failed(project_id, chapter_num)
 
-        if persist:
+        # Ответ не разобран («partial» — пустой анализ) — не пишем: затирал
+        # прежний анализ главы пустым и считался успехом (разбор 21.10)
+        if persist and analysis.analysis_quality == "ok":
             self._persist(analysis)
 
         with log.context(project_id=project_id, chapter_num=chapter_num) as ctx:
@@ -454,7 +456,7 @@ def format_analysis_for_prompt(analysis: ChapterAnalysis) -> str:
     Форматирует ChapterAnalysis для вставки в промпт следующей главы.
     Компактный блок — только критически важное.
     """
-    if analysis.analysis_quality == "failed":
+    if analysis.analysis_quality != "ok":
         return ""
 
     lines = [f"АНАЛИЗ ГЛАВЫ {analysis.chapter_num}:"]

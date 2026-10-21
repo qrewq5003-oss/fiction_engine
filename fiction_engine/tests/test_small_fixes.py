@@ -47,7 +47,7 @@ def test_after_chapter_saved_stops_when_chapter_gone(project_id, monkeypatch):
     from web.blueprints.helpers import after_chapter_saved
     calls = []
     monkeypatch.setattr("engine.pipeline.generate_l3", lambda *a, **k: calls.append("l3"))
-    assert after_chapter_saved(project_id, 3, TEXT, "w", alive=lambda: False) == {} and not calls
+    assert after_chapter_saved(project_id, 3, TEXT, "w", alive=lambda: False) == {"failed": []} and not calls
 
 
 def test_ideas_to_state_is_preview_only(project_id, monkeypatch):

@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 JUDGMENT = ("ГОЛОС: 8\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 8\nСЦЕНЫ: 8\nДИАЛОГ: 8\n"
-            "ИТОГ: 40\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: хорошо")
+            "ИТОГ: 40\nСВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: хорошо")
 
 
 def _line_answer(scores, present="да"):

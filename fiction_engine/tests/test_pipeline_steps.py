@@ -178,7 +178,7 @@ class TestStepJudge:
     def _make_judgment(self, score=40, verdict="ПРИНЯТЬ"):
         return (
             f"ГОЛОС: 8\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 8\nСЦЕНЫ: 8\nДИАЛОГ: 8\n"
-            f"ИТОГ: {score}\nВЕРДИКТ: {verdict}\nОБОСНОВАНИЕ: хорошо"
+            f"ИТОГ: {score}\nСВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: {verdict}\nОБОСНОВАНИЕ: хорошо"
         )
 
     def test_parses_verdict_prinyat(self, project_id):

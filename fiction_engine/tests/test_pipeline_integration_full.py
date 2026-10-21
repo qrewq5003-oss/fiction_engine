@@ -50,7 +50,7 @@ CRITIQUE_REJECT = (
 
 JUDGE_ACCEPT = (
     "ИТОГ: 40\n"
-    "ВЕРДИКТ: ПРИНЯТЬ\n"
+    "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
     "ОБОСНОВАНИЕ: Хороший текст.\n"
 )
 
@@ -64,7 +64,7 @@ EDIT_RESPONSE = "Отредактированный текст главы. " * 2
 
 JUDGE_AFTER_EDIT = (
     "ИТОГ: 39\n"
-    "ВЕРДИКТ: ПРИНЯТЬ\n"
+    "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
     "ОБОСНОВАНИЕ: После правки стало лучше.\n"
 )
 
@@ -368,7 +368,7 @@ class TestEndToEndScoring:
     def test_score_flows_through_pipeline(self, project_id):
         """parse_score и parse_verdict читают то что вернул _call → попадает в result."""
         from engine.pipeline import start_pipeline
-        custom_judge = "ИТОГ: 42.5\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: Отлично.\n"
+        custom_judge = "ИТОГ: 42.5\nСВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\nОБОСНОВАНИЕ: Отлично.\n"
         with patch("engine.pipeline._call",
                    side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=custom_judge)):
             result = start_pipeline(**_pipeline_kwargs(project_id))
@@ -389,7 +389,7 @@ class TestEndToEndScoring:
         from engine.pipeline import start_pipeline
         judge_no_itog = (
             "ГОЛОС: 8\nСТРУКТУРА: 8\nПЕРСОНАЖИ: 8\nСЦЕНЫ: 8\nДИАЛОГ: 8\n"
-            "ВЕРДИКТ: ПРИНЯТЬ\n"
+            "СВЯЗНОСТЬ: ОК — нет\nВЕРДИКТ: ПРИНЯТЬ\n"
         )
         with patch("engine.pipeline._call",
                    side_effect=scripted_llm(generate=GENERATE_RESPONSE, critique=CRITIQUE_ACCEPT, judge=judge_no_itog)):

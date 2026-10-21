@@ -20,10 +20,10 @@ def test_threshold_per_judge():
     assert "ИТОГ ≥ 30" in verdict_rule_for_prompt("chatgpt_subscription::gpt-6.1-sol@medium")
 
 
-def _judge(model, total, crit=7):
+def _judge(model, total, crit=7, gate="СВЯЗНОСТЬ: ОК — нет\n"):
     from engine.pipeline_steps import step_judge
     reply = (f"ГОЛОС: {crit}\nСТРУКТУРА: 7\nПЕРСОНАЖИ: 7\nСЦЕНЫ: 7\nДИАЛОГ: 7\nИТОГ: {total}\n"
-             f"ВЕРДИКТ: НА ДОРАБОТКУ")
+             f"{gate}ВЕРДИКТ: НА ДОРАБОТКУ")
     seen = {}
 
     def call(m, system, user, **kw):
@@ -43,6 +43,9 @@ def test_verdict_follows_judge_threshold_not_model_word():
     assert _judge(sol, 29)[0]["verdict"] == "НА ДОРАБОТКУ"
     assert _judge(sol, 40, crit=3)[0]["verdict"] == "НА ДОРАБОТКУ"   # провал критерия
     assert _judge("anthropic_direct::claude-haiku-4-5-20251001", 33)[0]["verdict"] == "НА ДОРАБОТКУ"
+    # Строки вне балла нет в ответе — не проверено, а не «ОК» (разбор 21.10)
+    res = _judge(sol, 40, gate="")[0]
+    assert res["verdict"] == "НА ДОРАБОТКУ" and res["judge_gates_missing"] == ["СВЯЗНОСТЬ"]
 
 
 def test_craft_modules_off_for_sol_only():

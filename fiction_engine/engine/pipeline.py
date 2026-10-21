@@ -256,12 +256,16 @@ def _execute_steps(
                 from .prevalidation import prevalidate_chapter
                 pv = prevalidate_chapter(project_id, chapter_num,
                                           generation_prompt, model_critic)
-                if not pv.get("ok", True):
-                    results["prevalidation_warnings"] = pv.get("blocking", [])
-                elif pv.get("warnings"):
-                    results["prevalidation_warnings"] = pv.get("warnings", [])
+                # Блокирующие и предупреждения вместе (при ok=False предупреждения
+                # пропадали), сбой проверки — виден, а не «замечаний нет»
+                found = (pv.get("blocking") or []) + (pv.get("warnings") or [])
+                if found:
+                    results["prevalidation_warnings"] = found
+                if pv.get("error"):
+                    results["prevalidation_error"] = pv["error"]
             except Exception as e:
                 handle_error("pipeline prevalidate", e, level=ErrorLevel.RECOVERABLE)
+                results["prevalidation_error"] = str(e)[:200]
 
         elif step.name == "judge":
             step_judge(run_id, iteration, chapter_num,
@@ -595,7 +599,7 @@ def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
     if not model:
         return False
     analysis = analyze_chapter_deep(project_id, chapter_num, final_text, lambda p: _call(model, "", p))
-    return analysis.analysis_quality != "failed"
+    return analysis.analysis_quality == "ok"
 
 
 def reject_pipeline(run_id: int):
