@@ -38,8 +38,11 @@ def chapter_upload():
     if not number:
         flash("Укажи номер главы", "error")
         return redirect(url_for("index"))
+    replaced = bool(get_chapter(current["id"], number))
     save_chapter(current["id"], number, content, title)
-    flash(f"Глава {number} сохранена ({len(content.split())} слов)", "success")
+    flash(f"Глава {number} сохранена ({len(content.split())} слов)" + (
+        ". L3, анализ, State и библия — ещё от прежнего текста: «Пересчитать по тексту» на странице главы"
+        if replaced else ""), "success")
     return redirect(url_for("index"))
 
 
@@ -57,8 +60,10 @@ def chapter_save(num):
     """
     Правка текста главы автором прямо на странице главы. Раньше главу можно
     было только перезаписать целиком через «Обзор → Текст» с копированием.
-    State не пересчитывается: правка обычно точечная, а анализ — вызов модели;
-    обновить State по главе можно на странице State.
+    Сразу ничего не пересчитывается: правка обычно точечная, а пересчёт — вызовы
+    моделей. Ответ stale — страница предлагает «Пересчитать по тексту»
+    (/chapter/N/recompute): без него L3, анализ, State и библия остаются от
+    прежнего текста и уходят писателю следующих глав (разбор 21.10).
     """
     current = get_current_project()
     if not current:
@@ -70,7 +75,33 @@ def chapter_save(num):
     if len(text) < 100:
         return jsonify({"error": "Текст главы пуст или слишком короткий"}), 400
     save_chapter(current["id"], num, text, ch.get("title") or f"Глава {num}")
-    return jsonify({"ok": True, "word_count": len(text.split())})
+    return jsonify({"ok": True, "word_count": len(text.split()),
+                    "stale": text != (ch.get("content") or "").strip()})
+
+
+@bp.route("/chapter/<int:num>/recompute", methods=["POST"])
+def chapter_recompute(num):
+    """
+    Пересчитать производное главы по её нынешнему тексту — тем же путём, что
+    «Принять»: убрать посчитанное по прежнему тексту (prepare_chapter_replace),
+    затем в фоне State, анализ главы, L3, заметка, оценка.
+    """
+    current = get_current_project()
+    if not current:
+        return jsonify({"error": "Нет проекта"}), 400
+    ch = get_chapter(current["id"], num)
+    if not ch:
+        return jsonify({"error": "Глава не найдена"}), 404
+    from engine.db import chapter_writers
+    from engine.pipeline_config import default_role_models
+    model = chapter_writers(current["id"]).get(num) or default_role_models().get("gen", "")
+    model = page_model(model)
+    if not model:
+        return jsonify({"error": NO_MODEL}), 400
+    from engine.db_chapters import prepare_chapter_replace
+    from .generate_pipeline import _start_state_update
+    prepare_chapter_replace(current["id"], num)
+    return jsonify({"ok": True, "state_job": _start_state_update(current["id"], num, model, ch["content"])})
 
 
 @bp.route("/chapter/<int:num>/delete", methods=["POST"])

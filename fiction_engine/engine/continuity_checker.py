@@ -126,7 +126,6 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
 
         promise_lines = []
         causal_lines  = []
-        gap_lines     = []
 
         for a in analyses:
             ch_n = a.get("chapter_num", "?")
@@ -139,10 +138,6 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
                 if isinstance(c, dict) and c.get("is_setup") and c.get("effect"):
                     causal_lines.append(f"  гл.{ch_n}: {c.get('cause', '')} → {c['effect']}")
 
-            for g in (a.get("logical_gaps") or []):
-                if g and isinstance(g, str):
-                    gap_lines.append(f"  гл.{ch_n}: {g}")
-
         if promise_lines:
             # Берём последние 10 — самые релевантные
             parts.append(
@@ -154,11 +149,8 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
                 "ПРИЧИННО-СЛЕДСТВЕННЫЕ ЦЕПИ (установленные факты):\n"
                 + "\n".join(causal_lines[-8:])
             )
-        if gap_lines:
-            parts.append(
-                "РАНЕЕ НАЙДЕННЫЕ РАЗРЫВЫ (для контекста):\n"
-                + "\n".join(gap_lines[-5:])
-            )
+        # Разрывы прошлых глав — не факты серии, а их ошибки: проверяющий
+        # приписывал их новой главе (как критик, step_critique, 21.10)
 
     except Exception as e:
         handle_error(f"continuity_checker _build_series_facts analyses ({project_id})", e,
@@ -488,6 +480,26 @@ def continuity_model() -> str:
     return (get_setting(CONTINUITY_MODEL_KEY) or "").strip()
 
 
+def continuity_checker_for(model_gen: str) -> str:
+    """
+    Проверяющий непрерывности для текста писателя model_gen: из настроек, если
+    другой семьи; иначе проверяющий другой семьи (plan_check.plan_checker_model);
+    нет такого — «» (проверки нет). Проверка выключена в настройках — «».
+
+    Раньше проверяющий брался из настроек как есть и при той же семье только
+    предупреждал. Набор ролей ставит его другой семьи, но «Ещё круг» в старом
+    запуске после смены набора давал Sonnet по тексту Sonnet (разбор 21.10).
+    """
+    model = continuity_model()
+    if not (model and model_gen):
+        return model
+    from .pipeline_config import model_family
+    if model_family(model) != model_family(model_gen):
+        return model
+    from .plan_check import plan_checker_model
+    return plan_checker_model(model_gen)[0]
+
+
 def same_family_note(model_gen: str, model_check: str) -> str:
     """Предупреждение, если проверяющий из того же семейства, что писатель; иначе «»."""
     from .pipeline_config import model_family
@@ -554,7 +566,7 @@ def cross_check_and_fix(project_id: int, chapter_num: int, text: str, model_gen:
     находки), edits ([{what, old, new}] — замены по кругам), left (что
     осталось), recheck_failed. Заполняется, только если проверка прошла.
     """
-    model = continuity_model()
+    model = continuity_checker_for(model_gen)
     if not model or not project_id or not (text or "").strip():
         return text, []
     from .text_signals import previous_chapters

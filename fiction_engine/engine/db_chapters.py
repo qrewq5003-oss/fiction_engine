@@ -82,16 +82,39 @@ def _drop_chapter_facts(project_id: int, chapters: set[int]) -> int:
     return n
 
 
+def forget_chapter_text(project_id: int, number: int) -> dict:
+    """
+    Убрать всё, что посчитано по тексту главы, — перед удалением, откатом или
+    заменой её текста (повторное «Принять», правка автора). Остаётся работа
+    автора: план главы, его заметки, записи «автор» в библии, история запусков.
+
+    Раньше это делали удаление и откат, каждое по-своему, а «Принять» поверх
+    главы и правка текста — никак (разбор 21.10): обещания, закрытые прежней
+    версией, оставались закрытыми («Фон», гл.20–21: 19_5 и 17_3), факты прежней
+    версии в библии побеждали новые, заметка к следующей главе писалась по
+    прежней концовке.
+    """
+    from .l3_memory import reopen_promises
+    reopened = reopen_promises(project_id, number)
+    with get_conn() as conn:
+        derived = _delete_derived(conn, project_id, "chapter_num=?", (number,))
+        from .db_narrative import ensure_note_source
+        ensure_note_source(conn)
+        notes = conn.execute("DELETE FROM director_notes WHERE project_id=? AND after_chapter=? "
+                             "AND source='auto'", (project_id, number)).rowcount
+    facts = _drop_chapter_facts(project_id, {number})
+    return {"promises_reopened": reopened, "derived": derived, "auto_notes": notes, "facts": facts}
+
+
 def delete_chapter(project_id: int, number: int) -> bool:
-    """Удалить главу и производное от её текста. State не откатывается, но
-    детали серии и библия этой главы из него убираются."""
+    """Удалить главу и производное от её текста (forget_chapter_text). State
+    не откатывается, но детали серии и библия этой главы из него убираются."""
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM chapters WHERE project_id=? AND number=?",
                            (project_id, number))
         if not cur.rowcount:
             return False
-        _delete_derived(conn, project_id, "chapter_num=?", (number,))
-    _drop_chapter_facts(project_id, {number})
+    forget_chapter_text(project_id, number)
     return True
 
 
@@ -122,15 +145,37 @@ def rollback_chapter(project_id: int, number: int) -> dict:
     автору с самого начала: глава не удалась.
     """
     from .db_state import restore_state_snapshot
-    from .l3_memory import reopen_promises
     info = rollback_info(project_id, number)
     if not info["last"]:
         return {"ok": False, "error": "Откатить можно только последнюю главу: State после неё — общий с поздними главами"}
     snap = info["snapshot"]
     restored = bool(snap) and restore_state_snapshot(project_id, snap["id"])
-    reopened = reopen_promises(project_id, number)
-    deleted = delete_chapter(project_id, number)
-    return {"ok": deleted, "state_restored": restored, "snapshot": snap, "promises_reopened": reopened}
+    with get_conn() as conn:
+        deleted = conn.execute("DELETE FROM chapters WHERE project_id=? AND number=?",
+                               (project_id, number)).rowcount > 0
+    forgot = forget_chapter_text(project_id, number) if deleted else {}
+    return {"ok": deleted, "state_restored": restored, "snapshot": snap,
+            "promises_reopened": forgot.get("promises_reopened", 0)}
+
+
+def prepare_chapter_replace(project_id: int, number: int) -> dict:
+    """
+    Текст уже существующей главы заменяется («Принять» поверх неё, пересчёт
+    после правки автора): производное от прежнего текста — убрать
+    (forget_chapter_text), а если глава последняя — State к снимку до её
+    анализа, как при откате. Иначе анализ нового текста ложился на State и
+    библию прежнего: факты прежней версии побеждали («противоречие» с самой
+    собой), обещания оставались закрытыми. Главы нет — {}.
+
+    State главы из середины книги не откатывается (в нём поздние главы): его
+    поля «сейчас» остаются от конца книги.
+    """
+    if not get_chapter(project_id, number):
+        return {}
+    from .db_state import restore_state_snapshot
+    info = rollback_info(project_id, number)
+    restored = bool(info["last"] and info["snapshot"]) and restore_state_snapshot(project_id, info["snapshot"]["id"])
+    return {**forget_chapter_text(project_id, number), "state_restored": restored}
 
 
 def purge_orphan_chapter_data(project_id: int) -> int:
