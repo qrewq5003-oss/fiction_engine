@@ -108,7 +108,11 @@ def voice_check():
         return jsonify({"error": "Нет API ключа"}), 400
     try:
         from engine.pipeline import analyze_voice_match
-        data = analyze_voice_match(active_voice["profile"], text, model_value)
+        from engine.pipeline_context import profile_for_chapter
+        # Эталон — строки книги (до главы chapter_num, если она указана): строки
+        # удалённого или переписанного текста и будущих глав в сверку не идут
+        profile = profile_for_chapter(current["id"], data.get("chapter_num"), active_voice["profile"])
+        data = analyze_voice_match(profile, text, model_value)
         return jsonify({"ok": True, "analysis": data["analysis"], "score": data["score"],
                         "voice_name": active_voice["name"]})
     except Exception as e:
