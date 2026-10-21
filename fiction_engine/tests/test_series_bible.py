@@ -185,3 +185,54 @@ def test_same_night_is_not_a_conflict(project_id):
     assert not same_night("четверг, 27 ноября, ночь", "пятница, 27 ноября, 1:00")
     record(project_id, [_e("сцена 5", "время", "среда, ночь", kind=ev)], 5)
     assert record(project_id, [_e("сцена 5", "время", "пятница, 1:00", kind=ev)], 5)["conflicts"]
+
+
+# ─── План против текста (разбор 21.10) ───────────────────────────────────────
+
+def _plan(project_id, chapter, facts):
+    from web.app import app
+    app.config.update(TESTING=True, FE_CSRF=False)
+    return app.test_client().post(f"/api/chapter_plan/{chapter}/save", json={
+        "pid": project_id, "note": f"ПЛАН ГЛАВЫ {chapter}", "facts": facts}).get_json()
+
+
+def _cur(project_id, before=None):
+    from engine.series_bible import current
+    return {(r["name"], r["attr"]): r["value"] for r in current(project_id, before)}
+
+
+def test_plan_reexport_replaces_old_plan_keeps_author_edit(project_id):
+    """«Фон», гл.20: после перепланирования «Анонс» (старый план) оставался рядом со «Сделкой»."""
+    from engine.series_bible import author_set
+    author_set(project_id, "место", "Квартира Лавровых", "этаж", "пятый", 3, "правка автора")
+    _plan(project_id, 20, [{"kind": "событие", "name": "глава 20, сцена 3: Анонс", "attr": "место", "value": "комната Вари"}])
+    _plan(project_id, 20, [{"kind": "событие", "name": "глава 20, сцена 3: Сделка", "attr": "место", "value": "комната Вари"}])
+    cur = _cur(project_id)
+    assert ("глава 20, сцена 3: Сделка", "место") in cur and ("глава 20, сцена 3: Анонс", "место") not in cur
+    assert cur[("Квартира Лавровых", "этаж")] == "пятый"
+
+
+def test_text_wins_over_plan_not_over_author_edit(project_id):
+    """«Фон», гл.23: «пятница, ночь (план)» оставалась фактом при «субботе, 2:10» в тексте."""
+    from engine.series_bible import author_set, bible_block, record
+    _plan(project_id, 23, [{"kind": "событие", "name": "глава 23, сцена 3: Без экрана", "attr": "место",
+                            "value": "квартира Лавровых"}])
+    author_set(project_id, "предмет", "Термос Лёвы", "цвет", "серебристый", 21, "правка автора")
+    out = record(project_id, [{"kind": "событие", "name": "глава 23, сцена 3: Без экрана", "attr": "место",
+                               "value": "двор у гаражей"},
+                              {"kind": "предмет", "name": "Термос Лёвы", "attr": "цвет", "value": "зелёный"}], 23)
+    cur = _cur(project_id)
+    assert cur[("глава 23, сцена 3: Без экрана", "место")] == "двор у гаражей" and len(out["changed"]) == 1
+    # Правка автора вручную — канон: расхождение остаётся противоречием
+    assert cur[("Термос Лёвы", "цвет")] == "серебристый" and len(out["conflicts"]) == 1
+    assert "в плане «квартира Лавровых»" in bible_block(project_id, before_chapter=24)
+
+
+def test_block_for_rewritten_chapter_keeps_earlier_value(project_id):
+    """Факт, уточнённый поздней главой, для переписываемой ранней главы — значение до неё, а не пропуск."""
+    from engine.series_bible import bible_block, record
+    record(project_id, [{"kind": "место", "name": "Подсобка", "attr": "замок", "value": "навесной"}], 5)
+    record(project_id, [{"kind": "место", "name": "Подсобка", "attr": "замок", "value": "кодовый",
+                         "changed": "заменили после кражи"}], 20)
+    assert "навесной" in bible_block(project_id, before_chapter=12)
+    assert "кодовый" in bible_block(project_id, before_chapter=21)
