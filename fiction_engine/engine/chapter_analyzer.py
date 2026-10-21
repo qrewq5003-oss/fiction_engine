@@ -297,6 +297,9 @@ class ChapterAnalyzer:
         try:
             raw = api_call_fn(prompt)
             analysis = self._parse_response(raw, project_id, chapter_num)
+            if analysis.analysis_quality == "partial":
+                # Ответ не разобран — один повтор, как у анализа State (разбор 21.10)
+                analysis = self._parse_response(api_call_fn(prompt), project_id, chapter_num)
         except Exception as e:
             log.error("ChapterAnalyzer.analyze failed", exc=e,
                       project_id=project_id, chapter_num=chapter_num)

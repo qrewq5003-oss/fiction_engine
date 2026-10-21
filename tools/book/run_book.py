@@ -11,6 +11,9 @@
 После главы — снимок структуры: State, библия, L3, промпт следующей главы.
 """
 import json, os, re, sqlite3, sys, time
+# Консоль Windows (cp1251/cp866) падала на «→» и «≥» в выводе (разбор 21.10)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 import requests
 
@@ -230,15 +233,25 @@ def run_ahead(n, text):
 
 
 def week_used():
+    """(неделя %, окно %) подписки ChatGPT; не прочитать — (None, None) и запись в лог."""
     import subprocess
     code = ("import sys,os; os.environ['FE_CHATGPT_SUBSCRIPTION']='1'; sys.path.insert(0, " + repr(str(REPO / "fiction_engine")) + ");"
             "from engine.api import chatgpt_limits; l=chatgpt_limits(); print(l['secondary']['usedPercent'], l['primary']['usedPercent'])")
+    err = ""
     for _ in range(3):
-        out = subprocess.run([sys.executable, "-c", code],
-                             capture_output=True, text=True, encoding="utf-8").stdout.split()
+        try:
+            proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                                  encoding="utf-8", timeout=120)
+        except subprocess.TimeoutExpired:
+            err = "лимиты не ответили за 120 с"
+            continue
+        out = proc.stdout.split()
         if len(out) >= 2:
             return int(out[0]), int(out[1])
+        err = (proc.stderr or proc.stdout).strip()[-300:]
         time.sleep(20)
+    # Не прочитали — стоп по неделе не работает: сказать, а не молчать (разбор 21.10)
+    log(f"ВНИМАНИЕ: лимиты ChatGPT не прочитаны — стоп на {WEEK_STOP}% недели не действует: {err}")
     return None, None
 
 
@@ -460,7 +473,9 @@ def chapter(n):
     else:
         log(f"гл.{n}: проверка логики не разобрана: {lc.get('error')}")
     # Голос — «Голос → Проверить» приложения (судья набора, другая семья, чем писатель)
-    code, vc = fe("/voice/check", {"text": final, "model": CHECKER}, timeout=900)
+    # Номер главы — эталон из глав до неё; писатель — проверяющий другой семьи
+    code, vc = fe("/voice/check", {"text": final, "model": CHECKER, "chapter_num": n,
+                                   "writer": ROLES["model_gen"]}, timeout=900)
     rec["voice"] = {"score": vc.get("score"), "analysis": vc.get("analysis") or vc.get("error")}
     nm = re.search(r"НЕ СОВПАДАЕТ:(.*?)(ИСПРАВИТЬ:|\Z)", rec["voice"]["analysis"] or "", re.S)
     log(f"гл.{n}: голос {vc.get('score')}/10 — " + " / ".join(

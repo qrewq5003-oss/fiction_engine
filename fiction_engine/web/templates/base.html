@@ -14,7 +14,9 @@
 (function () {
   var token = document.querySelector('meta[name="csrf-token"]').content;
   var project = document.querySelector('meta[name="fe-project"]').content;
-  var anyProject = function (url) { return /^\/project\//.test(url || ''); };
+  // Без проверки — только смена проекта: новый, переключить, удалить. Жанр и
+  // стиль (/project/genre-key …) — проекта страницы (разбор 21.10: обходили 409)
+  var anyProject = function (url) { return /^\/project\/(new|\d+\/(switch|delete))(\/|\?|$)/.test(url || ''); };
   var safe = /^(GET|HEAD|OPTIONS)$/i;
   var orig = window.fetch;
   window.fetch = function (input, init) {
@@ -314,6 +316,15 @@ function focusEdit(el) {
   el.addEventListener('blur', () => { el.style.borderColor = ''; }, {once: true});
 }
 
+// Время из базы (UTC) — в местном, «ГГГГ-ММ-ДД ЧЧ:ММ»
+function localTime(s, n = 16) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T') + (/[Zz]|[+-]\d\d:?\d\d$/.test(s) ? '' : 'Z'));
+  if (isNaN(d)) return String(s).slice(0, n);
+  const p = x => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`.slice(0, n);
+}
+
 async function apiPost(url, data) {
   const r = await fetch(url, {
     method: 'POST',
@@ -322,8 +333,12 @@ async function apiPost(url, data) {
   });
   // Ответ 500 приходит страницей, а не JSON: r.json() бросал исключение,
   // и кнопка молча ничего не делала («Удалить всё» в истории запусков)
-  try { return await r.json(); }
+  let j;
+  try { j = await r.json(); }
   catch (e) { return {error: `сервер ответил ${r.status} — подробности в логе`}; }
+  // Отказ без поля error (404, 409 чужой вкладки) — тоже ошибка, а не успех (разбор 21.10)
+  if (!r.ok && j && !j.error) j.error = `сервер ответил ${r.status}`;
+  return j;
 }
 
 // Удалить главу или, если она последняя, откатить целиком: State — к снимку
@@ -332,7 +347,7 @@ async function apiPost(url, data) {
 async function removeChapter(num) {
   const info = await fetch(`/chapter/${num}/rollback`).then(x => x.json()).catch(() => ({}));
   if (info.last) {
-    const when = info.snapshot ? `State вернётся к снимку до её анализа (${info.snapshot.saved_at}); ` +
+    const when = info.snapshot ? `State вернётся к снимку до её анализа (${localTime(info.snapshot.saved_at)}); ` +
                                  'правки State после него тоже откатятся — снимок «перед откатом» останется в истории State.'
                                : 'Снимка State до её анализа нет (глава принята раньше, чем они появились) — State не откатится.';
     if (!confirm(`Откатить главу ${num}?\n\nУдалятся глава, её L3, анализ, детали серии и факты библии; ` +

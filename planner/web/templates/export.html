@@ -78,8 +78,11 @@ function selectChapterScenes() {
   const ch = document.getElementById('chapter-num').value;
   document.querySelectorAll('.scene-check').forEach(c => { c.checked = c.dataset.chapter === ch; });
 }
-document.querySelectorAll('.scene-check').forEach(c => c.addEventListener('change', () => { touched = true; }));
-document.getElementById('chapter-num').addEventListener('input', selectChapterScenes);
+// Сменились глава или сцены — план в окне уже не тот: прячем его, иначе
+// «Отправить» уносил план прежней главы под новым номером (разбор 21.10)
+function staleOutput() { document.getElementById('prompt-card').style.display = 'none'; }
+document.querySelectorAll('.scene-check').forEach(c => c.addEventListener('change', () => { touched = true; staleOutput(); }));
+document.getElementById('chapter-num').addEventListener('input', () => { selectChapterScenes(); staleOutput(); });
 selectChapterScenes();
 
 // План собирает сервер (api_bp.plan_text) — тот же текст, что уйдёт в FE
@@ -123,6 +126,7 @@ async function sendToFE() {
   const spin    = document.getElementById('send-spin');
   const status  = document.getElementById('send-status');
 
+  if (!chNum) { showToast('Укажи номер главы', 'error'); return; }
   btn.disabled = true; spin.style.display = 'inline-block';
 
   const r = await apiPost('/api/export/send', { scene_ids: checked, chapter_num: chNum,

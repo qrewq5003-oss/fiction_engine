@@ -13,7 +13,7 @@
     {% if p.genre %}<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">{{ p.genre }}</div>{% endif %}
     {% if p.fe_project_id %}<div style="font-size:11px;color:var(--success);margin-bottom:8px;">🔗 связан с книгой в Fiction Engine</div>{% endif %}
     {% if p.description %}<div style="font-size:12px;line-height:1.5;">{{ p.description[:120] }}{% if p.description|length > 120 %}…{% endif %}</div>{% endif %}
-    <div style="margin-top:12px;font-size:11px;color:var(--text2);">{{ p.created_at[:10] }}</div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text2);">{{ p.created_at | local(10) }}</div>
   </div>
   {% endfor %}
 </div>

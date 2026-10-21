@@ -746,7 +746,14 @@ def step_critique(run_id: int, iteration: int, chapter_num: int,
 
     critique  = call_fn(model_critic, sys_critic, critique_prompt, max_tokens=2000)
 
-    from .pipeline_llm import parse_score
+    from .pipeline_llm import parse_criteria, parse_score
+    # Отказ, пустой или оборванный разбор (нет пяти критериев) — один повтор;
+    # не вышло — судья оценивает сам, а не по отказу как по разбору (разбор 21.10)
+    if len(parse_criteria(critique or "")) < 5:
+        critique = call_fn(model_critic, sys_critic, critique_prompt, max_tokens=2000)
+        if len(parse_criteria(critique or "")) < 5:
+            results["critique_error"] = ("разбор критика без оценок по пяти критериям (отказ, пустой "
+                                         "или оборванный ответ) — судья оценил главу сам")
     critic_score = parse_score(critique)
 
     save_pipeline_iteration(run_id, iteration, "critique", model_critic,
@@ -778,7 +785,8 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     # Некоторым судьям разбор не передаётся вовсе (pipeline_config.JUDGE_WITHOUT_CRITIQUE)
     from .pipeline_config import judge_sees_critique
     from .pipeline_llm import critique_for_judge
-    critique     = (critique_for_judge(results.get("critique", "")) if judge_sees_critique(model_judge)
+    critique     = (critique_for_judge(results.get("critique", ""))
+                    if judge_sees_critique(model_judge) and not results.get("critique_error")
                     else NO_CRITIQUE_FOR_JUDGE)
 
     # Истории оценок проекта судья не получает (21.10): 12 глав «Фона» с ней и

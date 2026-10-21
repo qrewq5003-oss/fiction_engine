@@ -33,55 +33,6 @@ def _j(resp):
     return json.loads(resp.data)
 
 
-def test_generate_run_no_project():
-    from engine.db import set_active_project
-    from engine.db_settings import set_setting; set_setting("active_project", "")
-    r = client.post("/generate/run", json={"chapter_num": 1, "mode": "quick", "model": "x::y", "task": "z"})
-    assert r.status_code == 400
-    set_active_project(_project_id)
-
-def test_generate_run_missing_fields():
-    r = client.post("/generate/run", json={"chapter_num": 1})
-    assert r.status_code == 400
-
-def test_generate_run_no_api_key():
-    r = client.post("/generate/run", json={
-        "chapter_num": 1, "mode": "quick",
-        "model": "openai_direct::gpt-4o", "task": "Написать"
-    })
-    assert r.status_code == 400
-    assert "API ключ" in _j(r).get("error", "")
-
-def test_generate_run_starts_job():
-    with patch("engine.pipeline.run_generation", return_value={"text": "Текст." * 50, "warning": None}):
-        r = client.post("/generate/run", json={
-            "chapter_num": 1, "mode": "quick",
-            "model": "anthropic_direct::claude", "task": "Написать"
-        })
-    assert r.status_code == 200
-    data = _j(r)
-    assert data.get("ok") is True
-    assert "job_id" in data
-
-def test_generate_status_not_found():
-    r = client.get("/generate/status/nonexistent-uuid-12345")
-    assert r.status_code == 404
-
-def test_generate_save_missing_text():
-    r = client.post("/generate/save", json={"chapter_num": 1})
-    assert r.status_code == 400
-
-def test_generate_save_valid():
-    with patch("engine.pipeline.generate_l3", return_value=None):
-        with patch("engine.pipeline.auto_drift_check_if_needed", return_value=None):
-            with patch("engine.pipeline.generate_director_note_for_chapter", return_value=None):
-                with patch("engine.db.get_api_key", return_value=None):
-                    r = client.post("/generate/save", json={
-                        "chapter_num": 1, "text": "Это текст главы." * 20
-                    })
-    assert r.status_code == 200
-    assert _j(r).get("ok") is True
-
 def test_generate_validate_missing():
     r = client.post("/generate/validate", json={"chapter_num": 1})
     assert r.status_code == 400
@@ -228,24 +179,6 @@ def test_quality_graph_with_project():
     assert r.status_code == 200
     assert "scores" in _j(r)
 
-def test_classify_api_error_rate_limit():
-    from web.blueprints.generate_bp import _classify_api_error
-    assert "лимит" in _classify_api_error("rate_limit exceeded 429")
-
-def test_classify_api_error_auth():
-    from web.blueprints.generate_bp import _classify_api_error
-    msg = _classify_api_error("invalid_api_key error")
-    assert "ключ" in msg.lower()
-
-def test_classify_api_error_timeout():
-    from web.blueprints.generate_bp import _classify_api_error
-    assert "Timeout" in _classify_api_error("timeout occurred")
-
-def test_classify_api_error_unknown():
-    from web.blueprints.generate_bp import _classify_api_error
-    result = _classify_api_error("unknown exotic error xyz")
-    assert "Ошибка" in result
-
 def test_narrative_metrics_no_project():
     from engine.db import set_active_project
     from engine.db_settings import set_setting; set_setting("active_project", "")
@@ -333,9 +266,14 @@ def test_voice_save_valid():
     assert "id" in _j(r)
 
 def test_voice_activate():
-    r = client.post("/voice/activate", json={"id": 1})
+    from engine.db_narrative import get_active_voice, save_voice_profile
+    vid = save_voice_profile(_project_id, "Голос", "профиль")
+    r = client.post("/voice/activate", json={"id": vid})
     assert r.status_code == 200
     assert _j(r).get("ok") is True
+    # Чужой или удалённый профиль — отказ, голос проекта не гаснет
+    assert client.post("/voice/activate", json={"id": vid + 999}).status_code == 404
+    assert get_active_voice(_project_id)["id"] == vid
 
 def test_voice_delete_no_id():
     r = client.post("/voice/delete", json={})

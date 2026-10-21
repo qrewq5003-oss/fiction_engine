@@ -15,6 +15,9 @@ CALIB_RUBRIC=v1 — прежние правила оценки (по умолч�
 Перед каждым вызовом судьи по подписке ChatGPT — лимит.
 """
 import datetime, json, random, re, sys, time
+# Консоль Windows (cp1251/cp866) падала на «→» и «≥» в выводе (разбор 21.10)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 import os
 # Подписки включаются флагами окружения (в приложении — из .env): без них

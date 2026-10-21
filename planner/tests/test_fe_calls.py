@@ -172,19 +172,18 @@ class TestCallsReachFe:
         assert req["body"]["prompt"], "промпт не передан"
         assert json.loads(resp.data)["result"] == "развитие сцены"
 
-    def test_export_sends_note_with_chapter(self, client, project_id, fake_fe):
+    def test_unlinked_project_does_not_send_to_open_fe_book(self, client, project_id, fake_fe):
+        """Проект без связи с книгой FE план не отправляет: раньше он уходил в книгу,
+        открытую в FE сейчас (разбор 21.10). Без номера главы — 400, а не глава 1."""
         from engine.db import create_scene
         sid = create_scene(project_id)
         with client.session_transaction() as sess:
             sess["project_id"] = project_id
 
-        resp = client.post("/api/export/send",
-                           json={"scene_ids": [sid], "chapter_num": 4})
-        assert resp.status_code == 200
-        assert json.loads(resp.data)["sent"] is True, "экспорт молча не дошёл"
-        req = next(r for r in fake_fe.received if "director_note" in r["path"])
-        assert req["path"] == "/api/director_note/4/save"
-        assert req["body"]["note"], "текст плана не передан"
+        data = json.loads(client.post("/api/export/send", json={"scene_ids": [sid], "chapter_num": 4}).data)
+        assert data["sent"] is False and "не связан" in data["error"] and data["prompt"]
+        assert not [r for r in fake_fe.received if "director_note" in r["path"]]
+        assert client.post("/api/export/send", json={"scene_ids": [sid]}).status_code == 400
 
 
 class TestCallsCarryToken:

@@ -527,8 +527,10 @@ def generate_l3(project_id: int, chapter_num: int,
 def generate_director_note_for_chapter(project_id: int, chapter_num: int,
                                         text: str, model_value: str) -> str | None:
     from .director_note import generate_director_note
-    from .db import get_state
-    state = get_state(project_id)
+    from .db_state import state_for_chapter
+    # State на момент следующей главы: при пересчёте главы из середины книги
+    # заметка писалась по State конца книги (разбор 21.10)
+    state = state_for_chapter(project_id, chapter_num + 1)
     return generate_director_note(
         project_id, chapter_num, text, state, _make_model_caller(model_value)
     )
@@ -585,6 +587,13 @@ def run_narrative_analysis(project_id: int, through_chapter: int,
     """
     from .narrative_intelligence import analyze_narrative
     return analyze_narrative(project_id, through_chapter, _make_model_caller(model_value))
+
+
+def open_promises_of(l3: dict, at_chapter: int) -> list[str]:
+    """Тексты обещаний одного саммари L3, открытых на момент главы at_chapter."""
+    from .l3_memory import get_active_promises, normalize_promises
+    ps = normalize_promises(l3.get("promises") or [], l3.get("chapter_num") or 0)
+    return [p["text"] for p in get_active_promises(ps, at_chapter) if p.get("text")]
 
 
 def get_active_promises_for_project(project_id: int,

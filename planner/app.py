@@ -26,6 +26,19 @@ del _secret
 from web.security import check_host, init_security
 init_security(app)
 
+
+@app.template_filter("local")
+def local_time(value, n: int = 16) -> str:
+    """Время из базы (UTC, «YYYY-MM-DD HH:MM:SS») — в местном: показывалось в UTC
+    без пометки, принятая в 13:51 глава значилась в 10:51 (разбор 21.10)."""
+    from datetime import datetime, timezone
+    s = str(value or "")
+    try:
+        t = datetime.strptime(s[:19].replace("T", " "), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return s[:n]
+    return t.astimezone().strftime("%Y-%m-%d %H:%M:%S")[:n]
+
 # ─── Init DB ─────────────────────────────────────────────────────────────────
 from engine.db import init_db
 init_db()
@@ -75,7 +88,10 @@ def index():
 
 @app.route("/switch/<int:pid>")
 def switch_project(pid):
-    session["project_id"] = pid
+    # Несуществующий проект в сессию не ставить
+    from engine.db import get_project
+    if get_project(pid):
+        session["project_id"] = pid
     return redirect(url_for("main.board"))
 
 

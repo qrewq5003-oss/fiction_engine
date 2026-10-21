@@ -445,6 +445,45 @@ def _run_migrations() -> None:
                     continue
                 _get_log().error(
                     f"миграция не применилась: {table}.{col}", exc=e)
+        _fix_old_data(conn)
+
+
+def _fix_old_data(conn: sqlite3.Connection) -> None:
+    """Однократные правки данных старых баз (разбор 21.10). Ошибка — в лог, не дальше."""
+    try:
+        # История кругов читается по запуску и стадии — без индекса полный просмотр таблицы
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_iterations_run "
+                     "ON pipeline_iterations(run_id, stage)")
+        # Эталоны: в старых базах UNIQUE(project_id, chapter_num), а интерфейс
+        # пишет chapter_num=0 — второй эталон падал с 500
+        row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='exemplars'").fetchone()
+        if row and "UNIQUE" in (row[0] or "").upper():
+            conn.executescript(
+                "CREATE TABLE exemplars_new (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "project_id INTEGER NOT NULL REFERENCES projects(id), chapter_num INTEGER NOT NULL, "
+                "label TEXT, text TEXT NOT NULL, created_at TEXT);"
+                "INSERT INTO exemplars_new (id, project_id, chapter_num, label, text, created_at) "
+                "SELECT id, project_id, chapter_num, label, text, created_at FROM exemplars;"
+                "DROP TABLE exemplars; ALTER TABLE exemplars_new RENAME TO exemplars;")
+        # Заметки режиссёра, записанные до колонки source, получили «author» —
+        # и автозаметки модели тоже: откат главы их не удалял. Автор пишет план
+        # («ПЛАН ГЛАВЫ …», из планировщика) или длинную заметку; модель — 2–3 предложения
+        # Вход критика и судьи у закрытых запусков — копии глав (db_narrative.finish_pipeline_run)
+        if not conn.execute("SELECT 1 FROM settings WHERE key='closed_inputs_dropped'").fetchone():
+            from .db_narrative import _drop_closed_inputs
+            _drop_closed_inputs(conn, "run_id IN (SELECT id FROM pipeline_runs WHERE status IN ('accepted','rejected'))", ())
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('closed_inputs_dropped', '1')")
+        done = conn.execute("SELECT 1 FROM settings WHERE key='notes_source_fixed'").fetchone()
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(director_notes)")}
+        if not done and "source" in cols:
+            # Все проекты сразу (миграция, а не запрос по id извне) — заметки существующих книг
+            conn.execute("UPDATE director_notes SET source='auto' WHERE project_id IN (SELECT id FROM projects) "
+                         "AND source='author' "
+                         "AND note NOT LIKE 'ПЛАН ГЛАВЫ%' AND note NOT LIKE '%⚠️ РЕЖИМ%' "
+                         "AND length(note) < 600 AND created_at IS NULL")
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('notes_source_fixed', '1')")
+    except sqlite3.Error as e:
+        _get_log().error("правка данных старой базы не применилась", exc=e)
 
 
 # ─── Логирование ошибок ───────────────────────────────────────────────────────

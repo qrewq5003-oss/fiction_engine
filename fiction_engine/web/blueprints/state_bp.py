@@ -249,4 +249,5 @@ def state_restore(snapshot_id):
         return jsonify({"error": "Нет проекта"}), 400
     from engine.db import restore_state_snapshot
     ok = restore_state_snapshot(current["id"], snapshot_id)
-    return jsonify({"ok": True}) if ok else jsonify({"error": "Снапшот не найден"}), 404
+    # Скобки: без них и успешный откат отвечал 404 (разбор 21.10)
+    return jsonify({"ok": True}) if ok else (jsonify({"error": "Снапшот не найден"}), 404)

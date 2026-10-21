@@ -190,8 +190,13 @@ def test_critic_and_continuity_get_no_past_gaps(project_id):
     step_critique(_run(project_id, 3), 1, 3, "c", call, res, project_id=project_id)
     assert "Глава три" in seen["critic"] and "разрыв из главы" not in seen["critic"]
     assert "разрыв из главы" not in seen.get("continuity", "")
+    # Открытые обещания — из L3 (там отмечено закрытие), а не из opened_promises анализа
+    from engine.db import save_l3_summary
+    save_l3_summary(project_id, 1, {"events": "гл.1", "promises": [
+        {"id": "1_0", "text": "Кто открыл подвал", "resolved": False},
+        {"id": "1_1", "text": "Чей нож у двери", "resolved": True, "resolved_chapter": 2}]})
     facts = _build_series_facts(project_id, 3)
-    assert "разрыв из главы" not in facts and "обещание главы 1" in facts
+    assert "разрыв из главы" not in facts and "Кто открыл подвал" in facts and "Чей нож" not in facts
 
 
 def test_voice_block_without_profile_and_chapters_is_empty():
@@ -214,7 +219,7 @@ def test_manual_edit_offers_recompute(project_id, monkeypatch):
     assert c.post("/chapter/1/save", json={"text": FINAL}).get_json()["stale"] is False
     seen = {}
     monkeypatch.setattr(generate_pipeline, "_start_state_update",
-                        lambda p, n, m, t, run_id=0: seen.update(n=n, t=t, m=m) or "job-1")
+                        lambda p, n, m, t, run_id=0, state_stale=False: seen.update(n=n, t=t, m=m) or "job-1")
     monkeypatch.setattr("engine.pipeline_config.default_role_models", lambda: {"gen": "nano_gpt::x/y"})
     monkeypatch.setenv("NANO_GPT_API_KEY", "test-key")
     r = c.post("/chapter/1/recompute", json={}).get_json()

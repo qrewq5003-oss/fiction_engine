@@ -41,6 +41,8 @@ def voice_analyze():
     model_value = data.get("model")
     if not text:
         return jsonify({"error": "Нет текста"}), 400
+    if not model_value:                 # было 500: .split у None
+        return jsonify({"error": "Не выбрана модель"}), 400
     if not get_api_key(model_value.split("::")[0]):
         return jsonify({"error": "Нет API ключа"}), 400
     try:
@@ -83,7 +85,8 @@ def voice_activate():
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
     from engine.db import set_active_voice
-    set_active_voice(current["id"], (request.json or {}).get("id"))
+    if not set_active_voice(current["id"], (request.json or {}).get("id")):
+        return deny("Профиль голоса")
     return jsonify({"ok": True})
 
 

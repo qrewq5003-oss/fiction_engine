@@ -431,14 +431,35 @@ def _pipeline_decision(run_id: int, result: dict,
     if choice == "1":
         text = result["generated_text"]
         accept_pipeline(run_id, text)
-        # Как «Принять» в Мастерской: поверх главы — убрать посчитанное по
-        # прежнему тексту, анализ — по принятому тексту (разбор 21.10)
+        # Тем же путём, что «Принять» в Мастерской: поверх главы — убрать
+        # посчитанное по прежнему тексту, затем State, анализ, L3, заметка и
+        # оценка. Раньше CLI только сохранял главу: State после отката к
+        # снимку оставался без неё (разбор 21.10)
+        from engine.db import get_pipeline_run
         from engine.db_chapters import prepare_chapter_replace
-        from engine.pipeline import record_accepted_analysis
-        prepare_chapter_replace(pid, chapter_num)
-        save_chapter(pid, chapter_num, text, f"Глава {chapter_num} (pipeline, {iteration} итер.)")
-        record_accepted_analysis(pid, chapter_num, text, run_id)
+        from engine.db_narrative import drop_continuation
+        from web.blueprints.generate_pipeline import _start_state_update, _state_jobs, _state_lock
+        old = get_chapter(pid, chapter_num)
+        prep = prepare_chapter_replace(pid, chapter_num)
+        save_chapter(pid, chapter_num, text, (old or {}).get("title") or f"Глава {chapter_num}")
+        drop_continuation(pid, chapter_num)
         success(f"Глава {chapter_num} принята и сохранена ({iteration} итераций)")
+        model = (get_pipeline_run(run_id) or {}).get("model_gen") or ""
+        if not model:
+            warn("Писатель запуска неизвестен — State, анализ и L3 не обновлены: «Пересчитать по тексту» на странице главы")
+            return "accept"
+        info("Обновляю State, анализ, L3, заметку, оценку…")
+        job = _start_state_update(pid, chapter_num, model, text, run_id, state_stale=bool(prep.get("state_stale")))
+        import time
+        while True:
+            with _state_lock:
+                st = dict(_state_jobs.get(job) or {})
+            if st.get("status") == "done":
+                break
+            time.sleep(2)
+        for name in st.get("failed") or []:
+            warn(f"не вышло: {name}")
+        success("State обновлён" if st.get("state_updated") else "State не изменился — проверь /state")
         return "accept"
 
     if choice == "3":

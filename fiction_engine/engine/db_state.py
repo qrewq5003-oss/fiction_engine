@@ -164,11 +164,13 @@ def snapshot_state(project_id: int, reason: str = "") -> None:
             )""", (project_id, SNAPSHOT_BEFORE + "%", project_id, SNAPSHOT_BEFORE + "%"))
 
 
-def get_state_history(project_id: int) -> list[dict]:
+def get_state_history(project_id: int, limit: int = 200) -> list[dict]:
+    """Снимки State, свежие первыми. Снимки «перед анализом гл.N» не вытесняются,
+    поэтому — с потолком (на книгу в 60 глав их сотни)."""
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, reason, saved_at FROM state_history WHERE project_id=? ORDER BY id DESC",
-            (project_id,)
+            "SELECT id, reason, saved_at FROM state_history WHERE project_id=? ORDER BY id DESC LIMIT ?",
+            (project_id, limit)
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -247,8 +249,9 @@ def restore_state_snapshot(project_id: int, snapshot_id: int) -> bool:
         ).fetchone()
     if not row:
         return False
-    snapshot_state(project_id, reason="авто-снапшот перед откатом")
-    update_state(project_id, row["global_state"], row["plot_matrix"], row["memory_graph"])
+    # Один снимок «перед откатом»: update_state писал ещё и свой «авто» (разбор 21.10)
+    update_state(project_id, row["global_state"], row["plot_matrix"], row["memory_graph"],
+                 _snapshot_reason="авто-снапшот перед откатом")
     return True
 
 

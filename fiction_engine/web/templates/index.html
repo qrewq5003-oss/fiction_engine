@@ -392,12 +392,13 @@ async function applyUpdate() {
     showToast('State Engine обновлён', 'success');
     closeAnalyzeModal();
     setTimeout(() => location.reload(), 1000);
-  }
+  } else showToast('Ошибка: ' + (result.error || 'неизвестно'), 'error');
 }
 
 async function discardUpdate() {
   if (!currentUpdateId) return;
-  await apiPost(`/state/discard/${currentUpdateId}`, {});
+  const r = await apiPost(`/state/discard/${currentUpdateId}`, {});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showToast('Обновление отклонено', 'info');
   closeAnalyzeModal();
 }

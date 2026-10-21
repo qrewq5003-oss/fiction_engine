@@ -374,7 +374,7 @@
     <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;
                 background:var(--surface2);border-radius:8px;font-size:12px;">
       <span style="color:var(--text2);">Гл.{{ r.chapter_num }}</span>
-      <span style="flex:1;color:var(--text);">{{ r.created_at[:16] }}</span>
+      <span style="flex:1;color:var(--text);">{{ r.created_at | local }}</span>
       <span style="color:var(--text2);">{{ r.iterations or 0 }} итер.</span>
       <span style="padding:2px 8px;border-radius:20px;font-size:10px;
             {% if r.status == 'accepted' %}background:#14532d33;color:var(--success);border:1px solid #166534;
@@ -475,6 +475,8 @@ function initModelSelects() {
   // Умолчания ролей сменились (16.10: судья — другая семья, критик ≠ судья).
   // Запомненный выбор перебивал их, поэтому один раз сбрасываем его
   const ROLES_V = '2';
+  // Выбор моделей — по проекту: общий перебивал набор ролей другой книги (разбор 21.10)
+  const key = role => `pl_model_{{ current.id if current else 0 }}_${role}`;
   try {
     if (localStorage.getItem('pl_roles_v') !== ROLES_V) {
       ['gen','critic','editor','judge'].forEach(r => localStorage.removeItem(`pl_model_${r}`));
@@ -482,7 +484,8 @@ function initModelSelects() {
     }
   } catch (e) { /* без хранилища — просто умолчания */ }
   ['gen','critic','editor','judge'].forEach(role => {
-    const saved = localStorage.getItem(`pl_model_${role}`);
+    let saved = null;
+    try { saved = localStorage.getItem(key(role)); } catch (e) { /* без хранилища */ }
     const sel = document.getElementById(`pl-model-${role}`);
     if (saved && sel) {
       for (let o of sel.options) {
@@ -490,7 +493,7 @@ function initModelSelects() {
       }
     }
     sel?.addEventListener('change', () => {
-      localStorage.setItem(`pl_model_${role}`, sel.value);
+      try { localStorage.setItem(key(role), sel.value); } catch (e) { /* без хранилища */ }
     });
   });
 }
@@ -504,7 +507,7 @@ async function applyPreset(name) {
     if (!sel) continue;
     if ([...sel.options].some(o => o.value === model)) {
       sel.value = model;
-      try { localStorage.setItem(`pl_model_${role}`, model); } catch (e) { /* без хранилища */ }
+      try { localStorage.setItem(`pl_model_{{ current.id if current else 0 }}_${role}`, model); } catch (e) { /* без хранилища */ }
     } else absent.push(model);
   }
   document.querySelectorAll('[id^="preset-"]').forEach(b => {
@@ -779,7 +782,7 @@ async function loadOldGenerations() {
     row.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;';
     const info = document.createElement('span');
     info.style.flex = '1';
-    info.textContent = `Гл.${h.chapter_num} · ${(h.mode || '').toUpperCase()} · ${h.word_count || 0} слов · ${(h.created_at || '').slice(0, 16)} — ${h.task_preview || ''}`;
+    info.textContent = `Гл.${h.chapter_num} · ${(h.mode || '').toUpperCase()} · ${h.word_count || 0} слов · ${localTime(h.created_at)} — ${h.task_preview || ''}`;
     const btn = document.createElement('button');
     btn.className = 'btn btn-secondary btn-sm'; btn.type = 'button'; btn.textContent = 'Открыть';
     btn.onclick = async () => {
@@ -960,7 +963,10 @@ function showResults(data) {
   else if (data.and_chains) showToast('🔗 ' + data.and_chains, 'info', 8000);
   // Раздел базы знаний не собрался — глава написана без него
   if (data.engine_issues) showToast('⚠ ' + data.engine_issues, 'warning', 12000);
+  // Рабочие заметки модели в главе и прочие предупреждения шага — раньше не показывались
+  if (data.warning) showToast('⚠ ' + data.warning, 'warning', 12000);
   // Сбой проверок — не «нарушений нет»
+  if (data.critique_error) showToast('⚠ ' + data.critique_error, 'warning', 12000);
   if (data.continuity_error) showToast('⚠ Проверка непрерывности не прошла: ' + data.continuity_error, 'warning', 12000);
   if (data.prevalidation_error) showToast('⚠ Предпроверка задачи не прошла: ' + data.prevalidation_error, 'warning', 12000);
   if (data.prevalidation_warnings && data.prevalidation_warnings.length)
@@ -1100,6 +1106,8 @@ async function openRun(runId) {
   state.currentCritique = critique ? critique.output_text : '';
   state.iteration = last;
   document.getElementById('pl-chapter').value = r.run.chapter_num;
+  // Тон, план и история задач — этой главы, а не прежней (событие change их подгружает)
+  document.getElementById('pl-chapter').dispatchEvent(new Event('change'));
   for (const role of ['gen', 'critic', 'editor', 'judge']) {
     const sel = document.getElementById(`pl-model-${role}`);
     const v = r.run[`model_${role}`];
@@ -1225,7 +1233,8 @@ async function chooseAcceptedText() {
 
 async function rejectResult() {
   if (!confirm('Отклонить этот pipeline и начать заново?')) return;
-  await apiPost('/pipeline/reject', { run_id: state.runId });
+  const r = await apiPost('/pipeline/reject', { run_id: state.runId });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   location.reload();
 }
 
@@ -1408,6 +1417,9 @@ ${prompt}`;
     model_editor: modelEditor,
     model_judge: modelJudge,
     prefill: prefillText,
+    // Выбор автора — как у обычного запуска: без них критик и судья шли всегда
+    review: document.getElementById('pl-review').checked,
+    engine_mode: engineMode(),
   });
 
   if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
@@ -1416,9 +1428,8 @@ ${prompt}`;
   state.currentText = result.generated_text;
   state.currentCritique = result.critique;
 
-  document.getElementById('result-text').textContent = result.generated_text || '';
-  document.getElementById('result-critique').textContent = result.critique || '';
-
+  // Весь результат, как у обычного запуска: вердикт и сверка прошлого запуска не остаются на экране
+  showResults(result);
   document.getElementById('pl-btn-continue').style.display = 'inline-flex';
   document.getElementById('pl-btn-merge').style.display = 'inline-flex';
   document.getElementById('btn-continue-pipeline').style.display = 'inline-flex';

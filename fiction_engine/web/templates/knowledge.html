@@ -126,7 +126,7 @@ function setActive(id) {
 
 async function loadArticle(id) {
   const r = await fetch(`/api/knowledge/${id}`).then(x => x.json()).catch(() => null);
-  if (!r) return;
+  if (!r || r.error) { showToast('Статья не найдена', 'error'); return; }
   currentId = id;
   document.getElementById('art-title').value = r.title;
   document.getElementById('art-tags').value = r.tags || '';

@@ -107,6 +107,8 @@ def test_preview_is_what_gets_sent(client, project_id, monkeypatch):
         def json(self): return {"facts": 0}
 
     monkeypatch.setattr(requests, "post", lambda url, json=None, **k: (sent.update(url=url, body=json), Resp())[1])
+    from engine.db import set_fe_project
+    set_fe_project(project_id, 6)               # без связи с книгой FE план не отправляется
     a, b = _scenes(project_id)
     _session(client, project_id)
     preview = client.post("/api/export/preview", json={"scene_ids": [a, b], "chapter_num": 2}).get_json()
@@ -129,6 +131,8 @@ def test_sent_plan_marks_scenes_with_chapter(client, project_id, monkeypatch):
         def json(self): return {}
 
     monkeypatch.setattr(requests, "post", lambda *a, **k: Resp())
+    from engine.db import set_fe_project
+    set_fe_project(project_id, 6)
     a, b = _scenes(project_id)
     snaps = len(get_snapshots(a))
     _session(client, project_id)

@@ -418,7 +418,8 @@ async function saveKey(provider) {
 
 async function deleteKey(provider) {
   if (!confirm('Удалить ключ?')) return;
-  await apiPost('/api/keys/delete', {provider});
+  const r = await apiPost('/api/keys/delete', {provider});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showInactive(provider);
   if (provider === 'nano_gpt') {
     document.getElementById('nano-models-section').style.display = 'none';
@@ -516,7 +517,8 @@ async function saveScorerModel() {
 }
 
 async function clearScorerModel() {
-  await apiPost('/api/scorer/model', {model: ''});
+  const r = await apiPost('/api/scorer/model', {model: ''});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   document.getElementById('input-scorer-model').value = '';
   const hint = document.getElementById('scorer-model-hint');
   hint.textContent = 'Не задана — будет использоваться модель генерации';
@@ -556,7 +558,8 @@ async function saveResolverModel() {
 }
 
 async function clearResolverModel() {
-  await apiPost('/api/resolver/model', {model: ''});
+  const r = await apiPost('/api/resolver/model', {model: ''});
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   document.getElementById('input-resolver-model').value = '';
   const hint = document.getElementById('resolver-model-hint');
   hint.textContent = 'Не задана — будет использоваться модель генерации';

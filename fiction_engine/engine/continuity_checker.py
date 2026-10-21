@@ -127,22 +127,28 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
         promise_lines = []
         causal_lines  = []
 
+        # Открытые обещания — из L3, где отмечено их закрытие. opened_promises
+        # анализа глав закрытий не знают: закрытые уходили проверке как открытые
+        # (разбор 21.10)
+        from .db_narrative import get_l3_summaries
+        from .l3_memory import get_active_promises, normalize_promises
+        for s in get_l3_summaries(project_id, chapter_num, n=10000):
+            for p in get_active_promises(normalize_promises(s.get("promises") or [], s["chapter_num"]), chapter_num):
+                if p.get("text"):
+                    promise_lines.append(f"  гл.{s['chapter_num']}: {p['text']}")
+
         for a in analyses:
             ch_n = a.get("chapter_num", "?")
-
-            for p in (a.get("opened_promises") or []):
-                if p and isinstance(p, str):
-                    promise_lines.append(f"  гл.{ch_n}: {p}")
 
             for c in (a.get("causal_chains") or []):
                 if isinstance(c, dict) and c.get("is_setup") and c.get("effect"):
                     causal_lines.append(f"  гл.{ch_n}: {c.get('cause', '')} → {c['effect']}")
 
         if promise_lines:
-            # Берём последние 10 — самые релевантные
+            # Последние 15 — самые свежие
             parts.append(
                 "ОТКРЫТЫЕ ОБЕЩАНИЯ (setup без payoff, из прошлых глав):\n"
-                + "\n".join(promise_lines[-10:])
+                + "\n".join(promise_lines[-15:])
             )
         if causal_lines:
             parts.append(

@@ -154,14 +154,20 @@ def save_voice_profile(project_id: int, name: str, profile: str,
         return cur.lastrowid
 
 
-def set_active_voice(project_id: int, profile_id: int | None):
+def set_active_voice(project_id: int, profile_id: int | None) -> bool:
+    """Включить профиль голоса (None — выключить все). False — профиля нет в
+    этом проекте: тогда ничего не меняется (раньше голос проекта гас, а ответ — ok)."""
     with get_conn() as conn:
+        if profile_id and not conn.execute("SELECT 1 FROM voice_profiles WHERE id=? AND project_id=?",
+                                           (profile_id, project_id)).fetchone():
+            return False
         conn.execute("UPDATE voice_profiles SET active=0 WHERE project_id=?", (project_id,))
         if profile_id:
             conn.execute(
                 "UPDATE voice_profiles SET active=1 WHERE id=? AND project_id=?",
                 (profile_id, project_id)
             )
+    return True
 
 
 def get_active_voice(project_id: int) -> dict | None:
@@ -202,9 +208,15 @@ def save_l3_summary(project_id: int, chapter_num: int, summary: dict) -> bool:
              if isinstance(summary.get("promises"), list)
              else summary.get("promises", "")),
             summary.get("mood", ""),
-            json.dumps(summary, ensure_ascii=False),
+            # Без служебных полей: саммари из базы (правка L3, перенос закрытий)
+            # несло свой raw_summary — он вкладывался сам в себя, у гл.2 «Фона»
+            # 17 КБ в четыре уровня (разбор 21.10)
+            json.dumps({k: v for k, v in summary.items() if k not in _L3_SERVICE}, ensure_ascii=False),
         ))
     return True
+
+
+_L3_SERVICE = {"raw_summary", "id", "created_at", "project_id"}
 
 
 @error_boundary(level=ErrorLevel.RECOVERABLE, fallback=[])
@@ -389,7 +401,20 @@ def finish_pipeline_run(project_id: int, run_id: int, status: str = 'accepted') 
             "WHERE id=? AND project_id=?",
             (status, run_id, project_id)
         )
+        if cur.rowcount:
+            _drop_closed_inputs(conn, "run_id=?", (run_id,))
     return cur.rowcount > 0
+
+
+# Вход критика, судьи и сверки — копия главы; после закрытия запуска его не
+# читает никто. Около четырёх копий главы на круг: у «Фона» 6,7 МБ (разбор 21.10)
+CLOSED_INPUT_STAGES = ("critique", "judge", "continuity_fix")
+
+
+def _drop_closed_inputs(conn, where: str, args: tuple) -> int:
+    marks = ",".join("?" * len(CLOSED_INPUT_STAGES))
+    return conn.execute(f"UPDATE pipeline_iterations SET input_text='' WHERE {where} "
+                        f"AND stage IN ({marks}) AND input_text != ''", (*args, *CLOSED_INPUT_STAGES)).rowcount
 
 
 def get_pipeline_runs(project_id: int) -> list[dict]:
@@ -422,14 +447,15 @@ def ensure_note_source(conn) -> None:
 
 def save_director_note(project_id: int, after_chapter: int, note: str, source: str = "author"):
     """source: «author» — план или правка автора, «auto» — заметка модели по концу главы."""
+    # Заметка модели не затирает уже записанную (план из планировщика мог
+    # прийти, пока модель писала заметку, — разбор 21.10)
+    conflict = ("DO NOTHING" if source == "auto" else
+                "DO UPDATE SET note=excluded.note, source=excluded.source, created_at=datetime('now')")
     with get_conn() as conn:
         ensure_note_source(conn)
         conn.execute(
-            """INSERT INTO director_notes (project_id, after_chapter, note, source)
-               VALUES (?,?,?,?)
-               ON CONFLICT(project_id, after_chapter) DO UPDATE SET
-                 note=excluded.note, source=excluded.source,
-                 created_at=datetime('now')""",
+            "INSERT INTO director_notes (project_id, after_chapter, note, source) VALUES (?,?,?,?) "
+            f"ON CONFLICT(project_id, after_chapter) {conflict}",
             (project_id, after_chapter, note, source)
         )
 
@@ -449,7 +475,16 @@ def add_continuation(project_id: int, for_chapter: int, instruction: str) -> Non
     """Инструкция продолжения главы for_chapter — к её плану (прежняя инструкция уходит)."""
     base = without_continuation(get_director_note(project_id, for_chapter) or "")
     note = f"{base}\n\n{instruction}" if base else instruction
-    save_director_note(project_id, for_chapter - 1, note.strip())
+    # Источник — прежней заметки: автозаметка с инструкцией не становится
+    # «авторской» и по-прежнему уходит при откате главы (разбор 21.10)
+    with get_conn() as conn:
+        ensure_note_source(conn)
+        row = conn.execute("SELECT source FROM director_notes WHERE project_id=? AND after_chapter=?",
+                           (project_id, for_chapter - 1)).fetchone()
+        conn.execute("INSERT INTO director_notes (project_id, after_chapter, note, source) VALUES (?,?,?,?) "
+                     "ON CONFLICT(project_id, after_chapter) DO UPDATE SET note=excluded.note, "
+                     "source=excluded.source, created_at=datetime('now')",
+                     (project_id, for_chapter - 1, note.strip(), (row["source"] if row else None) or "author"))
 
 
 def drop_continuation(project_id: int, for_chapter: int) -> bool:
@@ -557,14 +592,14 @@ def kb_save(project_id: int, title: str, content: str,
             article_id: int | None = None) -> int:
     with get_conn() as conn:
         if article_id:
-            conn.execute(
+            n = conn.execute(
                 """UPDATE knowledge_base
                    SET title=?, content=?, tags=?, auto_inject=?,
                        updated_at=datetime('now')
                    WHERE id=? AND project_id=?""",
                 (title, content, tags, auto_inject, article_id, project_id)
-            )
-            return article_id
+            ).rowcount
+            return article_id if n else 0      # 0 — статьи нет в этом проекте
         cur = conn.execute(
             """INSERT INTO knowledge_base
                (project_id, title, content, tags, auto_inject)
@@ -576,11 +611,10 @@ def kb_save(project_id: int, title: str, content: str,
 
 def kb_delete(article_id: int, project_id: int) -> bool:
     with get_conn() as conn:
-        conn.execute(
+        return conn.execute(
             "DELETE FROM knowledge_base WHERE id=? AND project_id=?",
             (article_id, project_id)
-        )
-    return True
+        ).rowcount > 0
 
 
 def kb_search(project_id: int, query: str, max_results: int = 3) -> list[dict]:

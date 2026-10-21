@@ -117,7 +117,7 @@
               <div style="font-size:11px;color:var(--text2);margin-top:3px;white-space:nowrap;
                           overflow:hidden;text-overflow:ellipsis;">{{ p.samples }}</div>
               {% endif %}
-              <div style="font-size:10px;color:var(--text2);margin-top:4px;">{{ p.created_at[:10] }}</div>
+              <div style="font-size:10px;color:var(--text2);margin-top:4px;">{{ p.created_at | local(10) }}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
               {% if not p.active %}
@@ -234,20 +234,23 @@ async function importAuthor(source, name) {
 }
 
 async function activate(id) {
-  await apiPost('/voice/activate', { id });
+  const r = await apiPost('/voice/activate', { id });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showToast('Профиль активирован', 'success');
   setTimeout(() => location.reload(), 600);
 }
 
 async function deactivate() {
-  await apiPost('/voice/activate', { id: null });
+  const r = await apiPost('/voice/activate', { id: null });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showToast('Голос отключён', 'info');
   setTimeout(() => location.reload(), 600);
 }
 
 async function deleteProfile(id) {
   if (!confirm('Удалить профиль?')) return;
-  await apiPost('/voice/delete', { id });
+  const r = await apiPost('/voice/delete', { id });
+  if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
   showToast('Удалено', 'info');
   setTimeout(() => location.reload(), 600);
 }

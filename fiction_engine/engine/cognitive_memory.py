@@ -138,6 +138,13 @@ def get_cognitive_context(
     recent_chapters = sorted(all_chapters)[-always_recent:]
 
     inclusions = _select_inclusions(by_chapter, all_chapters, recent_chapters, latest_chapter, max_chapters)
+    # Обещания — из ВСЕХ глав до этой, как обещает правило 2: раньше только из
+    # max_chapters последних, и открытая линия гл.3 к гл.20 пропадала (разбор 21.10)
+    for s in get_l3_summaries(project_id, before_chapter, n=10000):
+        if s["chapter_num"] not in by_chapter:
+            by_chapter[s["chapter_num"]] = s
+            inclusions[s["chapter_num"]] = {"promises"}
+    all_chapters = sorted(by_chapter.keys())
     result = _format_cognitive_context(by_chapter, all_chapters, recent_chapters, inclusions, latest_chapter,
                                        before_chapter)
     return result if len(result) > len("КОГНИТИВНАЯ ПАМЯТЬ СЕРИИ:") + 5 else ""
