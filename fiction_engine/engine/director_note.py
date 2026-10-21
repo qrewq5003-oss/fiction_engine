@@ -50,7 +50,10 @@ def generate_director_note(
         if get_director_note(project_id, chapter_num + 1):
             return None
         tail = chapter_text[-800:].strip()
-        global_state = (state.get("global_state") or "")[:400]
+        # Герои конца главы, а не первые 400 знаков State: там были только
+        # второстепенные, добавленные позже (разбор 21.10)
+        from engine.pipeline_context import extract_relevant_state
+        global_state = extract_relevant_state(state, tail, before_chapter=chapter_num + 1)[:1500]
 
         prompt = PROMPT.format(
             chapter_tail=tail,

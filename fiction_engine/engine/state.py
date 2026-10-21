@@ -45,7 +45,7 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
 
     from .series_bible import known_for_analysis
     user_prompt = _build_analysis_prompt(chapter_num, state, ch["content"], active_promises,
-                                         known_for_analysis(project_id, chapter_num))
+                                         known_for_analysis(project_id, chapter_num, ch["content"]))
 
     anthropic_key = get_api_key("anthropic_direct")
     nano_key = get_api_key("nano_gpt")
@@ -231,7 +231,7 @@ def queue_state_update_from_analysis(
 
         from .series_bible import known_for_analysis
         prompt = _build_analysis_prompt(chapter_num, state, chapter_text, active_promises,
-                                        known_for_analysis(project_id, chapter_num))
+                                        known_for_analysis(project_id, chapter_num, chapter_text))
 
         analysis_text = call_fn(prompt)
         if not analysis_text or len(analysis_text.strip()) < 20:

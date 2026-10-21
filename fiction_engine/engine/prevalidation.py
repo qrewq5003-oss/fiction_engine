@@ -85,10 +85,11 @@ def prevalidate_chapter(
     state = state_for_chapter(project_id, chapter_num)
     prep  = get_prep(project_id)
 
-    state_text = (
-        f"ПЕРСОНАЖИ:\n{state.get('global_state', '')[:800]}\n\n"
-        f"ЛИНИИ:\n{state.get('plot_matrix', '')[:400]}"
-    )
+    # Герои задачи и плана главы, а не первые 800 знаков State (разбор 21.10)
+    from .db import get_director_note
+    from .pipeline_context import extract_relevant_state
+    focus = task + "\n" + (get_director_note(project_id, chapter_num) or "")
+    state_text = extract_relevant_state(state, focus, before_chapter=chapter_num)[:5000]
 
     prep_parts = []
     from .db import PREP_SECTIONS, PREP_DEFAULTS
@@ -98,13 +99,14 @@ def prevalidate_chapter(
             continue
         content = prep.get(section, "").strip()
         if content and content != PREP_DEFAULTS.get(section, "").strip():
-            prep_parts.append(f"{label}: {content[:300]}")
+            prep_parts.append(f"{label}: {content[:1500]}")
     prep_text = "\n".join(prep_parts) if prep_parts else "Не заполнено"
 
     # ─── Шаг 3: Получить активные promises из L3 memory ─────────────────────
     # Это ключевое соединение l3_memory ↔ prevalidation.
     # Promises из предыдущих глав теперь явно проверяются в промпте валидатора.
-    promises_text = get_weighted_promises(project_id, before_chapter=chapter_num, n=10)
+    # Открытые обещания всех глав до этой, а не 10 последних (разбор 21.10)
+    promises_text = get_weighted_promises(project_id, before_chapter=chapter_num, n=10000)
     if not promises_text:
         promises_text = "Нет активных обещаний (первые главы или саммари не сгенерированы)"
 
@@ -189,12 +191,15 @@ def _check_state_contradictions(
     cheap = _get_resolver_model(model_value)
 
     keys = _get_api_keys()
+    # Герои задачи, а не первые 600 знаков (разбор 21.10)
+    from .pipeline_context import extract_relevant_state
+    facts = extract_relevant_state({**state, "memory_graph": ""}, task, before_chapter=chapter_num)[:3000]
 
     prompt = f"""Проверь: есть ли в задаче главы прямые противоречия с фактами State Engine?
 
 STATE ENGINE (персонажи, события):
-{global_state[:600]}
-{memory[:400]}
+{facts}
+{memory[:1500]}
 
 ЗАДАЧА ГЛАВЫ {chapter_num}:
 {task}

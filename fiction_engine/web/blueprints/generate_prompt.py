@@ -152,6 +152,14 @@ def _without_model_notes(text: str) -> str:
     return text.strip()
 
 
+def _open_promises(l3: dict, chapter_num: int) -> str:
+    """Незакрытые обещания главы — текстом, на момент этой главы. Раньше уходил
+    список Python целиком, с закрытыми и «resolved_chapter» поздних глав (разбор 21.10)."""
+    from engine.l3_memory import get_active_promises, normalize_promises
+    ps = get_active_promises(normalize_promises(l3.get("promises") or [], l3.get("chapter_num") or 0), chapter_num)
+    return "; ".join(p.get("text", "") for p in ps if p.get("text")) or "нет"
+
+
 @bp.route("/api/prompt-assist", methods=["POST"])
 def prompt_assist():
     """Ассистент промта: собирает контекст и генерирует черновик промта для главы."""
@@ -184,7 +192,7 @@ def prompt_assist():
                 f"ПЕРСОНАЖИ: {prev_l3.get('characters', '')}\n"
                 f"КОНФЛИКТЫ: {prev_l3.get('conflicts', '')}\n"
                 f"НАСТРОЕНИЕ: {prev_l3.get('mood', '')}\n"
-                f"НЕЗАКРЫТЫЕ ЛИНИИ: {prev_l3.get('promises', '')}"
+                f"НЕЗАКРЫТЫЕ ЛИНИИ: {_open_promises(prev_l3, int(chapter_num))}"
             )
 
         # 3. State Engine — персонажи и сюжет. Раньше читался ключ «content»,
@@ -192,8 +200,12 @@ def prompt_assist():
         # State на момент главы (db_state.state_for_chapter)
         from engine.db_state import state_for_chapter
         state = state_for_chapter(project_id, int(chapter_num)) or {}
-        state_text = "\n\n".join(x for x in ((state.get("global_state") or "").strip()[:3000],
-                                            (state.get("plot_matrix") or "").strip()[:1500]) if x)
+        # Герои плана и замысла главы, а не первые 3000 знаков State: у «Фона»
+        # это 13 % State, и главной героини в них не было (разбор 21.10)
+        from engine.db import get_director_note as _note
+        from engine.pipeline_context import extract_relevant_state
+        focus = "\n".join(x for x in (_note(project_id, chapter_num) or "", plot_text[:2000]) if x)
+        state_text = extract_relevant_state(state, focus, before_chapter=int(chapter_num))[:6000]
 
         # 4. Модель — выбранная на странице генерации
         from web.blueprints.helpers import pick_model

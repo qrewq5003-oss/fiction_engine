@@ -527,8 +527,10 @@ def generate_l3(project_id: int, chapter_num: int,
 def generate_director_note_for_chapter(project_id: int, chapter_num: int,
                                         text: str, model_value: str) -> str | None:
     from .director_note import generate_director_note
-    from .db import get_state
-    state = get_state(project_id)
+    from .db_state import state_for_chapter
+    # State на момент следующей главы: при пересчёте главы из середины книги
+    # заметка писалась по State конца книги (разбор 21.10)
+    state = state_for_chapter(project_id, chapter_num + 1)
     return generate_director_note(
         project_id, chapter_num, text, state, _make_model_caller(model_value)
     )

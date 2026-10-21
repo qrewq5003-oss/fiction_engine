@@ -269,15 +269,27 @@ def _add_new_char(name: str, section: str, global_text: str, record_fn: RecordFn
     state_val = _val("состояние")
     new_entry = _create_char_entry(name, state_val, _val("локация"), _val("цель"))
 
-    if "## ПЕРСОНАЖИ" in global_text:
-        global_text = global_text.replace("## ПЕРСОНАЖИ", "## ПЕРСОНАЖИ" + new_entry, 1)
-    else:
-        global_text += "\n" + new_entry
+    global_text = _append_char(global_text, new_entry)
 
     new_chars.append(name)
     display_val = state_val if _is_real_value(state_val) else "добавлен"
     record_fn(f"{name} (новый персонаж)", "", display_val)
     return global_text
+
+
+def _append_char(global_text: str, entry: str) -> str:
+    """Новый персонаж — в конец раздела «## ПЕРСОНАЖИ», а не в его начало.
+
+    Вставка в начало сдвигала главных героев вниз: у «Фона» Варя начиналась
+    с 11 650-го знака, и обрезки State «с головы» («Подготовить промт» 3000,
+    заметка 400) видели только второстепенных свидетелей (разбор 21.10).
+    """
+    m = re.search(r"## ПЕРСОНАЖИ[^\n]*", global_text)
+    if not m:
+        return global_text + "\n" + entry
+    nxt = re.search(r"\n## ", global_text[m.end():])
+    at = m.end() + nxt.start() if nxt else len(global_text)
+    return global_text[:at].rstrip("\n") + "\n" + entry.rstrip("\n") + "\n" + global_text[at:]
 
 
 def _create_char_entry(name: str, state_val: str, loc_val: str, goal_val: str) -> str:
@@ -407,10 +419,7 @@ def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str
         state_val = (char.get("состояние") or "").strip()
         new_entry = _create_char_entry(name, state_val, (char.get("локация") or "").strip(),
                                        (char.get("цель") or "").strip())
-        if "## ПЕРСОНАЖИ" in global_text:
-            global_text = global_text.replace("## ПЕРСОНАЖИ", "## ПЕРСОНАЖИ" + new_entry, 1)
-        else:
-            global_text += "\n" + new_entry
+        global_text = _append_char(global_text, new_entry)
         ch.new_chars.append(name)
         ch.add(f"{name} (новый персонаж)", "", state_val if _is_real_value(state_val) else "добавлен")
     return global_text
@@ -526,7 +535,12 @@ def _merge_side_lines(plot: dict, plot_text: str, chapter_num: int, ch: _Changes
     if not new_lines and not closed:
         return plot_text
     items = _section_items(plot_text, SIDE_LINES_HEADER)
-    base = lambda s: re.sub(r"\s*\((?:с гл\.|закрыта в гл\.)[^)]*\)\s*$", "", s).strip().lower()
+    bare = lambda s: re.sub(r"(\s*\((?:с гл\.|закрыта в гл\.)[^)]*\))+\s*$", "", s).strip()
+    base = lambda s: bare(s).lower()
+    # Модель повторяет линию из State вместе с пометкой — без снятия выходило
+    # «(с гл.18) (с гл.18)» (разбор 21.10)
+    new_lines = [bare(x) for x in new_lines]
+    closed = [bare(x) for x in closed]
     for x in new_lines:
         if all(base(i) != x.lower() for i in items):
             items.append(f"{x} (с гл.{chapter_num})" if chapter_num else x)

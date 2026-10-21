@@ -966,6 +966,7 @@ function showResults(data) {
   // Рабочие заметки модели в главе и прочие предупреждения шага — раньше не показывались
   if (data.warning) showToast('⚠ ' + data.warning, 'warning', 12000);
   // Сбой проверок — не «нарушений нет»
+  if (data.critique_error) showToast('⚠ ' + data.critique_error, 'warning', 12000);
   if (data.continuity_error) showToast('⚠ Проверка непрерывности не прошла: ' + data.continuity_error, 'warning', 12000);
   if (data.prevalidation_error) showToast('⚠ Предпроверка задачи не прошла: ' + data.prevalidation_error, 'warning', 12000);
   if (data.prevalidation_warnings && data.prevalidation_warnings.length)

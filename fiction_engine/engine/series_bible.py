@@ -498,17 +498,28 @@ def author_set(project_id: int, kind: str, name: str, attr: str, value: str,
         _add(project_id, dict(e, attr=a, value=v), chapter_num, "автор", reason)
 
 
-def known_for_analysis(project_id: int, chapter_num: int | None = None) -> str:
+def known_for_analysis(project_id: int, chapter_num: int | None = None, text: str = "") -> str:
     """Известные сущности для анализа главы: называть так же, сверять значения.
     chapter_num — факты на момент главы: при пересчёте ранней главы анализ видел
-    факты конца книги (разбор 21.10)."""
+    факты конца книги (разбор 21.10). text — глава: сначала сущности, названные
+    в ней, потом свежие; раньше — 60 последних из 217, и героев ранних глав
+    анализ не видел."""
     facts = current(project_id, chapter_num)
     if not facts:
         return ""
     by_name: dict[str, list[str]] = {}
     for r in facts:
         by_name.setdefault(f"{r['kind']}: {r['name']}", []).append(f"{r['attr']} — {r['value']}")
-    lines = [f"- {n}: " + "; ".join(v) for n, v in list(by_name.items())[-KNOWN_MAX:]]
+    names = list(by_name)
+    focus = _key(text)
+
+    def named(n: str) -> bool:
+        words = re.findall(r"[а-яa-z]{4,}", _key(n.split(": ", 1)[-1]))
+        return bool(focus) and any(w[:-1] in focus for w in words)
+    hit = [n for n in names if named(n)]
+    rest = [n for n in names if n not in hit]
+    keep = set((hit + rest[::-1])[:KNOWN_MAX])
+    lines = [f"- {n}: " + "; ".join(by_name[n]) for n in names if n in keep]
     return "\n".join(lines)
 
 
