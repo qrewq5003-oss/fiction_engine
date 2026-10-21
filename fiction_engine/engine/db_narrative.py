@@ -111,13 +111,16 @@ def delete_symbol(project_id: int, symbol_id: int) -> bool:
         return cur.rowcount > 0
 
 
-def get_symbols_context(project_id: int) -> str:
+def get_symbols_context(project_id: int, before_chapter: int | None = None) -> str:
+    """Символы серии; before_chapter — значения на момент этой главы: при
+    переписывании ранней главы писатель видел значение символа из поздних (разбор 21.10)."""
     symbols = get_symbols(project_id)
     if not symbols:
         return ""
     lines = ["СИМВОЛЫ И СКВОЗНЫЕ ОБРАЗЫ:"]
     for s in symbols:
-        apps = s.get("appearances", [])
+        apps = [a for a in s.get("appearances", [])
+                if before_chapter is None or int(a.get("chapter") or 0) < before_chapter]
         last = apps[-1] if apps else None
         current_meaning = last["meaning"] if last else s["initial_meaning"]
         line = f"— {s['name']} ({s['symbol_type']}): {current_meaning}"

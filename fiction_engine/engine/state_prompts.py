@@ -16,12 +16,20 @@ from .pipeline_context import (DIRECTOR_MARKER, MEMORY_RAW_MAX_CHARS,  # noqa: E
 
 
 def _trunc(text: str, limit: int) -> str:
-    """Обрезать текст по лимиту символов, не разрывая слово на середине."""
+    """Уложить текст в лимит: начало и конец, середина — «[…]», по границам слов.
+
+    Резали хвост: у «Фона» State 23 000 знаков при пороге 12 000 — «Детали
+    серии» в конце раздела линий и свежие герои выпадали целиком (разбор 21.10).
+    """
     if len(text) <= limit:
         return text
-    cut = text[:limit]
-    boundary = max(cut.rfind(' '), cut.rfind('\n'))
-    return cut[:boundary].rstrip() if boundary > limit // 2 else cut
+    head_n, tail_n = limit * 2 // 5, limit - limit * 2 // 5 - 5
+    head, tail = text[:head_n], text[-tail_n:]
+    hb = max(head.rfind(' '), head.rfind('\n'))
+    tb = min((i for i in (tail.find(' '), tail.find('\n')) if i >= 0), default=0)
+    head = head[:hb].rstrip() if hb > head_n // 2 else head
+    tail = tail[tb:].lstrip() if tb < tail_n // 2 else tail
+    return f"{head}\n[…]\n{tail}"
 
 
 def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) -> str:

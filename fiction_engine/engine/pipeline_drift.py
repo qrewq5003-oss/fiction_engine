@@ -59,7 +59,11 @@ def _get_reference(project_id: int, chapter_num: int) -> tuple[str, str] | None:
                 (project_id, chapter_num)
             ).fetchone()
         if row and len(row["content"]) >= 300:
-            return (f"Глава {row['number']} (эталон голоса)", row["content"][:1200])
+            # Середина главы, а не зачин: зачин нетипичен (экспозиция, крючок) —
+            # дрейф мерился от него (разбор 21.10)
+            body = row["content"]
+            start = max(0, len(body) // 3)
+            return (f"Глава {row['number']} (эталон голоса)", body[start:start + 2000])
     except Exception as e:
         handle_error(f"_get_reference ({project_id})", e, level=ErrorLevel.RECOVERABLE)
 
@@ -72,6 +76,9 @@ def _parse_drift_result(text: str) -> tuple[float | None, str, bool]:
     Раньше вместо неё подставлялось 7.0 и записывалось в журнал дрейфа как
     настоящая оценка.
     """
+    # Без разметки: «**ОЦЕНКА:** 7/10» не разбиралось, и проверка не засчитывалась (разбор 21.10)
+    from .pipeline_llm import _plain
+    text = _plain(text)
     score_m    = re.search(r'ОЦЕНКА:\s*(\d+(?:[.,]\d+)?)\s*/\s*10', text)
     issues_m   = re.search(r'ПРОБЛЕМЫ:\s*(.+?)(?:\n|$)', text)
     critical_m = re.search(r'КРИТИЧНО:\s*(да|нет)', text, re.IGNORECASE)

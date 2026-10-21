@@ -22,10 +22,13 @@ import requests
 
 B = Path.cwd()                       # папка книги
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from style_markers import markers                      # noqa: E402
 
-FE = "http://127.0.0.1:5000"
-H = {"X-FE-Token": (Path.home() / "fiction_engine" / "api_token").read_text().strip()}
+import os
+import fe_auth                                          # noqa: E402
+FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")   # копия приложения — свой адрес
+H = fe_auth.headers()
 BOOK = json.load(open(B / "book.json", encoding="utf-8"))
 # Оценивает и выбирает эталоны судья набора — другая семья, чем писатель (Claude не судит текст Claude)
 SOL = (BOOK.get("roles") or {}).get("model_judge") or "chatgpt_subscription::gpt-6.1-sol@medium"
@@ -33,7 +36,7 @@ SETUP = json.load(open(B / "setup.json", encoding="utf-8"))
 OUT = B / "voice_update.json"
 a, b = int(sys.argv[1]), int(sys.argv[2])
 apply = "--apply" in sys.argv
-s = requests.Session(); s.headers.update(H)
+s = fe_auth.Session(); s.headers.update(H)
 res = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
 run = res.setdefault(f"{a}-{b}", {})
 

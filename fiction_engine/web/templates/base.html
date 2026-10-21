@@ -316,6 +316,11 @@ function focusEdit(el) {
   el.addEventListener('blur', () => { el.style.borderColor = ''; }, {once: true});
 }
 
+// Текст модели или пользователя — в разметку только экранированным
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
+
 // Время из базы (UTC) — в местном, «ГГГГ-ММ-ДД ЧЧ:ММ»
 function localTime(s, n = 16) {
   if (!s) return '';

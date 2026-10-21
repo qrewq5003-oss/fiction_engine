@@ -77,8 +77,9 @@ def filter_edits(old: str, new: str, judge_model: str, editor_model: str,
         got = parse_json(call_fn(judge_model, SYS_FILTER, _PROMPT.format(items=SEP.join(items))))
         choices = {int(x.get("n", 0)): str(x.get("better", "")).strip()
                    for x in (got or {}).get("choices", []) if isinstance(x, dict)}
-    except Exception:
-        choices = {}
+    except Exception as e:
+        # Сбой вызова — не «ответ не разобран»: причина — в отчёт (разбор 21.10)
+        return new, {"skipped": f"судья фильтра не ответил: {str(e)[:150]}", "plan_kept": len(protected)}
     if not choices:
         return new, {"skipped": "ответ судьи не разобран", "plan_kept": len(protected)}
     verdict = []

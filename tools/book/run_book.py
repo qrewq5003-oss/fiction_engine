@@ -28,8 +28,9 @@ SMOKE = os.environ.get("BOOK_SMOKE") == "1"
 ASSIST = os.environ.get("BOOK_TASK") == "assist"
 # BOOK_TASK=plain — в поле задачи только «Напиши главу N.»: всё остальное — план из планировщика
 PLAIN = os.environ.get("BOOK_TASK") == "plain"
-TOKEN = (Path.home() / "fiction_engine" / "api_token").read_text().strip()
-H = {"X-FE-Token": TOKEN}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fe_auth                                          # noqa: E402
+H = fe_auth.headers()
 DB = Path.home() / "fiction_engine" / "projects.db"
 SETUP = json.load(open(B / "setup.json", encoding="utf-8"))
 PID = SETUP["fe_pid"]

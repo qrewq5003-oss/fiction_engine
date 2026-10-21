@@ -80,7 +80,12 @@ def _sidebar_context():
     Аргументы render_template этого маршрута важнее.
     """
     try:
-        return {"current": get_current_project(), "projects": get_projects()}
+        current = get_current_project()
+        pending = 0
+        if current:
+            from engine.db import get_pending_updates
+            pending = len(get_pending_updates(current["id"]))
+        return {"current": current, "projects": get_projects(), "pending_count": pending}
     except Exception as e:
         from web.blueprints.helpers import log_web_error
         log_web_error("контекст боковой панели", e)
@@ -242,8 +247,11 @@ def stats_page():
         return redirect(url_for("index"))
     chapters = get_chapters(current["id"])
     total_words = sum(ch["word_count"] or 0 for ch in chapters)
-    return render_template("stats.html", current=current,
-                           chapters=chapters, total_words=total_words)
+    # Сбои фона (анализ, L3, заметка после «Принять» и др.) писались в журнал,
+    # который не показывала ни одна страница (разбор 21.10)
+    from engine.db_core import get_error_log
+    return render_template("stats.html", current=current, chapters=chapters,
+                           total_words=total_words, errors=get_error_log(30))
 
 
 # ─── Настройки ────────────────────────────────────────────────────────────────

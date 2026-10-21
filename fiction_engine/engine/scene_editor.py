@@ -113,7 +113,10 @@ def edit_scene(project_id: int, text: str, mode: str, model_value: str,
     voice_block = ""
     active_voice = get_active_voice(project_id)
     if active_voice and active_voice.get("profile"):
-        voice_block = f"\n\nАКТИВНЫЙ ГОЛОС СЕРИИ:\n{active_voice['profile'][:800]}\n"
+        # Профиль целиком (потолок писателя), а не 800 знаков посреди слова — эталон
+        # в конце профиля до редактора не доходил (разбор 21.10)
+        from .pipeline_context import clip_profile
+        voice_block = f"\n\nАКТИВНЫЙ ГОЛОС СЕРИИ:\n{clip_profile(active_voice['profile'])}\n"
 
     user_prompt = f"""{task}
 {voice_block}

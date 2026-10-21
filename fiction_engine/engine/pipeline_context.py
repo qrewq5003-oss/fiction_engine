@@ -387,7 +387,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     engine_ctx     = _build_engine_block(project, mode, model_value, task_text, api_call_fn,
                                          chapter_num)
     engine_block   = f"\n{engine_ctx}\n" if engine_ctx else ""
-    symbols_ctx    = get_symbols_context(project_id)
+    symbols_ctx    = get_symbols_context(project_id, before_chapter=chapter_num)
     symbols_block  = f"\n{symbols_ctx}\n" if symbols_ctx else ""
 
     # ── Монотонность структуры (IDEA 4) ──────────────────────────────────────

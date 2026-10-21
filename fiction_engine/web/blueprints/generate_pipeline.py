@@ -235,6 +235,8 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                     # остаётся в очереди State, а не «применён» молча. Битый анализ
                     # после удачного повтора уберёт _drop_draft_updates
                     again = analyze_chapter(project_id, chapter_num, model_value).get("update_id")
+                    if alive and not alive():       # главу откатили, пока шёл повтор (разбор 21.10)
+                        return False
                     u2 = next((x for x in get_pending_updates(project_id) if x["id"] == again), None)
                     res = (merge_analysis_into_state(project_id, u2["raw_analysis"], chapter_num)
                            if u2 and u2.get("raw_analysis") else res)
@@ -535,10 +537,12 @@ def pipeline_cleanup():
     if not current:
         return jsonify({"error": "Нет проекта"}), 400
     from engine.db_core import get_conn
+    from engine.pipeline import ACTIVE_RUNS
+    busy = ",".join(str(int(r)) for r in ACTIVE_RUNS) or "0"     # круг идёт сейчас — не зависший
     with get_conn() as conn:
         conn.execute(
             "UPDATE pipeline_runs SET status='rejected', finished_at=datetime('now') "
-            "WHERE project_id=? AND status='running' "
+            f"WHERE project_id=? AND status='running' AND id NOT IN ({busy}) "
             "AND NOT EXISTS (SELECT 1 FROM pipeline_iterations i "
             "                WHERE i.run_id=pipeline_runs.id AND i.stage='judge') "
             "AND COALESCE((SELECT MAX(i.created_at) FROM pipeline_iterations i "
