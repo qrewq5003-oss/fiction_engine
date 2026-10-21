@@ -429,6 +429,8 @@ def _run_migrations() -> None:
         # cost_usd пустой — значит тариф неизвестен (перепродавец не вернул
         # цену, нашей таблицы на эту модель нет); токены при этом записаны.
         ("api_usage",          "id",             "CREATE TABLE IF NOT EXISTS api_usage (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL, model TEXT NOT NULL, operation TEXT DEFAULT '', input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, cost_usd REAL, project_id INTEGER, chapter_num INTEGER, created_at TEXT DEFAULT (datetime('now')))"),
+        # Правила оценки, с которыми начат запуск (judge_rubric.RUN_RUBRIC)
+        ("pipeline_runs",      "rubric",         "ALTER TABLE pipeline_runs ADD COLUMN rubric TEXT DEFAULT ''"),
         ("author_edits",       "id",             "CREATE TABLE IF NOT EXISTS author_edits (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, chapter_num INTEGER NOT NULL, run_id INTEGER, original_text TEXT NOT NULL, accepted_text TEXT NOT NULL, rejection_reason TEXT DEFAULT '', action TEXT DEFAULT 'accept', judge_score REAL, created_at TEXT DEFAULT (datetime('now')))"),
     ]
     # «Уже существует» — штатный исход повторного прогона миграции.

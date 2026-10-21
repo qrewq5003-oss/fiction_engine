@@ -132,7 +132,7 @@ def _get_scorer_model(writer: str) -> str:
 
 def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_value: str,
                         alive: Callable[[], bool] | None = None,
-                        step: Callable[[str], None] | None = None) -> dict:
+                        step: Callable[[str], None] | None = None, run_id: int = 0) -> dict:
     """
     Единый pipeline после сохранения главы:
       1. L3 саммари
@@ -205,9 +205,16 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
     # 4. Авто-оценка
     step("оценка главы")
     try:
-        from engine.db import chapter_writers
-        scorer_model = _get_scorer_model(chapter_writers(project_id).get(chapter_num) or model_value)
-        if scorer_model:
+        from engine.db import chapter_writers, save_chapter_score
+        from engine.pipeline import judge_score_details
+        # Принят оценённый круг — его оценка судьи, без нового вызова; отдельный
+        # оценщик — только главе без судьи (правленой вручную, загруженной)
+        judged = judge_score_details(run_id, text) if run_id else None
+        scorer_model = "" if judged else _get_scorer_model(chapter_writers(project_id).get(chapter_num) or model_value)
+        if judged:
+            save_chapter_score(project_id, chapter_num, judged)
+            result["auto_score"] = judged["total"]
+        elif scorer_model:
             score = _auto_score_chapter(project_id, chapter_num, text, scorer_model)
             if score is not None:
                 result["auto_score"] = score

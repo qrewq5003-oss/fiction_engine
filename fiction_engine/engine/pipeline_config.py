@@ -595,7 +595,25 @@ def default_role_models() -> dict[str, str]:
         critic = next((m for m in (CRITIC_MODEL, CRITIC_FALLBACK) if _has_key(m)), "")
         if critic:
             roles["critic"] = critic
+    # Запасной набор (без подписок, решение автора 21.10 — оставить как запас):
+    # судья той же семьи, что писатель, запуск не начинает (SameFamilyJudge).
+    # Есть ключ к судье другой семьи — берём его; порог такого судьи общий,
+    # под него не откалиброван. Нет — остаётся как есть, запуск скажет почему
+    if model_family(roles["judge"]) == model_family(roles["gen"]):
+        other = next((m for m in RESERVE_JUDGES
+                      if model_family(m) != model_family(roles["gen"]) and _has_key(m)), "")
+        if other:
+            roles["judge"] = other
     return roles
+
+
+# Судьи запасного набора, по порядку: подписки, затем API-ключи
+RESERVE_JUDGES = (
+    "chatgpt_subscription::gpt-6.1-sol@medium",
+    "claude_subscription::claude-sonnet-5-5",
+    "openai_direct::gpt-4o",
+    "anthropic_direct::claude-sonnet-4-6",
+)
 
 
 # ─── Наборы ролей «пишет Sonnet» / «пишет GPT» ───────────────────────────────

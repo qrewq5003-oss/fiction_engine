@@ -65,7 +65,7 @@
     <canvas id="quality-canvas" style="display:none;width:100%;max-height:220px;"></canvas>
     <div id="quality-empty" style="display:none;font-size:12px;color:var(--text2);">
       Нет данных — оценки появятся автоматически при сохранении глав
-      <span style="font-size:11px;display:block;margin-top:4px;">Нужно задать модель-оценщик в Настройках</span>
+      <span style="font-size:11px;display:block;margin-top:4px;">Оценка — судьи принятого круга; у глав без судьи (загруженных, правленых вручную) — оценщика другой семьи</span>
     </div>
   </div>
   <!-- Детали при наведении -->
@@ -155,8 +155,8 @@ async function loadQualityGraph() {
   // Сетка
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
-  [2,4,6,8,10].forEach(v => {
-    const y = PAD.top + gH - (v / 10 * gH);
+  [10,20,30,40,50].forEach(v => {
+    const y = PAD.top + gH - (v / 50 * gH);
     ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.font = '10px sans-serif';
@@ -164,11 +164,13 @@ async function loadQualityGraph() {
   });
 
   // Линии критериев (тонкие)
+  // Критерии 0–10 — тонкими линиями ×5, на шкале итога из 50
   const CRITERIA = [
-    {key:'literary_quality', color:'rgba(120,180,255,0.4)'},
-    {key:'voice_genre',      color:'rgba(180,120,255,0.4)'},
-    {key:'commercial',       color:'rgba(255,180,80,0.4)'},
-    {key:'scene_health',     color:'rgba(80,220,120,0.4)'},
+    {key:'voice',      color:'rgba(120,180,255,0.4)'},
+    {key:'structure',  color:'rgba(180,120,255,0.4)'},
+    {key:'characters', color:'rgba(255,180,80,0.4)'},
+    {key:'scenes',     color:'rgba(80,220,120,0.4)'},
+    {key:'dialog',     color:'rgba(240,120,160,0.4)'},
   ];
 
   CRITERIA.forEach(({key, color}) => {
@@ -178,7 +180,7 @@ async function loadQualityGraph() {
     ctx.beginPath();
     scores.forEach((s, i) => {
       const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
-      const y = PAD.top + gH - ((s[key] || 0) / 10 * gH);
+      const y = PAD.top + gH - ((s[key] || 0) * 5 / 50 * gH);
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.stroke();
@@ -194,7 +196,7 @@ async function loadQualityGraph() {
   ctx.beginPath();
   scores.forEach((s, i) => {
     const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
-    const y = PAD.top + gH - (s.total / 10 * gH);
+    const y = PAD.top + gH - (s.total / 50 * gH);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.stroke();
@@ -202,7 +204,7 @@ async function loadQualityGraph() {
   // Точки + подписи глав
   scores.forEach((s, i) => {
     const x = PAD.left + (i / Math.max(scores.length - 1, 1)) * gW;
-    const y = PAD.top + gH - (s.total / 10 * gH);
+    const y = PAD.top + gH - (s.total / 50 * gH);
     const color = s.total >= 8 ? '#4ade80' : s.total >= 6 ? '#facc15' : '#f87171';
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, Math.PI * 2);
@@ -230,8 +232,8 @@ async function loadQualityGraph() {
       if (Math.abs(mx - x) < 14) {
         const det = document.getElementById('quality-detail');
         det.style.display = 'block';
-        det.innerHTML = `<strong>Глава ${s.chapter_num}</strong> — <b>${s.total}/10</b>
-          <span style="margin-left:8px;color:var(--text2);">ЛитКачество:${s.literary_quality} · Голос:${s.voice_genre} · Читаемость:${s.commercial} · Сцена:${s.scene_health}</span>
+        det.innerHTML = `<strong>Глава ${s.chapter_num}</strong> — <b>${s.total}/50</b>
+          <span style="margin-left:8px;color:var(--text2);">Голос:${s.voice ?? '—'} · Структура:${s.structure ?? '—'} · Персонажи:${s.characters ?? '—'} · Сцены:${s.scenes ?? '—'} · Диалог:${s.dialog ?? '—'}${s.source ? ' · ' + escHtml(s.source) : ''}</span>
           ${s.verdict ? '<div style="margin-top:6px;color:var(--text);">' + escHtml(s.verdict) + '</div>' : ''}
           ${s.main_issue ? '<div style="margin-top:4px;color:#f87171;">⚠ ' + escHtml(s.main_issue) + '</div>' : ''}`;
       }

@@ -245,9 +245,14 @@ def _execute_steps(
                                  edited, model_editor, step_call, results)
 
         elif step.name == "critique":
-            step_critique(run_id, iteration, chapter_num,
-                          model_critic, step_call, results, previous_text or "",
-                          project_id=project_id, genre=_genre, model_gen=model_gen)
+            # Сбой критика — круг без разбора, а не 500 с потерей главы (разбор 21.10)
+            try:
+                step_critique(run_id, iteration, chapter_num,
+                              model_critic, step_call, results, previous_text or "",
+                              project_id=project_id, genre=_genre, model_gen=model_gen)
+            except Exception as e:
+                handle_error(f"pipeline critique ({run_id}, круг {iteration})", e, level=ErrorLevel.DEGRADED)
+                results["critique_error"] = f"критик не ответил: {str(e)[:200]} — судья оценит главу сам"
 
         elif step.name == "prevalidate":
             # Пре-валидация задачи перед генерацией — non-blocking.
@@ -268,9 +273,16 @@ def _execute_steps(
                 results["prevalidation_error"] = str(e)[:200]
 
         elif step.name == "judge":
-            step_judge(run_id, iteration, chapter_num,
-                       model_judge, step_call, results, previous_text or "",
-                       project_id=project_id, genre_key=_genre)
+            # Сбой судьи — круг без оценки: текст главы на экране, можно «Ещё круг»
+            # или «Принять»; лучший круг выбирается среди оценённых (разбор 21.10)
+            try:
+                step_judge(run_id, iteration, chapter_num,
+                           model_judge, step_call, results, previous_text or "",
+                           project_id=project_id, genre_key=_genre)
+            except Exception as e:
+                handle_error(f"pipeline judge ({run_id}, круг {iteration})", e, level=ErrorLevel.DEGRADED)
+                results["judge_error"] = (f"судья не ответил: {str(e)[:200]} — круг без оценки; "
+                                          "«Ещё круг» или «Принять» вручную")
 
     return results
 
@@ -290,6 +302,10 @@ def run_pipeline_step(
     if steps is None:
         steps = PIPELINE_WITH_EDIT if (previous_text and previous_critique) else DEFAULT_PIPELINE
     ACTIVE_RUNS.add(run_id)
+    # Правила оценки — запуска: «Ещё круг» после переключения v1/v2 судил бы
+    # по новым, и «лучший круг» сравнивал бы баллы разных шкал (разбор 21.10)
+    from .judge_rubric import RUN_RUBRIC
+    token = RUN_RUBRIC.set((get_pipeline_run(run_id) or {}).get("rubric") or "")
     try:
         return _execute_steps(
             steps=steps, run_id=run_id, iteration=iteration,
@@ -301,6 +317,7 @@ def run_pipeline_step(
             prefill=prefill, engine_mode=engine_mode,
         )
     finally:
+        RUN_RUBRIC.reset(token)
         ACTIVE_RUNS.discard(run_id)
 
 
@@ -554,6 +571,44 @@ def best_round(rounds: list[dict]) -> dict | None:
             and (r["verdict"] == "ПРИНЯТЬ") == (top["verdict"] == "ПРИНЯТЬ")
             and r["score"] >= top["score"] - PLAN_SLACK]
     return min(near, key=lambda r: (gaps(r), -r["score"], -r["round"])) if near else top
+
+
+def judge_score_details(run_id: int, final_text: str) -> dict | None:
+    """
+    Оценка принятого текста судьёй его круга — в формате score_text (оценка
+    главы для «Статистики»). None — текст не из оценённого круга (правлен
+    вручную, судьи не было): тогда оценивает отдельный оценщик.
+
+    Раньше после «Принять» главу всегда оценивала ещё одна модель: лишний
+    вызов подписки и вторая оценка со своим шумом рядом с оценкой судьи
+    (разбор 21.10, решение автора — авто-оценка нужна).
+    """
+    from .judge_rubric import parse_gates
+    from .pipeline_llm import parse_criteria, parse_first_item
+    iters = get_pipeline_iterations(run_id) if run_id else []
+    chosen = round_of_text(pipeline_rounds(iters), final_text)
+    if not chosen or not chosen["score"]:
+        return None
+    judged = [i for i in iters if i["stage"] == "judge" and i["iteration"] == chosen["round"] and i.get("score")]
+    if not judged:
+        return None
+    judgment = judged[-1]["output_text"] or ""
+    crit = parse_criteria(judgment)
+    keys = {"voice": "ГОЛОС", "structure": "СТРУКТУРА", "characters": "ПЕРСОНАЖИ", "scenes": "СЦЕНЫ", "dialog": "ДИАЛОГ"}
+    return {**{k: crit.get(v) for k, v in keys.items()},
+            "total": chosen["score"], "verdict": chosen.get("verdict") or "",
+            "main_issue": parse_first_item(judgment, "ОСТАТОК") or _line_after(judgment, "ОСТАТОК"),
+            "gates": parse_gates(judgment), "source": f"судья, круг {chosen['round']}",
+            "model": judged[-1].get("model_used") or ""}
+
+
+def _line_after(text: str, label: str) -> str:
+    """Текст строки «МЕТКА: …» без разметки — ответ судьи пишет ОСТАТОК в строку."""
+    from .pipeline_llm import _plain
+    for line in _plain(text).splitlines():
+        if line.strip().upper().startswith(label + ":"):
+            return line.split(":", 1)[1].strip()
+    return ""
 
 
 def round_of_text(rounds: list[dict], text: str) -> dict | None:
