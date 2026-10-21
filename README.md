@@ -299,7 +299,7 @@ set PY=fiction_engine\.venv\Scripts\python
 
 **Судьи и критики**
 - `calib_judge.py JUDGE EXCLUDE OUT.json` — порог «ПРИНЯТЬ»: живые главы
-  против испорченных; `CALIB_RUBRIC=v2` — правила оценки v2.
+  против испорченных; правила оценки — как в приложении (v2), `CALIB_RUBRIC=v1` — прежние.
 - `self_recognition.py` — узнаёт ли модель свой текст.
 - `adjudicate_cross.py` — разметка находок `ab_compare series-check`.
 

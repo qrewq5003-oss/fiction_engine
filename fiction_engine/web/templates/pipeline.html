@@ -1187,10 +1187,21 @@ async function chooseAcceptedText() {
     const v = +(document.querySelector('input[name="accept-round"]:checked') || {}).value;
     return rounds.find(x => x.round === v) || mine;
   };
+  // Пункт плана «нет» у выбранного круга — сказать прямо: судья главу оценивает
+  // как текст и пропавшую сцену не видит. «Ночная смена» (20.10, гл.4): круг без
+  // развязки — 35 «ПРИНЯТЬ», круг с ней — 32 «НА ДОРАБОТКУ», лучшим вышел первый
   const showBelow = () => {
     const p = picked();
-    below.style.display = p.score < rr.threshold ? '' : 'none';
-    below.textContent = `Круг ${p.round}: ${p.score} — ниже порога ${rr.threshold}. Судья такую главу не принял бы; принять всё равно можно.`;
+    const notes = [];
+    if (p.score < rr.threshold)
+      notes.push(`Круг ${p.round}: ${p.score} — ниже порога ${rr.threshold}. Судья такую главу не принял бы; принять всё равно можно.`);
+    if (p.plan && p.plan.missing) {
+      const full = rounds.filter(x => x.score && x.plan && !x.plan.missing).map(x => x.round);
+      notes.push(`В круге ${p.round} нет пунктов плана: ${p.plan.missing}. Судья пропавшую сцену не видит — ` +
+                 (full.length ? `план без пропусков — в круге ${full.join(', ')}.` : 'ни в одном круге план не закрыт целиком.'));
+    }
+    below.style.display = notes.length ? '' : 'none';
+    below.textContent = notes.join(' ');
   };
   document.querySelectorAll('input[name="accept-round"]').forEach(el => el.onchange = showBelow);
   showBelow();
