@@ -132,3 +132,21 @@ def init_security(app: Flask) -> None:
             if not _same(sent, session.get("csrf")):
                 return jsonify({"error": "запрос отклонён: нет токена CSRF — обновите страницу"}), 403
         return None
+
+    @app.before_request
+    def _same_project() -> ResponseReturnValue | None:
+        """
+        Запрос для проекта, который сейчас не открыт, — отказ. Открытый проект
+        один на всё приложение: устаревшая вкладка или инструмент писали в
+        книгу, открытую в другой вкладке, — State, главу, голос (разбор 21.10).
+        Страница или инструмент шлют X-FE-Project (форма — поле fe_project);
+        без него — как раньше.
+        """
+        want = (request.headers.get("X-FE-Project") or request.form.get("fe_project") or "").strip()
+        if not want:
+            return None
+        from engine.db_settings import get_active_project_id
+        if str(get_active_project_id() or "") != want:
+            return jsonify({"error": "Страница открыта для другого проекта — в другой вкладке открыт "
+                                     "другой. Обновите страницу.", "project_mismatch": True}), 409
+        return None

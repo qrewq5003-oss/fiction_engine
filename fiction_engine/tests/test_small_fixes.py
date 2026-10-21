@@ -102,3 +102,14 @@ def test_state_analyze_status_is_per_project(project_id):
     from engine.db_settings import set_active_project
     set_active_project(create_project("Другой", "детектив"))
     assert c.get("/state/analyze/status/job-x").status_code == 404
+
+
+def test_request_for_other_project_is_refused(project_id):
+    """X-FE-Project не совпадает с открытым проектом — 409; совпадает или нет заголовка — как раньше."""
+    from engine.db_projects import create_project
+    c = _client(project_id)
+    assert c.get("/api/voice/active", headers={"X-FE-Project": str(project_id)}).status_code == 200
+    other = create_project("Другая книга", "детектив")
+    r = c.post("/voice/save", json={"name": "чужой", "profile": "профиль"}, headers={"X-FE-Project": str(other)})
+    assert r.status_code == 409 and r.get_json()["project_mismatch"]
+    assert c.get("/api/voice/active").status_code == 200

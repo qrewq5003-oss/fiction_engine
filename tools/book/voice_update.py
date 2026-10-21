@@ -39,6 +39,12 @@ run = res.setdefault(f"{a}-{b}", {})
 
 active = {p["id"] for p in s.get(FE + "/api/projects/list").json()["projects"]}
 assert SETUP["fe_pid"] in active
+# Все запросы — для проекта книги: если в FE открыт другой, сервер отвечает 409
+# (web/security._same_project). Иначе --apply сохранял, включал и удалял голос
+# книги, открытой в FE в эту минуту (разбор 21.10)
+s.headers["X-FE-Project"] = str(SETUP["fe_pid"])
+if s.get(FE + "/api/voice/active", timeout=30).status_code == 409:
+    raise SystemExit(f"в FE открыт не проект книги (id {SETUP['fe_pid']}) — открой его и запусти снова")
 
 
 def chapter(n):
