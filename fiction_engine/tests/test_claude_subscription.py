@@ -142,3 +142,18 @@ def test_old_single_json_output_still_parsed():
     from engine.api import _parse_claude_stream
     text, final = _parse_claude_stream(json.dumps(OK, ensure_ascii=False))
     assert text == "Дождь шёл всю ночь." and final["stop_reason"] == "end_turn"
+
+
+def test_cli_runs_outside_repo_without_dev_memory(monkeypatch):
+    """CLI из папки приложения подхватывал авто-память Claude Code разработчика (MEMORY.md):
+    Haiku-критик «Фона» ссылался на «правило автора из памяти» и раз отказался оценивать (21.10)."""
+    from pathlib import Path
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.subprocess.run", return_value=_proc(OK)) as run:
+        call_model("claude_subscription::claude-haiku-5-5", "сис", "юзер", max_tokens=300)
+    cwd = Path(run.call_args.kwargs["cwd"]).resolve()
+    repo = Path(__file__).resolve().parents[2]
+    assert cwd.is_dir() and repo not in (cwd, *cwd.parents)
+    assert not any((d / ".git").exists() for d in (cwd, *cwd.parents))

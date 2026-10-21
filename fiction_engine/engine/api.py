@@ -542,6 +542,24 @@ import threading
 
 _CLAUDE_SUB_LOCK = threading.Lock()
 CLAUDE_SUB_TIMEOUT = 900          # секунд: длинная глава пишется минутами
+
+
+def claude_cli_cwd() -> str:
+    """
+    Папка, из которой запускается claude CLI: пустая служебная, вне репозитория.
+
+    Запущенный из папки приложения CLI находил там авто-память Claude Code
+    разработчика (~/.claude/projects/<путь репо>/memory/MEMORY.md) и добавлял её
+    в каждый вызов — «--setting-sources ''» её не отключает. Писатель, критик,
+    анализ и судья Claude получали заметки о проекте: Haiku-критик «Фона»
+    ссылался на «правило автора из памяти», а в одном разборе (19.10) отказался
+    ставить оценку (разбор 21.10). Память Claude Code привязана к папке запуска,
+    у этой папки её нет.
+    """
+    import tempfile
+    d = os.path.join(tempfile.gettempdir(), "fiction_engine_claude_cwd")
+    os.makedirs(d, exist_ok=True)
+    return d
 CLAUDE_SUB_MIN_OUTPUT = 32000      # токенов: глава в 3–4 тыс. слов — около 12 тыс.
 
 
@@ -611,7 +629,7 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
     with _CLAUDE_SUB_LOCK:
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                               encoding="utf-8", errors="replace",
-                              timeout=CLAUDE_SUB_TIMEOUT, env=env)
+                              timeout=CLAUDE_SUB_TIMEOUT, env=env, cwd=claude_cli_cwd())
     result, data = _parse_claude_stream(proc.stdout)
     if data is None:
         raise RuntimeError(f"claude CLI: нет итога (код {proc.returncode}): "
