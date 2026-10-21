@@ -5,7 +5,8 @@
 """
 
 from .api import call_model
-from .db import get_api_key, get_state, get_chapter, get_prep, log_error, check_structural_monotony
+from .db import get_api_key, get_chapter, get_prep, log_error, check_structural_monotony
+from .db_state import state_for_chapter
 from .logger import get_logger
 from .cognitive_memory import get_weighted_promises  # когнитивная память — Шаг 3
 
@@ -80,7 +81,8 @@ def prevalidate_chapter(
     2. Быстрая проверка противоречий State (вторая LLM-задача, дешёвая модель)
     3. Проверка promises — уже включена в основной промпт (без отдельного вызова)
     """
-    state = get_state(project_id)
+    # State на момент главы: задачу переписываемой главы сверяют не с концом книги
+    state = state_for_chapter(project_id, chapter_num)
     prep  = get_prep(project_id)
 
     state_text = (

@@ -4,7 +4,7 @@ from engine.db import (save_chapter, get_api_key,
                        get_generation_history, get_generation_by_id)
 from engine.pipeline import score_text  # публичный API скоринга
 from ..ownership import owned_generation, deny
-from .helpers import get_current_project, after_chapter_saved, log_web_error
+from .helpers import get_current_project, after_chapter_saved
 
 bp = Blueprint("generate", __name__)
 
@@ -198,21 +198,20 @@ def generation_detail(gen_id):
 def generation_score(gen_id):
     if not owned_generation(gen_id):
         return deny("Генерация")
-    from engine.db import get_generation_by_id, save_generation_score, get_conn
+    from engine.db import get_generation_by_id, save_generation_score
     rec = get_generation_by_id(gen_id)
     if not rec:
         return jsonify({"error": "Запись не найдена"}), 404
     text = rec.get("result_text", "")
     if not text or len(text.strip()) < 50:
         return jsonify({"error": "Текст слишком короткий"}), 400
-    scorer_model = rec.get("model", "")
-    try:
-        with get_conn() as conn:
-            row = conn.execute("SELECT value FROM settings WHERE key='scorer_model'").fetchone()
-        if row and row["value"]:
-            scorer_model = row["value"]
-    except Exception as e:
-        log_web_error("не прочитать scorer_model из настроек", e)
+    # Оценщик — другой семьи, чем писатель этого текста (pipeline_config.scorer_model_for):
+    # раньше без настройки оценивал сам писатель
+    from engine.pipeline_config import scorer_model_for
+    scorer_model = scorer_model_for(rec.get("model", ""))
+    if not scorer_model:
+        return jsonify({"error": "Нет оценщика другого семейства, чем писатель: выбери его в "
+                                 "«Настройки → Оценщик» или набор ролей"}), 400
     current = get_current_project()
     from engine.unified_engine import project_genre_key
     genre = project_genre_key(current) or ""

@@ -43,31 +43,54 @@ def _norm_words(text: str) -> str:
     return " ".join(re.findall(r"\w+", (text or "").lower().replace("ё", "е")))
 
 
-def drop_future_excerpts(profile: str, future_texts: list[str]) -> str:
+def drop_future_excerpts(profile: str, future_texts: list[str],
+                         past_texts: list[str] | None = None) -> str:
     """
     Профиль голоса без строк эталона, которые дословно стоят в этой главе или
     в следующих. Эталоны из книги выбираются при обновлении голоса по уже
     написанным главам; при переписывании ранней главы они — её будущее
     («Фон», гл.12: эталоны из гл.16, 17, 19 — у писателя и в дрейфе голоса).
-    Правила профиля не трогаются: только строки после заголовка «ЭТАЛОН».
+    past_texts — главы до этой: строка эталона остаётся, только если стоит в
+    них (разбор 21.10: строки удалённого или переписанного текста не стояли
+    нигде и оставались). Правила профиля не трогаются: только строки после
+    заголовка «ЭТАЛОН».
     """
     future = f" {' '.join(_norm_words(t) for t in future_texts if t)} "
-    if not profile or not future.strip():
+    past = None if past_texts is None else f" {' '.join(_norm_words(t) for t in past_texts if t)} "
+    if not profile or (not future.strip() and past is None):
         return profile
-    out, in_etalon = [], False
+    out, in_etalon, from_book = [], False, False
     for line in profile.splitlines():
         if line.strip().upper().startswith("ЭТАЛОН"):
-            in_etalon = True
+            # «ЭТАЛОН (из книги)» — строки глав; «ЭТАЛОН ДИАЛОГА» встроенных
+            # профилей (voice_profiles) — образцы автора-образца, их в книге нет
+            in_etalon, from_book = True, "ИЗ КНИГИ" in line.upper()
             out.append(line)
             continue
         words = _norm_words(line)
-        if in_etalon and len(words.split()) >= 2 and f" {words} " in future:
+        if in_etalon and len(words.split()) >= 2 and (
+                f" {words} " in future or (from_book and past is not None and f" {words} " not in past)):
             continue
         out.append(line)
     import re
     text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
     # Заголовок эталона, под которым ничего не осталось
     return re.sub(r"(?m)^\s*ЭТАЛОН[^\n]*\n*(?=\Z|^\s*ЭТАЛОН)", "", text).strip()
+
+
+def profile_for_chapter(project_id: int, chapter_num: int | None, profile: str) -> str:
+    """
+    Профиль голоса для работы над главой N: в эталоне — только строки из глав
+    до N (drop_future_excerpts). Без номера главы («Голос → Проверить») —
+    строки, которые стоят в книге.
+    """
+    from .db_core import get_conn
+    with get_conn() as conn:
+        rows = conn.execute("SELECT number, content FROM chapters WHERE project_id=?", (project_id,)).fetchall()
+    if chapter_num:
+        return drop_future_excerpts(profile, [r[1] for r in rows if r[0] >= chapter_num],
+                                    [r[1] for r in rows if r[0] < chapter_num])
+    return drop_future_excerpts(profile, [], [r[1] for r in rows])
 
 
 def voice_sample(text: str, size: int) -> str:
@@ -98,7 +121,8 @@ def voice_sample(text: str, size: int) -> str:
 def build_consolidated_voice(active_voice: dict | None,
                               last_chapters: list,
                               mode: str,
-                              future_texts: list[str] | None = None) -> str:
+                              future_texts: list[str] | None = None,
+                              past_texts: list[str] | None = None) -> str:
     """
     Блок голоса писателю. last_chapters — главы перед этой; future_texts —
     тексты этой главы и следующих (при переписывании), их строк в эталоне быть не должно.
@@ -109,7 +133,7 @@ def build_consolidated_voice(active_voice: dict | None,
     # в QUICK — режиме по умолчанию и режиме пайплайна — голос, выбранный
     # автором на странице «Голос», молча не действовал. Профиль ≤ 1800 символов.
     if active_voice and active_voice.get("profile"):
-        profile_short = clip_profile(drop_future_excerpts(active_voice["profile"], future_texts or []))
+        profile_short = clip_profile(drop_future_excerpts(active_voice["profile"], future_texts or [], past_texts))
         lines.append(f"ГОЛОСОВОЙ ПРОФИЛЬ ({active_voice['name']}):\n{profile_short}")
 
     samples = []
@@ -132,8 +156,9 @@ def build_consolidated_voice(active_voice: dict | None,
             handle_error("build_consolidated_voice peak_finale", e, level=ErrorLevel.RECOVERABLE)
 
     if not lines:
-        return ("ГОЛОС — ЭТАЛОН:\n"
-                "[Вставь 3-5 предложений из предыдущей главы — эталон голоса]")
+        # Ни профиля, ни прошлых глав — блока нет. Была строка-подсказка из
+        # шаблона «[Вставь 3-5 предложений…]»: писатель гл.1 получал её как есть
+        return ""
 
     return "\n\n".join(lines)
 
@@ -327,15 +352,22 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     Порядок блоков:
       base_prompt → голос → эталоны → KB → L3 → prep → engine → символы → state
     """
-    state   = get_state(project_id)
+    # State на момент главы: переписывают главу из середины — без поздних глав
+    from .db_state import state_for_chapter
+    state   = state_for_chapter(project_id, chapter_num)
     last    = get_last_chapters_content(project_id, n=2, before_chapter=chapter_num)
     project = get_project(project_id)
 
-    from .db import get_chapter_texts_from, get_prep_context
+    from .db import get_prep_context
     prep = get_prep_context(project_id)
 
+    # Эталон голоса — только строки глав до этой (profile_for_chapter)
+    from .db_core import get_conn as _conn
+    with _conn() as conn:
+        _texts = conn.execute("SELECT number, content FROM chapters WHERE project_id=?", (project_id,)).fetchall()
     voice_block    = build_consolidated_voice(get_active_voice(project_id), last, mode,
-                                              future_texts=get_chapter_texts_from(project_id, chapter_num))
+                                              future_texts=[t for n, t in _texts if n >= chapter_num],
+                                              past_texts=[t for n, t in _texts if n < chapter_num])
     exemplar_block = _build_exemplar_block(project_id)
     kb_block       = _build_kb_block(project_id, task_text)
     l3_ctx         = get_cognitive_context(project_id, before_chapter=chapter_num)

@@ -461,8 +461,8 @@ def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dic
     #
     # Сам замер никуда не делся: он возвращается в результате и доступен
     # автору. Он арифметический и в языковой модели не нуждается.
-    from .pipeline_config import (CRITIC_TEXT_LIMIT, ACCEPT_TOTAL,
-                                  ACCEPT_MIN_CRITERION)
+    from .pipeline_config import (CRITIC_TEXT_LIMIT, ACCEPT_MIN_CRITERION,
+                                  accept_total_for)
     prompt = f"Глава:\n\n{text[:CRITIC_TEXT_LIMIT]}"
     # layers — genre_mix.review_layers_note: второй слой книги и тон главы
     if layers:
@@ -500,7 +500,9 @@ def score_text(text: str, genre: str, model_value: str, layers: str = "") -> dic
         "dialog":     dialog,
         "total":      total,
         "verdict":    ("ПРИНЯТЬ"
-                       if total >= ACCEPT_TOTAL
+                       # Порог — этого оценщика, как у судьи: был общий 35, и
+                       # Sol с 31 при своём пороге 30 получал «НА ДОРАБОТКУ»
+                       if total >= accept_total_for(model_value)
                        and min(voice, structure, characters, scenes, dialog) >= ACCEPT_MIN_CRITERION
                        else "НА ДОРАБОТКУ"),
         "main_issue": main_issue,

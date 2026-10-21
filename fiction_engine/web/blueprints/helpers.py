@@ -6,7 +6,7 @@
 """
 from typing import TYPE_CHECKING
 
-from engine.db import get_project, get_active_project_id, get_conn
+from engine.db import get_project, get_active_project_id
 
 if TYPE_CHECKING:
     from werkzeug.datastructures import FileStorage
@@ -119,17 +119,14 @@ def get_cheap_model(fallback_model: str) -> str:
     return _get_resolver_model(fallback_model)
 
 
-def _get_scorer_model(fallback: str) -> str:
+def _get_scorer_model(writer: str) -> str:
+    """Оценщик главы писателя writer — другой семьи (pipeline_config.scorer_model_for); нет — «»."""
     try:
-        with get_conn() as conn:
-            row = conn.execute(
-                "SELECT value FROM settings WHERE key='scorer_model'"
-            ).fetchone()
-        if row and row["value"]:
-            return row["value"]
+        from engine.pipeline_config import scorer_model_for
+        return scorer_model_for(writer)
     except Exception as e:
-        log_web_error("_get_scorer_model: не прочитать scorer_model", e)
-    return fallback
+        log_web_error("_get_scorer_model: оценщик", e)
+        return ""
 
 
 def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_value: str) -> dict:
@@ -182,7 +179,8 @@ def after_chapter_saved(project_id: int, chapter_num: int, text: str, model_valu
 
     # 4. Авто-оценка
     try:
-        scorer_model = _get_scorer_model(model_value)
+        from engine.db import chapter_writers
+        scorer_model = _get_scorer_model(chapter_writers(project_id).get(chapter_num) or model_value)
         if scorer_model:
             score = _auto_score_chapter(project_id, chapter_num, text, scorer_model)
             if score is not None:

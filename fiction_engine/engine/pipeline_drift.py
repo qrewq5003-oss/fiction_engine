@@ -40,15 +40,13 @@ def _get_reference(project_id: int, chapter_num: int) -> tuple[str, str] | None:
     """
     active_voice = get_active_voice(project_id)
     if active_voice and active_voice.get("profile"):
-        from .db import get_chapter_texts_from
-        from .pipeline_context import clip_profile, drop_future_excerpts
+        from .pipeline_context import clip_profile, profile_for_chapter
         return (
             f"Голосовой профиль «{active_voice['name']}»",
             # Тот же профиль, что уходит в генерацию: сверять дрейф с урезанным
             # эталоном значит ловить отклонения от того, чего модель не видела.
             # И так же без эталонов из этой главы и следующих
-            clip_profile(drop_future_excerpts(active_voice["profile"],
-                                              get_chapter_texts_from(project_id, chapter_num))),
+            clip_profile(profile_for_chapter(project_id, chapter_num, active_voice["profile"])),
         )
 
     # Fallback — ранняя глава как эталон; только из прошлых (у гл.1 эталона нет)
@@ -120,9 +118,14 @@ def drift_checker(model_value: str, writer: str) -> str:
 def check_voice_drift(project_id: int, chapter_num: int,
                       chapter_text: str, model_value: str,
                       call_fn: Callable[..., str] | None = None,
-                      writer: str = "") -> dict:
+                      writer: str = "", save: bool = True) -> dict:
     """
     Проверить дрейф голоса новой главы.
+
+    save — записать в журнал (расписание проверок, should_check_drift). Круг
+    «Мастерской» не пишет: это черновик, журнал — по принятому тексту (после
+    «Принять», auto_drift_check_if_needed). Раньше круг 1 писал оценку черновика,
+    и принятый текст не проверялся вовсе: «Фон» — 7 из 8 записей до принятия.
 
     call_fn — функция (model, system, user, max_tokens) → str.
     Если не передана — использует внутренний _call из pipeline.
@@ -157,7 +160,8 @@ def check_voice_drift(project_id: int, chapter_num: int,
         score, issues, critical = _parse_drift_result(raw)
         if score is None:
             return {"checked": False, "reason": "unparsed", "raw": (raw or "")[:300]}
-        save_drift_check(project_id, chapter_num, score, issues)
+        if save:
+            save_drift_check(project_id, chapter_num, score, issues)
         return {
             "checked":   True,
             "score":     score,
