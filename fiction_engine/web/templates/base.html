@@ -4,11 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="fe-project" content="{{ current.id if current else '' }}">
 <script>
 // Токен CSRF (web/security.py): fetch добавляет заголовок к запросам, меняющим
-// данные, форма POST получает скрытое поле при отправке
+// данные, форма POST получает скрытое поле при отправке. Проект страницы —
+// так же (X-FE-Project / fe_project): вкладка, открытая для одной книги, не
+// пишет в другую, открытую в соседней вкладке (security._same_project, 21.10).
+// Переключение и создание проекта (/project/…) — без него
 (function () {
   var token = document.querySelector('meta[name="csrf-token"]').content;
+  var project = document.querySelector('meta[name="fe-project"]').content;
+  var anyProject = function (url) { return /^\/project\//.test(url || ''); };
   var safe = /^(GET|HEAD|OPTIONS)$/i;
   var orig = window.fetch;
   window.fetch = function (input, init) {
@@ -17,13 +23,21 @@
     if (!safe.test(method)) {
       var h = new Headers(init.headers || (input && input.headers) || {});
       if (!h.has('X-CSRF-Token')) h.set('X-CSRF-Token', token);
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (project && !h.has('X-FE-Project') && !anyProject(url.replace(location.origin, ''))) h.set('X-FE-Project', project);
       init.headers = h;
     }
     return orig.call(this, input, init);
   };
   document.addEventListener('submit', function (e) {
     var f = e.target;
-    if (!f || !/^post$/i.test(f.method) || f.querySelector('input[name="csrf_token"]')) return;
+    if (!f || !/^post$/i.test(f.method)) return;
+    if (project && !f.querySelector('input[name="fe_project"]') && !anyProject(f.getAttribute('action'))) {
+      var p = document.createElement('input');
+      p.type = 'hidden'; p.name = 'fe_project'; p.value = project;
+      f.appendChild(p);
+    }
+    if (f.querySelector('input[name="csrf_token"]')) return;
     var i = document.createElement('input');
     i.type = 'hidden'; i.name = 'csrf_token'; i.value = token;
     f.appendChild(i);
@@ -406,6 +420,9 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ─── Универсальное сохранение состояния страницы ──────────────────────────
 // Использование: PageState.init('page-key', ['id1','id2'], restoreFn)
 const PageState = {
+  // Ключ — по проекту: задача и результат «Мастерской» книги A вставали в поле
+  // книги B после переключения проекта в той же вкладке (разбор 21.10)
+  k(key) { return 'ps_{{ current.id if current else 0 }}_' + key; },
   save(key, ids) {
     const data = {};
     ids.forEach(id => {
@@ -417,11 +434,11 @@ const PageState = {
         data[id] = { html: el.innerHTML, display: el.style.display };
       }
     });
-    try { sessionStorage.setItem('ps_' + key, JSON.stringify(data)); } catch(e) {}
+    try { sessionStorage.setItem(PageState.k(key), JSON.stringify(data)); } catch(e) {}
   },
   restore(key, ids, afterFn) {
     try {
-      const raw = sessionStorage.getItem('ps_' + key);
+      const raw = sessionStorage.getItem(PageState.k(key));
       if (!raw) return false;
       const data = JSON.parse(raw);
       let restored = false;
@@ -442,7 +459,7 @@ const PageState = {
     } catch(e) { return false; }
   },
   clear(key) {
-    try { sessionStorage.removeItem('ps_' + key); } catch(e) {}
+    try { sessionStorage.removeItem(PageState.k(key)); } catch(e) {}
   }
 };
 </script>

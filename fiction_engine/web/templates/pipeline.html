@@ -1328,6 +1328,8 @@ async function plMergeWithPrev() {
 
   const merged = r.text.trimEnd() + '\n\n' + currentText;
   document.getElementById('result-text').textContent = merged;
+  // «Принять» берёт state.currentText: без этого принималась одна вторая часть
+  state.currentText = merged;
   document.getElementById('pl-btn-merge').style.display = 'none';
   const words = merged.trim().split(/\s+/).length;
   alert(`🔗 Склеено. Итого ~${words} слов. Теперь можно сохранить как главу.`);

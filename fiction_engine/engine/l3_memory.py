@@ -129,6 +129,76 @@ def mark_promise_resolved(
     return updated
 
 
+# ─── Закрытия обещаний поздними главами ──────────────────────────────────────
+#
+# Отметка «обещание закрыто главой M» живёт в L3 главы-источника N. Новый L3
+# главы N (пересчёт, «Принять» поверх, кнопка L3) писал все её обещания
+# открытыми, и поздние главы их заново не закрывали: писателю гл.25 «Фона»
+# вернулись бы обещания, закрытые давно, — 38 из 148 (разбор 21.10). Перед
+# удалением L3 главы закрытия поздними главами откладываются
+# (stash_later_closures), новый L3 сверяется с ними по тексту.
+
+CLOSURE_MATCH = 0.6     # доля общих слов, при которой новое обещание — то же, что прежнее
+
+
+def _ensure_closures() -> None:
+    from .db_core import get_conn
+    with get_conn() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS promise_closures (
+            project_id INTEGER NOT NULL, source_chapter INTEGER NOT NULL,
+            text TEXT NOT NULL, resolved_chapter INTEGER NOT NULL)""")
+
+
+def _later_closures(promises: list[dict], chapter_num: int) -> list[tuple[str, int]]:
+    return [(p["text"], int(p["resolved_chapter"])) for p in promises
+            if p.get("resolved") and p.get("resolved_chapter") and int(p["resolved_chapter"]) > chapter_num]
+
+
+def stash_later_closures(project_id: int, chapter_num: int) -> int:
+    """Отложить закрытия обещаний главы поздними главами — перед удалением её L3."""
+    summary = get_l3_summary(project_id, chapter_num)
+    found = _later_closures(normalize_promises((summary or {}).get("promises", []), chapter_num), chapter_num)
+    if not found:
+        return 0
+    _ensure_closures()
+    from .db_core import get_conn
+    with get_conn() as conn:
+        conn.executemany("INSERT INTO promise_closures VALUES (?,?,?,?)",
+                         [(project_id, chapter_num, t, r) for t, r in found])
+    return len(found)
+
+
+def _words(text: str) -> set[str]:
+    return set(re.findall(r"\w{4,}", (text or "").lower().replace("ё", "е")))
+
+
+def carry_later_closures(project_id: int, chapter_num: int, promises: list[dict]) -> int:
+    """
+    Новым обещаниям главы — прежние отметки «закрыто главой M» (M > главы):
+    из её прежнего L3 и отложенных (stash_later_closures). Сверка по словам:
+    модель формулирует обещание каждый раз немного иначе. → сколько перенесено.
+    """
+    old = _later_closures(normalize_promises((get_l3_summary(project_id, chapter_num) or {}).get("promises", []),
+                                             chapter_num), chapter_num)
+    _ensure_closures()
+    from .db_core import get_conn
+    with get_conn() as conn:
+        old += [(r[0], r[1]) for r in conn.execute(
+            "SELECT text, resolved_chapter FROM promise_closures WHERE project_id=? AND source_chapter=?",
+            (project_id, chapter_num))]
+        conn.execute("DELETE FROM promise_closures WHERE project_id=? AND source_chapter=?",
+                     (project_id, chapter_num))
+    n = 0
+    for text, by in old:
+        w = _words(text)
+        best = max((p for p in promises if not p.get("resolved")),
+                   key=lambda p: len(w & _words(p["text"])) / max(1, len(w | _words(p["text"]))), default=None)
+        if best and len(w & _words(best["text"])) / max(1, len(w | _words(best["text"]))) >= CLOSURE_MATCH:
+            best["resolved"], best["resolved_chapter"] = True, by
+            n += 1
+    return n
+
+
 def reopen_promises(project_id: int, resolved_chapter: int) -> int:
     """
     Снова открыть обещания, которые закрыла глава resolved_chapter, — при её
@@ -230,6 +300,8 @@ def generate_l3_summary(project_id: int, chapter_num: int,
 
         # Нормализуем promises в структурированный формат
         summary["promises"] = normalize_promises(summary["promises"], chapter_num)
+        # Обещания этой главы, закрытые поздними главами, — закрытыми и остаются
+        carry_later_closures(project_id, chapter_num, summary["promises"])
 
         save_l3_summary(project_id, chapter_num, summary)
         return summary

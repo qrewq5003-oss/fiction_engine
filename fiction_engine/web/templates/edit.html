@@ -364,18 +364,18 @@ function _doAutosave() {
   const text = document.getElementById('edit-input').value;
   if (!text || text === _lastAutosaved) return;
   try {
-    sessionStorage.setItem('edit_autosave', text);
-    sessionStorage.setItem('edit_autosave_ts', new Date().toLocaleTimeString());
+    sessionStorage.setItem('edit_autosave_{{ current.id }}', text);
+    sessionStorage.setItem('edit_autosave_ts_{{ current.id }}', new Date().toLocaleTimeString());
     _lastAutosaved = text;
     const el = document.getElementById('autosave-status');
-    if (el) el.textContent = '✓ черновик ' + sessionStorage.getItem('edit_autosave_ts');
+    if (el) el.textContent = '✓ черновик ' + sessionStorage.getItem('edit_autosave_ts_{{ current.id }}');
   } catch(e) {}
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   // Восстановить автосохранённый черновик
-  const saved = sessionStorage.getItem('edit_autosave');
-  const ts = sessionStorage.getItem('edit_autosave_ts');
+  const saved = sessionStorage.getItem('edit_autosave_{{ current.id }}');
+  const ts = sessionStorage.getItem('edit_autosave_ts_{{ current.id }}');
   const inp = document.getElementById('edit-input');
   if (saved && inp && !inp.value) {
     inp.value = saved;
