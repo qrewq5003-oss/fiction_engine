@@ -17,13 +17,21 @@ def test_critic_is_not_nano():
                for m in [*p["roles"].values(), *p["settings"].values()])
 
 
-def _judge_prompt(model_judge):
+def _judge_prompt(model_judge, previous_text=""):
     from engine.pipeline_steps import step_judge
     seen = []
     results = {"generated_text": "Текст главы.", "critique": "ГОЛОС: 7 — штампы в диалоге\nИТОГ: 35"}
     with patch("engine.pipeline_steps.save_pipeline_iteration"):
-        step_judge(1, 1, 1, model_judge, lambda m, s, p, **kw: seen.append(p) or "ИТОГ: 30", results)
+        step_judge(1, 1, 1, model_judge, lambda m, s, p, **kw: seen.append(p) or "ИТОГ: 30", results,
+                   previous_text)
     return seen[0]
+
+
+def test_judge_of_later_round_does_not_see_previous_text(project_id):
+    """С текстом прошлого круга Sol ставил на 0.7 больше, а круг 1 оценивался без него (замер 23.10)."""
+    p = _judge_prompt(SOL, previous_text="Текст прошлого круга.")
+    assert "прошлого круга" not in p and "ИСХОДНЫЙ" not in p
+    assert p == _judge_prompt(SOL)
 
 
 def test_sonnet_judges_without_critique(project_id):

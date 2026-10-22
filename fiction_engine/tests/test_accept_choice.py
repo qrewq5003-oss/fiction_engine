@@ -43,7 +43,7 @@ def test_rounds_best_and_text(project_id):
 
 def test_rounds_view(project_id, client):
     r = client.get(f"/pipeline/{_run(project_id)}/rounds").get_json()
-    assert r["best"] == 1 and r["threshold"] == 30
+    assert r["best"] == 1 and r["threshold"] == 30 and r["noise"] == 2
     assert [(x["round"], x["score"], x["words"]) for x in r["rounds"]] == [(1, 32, 80), (2, 29, 81)]
 
 
@@ -70,11 +70,21 @@ def test_best_round_prefers_closed_plan_within_slack():
     assert best_round([_r(1, 33, (0, 2)), _r(2, 31, (0, 0))])["round"] == 2
     assert best_round([_r(1, 33, (0, 2)), _r(2, 30, (0, 0))])["round"] == 1     # дальше уступки
     assert best_round([_r(1, 33, None), _r(2, 31, (0, 0))])["round"] == 1       # лучший не сверен
-    assert best_round([_r(1, 33, (0, 2)), _r(2, 32, None)])["round"] == 1       # другой не сверен
+    assert best_round([_r(1, 34, (0, 2)), _r(2, 32, None)])["round"] == 1       # другой не сверен
     assert best_round([_r(1, 33, (0, 2)), _r(2, 32, (0, 0), "НА ДОРАБОТКУ")])["round"] == 1
     # «нет» тяжелее любого числа «частично»
     assert best_round([_r(1, 33, (1, 0)), _r(2, 32, (0, 3))])["round"] == 2
     assert best_round([_r(1, 33, (0, 1)), _r(2, 32, (1, 0))])["round"] == 1
+
+
+def test_best_round_ignores_judge_noise():
+    """Ранний круг выше меньше чем на 2 балла — шум судьи, берётся поздний (замер 23.10)."""
+    from engine.pipeline import best_round
+    assert best_round([_r(1, 33, None), _r(2, 32, None)])["round"] == 2
+    assert best_round([_r(1, 33, None), _r(2, 32, None), _r(3, 31, None)])["round"] == 2
+    assert best_round([_r(1, 33, None), _r(2, 31, None)])["round"] == 1         # 2 балла — уже разница
+    assert best_round([_r(1, 32, None), _r(2, 31.5, None, "НА ДОРАБОТКУ")])["round"] == 1
+    assert best_round([_r(1, 33, None), _r(2, 33.5, None), _r(3, 32, None)])["round"] == 3
 
 
 def test_plan_check_saved_per_round_text(project_id, client):

@@ -803,19 +803,15 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
     # без неё — 30.7 против 31.1, разница по главе 1.08 при разбросе Sol 1.6;
     # пользы нет, а через неё уходила оценка этой же главы (обход 20.10)
 
-    if previous_text and previous_text != current_text:
-        judge_prompt = (
-            f"ИСХОДНЫЙ ВАРИАНТ:\n{previous_text}\n\n"
-            f"ПЕРЕРАБОТАННЫЙ ВАРИАНТ:\n{current_text}\n\n"
-            f"КРИТИКА НА ПЕРЕРАБОТАННЫЙ ВАРИАНТ:\n{critique}\n\n"
-            "Вынеси финальный вердикт."
-        )
-    else:
-        judge_prompt = (
-            f"ТЕКСТ ГЛАВЫ {chapter_num}:\n{current_text}\n\n"
-            f"КРИТИКА:\n{critique}\n\n"
-            "Вынеси финальный вердикт."
-        )
+    # Текст прошлого круга судья не получает (23.10): с ним Sol ставил тому же
+    # тексту в среднем на 0.7 балла больше (6 глав «Ночной смены», 32.4 против
+    # 31.7), а первый круг оценивался без него — best_round сравнивал оценки,
+    # данные в разных условиях
+    judge_prompt = (
+        f"ТЕКСТ ГЛАВЫ {chapter_num}:\n{current_text}\n\n"
+        f"КРИТИКА:\n{critique}\n\n"
+        "Вынеси финальный вердикт."
+    )
 
     # Правило вердикта — с порогом этого судьи (pipeline_config.accept_total_for)
     from .pipeline_config import ACCEPT_MIN_CRITERION, accept_total_for, verdict_rule_for_prompt
