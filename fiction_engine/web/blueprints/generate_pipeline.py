@@ -573,7 +573,7 @@ def pipeline_rounds_view(run_id):
     if not owned_run(run_id):
         return deny("Запуск")
     from engine.db import get_pipeline_run, get_pipeline_iterations
-    from engine.pipeline import best_round, pipeline_rounds
+    from engine.pipeline import SCORE_NOISE, best_round, pipeline_rounds
     from engine.pipeline_config import accept_total_for
     run = get_pipeline_run(run_id)
     if not run:
@@ -583,7 +583,8 @@ def pipeline_rounds_view(run_id):
     best = best_round(rounds)
     return jsonify({"rounds": [dict(r, words=len(r["text"].split())) for r in rounds],
                     "best": best["round"] if best else None,
-                    "threshold": accept_total_for(run.get("model_judge") or "")})
+                    "threshold": accept_total_for(run.get("model_judge") or ""),
+                    "noise": SCORE_NOISE})
 
 
 @bp.route("/pipeline/<int:run_id>/compare")

@@ -1169,9 +1169,9 @@ async function acceptResult() {
 // Какой текст принять. «Принять» брал последний круг, а правка бывает хуже
 // черновика: в «Фоне» (19.10) главы 10, 21, 22 — 32 «ПРИНЯТЬ» до правки и 29
 // после. Если выше оценён другой круг или оценка ниже порога судьи — спросить.
-// Лучший круг выбирает сервер: при близком балле — тот, что полнее закрывает
-// план (pipeline.best_round). Текст правлен вручную (нет такого круга) —
-// принимается как есть.
+// Лучший круг выбирает сервер: при разнице меньше шума судьи — поздний, при
+// близком балле — тот, что полнее закрывает план (pipeline.best_round). Текст
+// правлен вручную (нет такого круга) — принимается как есть.
 async function chooseAcceptedText() {
   const cur = state.currentText;
   const rr = await fetch(`/pipeline/${state.runId}/rounds`).then(x => x.json()).catch(() => null);
@@ -1189,6 +1189,8 @@ async function chooseAcceptedText() {
   const esc = t => String(t).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
   document.getElementById('accept-modal-note').textContent = !better ? `Оценка судьи ниже порога ${rr.threshold}.`
     : best.score > mine.score ? `Круг ${best.round} оценён выше текущего: правка не всегда улучшает главу.`
+    : best.round > mine.round && mine.score - best.score < rr.noise
+      ? `Круг ${best.round} — более поздний, а оценки (${best.score} против ${mine.score}) различаются меньше шума судьи.`
     : `Круг ${best.round} полнее закрывает план, а судья оценил его почти так же (${best.score} против ${mine.score}).`;
   document.getElementById('accept-rounds').innerHTML = rounds.filter(x => x.score).map(x => `
     <label style="display:flex;gap:10px;align-items:center;justify-content:flex-start;padding:6px 0;margin:0;cursor:pointer;
