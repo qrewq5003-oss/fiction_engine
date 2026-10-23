@@ -265,3 +265,43 @@ class TestThinkingIsDisabled:
     def test_budget_reaches_the_model_unchanged(self, monkeypatch):
         sent = self._capture(monkeypatch, "claude-sonnet-5")
         assert sent["max_tokens"] == 1200
+
+    def test_haiku_5_thinks_unless_told(self, monkeypatch):
+        """23.10: критик Haiku 5.5 по ключу вернул только блок размышления — 2000 токенов впустую."""
+        assert self._capture(monkeypatch, "claude-haiku-5-5").get("thinking") == {"type": "disabled"}
+
+
+def _bad_request(message):
+    return RuntimeError(f"Error code: 400 - {{'type': 'error', 'error': {{'type': 'invalid_request_error', "
+                        f"'message': '{message}'}}}}")
+
+
+def test_model_that_wants_between_tools(monkeypatch):
+    """Sonnet 5.5 (23.10): «disabled» — 400, просит «between_tools»; повтор им и запоминание."""
+    import engine.api as api
+    monkeypatch.setattr(api, "_THINKING_OFF", {})
+    sent = []
+    block = MagicMock(); block.type = "text"; block.text = "ИТОГ: 33"
+    msg = MagicMock(content=[block], stop_reason="end_turn", usage=MagicMock(input_tokens=10, output_tokens=5))
+
+    def create(**kw):
+        sent.append(kw.get("thinking"))
+        if kw.get("thinking") == {"type": "disabled"}:
+            raise _bad_request('To turn thinking off on this model, send "thinking": {"type": "between_tools"} '
+                               'instead of {"type": "disabled"}.')
+        return msg
+    client = MagicMock(); client.messages.create.side_effect = create
+    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    assert api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100) == "ИТОГ: 33"
+    assert api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100) == "ИТОГ: 33"
+    assert sent == [{"type": "disabled"}, {"type": "between_tools"}, {"type": "between_tools"}]
+
+
+def test_other_bad_request_is_not_retried(monkeypatch):
+    import engine.api as api
+    monkeypatch.setattr(api, "_THINKING_OFF", {})
+    client = MagicMock(); client.messages.create.side_effect = _bad_request("prompt is too long")
+    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    with pytest.raises(Exception, match="too long"):
+        api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100)
+    assert client.messages.create.call_count == 1
