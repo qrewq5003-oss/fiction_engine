@@ -458,12 +458,35 @@ def _reduced_max_tokens(exc: Exception, current: int) -> int | None:
 
 # Модели, у которых есть параметр thinking. На более старых (Haiku 4.5 и
 # ранее) его передача — ошибка запроса, поэтому проверяем перед отправкой.
-_THINKING_MODELS = ("claude-sonnet-5", "claude-opus-5", "claude-opus-4-",
+_THINKING_MODELS = ("claude-sonnet-5", "claude-opus-5", "claude-opus-4-", "claude-haiku-5",
                     "claude-fable-", "claude-mythos-", "claude-sonnet-4-6")
+
+# Как модель выключает размышление. Новым (Sonnet 5.5, 23.10) {"type": "disabled"}
+# — ошибка 400 «send {"type": "between_tools"} instead»: судья, критик и сверка
+# с планом по ключу API падали все. Какой модели что нужно, узнаётся по
+# первому отказу и запоминается; вызов без инструментов — то же «не думать»
+_THINKING_OFF: dict[str, dict] = {}
+_DISABLED = {"type": "disabled"}
+_BETWEEN_TOOLS = {"type": "between_tools"}
 
 
 def _supports_thinking(model_id: str) -> bool:
     return any(model_id.startswith(p) for p in _THINKING_MODELS)
+
+
+def _create_without_thinking(client, model_id: str, kwargs: dict):
+    """messages.create с выключенным размышлением — тем способом, который модель принимает."""
+    if not _supports_thinking(model_id):
+        return client.messages.create(**kwargs)
+    off = _THINKING_OFF.get(model_id, _DISABLED)
+    try:
+        return client.messages.create(**kwargs, thinking=off)
+    except Exception as e:
+        # По тексту, а не по классу: в тестах anthropic — заглушка
+        if off is _BETWEEN_TOOLS or '"between_tools"' not in str(e):
+            raise
+    _THINKING_OFF[model_id] = _BETWEEN_TOOLS
+    return client.messages.create(**kwargs, thinking=_BETWEEN_TOOLS)
 
 
 def _first_text_block(content) -> str:
@@ -516,9 +539,7 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
     # поднятым бюджетом, иначе повторится то же самое.
     kwargs = dict(model=model_id, max_tokens=max_tokens,
                   system=system, messages=messages)
-    if _supports_thinking(model_id):
-        kwargs["thinking"] = {"type": "disabled"}
-    msg = client.messages.create(**kwargs)
+    msg = _create_without_thinking(client, model_id, kwargs)
     _remember_stop_reason(getattr(msg, "stop_reason", ""))
     u = getattr(msg, "usage", None)
     _remember_usage(getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))
