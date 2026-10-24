@@ -53,7 +53,9 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
     analysis = call_model(
         model_value, SYSTEM_ANALYZER, user_prompt,
         anthropic_key=anthropic_key, nano_key=nano_key,
-        max_tokens=4096
+        # 4096 обрезали JSON: «Последний рейс», гл.1 (24.10), Sonnet по ключу —
+        # оба ответа ровно 4096 токенов, «битый JSON», State не обновлён; гл.2 — 3637
+        max_tokens=12000
     )
 
     update_id = save_state_update(project_id, chapter_num, analysis)

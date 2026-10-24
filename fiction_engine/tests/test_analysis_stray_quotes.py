@@ -50,3 +50,30 @@ def test_accept_retries_broken_analysis_once(project_id, monkeypatch):
                side_effect=lambda pid, ch, m: {"update_id": save_state_update(pid, ch, next(answers))}):
         assert gp._try_state_update_after_accept(project_id, 1, "nano_gpt::w/w")
     assert "Соня" in get_state(project_id)["global_state"] and not get_pending_updates(project_id)
+
+
+def test_accept_reports_state_failure(project_id, monkeypatch):
+    """«Последний рейс», гл.1 (24.10): битый JSON дважды — окно «Принять» должно это сказать, а не «готово»."""
+    from unittest.mock import patch
+    from engine.db import save_state_update, update_state
+    import web.blueprints.generate_pipeline as gp
+    monkeypatch.setenv("NANO_GPT_API_KEY", "k")
+    update_state(project_id, "## ПЕРСОНАЖИ\n", "## СЮЖЕТ\n", "")
+    cut = '{"global_state_changes": [{"name": "Ника", "состояние": "оборвано'
+    failed = []
+    with patch("engine.state.analyze_chapter",
+               side_effect=lambda pid, ch, m: {"update_id": save_state_update(pid, ch, cut)}):
+        assert not gp._try_state_update_after_accept(project_id, 1, "nano_gpt::w/w", on_fail=failed.append)
+    assert failed and "State не обновлён" in failed[0]
+
+
+def test_state_analysis_has_room_for_a_full_first_chapter(project_id, monkeypatch):
+    """4096 токенов обрезали JSON анализа первой главы (Sonnet по ключу, 24.10)."""
+    from unittest.mock import patch
+    from engine.db import save_chapter
+    from engine.state import analyze_chapter
+    save_chapter(project_id, 1, "Текст главы. " * 50, "Глава 1")
+    seen = {}
+    with patch("engine.state.call_model", side_effect=lambda *a, **k: seen.update(k) or "{}"):
+        analyze_chapter(project_id, 1, "anthropic_direct::claude-sonnet-5-5")
+    assert seen["max_tokens"] >= 8000

@@ -78,7 +78,7 @@ def test_accept_answers_at_once_and_state_updates_in_background(client):
     run_id = create_pipeline_run(pid, 1, "m", "m", "m", "m")
     release = threading.Event()
 
-    def slow_update(project_id, chapter_num, model_value, alive=None):
+    def slow_update(project_id, chapter_num, model_value, alive=None, on_fail=None):
         release.wait(5)                     # модель «думает», пока тест не отпустит
         return True
 
