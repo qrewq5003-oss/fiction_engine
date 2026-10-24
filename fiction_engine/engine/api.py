@@ -72,7 +72,12 @@ MODELS = {
     "anthropic_direct": {
         "label": "Anthropic (прямой)",
         "models": [
-            {"id": "claude-opus-4-6",          "name": "Claude Opus 4.6 — лучший для текста"},
+            # Те же модели, что по подписке, но за кредиты API; размышление
+            # выключено (_create_without_thinking)
+            {"id": "claude-sonnet-5-5",        "name": "Claude Sonnet 5.5 — по ключу API"},
+            {"id": "claude-haiku-5-5",         "name": "Claude Haiku 5.5 — по ключу API"},
+            {"id": "claude-opus-5-5",          "name": "Claude Opus 5.5 — по ключу API"},
+            {"id": "claude-opus-4-6",         "name": "Claude Opus 4.6 — лучший для текста"},
             {"id": "claude-sonnet-4-6",         "name": "Claude Sonnet 4.6 — баланс"},
             {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5 — быстрый/дешёвый"},
         ]

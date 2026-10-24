@@ -271,6 +271,13 @@ class TestThinkingIsDisabled:
         assert self._capture(monkeypatch, "claude-haiku-5-5").get("thinking") == {"type": "disabled"}
 
 
+def test_api_key_offers_the_same_claude_as_subscription():
+    """Автор 24.10: Sonnet и Haiku 5.5 — по ключу API; в списке были только модели 4-го поколения."""
+    from engine.api import MODELS
+    ids = {m["id"] for m in MODELS["anthropic_direct"]["models"]}
+    assert {"claude-sonnet-5-5", "claude-haiku-5-5"} <= ids
+
+
 def _bad_request(message):
     return RuntimeError(f"Error code: 400 - {{'type': 'error', 'error': {{'type': 'invalid_request_error', "
                         f"'message': '{message}'}}}}")
