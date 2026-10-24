@@ -1,5 +1,6 @@
 """Анализ главы с кавычками внутри строки: State обновляется, а битый JSON не «применяется» молча (дымовая книга 19.10)."""
 import json
+from unittest.mock import MagicMock
 
 BROKEN = ('{"global_state_changes": [{"name": "Ника", "состояние": "напряжена", "локация": "вахта"}], '
           '"details": ["Серый журнал учёта «Театр "Подвал"», вырвана страница за пятницу"], '
@@ -76,4 +77,17 @@ def test_state_analysis_has_room_for_a_full_first_chapter(project_id, monkeypatc
     seen = {}
     with patch("engine.state.call_model", side_effect=lambda *a, **k: seen.update(k) or "{}"):
         analyze_chapter(project_id, 1, "anthropic_direct::claude-sonnet-5-5")
-    assert seen["max_tokens"] >= 8000
+    assert seen["max_tokens"] == 0                       # без потолка (автор, 24.10)
+
+
+def test_zero_means_no_cap(monkeypatch):
+    """max_tokens=0 — наибольший ответ модели; SDK получает явный тайм-аут, иначе отказывает."""
+    import engine.api as api
+    sent = {}
+    block = MagicMock(); block.type = "text"; block.text = "{}"
+    msg = MagicMock(content=[block], stop_reason="end_turn", usage=MagicMock(input_tokens=1, output_tokens=1))
+    client = MagicMock(); client.messages.create.side_effect = lambda **kw: (sent.update(kw), msg)[1]
+    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    monkeypatch.setattr(api, "_record_usage", lambda *a, **k: None)
+    api.call_model("anthropic_direct::claude-sonnet-5-5", "s", "u", anthropic_key="k", max_tokens=0)
+    assert sent["max_tokens"] == api.NO_CAP_TOKENS and sent["timeout"] >= 600

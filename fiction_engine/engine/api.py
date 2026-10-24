@@ -282,6 +282,9 @@ def _remember_stop_reason(reason) -> None:
     _last_stop_reason.set(str(reason or ""))
 
 
+NO_CAP_TOKENS = 64000        # max_tokens=0: наибольший ответ модели (Sonnet и Haiku 5.5 по ключу)
+
+
 def call_model(model_value: str, system: str, user: str,
                anthropic_key: str = None, nano_key: str = None,
                openai_key: str = None, gemini_key: str = None,
@@ -307,6 +310,10 @@ def call_model(model_value: str, system: str, user: str,
     if provider not in dispatch:
         raise ValueError(f"Неизвестный провайдер: {provider}")
     fn, key = dispatch[provider]
+    # 0 — без своего потолка: модели даётся наибольший ответ; не примет столько —
+    # повтор с меньшим (_reduced_max_tokens). Подписки потолок и так не держат
+    if not max_tokens:
+        max_tokens = NO_CAP_TOKENS
 
     _remember_usage(0, 0)          # чтобы не записать расход прошлого вызова
     try:
@@ -544,6 +551,10 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
     # поднятым бюджетом, иначе повторится то же самое.
     kwargs = dict(model=model_id, max_tokens=max_tokens,
                   system=system, messages=messages)
+    if max_tokens > 21000:
+        # Без явного тайм-аута SDK отказывает большим потолкам («Streaming is
+        # strongly recommended…»): сам ответ короткий, потолок — запас (NO_CAP_TOKENS)
+        kwargs["timeout"] = 1800
     msg = _create_without_thinking(client, model_id, kwargs)
     _remember_stop_reason(getattr(msg, "stop_reason", ""))
     u = getattr(msg, "usage", None)
