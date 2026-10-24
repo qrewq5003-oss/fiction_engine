@@ -312,3 +312,57 @@ def test_other_bad_request_is_not_retried(monkeypatch):
     with pytest.raises(Exception, match="too long"):
         api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100)
     assert client.messages.create.call_count == 1
+
+
+def _thinking_client(monkeypatch):
+    """Клиент, у которого есть только поток: обычный create — ошибка теста."""
+    import engine.api as api
+    thinking = MagicMock(); thinking.type = "thinking"; thinking.thinking = ""
+    block = MagicMock(); block.type = "text"; block.text = "Глава"
+    msg = MagicMock(content=[thinking, block], stop_reason="end_turn",
+                    usage=MagicMock(input_tokens=10, output_tokens=5))
+    sent = []
+
+    class _Stream:
+        def __init__(self, **kw): sent.append(kw)
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get_final_message(self): return msg
+    client = MagicMock()
+    client.messages.stream.side_effect = lambda **kw: _Stream(**kw)
+    client.messages.create.side_effect = AssertionError("с размышлением — только поток")
+    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    return api, sent
+
+
+def test_effort_after_at_turns_thinking_on(monkeypatch):
+    """«claude-opus-5-5@xhigh» (24.10): размышление adaptive с глубиной xhigh, имя модели без @,
+    потолок — наибольший ответ (размышление съело бы 1200 критика), ответ — текстовый блок."""
+    api, sent = _thinking_client(monkeypatch)
+    assert api._call_anthropic("claude-opus-5-5@xhigh", "sys", "usr", "key", 1200) == "Глава"
+    kw = sent[0]
+    assert kw["model"] == "claude-opus-5-5"
+    assert kw["thinking"] == {"type": "adaptive"}
+    assert kw["output_config"] == {"effort": "xhigh"}
+    assert kw["max_tokens"] == api.THINKING_MAX_TOKENS
+
+
+def test_opus_55_without_effort_thinks_low(monkeypatch):
+    """Opus 5.5 размышление не выключает (400 на disabled и between_tools) — без @ глубина low."""
+    api, sent = _thinking_client(monkeypatch)
+    assert api._call_anthropic("claude-opus-5-5", "sys", "usr", "key", 2000) == "Глава"
+    assert sent[0]["output_config"] == {"effort": "low"}
+
+
+def test_unknown_effort_is_an_error(monkeypatch):
+    api, sent = _thinking_client(monkeypatch)
+    with pytest.raises(ValueError, match="Глубина"):
+        api._call_anthropic("claude-haiku-5-5@ultra", "sys", "usr", "key", 100)
+    assert not sent
+
+
+def test_effort_models_listed():
+    from engine.api import MODELS
+    ids = {m["id"] for m in MODELS["anthropic_direct"]["models"]}
+    assert {"claude-opus-5-5@xhigh", "claude-sonnet-5-5@xhigh", "claude-haiku-5-5@xhigh"} <= ids
+    assert "gpt-6.1-sol@xhigh" in {m["id"] for m in MODELS["chatgpt_subscription"]["models"]}

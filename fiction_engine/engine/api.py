@@ -65,6 +65,7 @@ MODELS = {
             # Замер 15.10 (bench/ab-writers-gpt61-2026-10-15.json): лучше DeepSeek,
             # почти вровень с Sonnet; ≈3 % окна 5 часов Plus на главу
             {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol ★ через подписку ChatGPT (Codex) — сильнее DeepSeek, вровень с Sonnet"},
+            {"id": "gpt-6.1-sol@xhigh",   "name": "GPT-6.1 Sol, размышление очень высокое — через подписку ChatGPT (Codex), больше лимита"},
             {"id": "gpt-6-astra@medium",  "name": "GPT-6 Astra — через подписку ChatGPT (Codex)"},
             {"id": "gpt-6-luna@medium",   "name": "GPT-6 Luna — через подписку ChatGPT (Codex)"},
         ]
@@ -73,10 +74,14 @@ MODELS = {
         "label": "Anthropic (прямой)",
         "models": [
             # Те же модели, что по подписке, но за кредиты API; размышление
-            # выключено (_create_without_thinking)
+            # выключено (_create_without_thinking). После @ — глубина
+            # размышления (low … max): тогда оно включено (_call_anthropic)
             {"id": "claude-sonnet-5-5",        "name": "Claude Sonnet 5.5 — по ключу API"},
+            {"id": "claude-sonnet-5-5@xhigh",  "name": "Claude Sonnet 5.5, размышление очень высокое — по ключу API"},
             {"id": "claude-haiku-5-5",         "name": "Claude Haiku 5.5 — по ключу API"},
-            {"id": "claude-opus-5-5",          "name": "Claude Opus 5.5 — по ключу API"},
+            {"id": "claude-haiku-5-5@xhigh",   "name": "Claude Haiku 5.5, размышление очень высокое — по ключу API"},
+            {"id": "claude-opus-5-5",          "name": "Claude Opus 5.5 — по ключу API (размышление низкое: выключить нельзя)"},
+            {"id": "claude-opus-5-5@xhigh",    "name": "Claude Opus 5.5, размышление очень высокое — по ключу API"},
             {"id": "claude-opus-4-6",         "name": "Claude Opus 4.6 — лучший для текста"},
             {"id": "claude-sonnet-4-6",         "name": "Claude Sonnet 4.6 — баланс"},
             {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5 — быстрый/дешёвый"},
@@ -481,6 +486,14 @@ _THINKING_OFF: dict[str, dict] = {}
 _DISABLED = {"type": "disabled"}
 _BETWEEN_TOOLS = {"type": "between_tools"}
 
+# Opus 5.5 размышляет всегда: disabled и between_tools — ошибка 400 (документация
+# Opus 5.5). Без глубины в имени модели — самая низкая
+_ALWAYS_THINKING = ("claude-opus-5-5",)
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# Размышление входит в max_tokens: потолок шага (критику 1200, судье 2000) ушёл
+# бы на него целиком, как 22.09. С размышлением потолок — наибольший ответ
+THINKING_MAX_TOKENS = 64000
+
 
 def _supports_thinking(model_id: str) -> bool:
     return any(model_id.startswith(p) for p in _THINKING_MODELS)
@@ -525,7 +538,29 @@ def _first_text_block(content) -> str:
     )
 
 
+def _thinking_effort(model_id: str) -> tuple[str, str]:
+    """«claude-opus-5-5@xhigh» → ("claude-opus-5-5", "xhigh"); без @ — глубины нет,
+    кроме моделей, которые не думать не могут (_ALWAYS_THINKING): им «low»."""
+    model_id, _, effort = model_id.partition("@")
+    if effort and effort not in EFFORTS:
+        raise ValueError(f"Глубина размышления «{effort}» — не из {', '.join(EFFORTS)}")
+    if not effort and model_id.startswith(_ALWAYS_THINKING):
+        effort = "low"
+    return model_id, effort
+
+
+def _create_with_thinking(client, kwargs: dict, effort: str):
+    """Размышление включено с глубиной effort. Поток, а не один запрос: ответ с
+    размышлением на xhigh идёт минутами, а без потока SDK большой потолок не берёт."""
+    kwargs = dict(kwargs, max_tokens=max(kwargs["max_tokens"], THINKING_MAX_TOKENS),
+                  thinking={"type": "adaptive"}, output_config={"effort": effort})
+    kwargs.setdefault("timeout", 1800)
+    with client.messages.stream(**kwargs) as stream:
+        return stream.get_final_message()
+
+
 def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
+    model_id, effort = _thinking_effort(model_id)
     key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
         raise ValueError("Нет Anthropic API ключа")
@@ -555,7 +590,14 @@ def _call_anthropic(model_id, system, user, api_key, max_tokens, prefill=""):
         # Без явного тайм-аута SDK отказывает большим потолкам («Streaming is
         # strongly recommended…»): сам ответ короткий, потолок — запас (NO_CAP_TOKENS)
         kwargs["timeout"] = 1800
-    msg = _create_without_thinking(client, model_id, kwargs)
+    if effort:
+        # Предзаполнение ответа с размышлением API не принимает
+        if prefill:
+            raise ValueError(f"{model_id}@{effort}: продолжение с готового начала "
+                             "(prefill) с размышлением не работает — модель без @")
+        msg = _create_with_thinking(client, kwargs, effort)
+    else:
+        msg = _create_without_thinking(client, model_id, kwargs)
     _remember_stop_reason(getattr(msg, "stop_reason", ""))
     u = getattr(msg, "usage", None)
     _remember_usage(getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))
