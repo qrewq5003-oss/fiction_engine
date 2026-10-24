@@ -21,7 +21,7 @@ def test_rollback_during_accept_processing(project_id, monkeypatch):
     seen, forgot = [], []
     done = threading.Event()
 
-    def analysis_then_rollback(pid, n, model, alive=None):
+    def analysis_then_rollback(pid, n, model, alive=None, on_fail=None):
         # Пока шёл анализ, автор нажал «Откатить»
         with db_chapters.get_conn() as conn:
             conn.execute("DELETE FROM chapters WHERE project_id=? AND number=?", (pid, n))

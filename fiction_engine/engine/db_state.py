@@ -197,6 +197,13 @@ def snapshot_before_chapter(project_id: int, chapter_num: int) -> dict | None:
 SNAPSHOT_RECOMPUTE = "перед пересчётом гл."
 
 
+def _state_has_chapter(project_id: int, chapter_num: int) -> bool:
+    """Анализ главы уже вносился в State (есть применённое обновление по ней)."""
+    with get_conn() as conn:
+        return conn.execute("SELECT 1 FROM state_updates WHERE project_id=? AND chapter_num=? AND applied=1",
+                            (project_id, chapter_num)).fetchone() is not None
+
+
 def state_for_chapter(project_id: int, chapter_num: int) -> dict:
     """
     State, который видит работа над главой N: для новой главы — нынешний, для
@@ -214,6 +221,12 @@ def state_for_chapter(project_id: int, chapter_num: int) -> dict:
                 with get_conn() as conn:
                     row = conn.execute("SELECT * FROM state_history WHERE id=?", (snap["id"],)).fetchone()
                 return {k: _lf(row[k]) for k in STATE_FIELDS}
+            # Глава только что принята, её анализ в State ещё не вносился: нынешний
+            # State и есть State до неё. Анализ каждой новой главы получал State без
+            # полей «сейчас» — главу уже сохранили, а снимка до неё ещё нет
+            # («Последний рейс», 24.10)
+            if chapter_num == last and not _state_has_chapter(project_id, chapter_num):
+                return get_state(project_id)
             # Старая книга: снимков до глав нет (вытеснялись). State — конец
             # книги; его «сейчас» (где, что дальше, что знают герои) — будущее
             # для этой главы: не отдаём, автору — предупреждение (разбор 21.10)

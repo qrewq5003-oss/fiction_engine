@@ -199,12 +199,15 @@ def pipeline_continue():
 
 
 def _try_state_update_after_accept(project_id: int, chapter_num: int,
-                                    model_value: str, alive=None) -> bool:
+                                    model_value: str, alive=None, on_fail=None) -> bool:
     """
     Запустить анализ главы и применить изменения к State Engine.
     Возвращает True если State успешно обновлён. Никогда не бросает исключений.
     alive() — глава всё ещё та же: анализ — вызов модели на десятки секунд,
     за это время главу могли откатить, и State получил бы удалённую главу.
+    on_fail(причина) — сбой, а не «изменений нет»: раньше оба давали False,
+    и окно «Принять» говорило «готово» при необновлённом State («Последний
+    рейс», гл.1, 24.10: битый JSON анализа — только в журнале)
     """
     provider = model_value.split("::")[0] if "::" in model_value else model_value
     if not get_api_key(provider):
@@ -241,7 +244,10 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                     res = (merge_analysis_into_state(project_id, u2["raw_analysis"], chapter_num)
                            if u2 and u2.get("raw_analysis") else res)
                     if res.get("error") or not u2:
-                        _log_state_update_failure(project_id, chapter_num, ValueError(res.get("error") or "нет анализа"))
+                        why = res.get("error") or "нет анализа"
+                        _log_state_update_failure(project_id, chapter_num, ValueError(why))
+                        if on_fail:
+                            on_fail(f"State не обновлён: {why} — «Пересчитать по тексту» на странице главы")
                         return False
                     auto_id = again
                 mark_update_applied(project_id, auto_id)
@@ -249,6 +255,8 @@ def _try_state_update_after_accept(project_id: int, chapter_num: int,
                 return bool(res.get("changed"))
     except Exception as e:
         _log_state_update_failure(project_id, chapter_num, e)
+        if on_fail:
+            on_fail(f"State не обновлён: {str(e)[:150]}")
     return False
 
 
@@ -312,7 +320,7 @@ def _start_state_update(project_id: int, chapter_num: int, model_value: str,
         # перезагружается, и автор шёл дальше (откатывал, писал следующую
         # главу), пока анализ, L3 и заметка ещё писались (разбор 21.10)
         try:
-            updated = _try_state_update_after_accept(project_id, chapter_num, model_value, alive)
+            updated = _try_state_update_after_accept(project_id, chapter_num, model_value, alive, on_fail=failed)
             with _state_lock:
                 _state_jobs[job_id]["state_updated"] = updated
             _after_accept(alive)

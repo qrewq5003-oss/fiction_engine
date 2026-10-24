@@ -24,6 +24,22 @@ def test_old_book_without_snapshot_gets_no_now_fields(project_id):
     assert "Марат" in state_for_chapter(project_id, 4)["global_state"]     # новая глава — нынешний
 
 
+def test_just_accepted_chapter_gets_current_state(project_id):
+    """«Последний рейс», 24.10: анализ только что принятой главы получал State без полей «сейчас»."""
+    from engine.db_state import mark_update_applied, save_state_update, state_for_chapter, update_state
+    from engine.engine_issues import collect_engine_issues
+    _chapters(project_id, 3)
+    update_state(project_id, global_state="## ПЕРСОНАЖИ\n### Ксения\nЛОКАЦИЯ: каюта 212\n",
+                 plot_matrix="## ДЕТАЛИ СЕРИИ\n- гл.2: стакан в пакете", memory_graph="Ксения → видела → блистер")
+    with collect_engine_issues() as issues:
+        st = state_for_chapter(project_id, 3)
+    assert "каюта 212" in st["global_state"] and "стакан" in st["plot_matrix"] and st["memory_graph"]
+    assert not issues
+    # Анализ гл.3 уже в State, снимка нет (старая книга) — «сейчас» не отдаётся
+    mark_update_applied(project_id, save_state_update(project_id, 3, "{}"))
+    assert "каюта 212" not in state_for_chapter(project_id, 3)["global_state"]
+
+
 def test_old_prompt_builder_uses_previous_chapter_context(project_id):
     """Старый сборщик: «где закончилась прошлая глава» — из применённого анализа гл.N−1 (JSON)."""
     from engine.db import get_project
