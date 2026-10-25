@@ -88,6 +88,10 @@ def chapter_recompute(num):
     Пересчитать производное главы по её нынешнему тексту — тем же путём, что
     «Принять»: убрать посчитанное по прежнему тексту (prepare_chapter_replace),
     затем в фоне State, анализ главы, L3, заметка, оценка.
+
+    Модель — из запроса, иначе писатель главы, иначе писатель набора ролей.
+    У загруженной главы писателя нет, и без выбора State считался моделью
+    набора (подпиской Claude), хотя всё остальное шло по ключу API.
     """
     current = get_current_project()
     if not current:
@@ -97,7 +101,8 @@ def chapter_recompute(num):
         return jsonify({"error": "Глава не найдена"}), 404
     from engine.db import chapter_writers
     from engine.pipeline_config import default_role_models
-    model = chapter_writers(current["id"]).get(num) or default_role_models().get("gen", "")
+    model = (((request.json or {}).get("model") or "").strip()
+             or chapter_writers(current["id"]).get(num) or default_role_models().get("gen", ""))
     model = page_model(model)
     if not model:
         return jsonify({"error": NO_MODEL}), 400
