@@ -287,8 +287,8 @@ def _genre_rules(genre: str) -> str:
 def _director_block(note: str | None) -> str:
     if not note:
         return ""
-    from .plan_check import plan_end_line
-    end = plan_end_line(note)
+    from .plan_check import plan_writer_lines
+    end = plan_writer_lines(note)
     return f"{DIRECTOR_MARKER}\n{note}\n\n" + (f"{end}\n\n" if end else "")
 
 
