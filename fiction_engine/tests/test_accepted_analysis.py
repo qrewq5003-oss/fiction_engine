@@ -224,3 +224,7 @@ def test_manual_edit_offers_recompute(project_id, monkeypatch):
     monkeypatch.setenv("NANO_GPT_API_KEY", "test-key")
     r = c.post("/chapter/1/recompute", json={}).get_json()
     assert r["state_job"] == "job-1" and seen["t"] == get_chapter(project_id, 1)["content"]
+    assert seen["m"] == "nano_gpt::x/y"
+    # Модель, выбранная автором, — вместо писателя набора
+    c.post("/chapter/1/recompute", json={"model": "anthropic_direct::claude-opus-5-5@xhigh"})
+    assert seen["m"] == "anthropic_direct::claude-opus-5-5@xhigh"
