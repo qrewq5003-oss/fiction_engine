@@ -287,7 +287,7 @@ def _remember_stop_reason(reason) -> None:
     _last_stop_reason.set(str(reason or ""))
 
 
-NO_CAP_TOKENS = 64000        # max_tokens=0: наибольший ответ модели (Sonnet и Haiku 5.5 по ключу)
+NO_CAP_TOKENS = 128000       # max_tokens=0: наибольший ответ модели — 128K у Claude 5.5 (документация, 25.10)
 
 
 def call_model(model_value: str, system: str, user: str,
@@ -491,8 +491,10 @@ _BETWEEN_TOOLS = {"type": "between_tools"}
 _ALWAYS_THINKING = ("claude-opus-5-5",)
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 # Размышление входит в max_tokens: потолок шага (критику 1200, судье 2000) ушёл
-# бы на него целиком, как 22.09. С размышлением потолок — наибольший ответ
-THINKING_MAX_TOKENS = 64000
+# бы на него целиком, как 22.09. С размышлением потолок — наибольший ответ.
+# Было 64000: 25.10 Sonnet 5.5@xhigh в гл.10 «Последнего рейса» размышлял все
+# 64000 токенов, текста осталось 1016 слов — глава оборвана на полуслове
+THINKING_MAX_TOKENS = NO_CAP_TOKENS
 
 
 def _supports_thinking(model_id: str) -> bool:

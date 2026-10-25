@@ -347,6 +347,14 @@ def test_effort_after_at_turns_thinking_on(monkeypatch):
     assert kw["max_tokens"] == api.THINKING_MAX_TOKENS
 
 
+def test_output_cap_is_claude_55_max():
+    """25.10: потолок 64000 оборвал гл.10 — Sonnet@xhigh размышлял его целиком.
+    Наибольший ответ Claude 5.5 по документации — 128K; размышлению — он же."""
+    from engine import api
+    assert api.NO_CAP_TOKENS == 128000
+    assert api.THINKING_MAX_TOKENS == api.NO_CAP_TOKENS
+
+
 def test_opus_55_without_effort_thinks_low(monkeypatch):
     """Opus 5.5 размышление не выключает (400 на disabled и between_tools) — без @ глубина low."""
     api, sent = _thinking_client(monkeypatch)
