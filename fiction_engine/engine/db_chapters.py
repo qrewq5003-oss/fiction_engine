@@ -175,12 +175,15 @@ def prepare_chapter_replace(project_id: int, number: int) -> dict:
     if not get_chapter(project_id, number):
         return {}
     from .db_state import restore_state_snapshot
+    from .state_merge import _was_applied
     info = rollback_info(project_id, number)
     restored = bool(info["last"] and info["snapshot"]) and restore_state_snapshot(project_id, info["snapshot"]["id"])
     # Последняя глава, а снимка до неё нет (старая книга): State не откатить,
-    # в нём остаётся прежняя версия главы — автору сказать (разбор 21.10)
+    # в нём остаётся прежняя версия главы — автору сказать (разбор 21.10).
+    # Только если её анализ уже вливался в State: у загруженной главы его не
+    # было, следов прежнего текста нет (ложное «снимка до неё нет», 25.10)
     return {**forget_chapter_text(project_id, number), "state_restored": restored,
-            "state_stale": bool(info["last"] and not restored)}
+            "state_stale": bool(info["last"] and not restored and _was_applied(project_id, number))}
 
 
 def purge_orphan_chapter_data(project_id: int) -> int:

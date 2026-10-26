@@ -29,7 +29,7 @@ def _judge(project_id, answer, genre=""):
     def call(model, system, prompt, max_tokens=None, **kw):
         seen["system"] = system
         return answer
-    res = {"generated_text": "Глава. " * 50, "critique": "разбор"}
+    res = {"generated_text": "Глава. " * 2100, "critique": "разбор"}
     step_judge(create_pipeline_run(project_id, 1, "w", "c", "w", JUDGE), 1, 1, JUDGE, call, res, genre_key=genre)
     return res, seen["system"]
 
@@ -141,7 +141,7 @@ def test_judge_gets_no_score_history(project_id):
     def call(model, system, prompt, max_tokens=None, **kw):
         seen["system"] = system
         return _answer()
-    res = {"generated_text": "Глава. " * 50, "critique": "разбор"}
+    res = {"generated_text": "Глава. " * 2100, "critique": "разбор"}
     step_judge(create_pipeline_run(project_id, 2, "w", "c", "w", JUDGE), 1, 2, JUDGE, call, res, project_id=project_id)
     assert "ИСТОРИЯ ОЦЕНОК" not in seen["system"] and "34/50" not in seen["system"]
 

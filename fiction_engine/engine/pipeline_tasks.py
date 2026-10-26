@@ -120,16 +120,23 @@ def _truncate_context_by_blocks(context: str,
     return result, removed
 
 
-def detect_truncation(text: str, word_count: int) -> dict:
+def detect_truncation(text: str, word_count: int, stop_reason: str | None = None) -> dict:
     """
     Понять, дописана ли глава, и вернуть разбор для интерфейса.
 
     Возвращает {"truncated": bool, "reason": str, "message": str}:
-      reason="max_tokens" — жёсткий обрыв: провайдер сообщил, что упёрся
-                            в потолок. Текст оборван буквально на полуслове.
-      reason="short"      — модель закончила сама, но объём заметно ниже
-                            требуемого промптом.
-      reason=""           — всё в порядке.
+      reason="max_tokens"   — жёсткий обрыв: провайдер сообщил, что упёрся
+                              в потолок. Текст оборван буквально на полуслове.
+      reason="mid_sentence" — последняя фраза не закончена.
+      reason="short"        — модель закончила сама, но объём заметно ниже
+                              требуемого промптом.
+      reason=""             — всё в порядке.
+
+    stop_reason — причина остановки вызова, написавшего конец текста; None —
+    последнего вызова модели (get_last_stop_reason), "" — судить только по
+    тексту. Последний вызов годится, только если после писателя моделей не
+    звали: замена английских слов перетирала его (гл.10 «Последнего рейса»,
+    25.10 — потолок 64000 съело размышление, а обрыв по потолку не отмечен).
 
     Раньше здесь стоял порог в 800 слов при требовании 2500+ — глава,
     обрезанная вдвое, проходила молча. И признак обрыва был только текстом
@@ -138,7 +145,9 @@ def detect_truncation(text: str, word_count: int) -> dict:
     from .api import get_last_stop_reason
     from .pipeline_config import MIN_ACCEPTABLE_WORDS, TARGET_CHAPTER_WORDS
 
-    if get_last_stop_reason() in ("max_tokens", "length"):
+    if stop_reason is None:
+        stop_reason = get_last_stop_reason()
+    if stop_reason in ("max_tokens", "length"):
         msg = (f"Глава оборвана: ответ упёрся в потолок max_tokens. "
                f"Написано {word_count} слов из ~{TARGET_CHAPTER_WORDS}.")
         import logging; logging.warning(msg)

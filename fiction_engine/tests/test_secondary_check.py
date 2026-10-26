@@ -65,7 +65,7 @@ def _judge(project_id, line_reply):
     set_project_genre_secondary(project_id, "romance_contemporary")
     run_id = create_pipeline_run(project_id, chapter_num=3, model_gen="m", model_critic="m",
                                  model_editor="m", model_judge="m")
-    results = {"generated_text": "Вера поняла, что влюблена.", "critique": "критика"}
+    results = {"generated_text": "Вера поняла, что влюблена. " * 600, "critique": "критика"}
 
     def call(model, system, prompt, max_tokens=0):
         return line_reply if "второй жанр" in prompt and "present" in prompt else JUDGMENT

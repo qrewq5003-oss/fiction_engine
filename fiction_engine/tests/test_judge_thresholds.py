@@ -29,7 +29,7 @@ def _judge(model, total, crit=7, gate="СВЯЗНОСТЬ: ОК — нет\n"):
     def call(m, system, user, **kw):
         seen["system"], seen["user"] = system, user
         return reply
-    res = {"generated_text": "Глава. " * 300, "critique": CRITIQUE}
+    res = {"generated_text": "Глава. " * 2100, "critique": CRITIQUE}
     with patch("engine.pipeline_steps.save_pipeline_iteration"):
         step_judge(0, 1, 1, model, call, res)
     return res, seen
