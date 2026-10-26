@@ -100,6 +100,8 @@ def test_prompt_assist_works_over_chapter_plan(project_id, monkeypatch):
     assert "СЦЕНА 1: Морг" in user and "кто сделал укол" in user
     assert "Не пересказывай план" in user and "СЦЕНЫ:" not in user
     assert "последняя сцена плана" in user
+    # Гл.4 «Последнего рейса» (26.10): вывод плана в «ЗАКАНЧИВАЕТСЯ НА» шёл героине готовым
+    assert "Толкования и выводы плана" in user and "не вывод, к которому он пришёл" in user
 
 
 def test_prompt_assist_without_plan_and_model_notes(project_id, monkeypatch):
