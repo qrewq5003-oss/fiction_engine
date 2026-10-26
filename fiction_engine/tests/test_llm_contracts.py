@@ -272,6 +272,13 @@ class TestAnalyzeVoiceMatch:
             result = analyze_voice_match(self.PROFILE, CHAPTER_TEXT, MODEL)
         assert result["score"] == 7
 
+    def test_parses_decimal_comma_score(self):
+        """Sol на xhigh ответил «8,5/10» — оценка пропадала (26.10)."""
+        from engine.pipeline import analyze_voice_match
+        with patch("engine.pipeline._call", return_value=self.RESPONSE_WITH_SCORE.replace("7/10", "8,5/10")):
+            result = analyze_voice_match(self.PROFILE, CHAPTER_TEXT, MODEL)
+        assert result["score"] == 8.5
+
     def test_score_none_when_not_in_response(self):
         from engine.pipeline import analyze_voice_match
         with patch("engine.pipeline._call", return_value=self.RESPONSE_NO_SCORE):

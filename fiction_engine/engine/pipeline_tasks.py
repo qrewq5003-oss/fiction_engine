@@ -569,8 +569,10 @@ def analyze_voice_match(voice_profile: str, text: str, model_value: str) -> dict
     )
     result      = _call(model_value, SYS, prompt, max_tokens=800)
     from .pipeline_llm import _plain          # «**ОЦЕНКА:** 7/10» тоже (разбор 21.10)
-    score_match = re.search(r'ОЦЕНКА:\s*(\d+)\s*/\s*10', _plain(result))
-    return {"analysis": result, "score": int(score_match.group(1)) if score_match else None}
+    # И дробь: Sol на xhigh ответил «8,5/10» — оценка пропала (26.10)
+    score_match = re.search(r'ОЦЕНКА:\s*(\d+(?:[.,]\d+)?)\s*/\s*10', _plain(result))
+    score = float(score_match.group(1).replace(",", ".")) if score_match else None
+    return {"analysis": result, "score": int(score) if score is not None and score.is_integer() else score}
 
 
 def find_symbols_in_chapter(chapter_text: str, existing_names: list[str],

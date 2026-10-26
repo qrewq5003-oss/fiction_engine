@@ -56,6 +56,14 @@ def test_v2_prompts(v2):
     assert "ЛОГИКА ВЫВОДОВ" not in _build_sys_critic("реализм") and "СВЯЗНОСТЬ" in _build_sys_critic("реализм")
 
 
+def test_v2_judge_sees_one_text():
+    """С 23.10 судья видит одну главу: ни «двух вариантов», ни «УЛУЧШЕНИЙ после редактуры»."""
+    from engine.judge_rubric import sys_judge
+    s = sys_judge(30, 4, "детектив")
+    assert "два варианта" not in s and "УЛУЧШЕНИЯ" not in s
+    assert "ОСТАТОК:" in s and "ВЕРДИКТ:" in s
+
+
 def test_v2_gate_sends_back(project_id, v2):
     res, system = _judge(project_id, _answer("ГРУБО"), "detective_classic")
     assert "ЛОГИКА ВЫВОДОВ" in system and "не ГРУБО" in system and "ИТОГ ≥ 30" in system
