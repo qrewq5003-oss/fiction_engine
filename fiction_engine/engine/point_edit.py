@@ -69,6 +69,7 @@ _PROMPT = """Ниже задача главы, критика и сама гла
 - Не вставляй новые реплики и действия в чужой разговор, чтобы его «оживить».
 - Сокращая, не выбрасывай конкретные детали (числа, предметы, порядок действий):
   в детективе они бывают уликой.
+- {em_dash}
 - Не больше {max_edits} правок; важные — первыми.
 
 === ЗАДАЧА ГЛАВЫ ===
@@ -169,8 +170,10 @@ def point_edit(text: str, critique: str, task: str, api_call_fn: Callable[[str],
     разобран — текст как был (failed объясняет почему).
     """
     from .continuity_fix import apply_edits, changed_share
+    from .pipeline_config import EM_DASH_RULE
     prompt = _PROMPT.format(task=(task or "").strip() or "—", critique=critique.strip(),
-                            text=text, max_edits=POINT_EDITS_MAX, insert_max=INSERT_WORDS_MAX)
+                            text=text, max_edits=POINT_EDITS_MAX, insert_max=INSERT_WORDS_MAX,
+                            em_dash=EM_DASH_RULE)
     raw = api_call_fn(prompt)
     edits = _parse_edits(raw)
     if edits is None:

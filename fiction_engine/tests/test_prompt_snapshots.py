@@ -190,8 +190,9 @@ def test_summary_matches(render, stored_summary):
     current = {_case_id(c): render(*c)[1] for c in CASES}
     if UPDATE:
         SNAP_DIR.mkdir(parents=True, exist_ok=True)
+        # newline="": на Windows иначе CRLF, а репозиторий — LF (test_line_endings)
         SUMMARY.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n",
-                           encoding="utf-8")
+                           encoding="utf-8", newline="")
         return
     assert current == stored_summary, (
         "сводка блоков движка изменилась; если так и задумано — "

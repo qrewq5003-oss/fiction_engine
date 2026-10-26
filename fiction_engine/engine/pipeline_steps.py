@@ -14,6 +14,7 @@ from .api import call_model
 from .db import save_pipeline_iteration
 from .error_policy import handle_error, ErrorLevel
 from .logger import get_logger
+from .pipeline_config import EM_DASH_RULE
 
 log = get_logger(__name__)
 
@@ -261,9 +262,9 @@ def _sys_critic_v2(genre: str, genre_lens: str) -> str:
 
 SYS_CRITIC = _build_sys_critic()  # алиас для обратной совместимости — без жанра
 
-SYS_EDITOR = """Ты — профессиональный редактор и автор. Получаешь оригинальный текст главы и критику редактора.
+SYS_EDITOR = f"""Ты — профессиональный редактор и автор. Получаешь оригинальный текст главы и критику редактора.
 Переписываешь текст исправляя все указанные проблемы. Сохраняешь сюжет и персонажей.
-ЗАПРЕЩЕНО: длинное тире (—) в авторской речи, описаниях, ремарках. Только в прямой речи персонажей.
+{EM_DASH_RULE}
 Возвращаешь только переработанный текст — без комментариев."""
 
 # Порог берётся из pipeline_config, а не вписывается числом: раньше он стоял

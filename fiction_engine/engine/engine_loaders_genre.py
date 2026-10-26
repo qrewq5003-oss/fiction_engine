@@ -268,8 +268,8 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
     Если поджанровый блок найден но короткий (< 200 символов, типично для
     QUALITY/MASTER где используется однострочный компактный формат),
     дополняет его блоком из QUICK-файла (там правила развёрнуты на несколько строк).
-    В любом случае добавляет load_catalog_subgenre_hint — JSON-данные каталога
-    (key_elements, tone, mistakes) которые строго специфичны для поджанра.
+    Данные каталога (key_elements, tone, mistakes) сюда не входят: они в
+    секции «ЖАНР» блока движка (load_genre_catalog).
     """
     if not genre_key:
         return ""
@@ -314,9 +314,10 @@ def load_genre_prompt(engine_path: Path, genre_key: str, mode: str) -> str:
                 ]
                 if extra:
                     result = result + "\n" + "\n".join(extra)
-    # Всегда добавляем каталожную специфику поджанра
-    catalog_addon = load_catalog_subgenre_hint(engine_path, genre_key)
-    return (result + "\n" + catalog_addon) if catalog_addon else result
+    # Каталожную специфику поджанра (load_catalog_subgenre_hint) больше не
+    # дописываем: блок движка уже несёт тот же каталог секцией «ЖАНР»
+    # (load_genre_catalog) — писатель получал его дважды (разбор базы 26.10)
+    return result
 
 
 def _extract_subgenre_block(text: str, genre_key: str) -> str:
