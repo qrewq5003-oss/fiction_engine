@@ -203,8 +203,12 @@ def prompt_assist():
         # это 13 % State, и главной героини в них не было (разбор 21.10)
         from engine.db import get_director_note as _note
         from engine.pipeline_context import extract_relevant_state
-        focus = "\n".join(x for x in (_note(project_id, chapter_num) or "", plot_text[:2000]) if x)
-        state_text = extract_relevant_state(state, focus, before_chapter=int(chapter_num))[:6000]
+        note = _note(project_id, chapter_num) or ""
+        focus = "\n".join(x for x in (note, plot_text[:2000]) if x)
+        # При плане со сценами — без «следующего шага» State: он спорил с планом
+        from engine.plan_check import plan_end_line
+        state_text = extract_relevant_state(state, focus, before_chapter=int(chapter_num),
+                                            with_next=not plan_end_line(note))[:6000]
 
         # 4. Модель — выбранная на странице генерации
         from web.blueprints.helpers import pick_model
@@ -280,7 +284,7 @@ def prompt_assist():
                 "2. [Локация — краткое описание]\n"
                 "3. [Локация — краткое описание]\n\n"
                 "ТОНАЛЬНОСТЬ: [2-3 слова]\n"
-                "ЗАКАНЧИВАЕТСЯ НА: [крючок или состояние]\n\n"
+                "ЗАКАНЧИВАЕТСЯ НА: [событие или состояние героя — не вывод]\n\n"
                 "Не добавляй объяснений — только сам промт."
             )
 

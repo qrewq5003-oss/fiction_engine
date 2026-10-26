@@ -180,7 +180,10 @@ DETAILS_RELATED = 15    # и ранних, где есть слова задач
 
 
 def extract_relevant_state(state: dict, prompt_text: str,
-                           api_call_fn=None, before_chapter: int | None = None) -> str:
+                           api_call_fn=None, before_chapter: int | None = None,
+                           with_next: bool = True) -> str:
+    """with_next=False — без «СЛЕДУЮЩИЙ ШАГ» State: у главы есть план со сценами,
+    и догадка анализа «что логично дальше» спорила с ним (разбор формулировок 26.10)."""
     import re
     from .db import parse_structured_state_smart
 
@@ -221,7 +224,8 @@ def extract_relevant_state(state: dict, prompt_text: str,
     if world.get("forbidden"): lines.append(f"⚠ НЕЛЬЗЯ: {world['forbidden']}")
 
     plot = structured["plot"]
-    if plot.get("next"):     lines.append(f"СЛЕДУЮЩИЙ ШАГ: {plot['next']}")
+    if plot.get("next") and with_next:
+        lines.append(f"СЛЕДУЮЩИЙ ШАГ: {plot['next']}")
     if plot.get("must_not"): lines.append(f"ПОМНИ: {plot['must_not']}")
 
     # Детали серии — вещи, приметы мест, время, числа: их нельзя нарушить
@@ -400,10 +404,11 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         if monotony_warning:
             # Стиль может требовать крючка в конце главы («Коммерческий»): тогда
             # «другой тип закрытия» спорил с ним — крючок остаётся, меняется его вид (разбор 21.10)
+            # План главы старше: «используй другой тип» спорил с началом и концом сцен плана
             monotony_block = (f"\nСТРУКТУРНОЕ ПРЕДУПРЕЖДЕНИЕ:\n{monotony_warning}\n"
-                              "Используй другой тип открытия/закрытия главы. Если стиль требует крючка "
-                              "в конце — крючок остаётся, но другого вида: не тот же обрыв, а новый факт, "
-                              "вопрос, решение героя или тихий удар.\n")
+                              "Если план главы не задаёт иначе, открой и закончи её по-другому. Если стиль "
+                              "требует крючка в конце — крючок остаётся, но другого вида: не тот же обрыв, "
+                              "а новый факт, вопрос, решение героя или тихий удар.\n")
     except Exception as e:
         handle_error("build_context monotony_check", e, level=ErrorLevel.RECOVERABLE)
 
@@ -461,7 +466,9 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         except Exception as e:
             handle_error("build_context: план главы для State", e, level=ErrorLevel.RECOVERABLE)
             plan_note = ""
-        smart_state = extract_relevant_state(state, base_prompt + "\n" + plan_note, api_call_fn, chapter_num)
+        from .plan_check import plan_end_line
+        smart_state = extract_relevant_state(state, base_prompt + "\n" + plan_note, api_call_fn, chapter_num,
+                                             with_next=not plan_end_line(plan_note))
         state_block = f"\n{STATE_HEADER}\n{smart_state}\n"
 
     # ── ChapterAnalysis предыдущей главы — замыкаем петлю ────────────────────
@@ -483,7 +490,7 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
                     conflict_score=prev_data.get("conflict_score", 0.0),
                     pacing_note=prev_data.get("pacing_note", ""),
                 )
-                formatted = format_analysis_for_prompt(prev_analysis)
+                formatted = format_analysis_for_prompt(prev_analysis, for_writer=True)
                 if formatted:
                     prev_analysis_block = f"\n{formatted}\n"
         except Exception as e:

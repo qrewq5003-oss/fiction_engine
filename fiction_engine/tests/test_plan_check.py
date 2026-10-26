@@ -132,3 +132,40 @@ def test_editor_plan_task_warns_against_plan_conclusions():
     from engine.point_edit import plan_task
     task = plan_task([{"n": 1, "item": "СЦЕНА 1: Дверь", "note": "вывода нет"}])
     assert "не вставляй готовым выводом" in task
+
+
+# ─── Писатель под сильную модель (разбор формулировок 26.10) ─────────────────
+
+def test_writer_system_prompt_without_pressure():
+    """Без «провала задания» и «строго следуешь» — порядок старшинства; объём из конфига."""
+    from engine.pipeline_config import MIN_CHAPTER_WORDS, TARGET_CHAPTER_WORDS
+    from engine.pipeline_llm import _build_sys_generator
+    s = _build_sys_generator("детектив")
+    assert "провал" not in s and "Строго следуешь" not in s and "ТРЕБОВАНИЕ" not in s
+    assert "старше" in s and "план главы и задача" in s
+    assert f"{MIN_CHAPTER_WORDS}–{TARGET_CHAPTER_WORDS}" in s
+
+
+def test_next_step_not_sent_with_scene_plan(project_id):
+    """«СЛЕДУЮЩИЙ ШАГ» State — догадка анализа; при плане со сценами она с ним спорила."""
+    from engine.db import save_director_note
+    from engine.db_state import get_state, update_state
+    from engine.pipeline_context import build_context, extract_relevant_state
+    update_state(project_id, "## ПЕРСОНАЖИ\n### Вера\nСОСТОЯНИЕ: тревога\n",
+                 "## ОСНОВНАЯ ЛИНИЯ\nСЛЕДУЮЩИЙ_ШАГ: Вера идёт в морг\n", "")
+    s = get_state(project_id)
+    assert "СЛЕДУЮЩИЙ ШАГ" in extract_relevant_state(s, "Вера")
+    assert "СЛЕДУЮЩИЙ ШАГ" not in extract_relevant_state(s, "Вера", with_next=False)
+    assert "Вера идёт в морг" in build_context(project_id, 1, "Вера ищет улики")
+    save_director_note(project_id, 0, "СЦЕНА 1: Причал\n  Вера встречает следователя\n\nСЦЕНА 2: Морг")
+    assert "Вера идёт в морг" not in build_context(project_id, 1, "Вера ищет улики")
+
+
+def test_previous_analysis_for_writer_has_no_gaps_and_no_payoff_order():
+    from engine.chapter_analyzer import ChapterAnalysis, format_analysis_for_prompt
+    a = ChapterAnalysis(project_id=1, chapter_num=3, arc_progress={"Вера": "решилась"},
+                        opened_promises=["кто звонил в 2:14"], logical_gaps=["откуда ключ"],
+                        conflict_score=0.5, pacing_note="", analysis_quality="ok")
+    critic, writer = format_analysis_for_prompt(a), format_analysis_for_prompt(a, for_writer=True)
+    assert "откуда ключ" in critic and "требуют payoff" in critic
+    assert "откуда ключ" not in writer and "payoff" not in writer and "решает план" in writer

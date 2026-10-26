@@ -624,6 +624,9 @@ def check_structural_monotony(project_id: int, before_chapter: int, window: int 
 
     warnings = []
     from collections import Counter
+    # Писатель видел английские значения анализа («action», «cliffhanger»)
+    ru = {"dialogue": "реплику", "action": "действие", "description": "описание",
+          "internal": "мысли героя", "cliffhanger": "обрыв на пике"}
 
     openings = [r["opening_type"] for r in rows if r["opening_type"]]
     if len(openings) >= 3:
@@ -631,7 +634,7 @@ def check_structural_monotony(project_id: int, before_chapter: int, window: int 
         if count_open / len(openings) >= 0.6:
             warnings.append(
                 f"⚠ Монотонность: {count_open} из {len(openings)} последних глав "
-                f"открываются через «{top_open}»"
+                f"открываются через {ru.get(top_open, top_open)}"
             )
 
     closings = [r["closing_type"] for r in rows if r["closing_type"]]
@@ -640,7 +643,7 @@ def check_structural_monotony(project_id: int, before_chapter: int, window: int 
         if count_close / len(closings) >= 0.6:
             warnings.append(
                 f"⚠ Монотонность: {count_close} из {len(closings)} последних глав "
-                f"заканчиваются через «{top_close}»"
+                f"заканчиваются через {ru.get(top_close, top_close)}"
             )
 
     return "\n".join(warnings)
