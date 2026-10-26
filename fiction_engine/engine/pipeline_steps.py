@@ -358,6 +358,10 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
                                                   full_prompt, call_fn)
         if extended:
             results["extended"] = extended
+    # Остановка вызова, написавшего конец главы: замена английских слов ниже
+    # зовёт модель и перетирает её (detect_truncation)
+    from .api import get_last_stop_reason
+    stop_reason = get_last_stop_reason()
     from .pipeline import clean_foreign_words
     gen_text, foreign = clean_foreign_words(gen_text, model_gen, full_prompt, call_fn)
     if foreign:
@@ -374,7 +378,7 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     results["generated_text"] = gen_text
     results["stage"]          = "generate"
 
-    _flag_truncation(gen_text, results, f"step_generate (ch{chapter_num})")
+    _flag_truncation(gen_text, results, f"step_generate (ch{chapter_num})", stop_reason)
 
 
 def step_drift_check(project_id: int, chapter_num: int,
@@ -431,18 +435,18 @@ def step_chapter_analysis(project_id: int, chapter_num: int,
                      level=ErrorLevel.RECOVERABLE)
 
 
-def _flag_truncation(text: str, results: dict, where: str) -> None:
+def _flag_truncation(text: str, results: dict, where: str, stop_reason: str | None = None) -> None:
     """
     Отметить в results, что текст не дописан.
 
     Обрыв по потолку виден только сразу после вызова модели: дальше по
     пайплайну обрезанный текст неотличим от законченного. Флаг доходит до
     интерфейса, чтобы предложить продолжение кнопкой, а не ждать пока
-    автор сам заметит обрыв на полуслове.
+    автор сам заметит обрыв на полуслове. stop_reason — как в detect_truncation.
     """
     try:
         from .pipeline import detect_truncation
-        cut = detect_truncation(text, len(text.split()))
+        cut = detect_truncation(text, len(text.split()), stop_reason)
         if cut["truncated"]:
             results["truncation_warning"] = cut["message"]
             results["truncated"]  = True
@@ -635,6 +639,10 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
                                 generation_prompt, edited_text)
         results["generated_text"] = edited_text
         results["stage"]          = "edit"
+        # Только по тексту: последний вызов — JSON правок, его остановка о главе
+        # ничего не говорит. Без проверки круг правки короткой главы шёл без
+        # плашки (гл.10 «Последнего рейса», 25.10: 1412 слов)
+        _flag_truncation(edited_text, results, "step_edit", "")
         return
     edit_prompt = (
         f"ЗАДАЧА ГЛАВЫ:\n{generation_prompt}\n\n"
@@ -925,6 +933,19 @@ def step_judge(run_id: int, iteration: int, chapter_num: int,
         # Баллы не разобраны, а строка вне балла ГРУБО или её нет — слово модели не в счёт
         verdict = "НА ДОРАБОТКУ"
         judgment = set_verdict(judgment, verdict)
+
+    # Недописанную главу не принять по баллу: гл.10 «Последнего рейса» (25.10)
+    # оборвалась на полуслове на 1016 словах — судья 37 «ПРИНЯТЬ», после правки
+    # 1412 слов — 36 «ПРИНЯТЬ», и «Принять» взял её. Обрыв и объём ниже
+    # MIN_ACCEPTABLE_WORDS («короче 2000 — провал задания» у писателя) — по тексту
+    from .pipeline import detect_truncation
+    cut = detect_truncation(current_text, len(current_text.split()), "")
+    if cut["truncated"]:
+        results["judge_unfinished"] = cut["message"]
+        judgment = f"{judgment}\n\n⚠ {cut['message']} Принять по правилу нельзя."
+        if verdict == "ПРИНЯТЬ":
+            verdict = "НА ДОРАБОТКУ"
+            judgment = set_verdict(judgment, verdict)
 
     # ── Вторая линия книги: конкретные вопросы о её ремесле (secondary_check) ──
     if project_id:

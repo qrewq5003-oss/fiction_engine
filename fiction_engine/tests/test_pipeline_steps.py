@@ -61,6 +61,26 @@ class TestStepGenerate:
         assert results["generated_text"] == "сгенерированный текст"
         assert results["stage"] == "generate"
 
+    def test_cap_hit_survives_later_model_calls(self, project_id):
+        """Писатель упёрся в потолок, затем замена английских слов звала модель —
+        обрыв по потолку всё равно отмечен (гл.10 «Последнего рейса», 25.10)."""
+        from engine import api
+        from engine.pipeline_steps import step_generate
+        run_id = _make_run(project_id)
+        results = {}
+
+        def writer(model, sys, prompt, **kw):
+            api._remember_stop_reason("max_tokens")
+            return "Текст главы. " * 1500
+
+        def foreign(text, *a, **kw):
+            api._remember_stop_reason("end_turn")
+            return text, ""
+        with patch("engine.pipeline_steps.save_pipeline_iteration"), \
+             patch("engine.pipeline.clean_foreign_words", foreign):
+            step_generate(run_id, 1, 1, "gp", "fp", "model", "sys", writer, results)
+        assert results["truncated"] is True and results["cut_reason"] == "max_tokens"
+
     def test_saves_iteration(self, project_id):
         from engine.pipeline_steps import step_generate
         run_id = _make_run(project_id)
@@ -184,7 +204,8 @@ class TestStepJudge:
     def test_parses_verdict_prinyat(self, project_id):
         from engine.pipeline_steps import step_judge
         run_id = _make_run(project_id)
-        results = {"generated_text": "текст", "critique": "критика"}
+        # Дописанная глава: недописанную судья не принимает (test_unfinished_chapter_not_accepted)
+        results = {"generated_text": "Текст главы. " * 1100, "critique": "критика"}
 
         with patch("engine.pipeline_steps.save_pipeline_iteration"), \
              patch("engine.pipeline_steps.handle_error"):
@@ -193,6 +214,20 @@ class TestStepJudge:
                       results)
 
         assert results["verdict"] == "ПРИНЯТЬ"
+
+    def test_unfinished_chapter_not_accepted(self, project_id):
+        """Гл.10 «Последнего рейса» (25.10): оборванная на полуслове глава получила 37 «ПРИНЯТЬ»."""
+        from engine.pipeline_steps import step_judge
+        run_id = _make_run(project_id)
+        for text, why in (("Текст главы. " * 1100 + "А потом она вошла в", "полуслове"),
+                          ("Текст главы. " * 700, "короче требуемого")):
+            results = {"generated_text": text, "critique": "критика"}
+            with patch("engine.pipeline_steps.save_pipeline_iteration"), \
+                 patch("engine.pipeline_steps.handle_error"):
+                step_judge(run_id, 1, 1, "model",
+                           lambda *a, **kw: self._make_judgment(verdict="ПРИНЯТЬ"), results)
+            assert results["verdict"] == "НА ДОРАБОТКУ" and why in results["judge_unfinished"]
+            assert "ВЕРДИКТ: НА ДОРАБОТКУ" in results["judgment"]
 
     def test_parses_verdict_dorabotka(self, project_id):
         from engine.pipeline_steps import step_judge

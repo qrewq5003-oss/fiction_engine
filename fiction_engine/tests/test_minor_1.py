@@ -30,6 +30,15 @@ def test_old_book_recompute_of_last_chapter_is_not_a_before_snapshot(project_id)
     assert f"{SNAPSHOT_RECOMPUTE}1" in reasons and snapshot_before_chapter(project_id, 1) is None
 
 
+def test_loaded_chapter_recompute_is_not_stale(project_id):
+    """Загруженная глава, анализ которой в State ещё не вливался: снимка до неё нет,
+    но и следов прежнего текста в State нет — предупреждать не о чем (25.10)."""
+    from engine.db import save_chapter
+    from engine.db_chapters import prepare_chapter_replace
+    save_chapter(project_id, 1, "Глава один. " * 40, "Глава 1")
+    assert prepare_chapter_replace(project_id, 1)["state_stale"] is False
+
+
 def test_project_forms_carry_project_guard(project_id):
     """Жанр и стиль — проверка вкладки; новый / переключить / удалить — без неё."""
     html = _client(project_id).get("/").get_data(as_text=True)

@@ -181,8 +181,9 @@ class TestBasicFlow:
             )
         assert result.get("verdict") in ("ПРИНЯТЬ", "НА ДОРАБОТКУ")
 
-    def test_pipeline_judge_accept_verdict(self, pid):
+    def test_pipeline_judge_accept_verdict(self, pid, monkeypatch):
         """Когда LLM возвращает ПРИНЯТЬ — verdict == ПРИНЯТЬ."""
+        monkeypatch.setattr("engine.pipeline_config.MIN_ACCEPTABLE_WORDS", 1)   # глава-заглушка короткая
         llm = _make_llm_sequence(
             _llm_generate, _llm_critique, _llm_judge_accept,
             lambda p: "",
@@ -338,8 +339,9 @@ class TestContinuePipeline:
             )
         assert second.get("run_id") == run_id
 
-    def test_continue_pipeline_can_produce_accept(self, pid):
+    def test_continue_pipeline_can_produce_accept(self, pid, monkeypatch):
         """После continue — если LLM вернул ПРИНЯТЬ, verdict == ПРИНЯТЬ."""
+        monkeypatch.setattr("engine.pipeline_config.MIN_ACCEPTABLE_WORDS", 1)   # глава-заглушка короткая
         llm_start = _make_llm_sequence(
             _llm_generate, _llm_critique, _llm_judge_rework,
             lambda p: "",

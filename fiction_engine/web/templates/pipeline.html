@@ -941,10 +941,11 @@ function showResults(data) {
   // truncated приходит из detect_truncation() на шаге generate или edit.
   const cutBanner = document.getElementById('cut-banner');
   if (data.truncated) {
-    const hard = data.cut_reason === 'max_tokens';
+    // Сообщение само говорит, что случилось (потолок, полуслово, объём);
+    // обрыв на полуслове раньше подписывался «короче требуемого»
+    const short = data.cut_reason === 'short';
     document.getElementById('cut-banner-text').textContent =
-      (hard ? '✂️ Глава оборвана на полуслове: ' : '📏 Глава короче требуемого: ') +
-      (data.truncation_warning || '');
+      (short ? '📏 ' : '✂️ ') + (data.truncation_warning || '');
     cutBanner.style.display = 'flex';
   } else {
     cutBanner.style.display = 'none';
