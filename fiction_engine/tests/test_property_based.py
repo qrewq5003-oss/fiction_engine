@@ -339,7 +339,7 @@ class TestMonotonyProperties:
             save_analysis(pid, ch, opening="", closing="cliffhanger")
         save_analysis(pid, n, opening="action", closing="cliffhanger")
         result = check_structural_monotony(pid, before_chapter=n + 1)
-        assert "открываются через «action»" not in result, (
+        assert "открываются через действие" not in result, (
             f"False positive: 1/1 opening triggered monotony with {n} total chapters"
         )
 
@@ -384,7 +384,8 @@ class TestMonotonyProperties:
             ch += 1
 
         result = check_structural_monotony(pid, before_chapter=ch)
-        assert dominant in result, (
+        ru = {"action": "действие", "dialogue": "реплику", "description": "описание", "internal": "мысли героя"}
+        assert f"через {ru[dominant]}" in result, (
             f"{n_dominant}/{n_dominant + n_other} = {pct:.0%} of '{dominant}'"
         )
 
@@ -428,7 +429,7 @@ class TestMonotonyProperties:
             save_analysis(pid, ch, opening="action", closing="cliffhanger")
         result = check_structural_monotony(pid, before_chapter=6, window=window)
         assert isinstance(result, str)
-        assert "action" in result
+        assert "через действие" in result
 
     @given(
         opening=opening_types,

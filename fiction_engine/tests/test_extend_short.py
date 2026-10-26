@@ -97,7 +97,9 @@ def test_extension_words_target_the_top():
 
 def test_extension_prompt_says_last_paragraph_is_not_the_end():
     p = extension_prompt(SHORT)
-    assert "1750 слов" in p and "не финал" in p and SHORT.strip() in p
+    assert "1750 слов" in p and "ещё не случилось" in p and SHORT.strip() in p
+    # Конец главы — по плану, а не «финал и крюк в конце ТВОЕГО продолжения» (26.10)
+    assert "второго финала нет" in p and "крюк" not in p
 
 
 def test_ui_continue_note_carries_the_marker():

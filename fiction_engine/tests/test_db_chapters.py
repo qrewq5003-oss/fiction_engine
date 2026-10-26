@@ -245,7 +245,7 @@ class TestStructuralMonotony:
             self._save_analysis(project_id, ch, opening="action", closing="dialogue")
         from engine.db_chapters import check_structural_monotony
         result = check_structural_monotony(project_id, before_chapter=10)
-        assert "action" in result
+        assert "через действие" in result
         assert "Монотонность" in result
 
     def test_majority_same_closing_triggers_warning(self, project_id):
@@ -254,7 +254,7 @@ class TestStructuralMonotony:
             self._save_analysis(project_id, ch, opening="action", closing="cliffhanger")
         from engine.db_chapters import check_structural_monotony
         result = check_structural_monotony(project_id, before_chapter=10)
-        assert "cliffhanger" in result
+        assert "через обрыв на пике" in result
 
     def test_both_opening_and_closing_monotony(self, project_id):
         """Монотонны и opening и closing → оба предупреждения в строке."""
@@ -262,8 +262,8 @@ class TestStructuralMonotony:
             self._save_analysis(project_id, ch, opening="internal", closing="cliffhanger")
         from engine.db_chapters import check_structural_monotony
         result = check_structural_monotony(project_id, before_chapter=10)
-        assert "internal" in result
-        assert "cliffhanger" in result
+        assert "через мысли героя" in result
+        assert "через обрыв на пике" in result
 
     def test_exactly_60_percent_triggers_warning(self, project_id):
         """Ровно 60%: 3 из 5 с 'action' → >= 0.6 → предупреждение."""
@@ -272,7 +272,7 @@ class TestStructuralMonotony:
             self._save_analysis(project_id, ch, opening=op)
         from engine.db_chapters import check_structural_monotony
         result = check_structural_monotony(project_id, before_chapter=10)
-        assert "action" in result
+        assert "через действие" in result
 
     def test_before_chapter_excludes_current(self, project_id):
         """before_chapter=5 не включает главы 5 и выше."""
@@ -296,7 +296,7 @@ class TestStructuralMonotony:
         from engine.db_chapters import check_structural_monotony
         # window=4 видит только главы 7-10 (4 главы, все action) → предупреждение
         result = check_structural_monotony(project_id, before_chapter=11, window=4)
-        assert "action" in result
+        assert "через действие" in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

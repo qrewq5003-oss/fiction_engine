@@ -454,10 +454,15 @@ class ChapterAnalyzer:
 
 # ─── Контекстный блок для промптов ──────────────────────────────────────────
 
-def format_analysis_for_prompt(analysis: ChapterAnalysis) -> str:
+def format_analysis_for_prompt(analysis: ChapterAnalysis, for_writer: bool = False) -> str:
     """
     Форматирует ChapterAnalysis для вставки в промпт следующей главы.
     Компактный блок — только критически важное.
+
+    for_writer — писателю следующей главы: без «возможных разрывов» прошлой
+    главы (исправить их он не может, а критик их не получает с 21.10), и
+    открытые линии — не приказ «требуют payoff»: когда закрывать, решает план
+    (разбор формулировок 26.10).
     """
     if analysis.analysis_quality != "ok":
         return ""
@@ -474,15 +479,16 @@ def format_analysis_for_prompt(analysis: ChapterAnalysis) -> str:
         for name, note in list(moving_arcs.items())[:4]:
             lines.append(f"    {name}: {note}")
 
-    # Логические разрывы — всегда показываем
-    if analysis.logical_gaps:
+    # Логические разрывы — критику этой главы; писателю следующей — нет
+    if analysis.logical_gaps and not for_writer:
         lines.append("  ⚠ Возможные разрывы:")
         for gap in analysis.logical_gaps[:3]:
             lines.append(f"    - {gap}")
 
     # Открытые обещания — для continuity следующей главы
     if analysis.opened_promises:
-        lines.append("  Новые setup (требуют payoff):")
+        lines.append("  Открытые линии (когда закрывать — решает план):" if for_writer
+                     else "  Новые setup (требуют payoff):")
         for p in analysis.opened_promises[:3]:
             lines.append(f"    → {p}")
 
