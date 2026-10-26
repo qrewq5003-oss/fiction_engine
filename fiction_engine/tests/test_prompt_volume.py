@@ -203,6 +203,21 @@ def test_rule_reacts_to_its_source(monkeypatch):
     assert sp._detail_block() == "ПРОВЕРОЧНАЯ СТРОКА"
 
 
+
+def test_dialogue_rule_in_every_template_once(prompts):
+    """Правило разговора (гл.4 «Последнего рейса», 26.10) — во всех трёх шаблонах, по разу."""
+    from engine.pipeline_config import DIALOGUE_RULE
+    for mode, text in prompts.items():
+        assert text.count(DIALOGUE_RULE) == 1, mode
+
+
+def test_dialogue_rule_reaches_pipeline_writer_once(project_id):
+    """Конвейер добавляет правило к задаче; промпт из шаблона его уже несёт — второго нет."""
+    from engine.pipeline_config import DIALOGUE_RULE
+    from engine.pipeline_context import build_context
+    assert build_context(project_id, 1, "Задача главы").count(DIALOGUE_RULE) == 1
+    assert build_context(project_id, 1, "Задача главы\n\n" + DIALOGUE_RULE).count(DIALOGUE_RULE) == 1
+
 # ─── Объём: одно число, а не девять копий ────────────────────────────────────
 #
 # «2500-3000 слов» было вписано в промпты девятью литералами, а код
