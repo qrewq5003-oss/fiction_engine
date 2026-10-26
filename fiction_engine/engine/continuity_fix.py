@@ -40,7 +40,7 @@ _FIX_PROMPT = """Ниже глава {num} серии и список мест, 
 этаж, время, одежда, кто где был, кто что знал, живой или мёртвый, что лежит
 где, — тоже должно сойтись, иначе глава станет противоречить сама себе. На такие
 места дай замены тоже. Пояснений от автора и новых подробностей не добавляй:
-правка — минимальная, чтобы факты сошлись.
+правка — минимальная, чтобы факты сошлись. {em_dash}
 
 === ПРОТИВОРЕЧИЯ ===
 {items}
@@ -152,8 +152,9 @@ def fix_contradictions(chapter_num: int, text: str, found: list[dict],
                      + (f"\n   Как это было в главе {f['chapter_a']}: …{ctx}…" if ctx else "")
                      + f"\n   Глава {chapter_num}: «{f['quote_b']}»")
     from .continuity_checker import plan_block
+    from .pipeline_config import EM_DASH_RULE
     raw = api_call_fn(_FIX_PROMPT.format(num=chapter_num, items="\n".join(lines), text=text,
-                                         plan=plan_block(plan)))
+                                         plan=plan_block(plan), em_dash=EM_DASH_RULE))
     from .pipeline_llm import parse_json
     data = parse_json(raw)
     edits = data.get("edits") if isinstance(data, dict) else data

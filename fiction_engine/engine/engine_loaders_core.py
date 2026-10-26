@@ -23,7 +23,12 @@ BASE_RULES_HEADER  = "БАЗОВЫЕ ПРАВИЛА:"
 # R02 (глава 1500–1700 слов) не берётся: противоречит объёму главы в
 # приложении (pipeline_config.TARGET_CHAPTER_WORDS). R05 и R07 уже
 # покрыты секциями PROMPT модуля 24 и блоком антиклише.
-BASE_RULE_IDS = ("R06", "R01", "R03", "R04")
+# С 26.10 (разбор базы): R01 (тире только в диалогах) — правило автора, но уже
+# стоит в системном промпте писателя и в шаблонах; R03 («1–2 неканоничные
+# сенсорные детали на сцену») заказывал украшения против «деталь без
+# последствия вычёркивай»; R04 («фраза не повторяется >3 раз») разрешал три
+# повтора против «каждый вывод — один раз» (PLAN_READING, STRUCTURE_RULE)
+BASE_RULE_IDS = ("R06",)
 
 
 def _find_module_file(engine_path: Path, module_name: str) -> Path | None:
@@ -265,6 +270,26 @@ def load_voice_check_hint(engine_path: Path) -> str:
 
 # ─── 01_WRITING_CORE loader ──────────────────────────────────────────────────
 
+def _task_words(text: str) -> list[str]:
+    return re.findall(r"\w+", (text or "").lower().replace("ё", "е"))
+
+
+# Слова, которые совпадают только целиком: «горе» внутри «горечи» выбрало
+# писателю гл.12 «Последнего рейса» модуль эмоций (разбор базы 26.10)
+_WHOLE_WORDS = {"горе", "бой", "место", "речь", "речи", "тихо"}
+
+
+def _kw_hit(kw: str, words: list[str]) -> bool:
+    """Ключ — начало слова задачи (основа: «эмоц», «описан»), а не кусок
+    внутри него; фраза из нескольких слов — подряд; _WHOLE_WORDS — целиком."""
+    kw = kw.lower().replace("ё", "е")
+    if " " in kw:
+        return f" {kw}" in " " + " ".join(words)
+    if kw in _WHOLE_WORDS:
+        return kw in words
+    return any(w.startswith(kw) for w in words)
+
+
 # Карта: ключевые слова в задаче → файл writing core
 _WRITING_CORE_MAP = {
     "01_dialogues":      ["диалог", "разговор", "допрос", "беседа", "разговаривает", "говорит",
@@ -291,13 +316,13 @@ def load_writing_core_hint(engine_path: Path, task_text: str, mode: str) -> str:
     if not wc_path.exists():
         return ""
 
-    task_lower = task_text.lower()
+    words       = _task_words(task_text)
     max_files   = 1 if mode == "quick" else 2
     max_lines   = 20 if mode == "quick" else 30
 
     matched: list[tuple[int, str]] = []  # (score, filename)
     for fname, keywords in _WRITING_CORE_MAP.items():
-        score = sum(1 for kw in keywords if kw in task_lower)
+        score = sum(1 for kw in keywords if _kw_hit(kw, words))
         if score > 0:
             matched.append((score, fname))
 
@@ -509,12 +534,12 @@ def load_pattern_library(
 
     # 4. Паттерн сцены по ключевым словам задачи
     if task_text:
-        task_lower = task_text.lower()
+        words = _task_words(task_text)
         scenes_path = pl_path / "scenes"
         best_file = None
         best_score = 0
         for fname, keywords in _PATTERN_SCENE_MAP.items():
-            score = sum(1 for kw in keywords if kw in task_lower)
+            score = sum(1 for kw in keywords if _kw_hit(kw, words))
             if score > best_score:
                 best_score = score
                 best_file = fname

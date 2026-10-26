@@ -256,3 +256,36 @@ def test_dialectics_genre_section(kb, genre_key):
     out = load_dialectics_genre_hint(kb, genre_key)
     assert out.startswith(f"ДИАЛЕКТИКА ЖАНРА ({label}):")
     assert "Пример заполненного" not in out
+
+
+# ─── Разбор базы 26.10: споры и дубли в блоке писателя ───────────────────────
+
+def test_keywords_match_word_start_not_inside():
+    """«горе» внутри «горечи» выбирало писателю гл.12 модуль эмоций."""
+    from engine.engine_loaders_core import _kw_hit, _task_words
+    assert not _kw_hit("горе", _task_words("горечь и покой"))
+    assert _kw_hit("горе", _task_words("её горе"))
+    assert _kw_hit("эмоц", _task_words("эмоциональная сцена"))
+    assert not _kw_hit("сцен", _task_words("мизансцена"))
+    assert _kw_hit("точка зрения", _task_words("Точка зрения Ксении"))
+
+
+def test_writer_block_has_no_known_conflicts(kb):
+    """Стиль, голос, эмоции, профиль, антиклише, META_RULES — без найденных споров."""
+    from engine.engine_loaders_core import BASE_RULE_IDS
+    assert BASE_RULE_IDS == ("R06",)
+    style = (kb / "05_CHARACTER_ENGINE/profiles/STYLE/commercial.md").read_text(encoding="utf-8")
+    assert "Каждая сцена кончается крючком" not in style and "8–10 слов" not in style
+    voice = (kb / "03_ADVANCED_ENGINES/07_voice_consistency.md").read_text(encoding="utf-8")
+    assert "длинно — всегда" not in voice and "Первое лицо" not in voice
+    assert "40%" not in (kb / "01_WRITING_CORE/04_emotions.md").read_text(encoding="utf-8")
+    assert "Значит кто-то приходил" not in (kb / "05_CHARACTER_ENGINE/profiles/GENRE/detective.md").read_text(encoding="utf-8")
+    anti = (kb / "00_CORE/anticliche_replacements.md").read_text(encoding="utf-8")
+    for bad in ("Что-то было не так —", "просто стена была рядом", "Взяла телефон —"):
+        assert bad not in anti
+
+
+def test_genre_catalog_once_in_engine_block():
+    from engine.unified_engine import build_engine_context
+    block = build_engine_context("детектив", "quick", "anthropic::x", task_text="Ксения ищет улики")
+    assert "СПЕЦИФИКА ПОДЖАНРА" not in block and block.count("Fair play") <= 1

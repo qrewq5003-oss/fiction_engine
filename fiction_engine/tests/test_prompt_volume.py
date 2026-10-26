@@ -388,3 +388,31 @@ def test_scene_numbers_follow_the_constants(monkeypatch):
             f"{mode}: разбивка не поехала за константой: {scenes} — "
             "числа вписаны руками")
     assert checked >= 2, "режимов со сценами меньше двух — проверка обмельчала"
+
+
+def test_em_dash_rule_one_wording_everywhere(prompts):
+    """Тире только в диалогах — правило автора (26.10): одна формулировка писателю,
+    редакторам и правщику непрерывности, без «ЗАПРЕЩЕНО АБСОЛЮТНО»."""
+    from engine.pipeline_config import EM_DASH_RULE
+    from engine.pipeline_llm import _build_sys_generator
+    from engine.pipeline_steps import SYS_EDITOR
+    sys_gen = _build_sys_generator("детектив")
+    assert EM_DASH_RULE in sys_gen and "АБСОЛЮТНО" not in sys_gen
+    assert EM_DASH_RULE in SYS_EDITOR
+    for mode, text in prompts.items():
+        assert text.count(EM_DASH_RULE) == 1, mode
+    seen = []
+    from engine.point_edit import point_edit
+    point_edit("Глава. " * 50, "разбор", "задача", lambda p: seen.append(p) or '{"edits": []}')
+    assert EM_DASH_RULE in seen[0]
+    from engine import continuity_fix
+    seen.clear()
+    continuity_fix.fix_contradictions(2, "Глава. " * 50, [{"quote_b": "Глава.", "quote_a": "x", "chapter_a": 1,
+                                                           "what": "противоречие"}],
+                                      [], lambda p: seen.append(p) or '{"edits": []}')
+    assert seen and EM_DASH_RULE in seen[0]
+
+
+def test_noir_tone_only_for_noir():
+    from engine.state_prompts import _genre_rules
+    assert "Нуар" not in _genre_rules("детектив") and "Нуар" in _genre_rules("нуар")
