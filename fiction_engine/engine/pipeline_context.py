@@ -500,8 +500,8 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
             from .db import get_director_note
             note = (get_director_note(project_id, chapter_num) or "").strip()
             if note:
-                from .plan_check import plan_end_line
-                end = plan_end_line(note)
+                from .plan_check import plan_writer_lines
+                end = plan_writer_lines(note)
                 director_block = f"\n{DIRECTOR_MARKER}\n{note}\n" + (f"\n{end}\n" if end else "")
         except Exception as e:
             handle_error("build_context director_note", e, level=ErrorLevel.RECOVERABLE)

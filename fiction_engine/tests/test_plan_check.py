@@ -101,3 +101,32 @@ def test_plan_end_line_reaches_writer(project_id):
     from engine.state_prompts import _director_block
     assert "ГЛАВА ЗАКАНЧИВАЕТСЯ" in _director_block("СЦЕНА 1: Паром\n\nСЦЕНА 2: Маяк")
     assert "ГЛАВА ЗАКАНЧИВАЕТСЯ" not in _director_block("Сделай Анну злее")
+
+
+def test_plan_reading_line_for_scene_plans_only():
+    """Гл.4 «Последнего рейса» (24–26.10): толкование из плана становилось готовым выводом
+    героини. Писателю после плана со сценами — как его читать; заметке редактора — нет."""
+    from engine.plan_check import PLAN_READING, plan_reading_line, plan_writer_lines
+    plan = "СЦЕНА 1: Дверь\n  «Запертая каюта» значит только, что кто-то вышел\n\nСЦЕНА 2: Журнал"
+    assert plan_reading_line(plan) == PLAN_READING
+    assert plan_reading_line("Сделай Анну злее") == ""
+    assert plan_reading_line("Заметка\n\nПОКА НЕ РАСКРЫВАТЬ (…):\n- СЦЕНА 9: запрет") == ""
+    lines = plan_writer_lines(plan)
+    assert lines.startswith(PLAN_READING) and "ГЛАВА ЗАКАНЧИВАЕТСЯ" in lines
+
+
+def test_plan_reading_reaches_writer_both_ways(project_id):
+    """И обычная генерация (state_prompts), и конвейер (pipeline_context) дают строку писателю."""
+    from engine.db import save_director_note
+    from engine.pipeline_context import build_context
+    from engine.state_prompts import _director_block
+    plan = "СЦЕНА 1: Дверь\n  «Запертая каюта» значит только, что кто-то вышел\n\nСЦЕНА 2: Журнал"
+    assert "КАК ЧИТАТЬ ПЛАН" in _director_block(plan)
+    save_director_note(project_id, 0, plan)
+    assert "КАК ЧИТАТЬ ПЛАН" in build_context(project_id, 1, "Задача главы")
+
+
+def test_editor_plan_task_warns_against_plan_conclusions():
+    from engine.point_edit import plan_task
+    task = plan_task([{"n": 1, "item": "СЦЕНА 1: Дверь", "note": "вывода нет"}])
+    assert "не вставляй готовым выводом" in task
