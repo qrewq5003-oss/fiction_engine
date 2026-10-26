@@ -218,6 +218,23 @@ def test_dialogue_rule_reaches_pipeline_writer_once(project_id):
     assert build_context(project_id, 1, "Задача главы").count(DIALOGUE_RULE) == 1
     assert build_context(project_id, 1, "Задача главы\n\n" + DIALOGUE_RULE).count(DIALOGUE_RULE) == 1
 
+
+def test_structure_rule_in_every_template_once(prompts):
+    """Правило структуры (гл.1 и гл.12 «Последнего рейса», 26.10) — во всех трёх шаблонах, по разу."""
+    from engine.pipeline_config import STRUCTURE_RULE
+    for mode, text in prompts.items():
+        assert text.count(STRUCTURE_RULE) == 1, mode
+
+
+def test_structure_rule_reaches_pipeline_writer_once(project_id):
+    """Как с правилом разговора: конвейер добавляет его к задаче, второго не будет."""
+    from engine.pipeline_config import DIALOGUE_RULE, STRUCTURE_RULE
+    from engine.pipeline_context import build_context
+    ctx = build_context(project_id, 1, "Задача главы")
+    assert ctx.count(STRUCTURE_RULE) == 1 and ctx.index(DIALOGUE_RULE) < ctx.index(STRUCTURE_RULE)
+    assert build_context(project_id, 1, "Задача главы\n\n" + STRUCTURE_RULE).count(STRUCTURE_RULE) == 1
+
+
 # ─── Объём: одно число, а не девять копий ────────────────────────────────────
 #
 # «2500-3000 слов» было вписано в промпты девятью литералами, а код

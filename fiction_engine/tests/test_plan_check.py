@@ -93,6 +93,8 @@ def test_plan_end_line_names_last_scene_and_skips_hold():
             "  Что происходит: нет журнала\n\nПОКА НЕ РАСКРЫВАТЬ (…):\n- СЦЕНА 9: не сцена, а запрет")
     end = plan_end_line(plan)
     assert "СЦЕНА 3: Пустая полка" in end and "СЦЕНА 9" not in end
+    # Крючок стиля — внутри последней сцены, а не второй финал (гл.12, 26.10)
+    assert "внутри этой сцены" in end
     assert plan_end_line("Заметка редактора без сцен") == ""
 
 

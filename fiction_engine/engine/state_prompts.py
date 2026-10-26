@@ -373,6 +373,12 @@ def _dialogue_block() -> str:
     return dialogue_rule_for_prompt()
 
 
+def _structure_block() -> str:
+    """Правило структуры главы — из pipeline_config, как ритм и детали."""
+    from .pipeline_config import structure_rule_for_prompt
+    return structure_rule_for_prompt()
+
+
 def _quick_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None):
     genre_id = _genre_identity(genre)
     genre_rules = _genre_rules(genre)
@@ -434,6 +440,8 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 {_rhythm_block()}
 
 {_dialogue_block()}
+
+{_structure_block()}
 
 Объём: {_volume_block()}. {_volume_check()} Пиши главу целиком без комментариев и без объяснений.
 """
@@ -515,6 +523,8 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 {_rhythm_block()}
 
 {_dialogue_block()}
+
+{_structure_block()}
 
 Объём: {_volume_block()}. {_volume_check()} Пиши целиком. Без комментариев.
 """
@@ -598,6 +608,8 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 {_rhythm_block()}
 
 {_dialogue_block()}
+
+{_structure_block()}
 
 Объём: {_volume_block()}. {_volume_check()} Пиши целиком. Без предисловий.
 """

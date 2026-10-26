@@ -506,13 +506,20 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
         except Exception as e:
             handle_error("build_context director_note", e, level=ErrorLevel.RECOVERABLE)
 
-    # Правило разговора — рядом с задачей, как в опыте 26.10; промпт из
-    # шаблона «Генерации» несёт его сам (state_prompts._dialogue_block)
-    from .pipeline_config import DIALOGUE_MARK, dialogue_rule_for_prompt
-    dialogue_block = "" if DIALOGUE_MARK in base_prompt else f"\n{dialogue_rule_for_prompt()}\n"
+    # Правила разговора и структуры — рядом с задачей, как в опытах 26.10; промпт
+    # из шаблона «Генерации» несёт их сам (state_prompts._dialogue_block, _structure_block)
+    from .pipeline_config import (
+        DIALOGUE_MARK,
+        STRUCTURE_MARK,
+        dialogue_rule_for_prompt,
+        structure_rule_for_prompt,
+    )
+    rules_block = "".join(f"\n{rule()}\n" for mark, rule in ((DIALOGUE_MARK, dialogue_rule_for_prompt),
+                                                              (STRUCTURE_MARK, structure_rule_for_prompt))
+                          if mark not in base_prompt)
 
     full_context = f"""{base_prompt}
-{director_block}{dialogue_block}
+{director_block}{rules_block}
 ---
 КОНТЕКСТ СЕРИИ:
 
