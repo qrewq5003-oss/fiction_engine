@@ -110,3 +110,19 @@ def test_previous_chapters_only_earlier(project_id):
     for n in (1, 2, 3, 5):
         save_chapter(project_id, n, f"Глава {n}.", "")
     assert [c["number"] for c in previous_chapters(project_id, 4)] == [1, 2, 3]
+
+
+def test_editor_signals_dashes_and_choppy_runs():
+    """Код находит тире в авторской речи и рубленые куски — заданием редактору (27.10)."""
+    from engine.text_signals import dash_signal, editor_signals, narration_dashes, short_runs
+    choppy = "Он встал. Пошёл к двери. Открыл её. Вышел вон. Стало тихо."
+    text = ("Шёл дождь — мелкий и злой.\n" + "\n".join([choppy] * 3)
+            + "\n— Иду, — сказала она. — Сейчас.\n" + "Длинная спокойная фраза о старом доме и тихой улице за окном. " * 40)
+    assert narration_dashes(text) == ["Шёл дождь — мелкий и злой."]   # реплика с тире — не в счёт
+    assert len(short_runs(text)) == 3
+    sig = editor_signals(text)
+    assert any(s.startswith("Тире в авторской речи") for s in sig)
+    assert sum(s.startswith("Рубленый кусок") for s in sig) == 2       # не больше двух самых длинных
+    assert dash_signal(text).startswith("Тире в авторской речи (1)")
+    clean = editor_signals("Обычная глава без тире, в которой фразы длинные и спокойные. " * 5)
+    assert not any(s.startswith(("Тире", "Рубленый")) for s in clean)

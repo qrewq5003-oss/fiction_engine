@@ -108,9 +108,13 @@ def test_every_mode_asks_the_model_to_check_its_own_length(prompts):
 # Модели разных семейств и размеров ошибались одинаково, потому что
 # выполняли инструкцию, а судили их по другой.
 
-def test_every_mode_states_the_rhythm_rule(prompts):
+def test_no_general_rhythm_rule_for_the_writer(prompts):
+    """С 27.10 общей нормы ритма писателю нет (инструкция не сдвигала ритм, спорила со
+    стилем серии); рубленые куски находит код и отдаёт редактору (text_signals.short_runs)."""
+    from engine.pipeline_config import rhythm_rule_for_prompt
+    from engine.state_prompts import RHYTHM_SLOT
     for mode, text in prompts.items():
-        assert "РИТМ ПРЕДЛОЖЕНИЙ" in text, f"{mode}: генератору не сказали про ритм"
+        assert rhythm_rule_for_prompt() not in text and RHYTHM_SLOT not in text, mode
 
 
 def test_the_contradicting_advice_is_gone(prompts):
@@ -129,8 +133,10 @@ def test_prompt_numbers_come_from_the_same_place_as_the_check(prompts):
     против «25-35» на один и тот же объём.
     """
     from engine.pipeline_config import (RHYTHM_TARGET, RHYTHM_SHORT_MAX,
-                                        RHYTHM_LONG_MIN, RHYTHM_RANGE)
-    for mode, text in prompts.items():
+                                        RHYTHM_LONG_MIN, RHYTHM_RANGE, rhythm_rule_for_prompt)
+    # С 27.10 правило ритма писателю не идёт (test_no_general_rhythm_rule_for_the_writer),
+    # но его текст по-прежнему собирается из тех же констант, что счёт ритма
+    for mode, text in {"правило": rhythm_rule_for_prompt()}.items():
         assert f"меньше {RHYTHM_SHORT_MAX} слов" in text, f"{mode}: граница короткого разошлась"
         assert f"больше {RHYTHM_LONG_MIN} слов" in text, f"{mode}: граница длинного разошлась"
         for part in ("short", "medium", "long"):

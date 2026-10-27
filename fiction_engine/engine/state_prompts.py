@@ -67,9 +67,8 @@ def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) ->
     from .db import get_chapter_tone
     from .genre_mix import tone_rhythm_note
     note = tone_rhythm_note(get_chapter_tone(project_id, chapter_num))
-    if note:
-        prompt = prompt.replace(_rhythm_block(), note)
-    return prompt
+    prompt = prompt.replace(RHYTHM_SLOT, note)
+    return re.sub(r"\n{3,}", "\n\n", prompt)
 
 
 def _extract_next_context(last_update: dict | None) -> str:
@@ -364,9 +363,17 @@ def _rhythm_block() -> str:
 
     Берётся из pipeline_config, а не переписывается здесь: копия разошлась
     бы, как разошлось число абзацев.
+
+    С 27.10 общей нормы 30/50/20 писателю нет: инструкция ни разу не сдвинула
+    ритм (64 % → 68 %), спорила со стилем серии, а в авторской речи коротких и так
+    29–52 % — норма «по всей главе» считала реплики (разбор 26.10). Здесь — место:
+    build_prompt ставит в него ритм тона главы, если он задан, иначе убирает.
+    Рубленые куски находит код и отдаёт редактору (text_signals.short_runs).
     """
-    from .pipeline_config import rhythm_rule_for_prompt
-    return rhythm_rule_for_prompt()
+    return RHYTHM_SLOT
+
+
+RHYTHM_SLOT = "⟦РИТМ ГЛАВЫ⟧"
 
 
 def _em_dash() -> str:
