@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, fields, asdict
 from typing import Callable
 
 from .error_policy import error_boundary, ErrorLevel
@@ -55,17 +55,6 @@ LLMCaller = Callable[[str], str]
 
 
 # ─── Типы данных ─────────────────────────────────────────────────────────────
-
-@dataclass
-class CharacterDelta:
-    """Изменение одного персонажа в главе."""
-    name: str
-    knew_before: list[str] = field(default_factory=list)    # что знал до главы
-    learned: list[str]     = field(default_factory=list)    # узнал в этой главе
-    decided: list[str]     = field(default_factory=list)    # принял решение
-    changed_state: str     = ""                              # "спокойный → в панике"
-    arc_movement: str      = "neutral"                      # "forward" | "backward" | "neutral" | "resolved"
-
 
 @dataclass
 class CausalChain:
@@ -85,18 +74,14 @@ class ChapterAnalysis:
     project_id: int
     chapter_num: int
 
-    # Персонажные арки
+    # Персонажные арки — только сдвинувшиеся в этой главе
     arc_progress: dict[str, str]              = field(default_factory=dict)
     # {"Марина": "продвинулась: узнала о предательстве куратора"}
 
-    character_deltas: list[CharacterDelta]    = field(default_factory=list)
-
-    # Обещания
+    # Обещания — новые линии этой главы (критику черновика). Закрытие обещаний
+    # ведут L3 и State (resolved_promises); «закрытые» и знания героев отсюда
+    # писались в базу и не читались никем — убраны (разбор формулировок 26.10)
     opened_promises: list[str]                = field(default_factory=list)
-    # новые setup без payoff, открытые в этой главе
-
-    closed_promises: list[str]                = field(default_factory=list)
-    # setup из прошлых глав, закрытые здесь
 
     # Причинно-следственные цепи
     causal_chains: list[CausalChain]          = field(default_factory=list)
@@ -114,10 +99,6 @@ class ChapterAnalysis:
     opening_type: str                         = ""
     closing_type: str                         = ""
 
-    # Активные сюжетные нити в конце главы
-    plot_threads: dict[str, str]              = field(default_factory=dict)
-    # {"поиск отца": "активна", "любовная линия": "пауза"}
-
     # Мета
     analysis_quality: str                     = "ok"  # "ok" | "partial" | "failed"
     raw_response: str                         = ""    # сырой ответ LLM для отладки
@@ -125,6 +106,13 @@ class ChapterAnalysis:
     def to_dict(self) -> dict:
         d = asdict(self)
         return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ChapterAnalysis":
+        """Из сохранённого словаря; поля, которых больше нет (character_deltas,
+        closed_promises, plot_threads у анализов до 27.10), отбрасываются."""
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
 
     @classmethod
     def failed(cls, project_id: int, chapter_num: int) -> "ChapterAnalysis":
@@ -138,67 +126,53 @@ class ChapterAnalysis:
 
 # ─── Промпт ──────────────────────────────────────────────────────────────────
 
-_ANALYSIS_SYSTEM = (
-    "Ты — редактор серии. Анализируешь написанную главу структурно. "
-    "Отвечаешь только валидным JSON без markdown-обёртки."
+# Системный промпт анализа. До 27.10 константа была, но оба вызова передавали
+# пустой system (снимок 04_analyze — SYSTEM 0 симв.)
+ANALYSIS_SYSTEM = (
+    "Ты — редактор серии. Разбираешь написанную главу для памяти серии. "
+    "Отвечаешь только JSON без markdown-обёртки."
 )
 
-_ANALYSIS_PROMPT = """Проанализируй главу {chapter_num} серии.
+_ANALYSIS_PROMPT = """Разбери главу {chapter_num} серии.
 
 ТЕКСТ ГЛАВЫ:
 {chapter_text}
 
-ПРЕДЫДУЩИЙ КОНТЕКСТ (саммари прошлых глав):
+ПРОШЛЫЕ ГЛАВЫ (кратко):
 {previous_context}
 
-Верни JSON строго в этом формате:
+Верни JSON в этом формате:
 {{
   "arc_progress": {{
-    "ИмяПерсонажа": "что изменилось в его арке (одно предложение)"
+    "Имя": "что сдвинулось в его арке в этой главе (одно предложение)"
   }},
-  "character_deltas": [
-    {{
-      "name": "Имя",
-      "learned": ["что узнал в этой главе"],
-      "decided": ["какое решение принял"],
-      "changed_state": "было → стало (или пусто)",
-      "arc_movement": "forward | backward | neutral | resolved"
-    }}
-  ],
   "opened_promises": [
-    "Новый setup без payoff: что намечено но не разрешено"
-  ],
-  "closed_promises": [
-    "Что из прошлых обещаний закрылось в этой главе"
+    "что намечено в этой главе и не разрешено"
   ],
   "causal_chains": [
     {{
       "cause": "что произошло",
-      "effect": "что это установило или запустило",
+      "effect": "что это изменило — прямо по тексту",
       "is_setup": true/false
     }}
   ],
   "logical_gaps": [
-    "Потенциальный разрыв: персонаж знает то, чего не мог знать"
+    "явный разрыв с прошлыми главами или внутри главы — с цитатой"
   ],
   "conflict_score": 0.0,
   "pacing_note": "быстрый | медленный | ровный | нарастающий",
   "opening_type": "dialogue | action | description | internal",
-  "closing_type": "dialogue | action | description | internal | cliffhanger",
-  "plot_threads": {{
-    "название нити": "активна | пауза | закрыта | зарождается"
-  }}
+  "closing_type": "dialogue | action | description | internal | cliffhanger"
 }}
 
 ПРАВИЛА:
-- logical_gaps: только явные нарушения continuity, не стилистика
-- conflict_score: 0.0 = нет конфликта, 1.0 = максимальное напряжение
-- opened_promises: только новые в ЭТОЙ главе, не из прошлых
-- closed_promises: только если payoff ЯВНО произошёл здесь
-- opening_type: тип первых 2-3 предложений (dialogue/action/description/internal)
-- closing_type: тип последних 2-3 предложений (те же значения + cliffhanger)
-- Если данных нет — пустой массив [] или {{}}
-- Только JSON. Без пояснений."""
+- arc_progress: только герои, чья арка в этой главе сдвинулась; остальных не называй.
+- opened_promises: только новые в этой главе, не из прошлых.
+- causal_chains: effect — следствие, которое глава показала; догадки о будущем («может», «вероятно») сюда не пиши.
+- logical_gaps: только явные нарушения: герой знает то, чего не мог узнать; факт противоречит прошлым главам. Не стиль и не догадки.
+- conflict_score: 0.0 — конфликта нет, 1.0 — предельное напряжение.
+- opening_type и closing_type: тип первых и последних 2–3 предложений.
+- Данных нет — пустой массив [] или {{}}."""
 
 
 def _clip_words(text: str, limit: int) -> str:
@@ -396,19 +370,6 @@ class ChapterAnalyzer:
                 raw_response=raw[:500],
             )
 
-        # Строим character_deltas
-        deltas = []
-        for item in data.get("character_deltas", []):
-            if not isinstance(item, dict):
-                continue
-            deltas.append(CharacterDelta(
-                name=item.get("name", ""),
-                learned=item.get("learned", []),
-                decided=item.get("decided", []),
-                changed_state=item.get("changed_state", ""),
-                arc_movement=item.get("arc_movement", "neutral"),
-            ))
-
         # Строим causal_chains
         chains = []
         for item in data.get("causal_chains", []):
@@ -432,16 +393,13 @@ class ChapterAnalyzer:
             project_id=project_id,
             chapter_num=chapter_num,
             arc_progress=data.get("arc_progress", {}),
-            character_deltas=deltas,
             opened_promises=data.get("opened_promises", []),
-            closed_promises=data.get("closed_promises", []),
             causal_chains=chains,
             logical_gaps=data.get("logical_gaps", []),
             conflict_score=score,
             pacing_note=data.get("pacing_note", ""),
             opening_type=data.get("opening_type", ""),
             closing_type=data.get("closing_type", ""),
-            plot_threads=data.get("plot_threads", {}),
             analysis_quality="ok",
             raw_response="",   # не храним сырой ответ при успехе
         )
@@ -454,53 +412,28 @@ class ChapterAnalyzer:
 
 # ─── Контекстный блок для промптов ──────────────────────────────────────────
 
-def format_analysis_for_prompt(analysis: ChapterAnalysis, for_writer: bool = False) -> str:
+def format_analysis_for_prompt(analysis: ChapterAnalysis) -> str:
     """
-    Форматирует ChapterAnalysis для вставки в промпт следующей главы.
-    Компактный блок — только критически важное.
+    Анализ прошлой главы — писателю следующей: сдвиги арок и темп.
 
-    for_writer — писателю следующей главы: без «возможных разрывов» прошлой
-    главы (исправить их он не может, а критик их не получает с 21.10), и
-    открытые линии — не приказ «требуют payoff»: когда закрывать, решает план
-    (разбор формулировок 26.10).
+    Без «возможных разрывов» (исправить их писатель не может), без новых линий
+    (те же обещания он получает из L3 в памяти серии, с отметкой закрытых) и
+    без процента конфликта — числа без шкалы и без действия (разбор формулировок
+    26.10). Блок для критика (chapter_analysis_block) собирался и не читался —
+    убран 27.10.
     """
     if analysis.analysis_quality != "ok":
         return ""
 
     lines = [f"АНАЛИЗ ГЛАВЫ {analysis.chapter_num}:"]
-
-    # Арки — только те что двигаются
-    moving_arcs = {
-        name: note for name, note in analysis.arc_progress.items()
-        if note and "neutral" not in note.lower()
-    }
+    moving_arcs = {name: note for name, note in analysis.arc_progress.items() if note}
     if moving_arcs:
         lines.append("  Арки:")
         for name, note in list(moving_arcs.items())[:4]:
             lines.append(f"    {name}: {note}")
-
-    # Логические разрывы — критику этой главы; писателю следующей — нет
-    if analysis.logical_gaps and not for_writer:
-        lines.append("  ⚠ Возможные разрывы:")
-        for gap in analysis.logical_gaps[:3]:
-            lines.append(f"    - {gap}")
-
-    # Открытые обещания — для continuity следующей главы
-    if analysis.opened_promises:
-        lines.append("  Открытые линии (когда закрывать — решает план):" if for_writer
-                     else "  Новые setup (требуют payoff):")
-        for p in analysis.opened_promises[:3]:
-            lines.append(f"    → {p}")
-
-    # Конфликт и темп
-    if analysis.conflict_score > 0:
-        lines.append(
-            f"  Конфликт: {analysis.conflict_score:.0%}"
-            + (f" | Темп: {analysis.pacing_note}" if analysis.pacing_note else "")
-        )
-
-    result = "\n".join(lines)
-    return result if len(result) > 30 else ""
+    if analysis.pacing_note:
+        lines.append(f"  Темп: {analysis.pacing_note}")
+    return "\n".join(lines) if len(lines) > 1 else ""
 
 
 # ─── Публичный API ────────────────────────────────────────────────────────────

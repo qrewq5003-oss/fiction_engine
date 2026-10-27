@@ -452,12 +452,10 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
     from engine.state import analyze_chapter
     _ablate(without)
     if not memory:
-        # Без памяти серии: State остаётся исходным, L3 не строится, анализ
-        # главы (открытые линии, логические дыры) в следующую главу не идёт.
-        # Реестра имён с отчествами тоже нет. Начало прошлых глав в образце
-        # голоса остаётся — его видит генератор всегда.
-        import engine.pipeline_steps as ps
-        ps.step_chapter_analysis = lambda *a, **k: None
+        # Без памяти серии: State остаётся исходным, L3 и анализ главы не
+        # строятся (ниже, при «принятии» главы). Реестра имён с отчествами тоже
+        # нет. Начало прошлых глав в образце голоса остаётся — его видит
+        # генератор всегда.
         import engine.text_signals as ts
         ts.series_names = lambda *a, **k: []
 
@@ -498,11 +496,13 @@ def series(app: Path, out: Path, model: str, runs: int, genres: list[str],
                     print(f"  {genre_key:24} #{run} гл.{num}  {len(text.split()):5} слов  "
                           f"{round(time.time() - t0):4} с  (без памяти)", flush=True)
                     continue
-                # Как при принятии главы: память L3 и State из анализа главы
+                # Как при принятии главы: память L3, анализ главы и State
                 try:
                     pipeline.generate_l3(pid, num, text, model)
                 except Exception as e:
                     item["errors"].append(f"L3 гл.{num}: {str(e)[:120]}")
+                if not pipeline.record_accepted_analysis(pid, num, text, 0, model):
+                    item["errors"].append(f"анализ гл.{num}: не записан")
                 try:
                     upd = analyze_chapter(pid, num, model)
                     for u in db.get_pending_updates(pid):

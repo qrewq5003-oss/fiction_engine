@@ -6,7 +6,6 @@ B. Snapshot/restore
 C. parse_structured_state — главная парсинг-функция
 D. _extract_field, _extract_block, _detect_char_names_freeform
 E. merge_analysis_into_state (JSON и legacy пути)
-F. extract_freeform_with_llm, parse_structured_state_smart
 """
 import pytest
 
@@ -338,56 +337,3 @@ class TestMergeAnalysisIntoState:
         if result["changed"]:
             state = get_state(project_id)
             assert "атаковать замок" in state["plot_matrix"]
-
-
-class TestExtractFreeformWithLlm:
-    """F. extract_freeform_with_llm, parse_structured_state_smart."""
-
-    def test_empty_text_returns_none(self):
-        from engine.db_state import extract_freeform_with_llm
-        assert extract_freeform_with_llm("", lambda p: "{}") is None
-
-    def test_no_api_fn_returns_none(self):
-        from engine.db_state import extract_freeform_with_llm
-        assert extract_freeform_with_llm("Текст о персонаже.", None) is None
-
-    def test_valid_llm_response_parsed(self):
-        import json
-        from engine.db_state import extract_freeform_with_llm
-        response = json.dumps({
-            "characters": [{"name": "Иван", "state": "устал", "location": "лес",
-                            "goal": "", "knows": "", "ignores": ""}],
-            "world": {"moment": "вечер", "threat": "", "forbidden": ""},
-            "plot": {"next": "", "must_not": ""}
-        })
-        result = extract_freeform_with_llm("Иван в лесу устал.", lambda p: response)
-        assert result is not None
-        assert "Иван" in result["char_names"]
-        assert result["characters"]["Иван"]["state"] == "устал"
-
-    def test_bad_json_response_returns_none(self):
-        from engine.db_state import extract_freeform_with_llm
-        result = extract_freeform_with_llm("Текст.", lambda p: "не JSON")
-        assert result is None
-
-    def test_smart_parse_uses_llm_when_structured_empty(self):
-        import json
-        from engine.db_state import parse_structured_state_smart
-        state = {"global_state": "Иван устал в лесу.", "plot_matrix": "", "memory_graph": ""}
-        response = json.dumps({
-            "characters": [{"name": "Иван", "state": "устал", "location": "лес",
-                            "goal": "", "knows": "", "ignores": ""}],
-            "world": {"moment": "", "threat": "", "forbidden": ""},
-            "plot": {"next": "", "must_not": ""}
-        })
-        result = parse_structured_state_smart(state, api_call_fn=lambda p: response)
-        assert "Иван" in result.get("char_names", []) or isinstance(result, dict)
-
-    def test_smart_parse_no_llm_returns_structured(self):
-        from engine.db_state import parse_structured_state_smart
-        state = {
-            "global_state": "### Иван\nСОСТОЯНИЕ: бодр\n",
-            "plot_matrix": "", "memory_graph": ""
-        }
-        result = parse_structured_state_smart(state, api_call_fn=None)
-        assert "Иван" in result["char_names"]

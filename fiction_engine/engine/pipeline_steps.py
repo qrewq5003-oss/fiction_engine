@@ -331,8 +331,6 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     Пишет в results: generated_text, stage.
     prefill — начало ответа модели для продолжения главы.
     """
-    from .chapter_analyzer import analyze_chapter_deep, format_analysis_for_prompt
-
     gen_text = call_fn(model_gen, sys_generator, full_prompt, prefill=prefill) if prefill else call_fn(model_gen, sys_generator, full_prompt)
     from .pipeline import strip_reasoning
     gen_text, reasoned = strip_reasoning(gen_text)
@@ -400,16 +398,13 @@ def step_chapter_analysis(project_id: int, chapter_num: int,
     его строка в очереди State применялась «Применить» как факт серии.
     """
     try:
-        from .chapter_analyzer import analyze_chapter_deep, format_analysis_for_prompt
+        from .chapter_analyzer import ANALYSIS_SYSTEM, analyze_chapter_deep
         analysis = analyze_chapter_deep(
             project_id, chapter_num, gen_text,
-            lambda p: call_fn(model_critic, "", p), persist=False,
+            lambda p: call_fn(model_critic, ANALYSIS_SYSTEM, p), persist=False,
         )
         if analysis and analysis.analysis_quality == "ok":
             results["chapter_analysis_data"] = analysis.to_dict()
-            block = format_analysis_for_prompt(analysis)
-            if block:
-                results["chapter_analysis_block"] = block
             if analysis.logical_gaps:
                 results["logical_gaps"] = analysis.logical_gaps
             if analysis.opened_promises:

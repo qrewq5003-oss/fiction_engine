@@ -4,7 +4,8 @@ test_promises_state.py — тесты изменений в state.py.
 Покрывает:
   A. _build_analysis_prompt — новый аргумент active_promises, поле resolved_promises в схеме
   B. analyze_chapter — загружает активные promises, передаёт в промпт
-  C. queue_state_update_from_analysis — то же самое
+  C. analyze_chapter — текст активных обещаний доходит до задания модели
+     (queue_state_update_from_analysis убрана 27.10: не вызывалась нигде)
 """
 import pytest
 from unittest.mock import patch, MagicMock, call
@@ -86,7 +87,7 @@ class TestAnalyzeChapterPromises:
 
         with patch("engine.state.get_chapter",
                    return_value={"content": "А" * 200, "number": 1, "title": ""}), \
-             patch("engine.state.get_state",
+             patch("engine.db_state.state_for_chapter",
                    return_value={"global_state": "", "plot_matrix": "", "memory_graph": ""}), \
              patch("engine.state.get_l3_summaries", return_value=[]), \
              patch("engine.state.get_active_promises", return_value=active), \
@@ -113,7 +114,7 @@ class TestAnalyzeChapterPromises:
 
         with patch("engine.state.get_chapter",
                    return_value={"content": "А" * 200, "number": 1, "title": ""}), \
-             patch("engine.state.get_state",
+             patch("engine.db_state.state_for_chapter",
                    return_value={"global_state": "", "plot_matrix": "", "memory_graph": ""}), \
              patch("engine.state.get_l3_summaries", side_effect=RuntimeError("DB упала")), \
              patch("engine.state.call_model", return_value='{"next_context": "x"}'), \
@@ -126,59 +127,38 @@ class TestAnalyzeChapterPromises:
                 pass  # глава не найдена — ок, главное не RuntimeError от promises
 
 
-# ─── C. queue_state_update_from_analysis ─────────────────────────────────────
+# ─── C. Текст обещаний — в задании модели ────────────────────────────────────
 
-class TestQueueStateUpdatePromises:
-
-    def test_promise_load_failure_does_not_crash(self, project_id):
-        """Если загрузка promises упала — queue продолжает без них."""
-        from engine.state import queue_state_update_from_analysis
-
-        with patch("engine.state.get_state",
-                   return_value={"global_state": "", "plot_matrix": "", "memory_graph": ""}), \
-             patch("engine.state.get_l3_summaries", side_effect=RuntimeError("упало")), \
-             patch("engine.state.save_state_update", return_value=1):
-
-            result = queue_state_update_from_analysis(
-                project_id, 1, "А" * 200,
-                call_fn=lambda p: '{"next_context": "x"}'
-            )
-
-        # Возвращает True — операция прошла несмотря на падение загрузки promises
-        assert result is True
+class TestAnalyzeChapterPromptText:
 
     def test_active_promises_included_in_prompt_text(self, project_id):
-        """Если есть активные promises — они попадают в промпт."""
-        from engine.state import queue_state_update_from_analysis
+        """Активные обещания L3 доходят до задания анализа текстом, с id."""
+        from engine.state import analyze_chapter
+        captured = []
 
-        active = [{"id": "1_0", "text": "Тестовое обещание", "resolved": False}]
-        captured_prompt = []
-
-        def capture_call_fn(prompt):
-            captured_prompt.append(prompt)
+        def fake_call(model, system, user, **kw):
+            captured.append(user)
             return '{"next_context": "x"}'
 
-        with patch("engine.state.get_state",
+        with patch("engine.state.get_chapter",
+                   return_value={"content": "А" * 200, "number": 2, "title": ""}), \
+             patch("engine.db_state.state_for_chapter",
                    return_value={"global_state": "", "plot_matrix": "", "memory_graph": ""}), \
              patch("engine.state.get_l3_summaries",
                    return_value=[{"chapter_num": 1, "promises": [
-                       {"id": "1_0", "text": "Тестовое обещание", "resolved": False}
-                   ]}]), \
-             patch("engine.state.save_state_update", return_value=1):
+                       {"id": "1_0", "text": "Тестовое обещание", "resolved": False}]}]), \
+             patch("engine.state.call_model", side_effect=fake_call), \
+             patch("engine.state.save_state_update", return_value=1), \
+             patch("engine.state.get_api_key", return_value="key"):
+            analyze_chapter(project_id, 2, "claude-sonnet")
 
-            queue_state_update_from_analysis(
-                project_id, 2, "А" * 200, call_fn=capture_call_fn
-            )
+        assert captured and "[1_0] Тестовое обещание" in captured[0]
 
-        assert captured_prompt, "call_fn должен быть вызван"
-        assert "Тестовое обещание" in captured_prompt[0]
-
-    def test_short_text_returns_false(self, project_id):
-        """Короткий текст главы — функция возвращает False без вызовов."""
-        from engine.state import queue_state_update_from_analysis
-
-        result = queue_state_update_from_analysis(
-            project_id, 1, "короткий",
-            call_fn=lambda p: '{"next_context": "x"}'
-        )
-        assert result is False
+    def test_prompt_asks_knowledge_once_and_no_forecast(self):
+        """Знание героя — одно поле (knows); «перестал знать» не просим — слияние
+        его не читало; следующий шаг — только сказанное в тексте (27.10)."""
+        from engine.state import _build_analysis_prompt
+        p = _build_analysis_prompt(3, {"global_state": "", "plot_matrix": "", "memory_graph": ""}, "текст")
+        assert '"knows"' in p and '"узнал"' not in p
+        assert "перестал_знать" not in p and "no_longer_knows" not in p
+        assert "логично произойдёт" not in p

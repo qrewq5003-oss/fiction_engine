@@ -412,17 +412,9 @@ def run_generation(project: dict, chapter_num: int, mode: str,
     if cut["truncated"]:
         warning = (warning or "") + " " + cut["message"]
 
-    # ── Фоновый анализ главы — замыкаем петлю для следующей генерации ────────
-    # RECOVERABLE — не блокирует возврат результата при ошибке.
-    # Результат сохраняется в БД и читается в build_context следующей главы.
-    try:
-        from .pipeline_steps import step_chapter_analysis
-        results: dict = {}
-        step_chapter_analysis(project_id, chapter_num, text, model_value,
-                               lambda m, s, p: _call(m, s, p), results)
-    except Exception as e:
-        handle_error("run_generation chapter_analysis", e, level=ErrorLevel.RECOVERABLE)
-
+    # Анализа главы здесь нет: он пишется при принятии главы
+    # (pipeline.record_accepted_analysis). Вызов, что стоял здесь, с 21.10 в
+    # базу не писал (анализ черновика не сохраняется) — модель звалась впустую
     return {
         "text":      text,
         "warning":   warning,
@@ -580,11 +572,15 @@ def find_symbols_in_chapter(chapter_text: str, existing_names: list[str],
     from .pipeline_config import SYMBOLS_TEXT_LIMIT, SYMBOLS_MAX_TOKENS
     known  = ', '.join(existing_names) if existing_names else 'нет'
     SYS    = "Ты редактор-аналитик. Ищешь символы в тексте. Только JSON."
+    # Символ — с определением, иначе метились любые предметы; type — из списка
+    # окна «Символы»: «+ Добавить» пишет его в реестр как есть (разбор 26.10)
     prompt = (
-        f"Найди символы в главе — не больше 8 самых значимых, context и potential_meaning "
-        f"до 25 слов каждый. УЖЕ ИЗВЕСТНЫ: {known}\n"
+        f"Найди символы в главе: повторяющийся предмет, место, фразу, действие или состояние, "
+        f"которые несут смысл сверх сюжета. Не больше 8 самых значимых, context и "
+        f"potential_meaning до 25 слов каждый. УЖЕ ИЗВЕСТНЫ: {known}\n"
         f"ТЕКСТ:\n{chapter_text[:SYMBOLS_TEXT_LIMIT]}\n"
-        '{"found":[{"name":"...","type":"...","context":"...","potential_meaning":"...","is_new":true}],"note":"..."}'
+        '{"found":[{"name":"...","type":"предмет | место | фраза | действие | состояние",'
+        '"context":"...","potential_meaning":"...","is_new":true}],"note":"..."}'
     )
     result = call_json(model_value, SYS, prompt, max_tokens=SYMBOLS_MAX_TOKENS)
 
@@ -607,7 +603,9 @@ def run_narrative_analysis(project_id: int, through_chapter: int,
     Web-слой вызывает эту функцию вместо импорта _make_model_caller.
     """
     from .narrative_intelligence import analyze_narrative
-    return analyze_narrative(project_id, through_chapter, _make_model_caller(model_value))
+    from .narrative_intelligence import NARRATIVE_MAX_TOKENS
+    return analyze_narrative(project_id, through_chapter,
+                             _make_model_caller(model_value, max_tokens=NARRATIVE_MAX_TOKENS))
 
 
 def open_promises_of(l3: dict, at_chapter: int) -> list[str]:

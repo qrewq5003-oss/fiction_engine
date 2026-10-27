@@ -100,19 +100,14 @@ def test_l3_asks_for_more_than_the_generic_budget():
 
 
 def test_generate_l3_passes_the_summary_budget():
-    """Мало объявить бюджет — его надо передать."""
-    import engine.pipeline_llm as llm
+    """Мало объявить бюджет — его надо передать.
+
+    Подмена _make_model_caller, что стояла здесь, ничего не проверяла и не
+    возвращалась в engine.pipeline: следующие тесты получали лямбду без
+    max_tokens (вскрылось 27.10, когда анализ серии стал передавать потолок)."""
     from engine.l3_memory import SUMMARY_MAX_TOKENS
-    seen = []
-    orig = llm._make_model_caller
-    llm._make_model_caller = lambda mv, mt=400: (seen.append(mt), orig(mv, mt))[1]
-    try:
-        import engine.pipeline as pipeline
-        pipeline._make_model_caller = llm._make_model_caller
-        from engine.pipeline_tasks import _l3_summary_budget
-        assert _l3_summary_budget() == SUMMARY_MAX_TOKENS
-    finally:
-        llm._make_model_caller = orig
+    from engine.pipeline_tasks import _l3_summary_budget
+    assert _l3_summary_budget() == SUMMARY_MAX_TOKENS
 
 
 # ─── Один разборщик на всех ───────────────────────────────────────────────────

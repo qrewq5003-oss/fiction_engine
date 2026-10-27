@@ -91,7 +91,6 @@ from .cognitive_memory import (
 from .chapter_analyzer import (
     ChapterAnalyzer,
     ChapterAnalysis,
-    CharacterDelta,
     CausalChain,
     analyze_chapter_deep,
     format_analysis_for_prompt,

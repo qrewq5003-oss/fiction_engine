@@ -166,9 +166,9 @@ def test_previous_analysis_for_writer_has_no_gaps_and_no_payoff_order():
     a = ChapterAnalysis(project_id=1, chapter_num=3, arc_progress={"Вера": "решилась"},
                         opened_promises=["кто звонил в 2:14"], logical_gaps=["откуда ключ"],
                         conflict_score=0.5, pacing_note="", analysis_quality="ok")
-    critic, writer = format_analysis_for_prompt(a), format_analysis_for_prompt(a, for_writer=True)
-    assert "откуда ключ" in critic and "требуют payoff" in critic
-    assert "откуда ключ" not in writer and "payoff" not in writer and "решает план" in writer
+    writer = format_analysis_for_prompt(a)
+    assert "решилась" in writer
+    assert "откуда ключ" not in writer and "payoff" not in writer and "2:14" not in writer
 
 
 def test_writer_system_prompt_has_volume_self_check():

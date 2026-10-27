@@ -32,9 +32,12 @@ def ideas_accept():
     if not model_v:
         return jsonify({"error": NO_MODEL}), 400
 
+    from engine.db_core import PREP_IMPORT_FORMAT, STATE_IMPORT_FORMAT
     prompt = f"""Структурируй идеи для художественного проекта. Только JSON.
 ТЕКСТ:\n{text[:35000]}
-{{"project_name":"...","genre":"...","global_state":"## ПЕРСОНАЖИ\\n...","plot_matrix":"## ОСНОВНАЯ ЛИНИЯ\\n...","memory_graph":"## КЛЮЧЕВЫЕ СОБЫТИЯ\\n..."}}"""
+
+{PREP_IMPORT_FORMAT if action == "project" else STATE_IMPORT_FORMAT}
+{{"project_name":"...","genre":"...","global_state":"…","plot_matrix":"…","memory_graph":"## КТО ЧТО ЗНАЕТ\\n…"}}"""
 
     try:
         from engine.pipeline import call_json

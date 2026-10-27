@@ -222,7 +222,7 @@ def _format_cognitive_context(
     """Форматирует финальный блок когнитивной памяти для промпта.
     before_chapter — обещания открыты на момент этой главы (get_active_promises)."""
     lines = ["КОГНИТИВНАЯ ПАМЯТЬ СЕРИИ:"]
-    lines.append("(★ = высокий вес, актуальное; · = фоновое)\n")
+    lines.append("(★ — последние главы; · — давние; (!) — не затухает: открытые обещания и свежие конфликты)\n")
 
     for ch in sorted(all_chapters):
         chapter_fields = inclusions[ch]
@@ -291,7 +291,7 @@ def get_weighted_promises(
     if not active_by_chapter:
         return ""
 
-    lines = ["АКТИВНЫЕ СЮЖЕТНЫЕ ОБЕЩАНИЯ (не затухают, требуют закрытия):"]
+    lines = ["ОТКРЫТЫЕ СЮЖЕТНЫЕ ОБЕЩАНИЯ (когда закрывать — решает план):"]
     for ch_num, promises in active_by_chapter:
         for p in promises:
             lines.append(f"  [{p['id']}] Гл.{ch_num}: {p['text']}")
