@@ -102,11 +102,14 @@ def test_extension_prompt_says_last_paragraph_is_not_the_end():
     assert "второго финала нет" in p and "крюк" not in p
 
 
-def test_ui_continue_note_carries_the_marker():
-    """Кнопка «Продолжить главу» пишет director note с маркером — по нему
-    движок узнаёт вторую часть главы и не дописывает её до полной."""
+def test_ui_has_no_continue_buttons():
+    """Кнопки «Продолжить главу» и «Склеить» убраны 27.10: сильные модели добирают объём
+    сами, а короткую законченную главу движок дописывает сам (extend_short_chapter).
+    Метка CONTINUATION_MARKER в движке остаётся — по ней узнаются старые заметки-продолжения."""
     html = (Path(__file__).resolve().parents[1] / "web/templates/pipeline.html").read_text(encoding="utf-8")
-    assert CONTINUATION_MARKER in html
+    for gone in ("continuePipeline", "plSetContinue", "plMergeWithPrev", "pl-btn-merge", CONTINUATION_MARKER):
+        assert gone not in html, gone
+    assert "«Ещё круг» или запусти главу заново" in html
 
 
 def test_run_generation_extends_and_warns(project_id):

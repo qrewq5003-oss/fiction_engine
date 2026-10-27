@@ -109,8 +109,10 @@ def test_rough_lines_go_to_editor(project_id, v2, monkeypatch):
     pipeline_steps.step_edit(run, 2, "задача", "Глава. " * 50, critique, "e", lambda *a, **k: "", res,
                              project_id=project_id, chapter_num=1)
     task = seen["critique"]
-    first = task.split("\n\n")[0]
-    assert task.startswith("СНАЧАЛА — СВЯЗНОСТЬ")
+    # Сначала строка порядка, затем задание по «ГРУБО» (разбор формулировок 26.10)
+    head, first = task.split("\n\n")[:2]
+    assert head.startswith("Задания ниже идут по важности") and first.startswith("СВЯЗНОСТЬ.")
+    assert "важнее остального" not in task and "СНАЧАЛА" not in task
     assert "вывод «это он» без улики" in first
     # СВЯЗНОСТЬ судья счёл ОК — «ГРУБО» критика не срочное задание (в режиме self
     # разбор критика редактору не идёт вовсе)

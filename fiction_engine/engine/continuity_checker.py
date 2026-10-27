@@ -26,7 +26,7 @@ log = get_logger(__name__)
 
 LLMCaller = Callable[[str], str]
 
-_SYS_CONTINUITY = (
+SYS_CONTINUITY = (
     "Ты — редактор серии, специализирующийся на непрерывности повествования. "
     "Ищешь только конкретные, явные нарушения фактов серии в новой главе. "
     "Не стилистику, не предположения — только то что явно противоречит "
@@ -52,11 +52,10 @@ _CONTINUITY_PROMPT = """Проверь новую главу на нарушен
       "violation": "Что в новой главе противоречит этому факту",
       "severity": "critical | warning"
     }}
-  ],
-  "ok": true/false
+  ]
 }}
 
-Если нарушений нет — violations: [], ok: true."""
+Если нарушений нет — violations: []."""
 
 
 def _build_series_facts(project_id: int, chapter_num: int) -> str:
@@ -147,7 +146,8 @@ def _build_series_facts(project_id: int, chapter_num: int) -> str:
         if promise_lines:
             # Последние 15 — самые свежие
             parts.append(
-                "ОТКРЫТЫЕ ОБЕЩАНИЯ (setup без payoff, из прошлых глав):\n"
+                # Не факт, которому можно противоречить: глава, их не закрывшая, — не нарушение
+                "ОТКРЫТЫЕ ОБЕЩАНИЯ ПРОШЛЫХ ГЛАВ (не нарушение, если эта глава их не закрывает):\n"
                 + "\n".join(promise_lines[-15:])
             )
         if causal_lines:
