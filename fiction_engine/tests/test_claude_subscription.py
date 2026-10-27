@@ -55,6 +55,25 @@ def test_enabled_calls_cli_without_tools_and_settings(monkeypatch):
     assert get_last_usage()["reported_cost"] == 0.0
 
 
+def test_effort_after_at_goes_to_cli(monkeypatch):
+    """@xhigh — размышление через CLI --effort (27.10, решение автора); без @ — выключено."""
+    from engine.api import call_model
+    monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
+    monkeypatch.setenv("MAX_THINKING_TOKENS", "0")      # из окружения FE не должно его гасить
+    with patch("engine.api.shutil.which", return_value="/usr/bin/claude"), \
+         patch("engine.api.run_cli", return_value=_proc(OK)) as run:
+        call_model("claude_subscription::claude-sonnet-5-5@xhigh", "сис", "юзер", max_tokens=300)
+        cmd, env = run.call_args.args[0], run.call_args.kwargs["env"]
+        assert cmd[cmd.index("--model") + 1] == "claude-sonnet-5-5"
+        assert cmd[cmd.index("--effort") + 1] == "xhigh"
+        assert "MAX_THINKING_TOKENS" not in env and env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+        call_model("claude_subscription::claude-sonnet-5-5", "сис", "юзер", max_tokens=300)
+        cmd, env = run.call_args.args[0], run.call_args.kwargs["env"]
+        assert "--effort" not in cmd and env["MAX_THINKING_TOKENS"] == "0"
+        with pytest.raises(ValueError):
+            call_model("claude_subscription::claude-sonnet-5-5@очень", "сис", "юзер", max_tokens=300)
+
+
 def test_prefill_glued_with_space(monkeypatch):
     from engine.api import call_model
     monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")

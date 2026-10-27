@@ -37,9 +37,9 @@ PID = SETUP["fe_pid"]
 PL_PID = SETUP["pl_pid"]
 LAST = len(BOOK["chapters"])
 NANO = "nano_gpt::"
-SONNET = "claude_subscription::claude-sonnet-5-5"
-SOL = "chatgpt_subscription::gpt-6.1-sol@medium"
-ROLES = BOOK.get("roles") or {"model_gen": SONNET, "model_critic": "claude_subscription::claude-haiku-5-5",
+SONNET = "claude_subscription::claude-sonnet-5-5@xhigh"
+SOL = "chatgpt_subscription::gpt-6.1-sol@xhigh"
+ROLES = BOOK.get("roles") or {"model_gen": SONNET, "model_critic": "claude_subscription::claude-haiku-5-5@xhigh",
                               "model_editor": SONNET, "model_judge": SOL}
 MAX_EXTRA = 1 if SMOKE else 2
 OUT = B / "results.json"

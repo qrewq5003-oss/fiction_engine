@@ -52,9 +52,13 @@ MODELS = {
             # Точные имена, а не алиасы sonnet/opus/haiku: алиас сам переезжает
             # на новую версию, и замеры перестают быть сравнимы. Fable 5.1 в
             # подписку не входит («requires usage credits», 08.10).
-            {"id": "claude-sonnet-5-5",         "name": "Claude Sonnet 5.5 — через подписку Claude Code"},
+            # После @ — глубина размышления (CLI --effort), как у GPT по подписке
+            {"id": "claude-sonnet-5-5@xhigh",   "name": "Claude Sonnet 5.5, размышление очень высокое — через подписку Claude Code"},
+            {"id": "claude-opus-5-5@xhigh",     "name": "Claude Opus 5.5, размышление очень высокое — через подписку Claude Code"},
+            {"id": "claude-haiku-5-5@xhigh",    "name": "Claude Haiku 5.5, размышление очень высокое — через подписку Claude Code"},
+            {"id": "claude-sonnet-5-5",         "name": "Claude Sonnet 5.5 — через подписку Claude Code, без размышления"},
             {"id": "claude-opus-5-5",           "name": "Claude Opus 5.5 — через подписку Claude Code"},
-            {"id": "claude-haiku-5-5",          "name": "Claude Haiku 5.5 — через подписку Claude Code"},
+            {"id": "claude-haiku-5-5",          "name": "Claude Haiku 5.5 — через подписку Claude Code, без размышления"},
         ]
     },
     # Только при FE_CHATGPT_SUBSCRIPTION=1 — см. _call_chatgpt_subscription.
@@ -67,7 +71,9 @@ MODELS = {
             {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol ★ через подписку ChatGPT (Codex) — сильнее DeepSeek, вровень с Sonnet"},
             {"id": "gpt-6.1-sol@xhigh",   "name": "GPT-6.1 Sol, размышление очень высокое — через подписку ChatGPT (Codex), больше лимита"},
             {"id": "gpt-6-astra@medium",  "name": "GPT-6 Astra — через подписку ChatGPT (Codex)"},
+            {"id": "gpt-6-astra@xhigh",   "name": "GPT-6 Astra, размышление очень высокое — через подписку ChatGPT (Codex)"},
             {"id": "gpt-6-luna@medium",   "name": "GPT-6 Luna — через подписку ChatGPT (Codex)"},
+            {"id": "gpt-6-luna@xhigh",    "name": "GPT-6 Luna, размышление очень высокое — через подписку ChatGPT (Codex)"},
         ]
     },
     "anthropic_direct": {
@@ -721,6 +727,11 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
     if not claude_subscription_enabled():
         raise ValueError("Claude через подписку выключен: нужен FE_CLAUDE_SUBSCRIPTION=1 "
                          "и залогиненный `claude` CLI")
+    # После @ — глубина размышления (low … max), как у GPT по подписке и Claude по
+    # ключу: CLI берёт её флагом --effort. Без @ — как было, размышление выключено
+    model_id, _, effort = model_id.partition("@")
+    if effort and effort not in EFFORTS:
+        raise ValueError(f"Глубина размышления «{effort}» — не из {', '.join(EFFORTS)}")
     prompt = user
     if prefill:
         prompt = (user + "\n\nТекст ниже оборван. Верни ТОЛЬКО его продолжение — со "
@@ -736,11 +747,18 @@ def _call_claude_subscription(model_id, system, user, api_key, max_tokens, prefi
     cmd = [shutil.which("claude") or "claude", "-p", "--model", model_id, "--system-prompt", system or "",
            "--tools", "", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
            "--setting-sources", "", "--strict-mcp-config"]
+    if effort:
+        cmd += ["--effort", effort]
     # Лимит вывода — не меньше CLAUDE_SUB_MIN_OUTPUT: по нему CLI режет ответ и
     # просит продолжить, а на стыке продолжения слова слипаются или рвутся.
-    # Подписка за токены не берёт, длину главы задаёт промпт
-    env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max(max_tokens or 0, CLAUDE_SUB_MIN_OUTPUT)),
-               MAX_THINKING_TOKENS="0")       # размышление съедает бюджет ответа (см. _call_anthropic)
+    # Подписка за токены не берёт, длину главы задаёт промпт. С размышлением —
+    # наибольший ответ: размышление входит в лимит (см. THINKING_MAX_TOKENS)
+    floor = THINKING_MAX_TOKENS if effort else CLAUDE_SUB_MIN_OUTPUT
+    env = dict(os.environ, CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(max(max_tokens or 0, floor)))
+    if effort:
+        env.pop("MAX_THINKING_TOKENS", None)
+    else:
+        env["MAX_THINKING_TOKENS"] = "0"      # размышление съедает бюджет ответа (см. _call_anthropic)
     # Долгоживущий токен `claude setup-token`: из настроек приложения, иначе из
     # окружения; без него CLI берёт свой `claude login`
     from .db_settings import get_api_key

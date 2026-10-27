@@ -1,16 +1,20 @@
 """Связка с планировщиком (разбор планировщика 21.10, пакет B) — сторона FE."""
 
 
-def test_writer_of_chapter_sees_its_own_plan_facts(project_id):
-    """Факты плана главы N — писателю и анализу главы N (срез «до главы N» их выбрасывал)."""
+def test_own_plan_facts_go_to_analysis_not_twice_to_writer(project_id):
+    """Факты плана главы N — анализу главы N (срез «до главы N» их выбрасывал, и «текст
+    важнее плана» не срабатывал). Писателю и проверке непрерывности главы N — нет: план
+    они получают целиком, и сцена шла дважды (разбор формулировок 26.10). Главе N+1 —
+    да, это уже прошлое."""
     from engine.series_bible import PLAN_REASON, author_set, bible_block, current, known_for_analysis
     author_set(project_id, "событие", "глава 5, сцена 1: Подвал", "место", "подвал театра", 5,
                PLAN_REASON.format(5))
     author_set(project_id, "событие", "глава 6, сцена 1: Крыша", "место", "крыша", 6, PLAN_REASON.format(6))
     names = {r["name"] for r in current(project_id, 5)}
     assert "глава 5, сцена 1: Подвал" in names and "глава 6, сцена 1: Крыша" not in names
-    assert "подвал театра" in bible_block(project_id, "подвал", before_chapter=5)
     assert "Подвал" in known_for_analysis(project_id, 5, "Они спустились в подвал.")
+    assert "подвал театра" not in bible_block(project_id, "подвал", before_chapter=5)
+    assert "подвал театра" in bible_block(project_id, "подвал", before_chapter=6)
 
 
 def test_future_uses_fresh_plans_of_later_chapters(project_id):

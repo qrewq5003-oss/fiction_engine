@@ -131,3 +131,11 @@ def test_board_has_import_button(client, project_id):
         sess["project_id"] = project_id
     html = client.get("/board").get_data(as_text=True)
     assert "Импорт главы" in html and "const BOARD_CHAPTERS = []" in html
+
+
+def test_prompt_asks_facts_and_shows_board_link():
+    """«Что происходит» — фактами, без толкований (карточка уходит писателю планом);
+    образец связи — со сцены доски, а не «1 → 2» соседних сцен (разбор формулировок 26.10)."""
+    from engine.chapter_import import PROMPT
+    assert "без толкований" in PROMPT and '"from": "S<id>"' in PROMPT
+    assert '"from": 1, "to": 2' not in PROMPT and "противоречит" not in PROMPT

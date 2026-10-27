@@ -535,8 +535,15 @@ def bible_block(project_id: int, focus_text: str = "", before_chapter: int | Non
     не откатился к старому значению. before_chapter — только факты глав раньше
     этой и записанные без главы: факты будущих глав писатель выдавал за
     предвидение.
+
+    Без фактов из плана самой этой главы: писатель получает план целиком, и
+    сцена плана шла ему дважды (план и пять строк библии: место, время, дата,
+    день недели, кто), проверке непрерывности — 15 строк на 3 сцены (снимок 12/12,
+    разбор формулировок 26.10). Анализ главы их видит (known_for_analysis):
+    по ним работает «текст важнее плана».
     """
-    facts = current(project_id, before_chapter)
+    facts = [r for r in current(project_id, before_chapter)
+             if not (before_chapter and _from_plan(r) and r["chapter_num"] == before_chapter)]
     if not facts:
         return ""
     focus = _key(focus_text)
