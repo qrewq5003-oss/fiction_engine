@@ -160,3 +160,32 @@ def test_genre_contract_does_not_promise_verdict(project_id, v2):
     res, system = _judge(project_id, _answer("ОК", logic="ОК"), "detective_classic")
     assert "независимо от prose score" not in system
     assert "обещание книги" in system and "ЛОГИКА ВЫВОДОВ) — в ней" in system and "ОСТАТОК" in system
+
+
+# ─── Судья и критик: разбор формулировок 26.10 ───────────────────────────────
+
+def test_red_flags_reach_judge_as_flags_not_requirements():
+    """Загрузчик терял заголовок «## КРАСНЫЕ ФЛАГИ» — «[ ] Детектив знает ответ слишком рано»
+    судья видел требованием. Теперь раздел подписан, пункты — «✗»."""
+    from engine.engine_loaders import get_engine_path
+    from engine.engine_loaders_core import load_validation_checklist
+    out = load_validation_checklist(get_engine_path(), "detective_classic")
+    assert "КРАСНЫЕ ФЛАГИ (этого быть не должно):" in out
+    assert "✗ Детектив знает ответ слишком рано" in out and "[ ] Детектив знает ответ" not in out
+    assert "СТРУКТУРА ГЛАВЫ:" in out and "---" not in out
+    assert "cliches_list" not in out and "с предыдущими главами" not in out
+
+
+def test_judge_format_and_final_chapter():
+    from engine.judge_rubric import CRITERIA, sys_judge
+    s = sys_judge(30, 4, "детектив")
+    assert "ОБОСНОВАНИЕ" not in s and "ВЕРДИКТ:" in s
+    assert "в развязке книги — закрывает ли обещанное" in CRITERIA
+
+
+def test_critic_v2_no_every_scene_demands_and_no_forced_three():
+    from engine.pipeline_steps import _build_sys_critic
+    for genre in ("детектив", "триллер", "хоррор"):
+        c = _build_sys_critic(genre)
+        assert "в каждой сцене" not in c and "Каждая сцена" not in c
+        assert "ГЛАВНЫЕ ПРОБЛЕМЫ (до трёх" in c and "для редактора" not in c

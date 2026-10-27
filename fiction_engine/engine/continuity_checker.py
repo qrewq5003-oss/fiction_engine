@@ -308,14 +308,16 @@ def format_continuity_for_prompt(violations: list[dict]) -> str:
     critical = [v for v in violations if v.get("severity") == "critical"]
     warnings  = [v for v in violations if v.get("severity") != "critical"]
 
-    lines = ["НАРУШЕНИЯ НЕПРЕРЫВНОСТИ СЕРИИ (проверь обязательно):"]
+    # Проверка по выжимке State, без цитат из главы: не «проверь обязательно / ❌ КРИТИЧНО»,
+    # а сверка (разбор формулировок 26.10); «ГРУБО» по связности — только с цитатой
+    lines = ["ВОЗМОЖНЫЕ РАСХОЖДЕНИЯ С ФАКТАМИ СЕРИИ (проверка по выжимке, без цитат — сверь с текстом главы):"]
 
     for v in critical:
-        lines.append(f"  ❌ КРИТИЧНО — {v['violation']}")
+        lines.append(f"  ⚠ вероятно — {v['violation']}")
         lines.append(f"     Факт: {v['fact']}")
 
     for v in warnings:
-        lines.append(f"  ⚠ ПРЕДУПРЕЖДЕНИЕ — {v['violation']}")
+        lines.append(f"  ? возможно — {v['violation']}")
         lines.append(f"     Факт: {v['fact']}")
 
     return "\n".join(lines)

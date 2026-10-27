@@ -373,8 +373,33 @@ _VALIDATION_GENRE_MAP = {
 }
 
 
+def _checklist_lines(text: str, max_lines: int) -> list[str]:
+    """
+    Строки чеклиста для судьи: с заголовками разделов («## X» → «X:»), без
+    названия файла, служебной строки до первого раздела и «---».
+
+    Раньше выбрасывались все строки с «#» — и заголовок «## КРАСНЫЕ ФЛАГИ»
+    тоже: пункты «чего быть не должно» («[ ] Детектив знает ответ слишком
+    рано») судья видел чекбоксами среди требований (снимок заданий гл.12,
+    разбор формулировок 26.10). Теперь раздел флагов подписан, его пункты — «✗».
+    """
+    out: list[str] = []
+    in_section = red = False
+    for line in text.split("\n"):
+        s = line.strip()
+        if s.startswith("## "):
+            in_section = True
+            red = "КРАСНЫЕ ФЛАГИ" in s.upper()
+            out.append("КРАСНЫЕ ФЛАГИ (этого быть не должно):" if red else s[3:].strip() + ":")
+            continue
+        if not in_section or not s or s.startswith("#") or s == "---":
+            continue
+        out.append("✗ " + s[3:].strip() if red and s.startswith("[ ]") else line)
+    return out[:max_lines]
+
+
 def load_validation_checklist(engine_path: Path, genre_key: str | None,
-                               max_lines: int = 30) -> str:
+                               max_lines: int = 40) -> str:
     """
     Загружает чеклист для судьи из 10_VALIDATION/.
     Всегда universal + жанровый (если есть).
@@ -389,8 +414,7 @@ def load_validation_checklist(engine_path: Path, genre_key: str | None,
     # Universal — всегда
     universal = val_path / "checklist_universal.md"
     if universal.exists():
-        lines = universal.read_text(encoding="utf-8").split("\n")
-        useful = [l for l in lines if l.strip() and not l.startswith("#")][:max_lines]
+        useful = _checklist_lines(universal.read_text(encoding="utf-8"), max_lines)
         if useful:
             result_parts.append("КРИТЕРИИ ОЦЕНКИ (универсальные):\n" + "\n".join(useful))
 
@@ -401,8 +425,7 @@ def load_validation_checklist(engine_path: Path, genre_key: str | None,
         if genre_file:
             gpath = val_path / genre_file
             if gpath.exists():
-                lines = gpath.read_text(encoding="utf-8").split("\n")
-                useful = [l for l in lines if l.strip() and not l.startswith("#")][:max_lines]
+                useful = _checklist_lines(gpath.read_text(encoding="utf-8"), max_lines)
                 if useful:
                     result_parts.append(f"КРИТЕРИИ ЖАНРА ({family}):\n" + "\n".join(useful))
 
