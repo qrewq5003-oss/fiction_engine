@@ -11,8 +11,8 @@ from collections import Counter
 
 
 # Потолки State в промпте — общие с конвейером (pipeline_context)
-from .pipeline_context import (DIRECTOR_MARKER, MEMORY_RAW_MAX_CHARS,  # noqa: E402
-                               PLOT_RAW_MAX_CHARS, STATE_RAW_MAX_CHARS)
+from .pipeline_context import (MEMORY_RAW_MAX_CHARS, PLOT_RAW_MAX_CHARS,  # noqa: E402
+                               STATE_RAW_MAX_CHARS, note_header)
 
 
 def _trunc(text: str, limit: int) -> str:
@@ -37,7 +37,7 @@ def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) ->
     Собрать базовый промпт для генерации главы.
     mode: 'quick' | 'quality' | 'master'
     """
-    from .db import get_last_update, parse_structured_state, get_director_note
+    from .db import get_director_note, get_director_note_source, get_last_update, parse_structured_state
     from .db_state import state_for_chapter
 
     # State на момент главы и «контекст для следующей» — из применённого анализа
@@ -51,23 +51,25 @@ def build_prompt(project_id: int, chapter_num: int, mode: str, project: dict) ->
     genre = project.get("genre", "[жанр]")
     name  = project.get("name", "[серия]")
 
-    structured = parse_structured_state(state)
-    char_prefill = _build_char_prefill(structured)
     director_note = get_director_note(project_id, chapter_num)
+    # Герои «в этой главе» — названные в плане, а не первые четыре State: у
+    # гл.12 «Последнего рейса» шёл мёртвый Зыков и не было троих из плана (разбор 26.10)
+    structured = parse_structured_state(state)
+    char_prefill = _build_char_prefill(structured, director_note or "")
+    note_source = get_director_note_source(project_id, chapter_num)
 
-    if mode == "quick":
-        prompt = _quick_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
-    elif mode == "quality":
-        prompt = _quality_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
-    else:
-        prompt = _master_prompt(chapter_num, genre, name, state, next_context, char_prefill, director_note)
+    template = {"quick": _quick_prompt, "quality": _quality_prompt}.get(mode, _master_prompt)
+    prompt = template(chapter_num, genre, name, state, next_context, char_prefill, director_note,
+                      note_source=note_source)
 
-    # Тон главы со своим ритмом (лирика, эпика, экшн) заменяет общую норму:
-    # две нормы спорили, и тон проигрывал (genre_mix.tone_rhythm_note)
+    # Тон главы: его раздел и ритм. Строка ритма отсылает к разделу «ТОН ГЛАВЫ»,
+    # а в шаблоне его не было — он приходил только с блоком движка (разбор 26.10)
     from .db import get_chapter_tone
-    from .genre_mix import tone_rhythm_note
-    note = tone_rhythm_note(get_chapter_tone(project_id, chapter_num))
-    prompt = prompt.replace(RHYTHM_SLOT, note)
+    from .genre_mix import load_chapter_tone_section, project_secondary_key, tone_rhythm_note
+    tone = get_chapter_tone(project_id, chapter_num)
+    note = tone_rhythm_note(tone)
+    section = load_chapter_tone_section(tone, project_secondary_key(project)) if tone else ""
+    prompt = prompt.replace(RHYTHM_SLOT, f"{section}\n\n{note}".strip())
     return re.sub(r"\n{3,}", "\n\n", prompt)
 
 
@@ -80,10 +82,12 @@ def _extract_next_context(last_update: dict | None) -> str:
     return from_analysis(last_update.get("raw_analysis", "") or "")
 
 
-def _build_char_prefill(structured: dict) -> str:
+def _build_char_prefill(structured: dict, focus: str = "") -> str:
     """
     Строит строку для автозаполнения блока ПЕРСОНАЖИ В ЭТОЙ ГЛАВЕ
     из структурированного State Engine.
+    focus — план или заметка к главе: герои, названные в нём, идут первыми
+    (до шести); никого не назвал — первые четыре, как раньше.
     Если ### ИМЯ паттерна нет — использует фолбэк-парсер свободного текста.
     Если state пустой — возвращает пустую строку (убираем бесполезный шаблон).
     """
@@ -91,6 +95,10 @@ def _build_char_prefill(structured: dict) -> str:
     char_names = structured.get("char_names", [])
 
     if char_names:
+        f = focus.lower()
+        named = [n for n in char_names if any(w in f for w in n.lower().split() if len(w) > 2)]
+        if named:
+            return _prefill_from_structured(chars, named, limit=6)
         return _prefill_from_structured(chars, char_names)
 
     raw_state = structured.get("raw", {})
@@ -101,10 +109,10 @@ def _build_char_prefill(structured: dict) -> str:
     return _prefill_from_freeform(global_text)
 
 
-def _prefill_from_structured(chars: dict, char_names: list) -> str:
+def _prefill_from_structured(chars: dict, char_names: list, limit: int = 4) -> str:
     """Строит prefill из структурированных данных персонажей."""
     lines = []
-    for name in char_names[:4]:
+    for name in char_names[:limit]:
         ch = chars.get(name, {})
         parts = []
         if ch.get("state"):    parts.append(ch["state"])
@@ -222,13 +230,15 @@ def _remove_orphaned_headers(
 # ─── Блоки промптов ───────────────────────────────────────────────────────────
 
 def _cliche_block() -> str:
-    return """ЖЁСТКИЕ ЗАПРЕТЫ — ИИ-КЛИШЕ:
+    # Без «ЖЁСТКИХ ЗАПРЕТОВ»: штамп — замена, а не угроза; «эмоцию — только через
+    # физику тела» читалось наоборот и звало жесты-реакции (разбор формулировок 26.10)
+    return """ИИ-ШТАМПЫ — заменяй своим:
 Эмоциональные: "сердце сжалось", "внутри что-то оборвалось", "холод пробежал по спине", "время остановилось", "земля ушла из-под ног", "тень улыбки", "в глазах мелькнуло"
 Описательные: "танцующие языки пламени", "тишина была оглушительной", "напряжение было осязаемым"
 Типографские: тире как пауза перед важным словом → разбей на два предложения; многоточие для значительности → покажи действием; абзац-одиночка не чаще раза в главе; "что-то изменилось" → назвать конкретно что
 Нарративные: погода = настроение, мудрость/урок в конце сцены, "он не знал что...", зеркало для описания внешности
 Диалоговые: "нам надо поговорить", "обещай что не рассердишься"
-- Называть эмоцию напрямую — только через физику тела и действие
+- Эмоцию не называй словом: покажи поступком или деталью
 - Финальное предложение с абстрактным обобщением → конкретный образ или действие"""
 
 
@@ -258,20 +268,21 @@ def _genre_rules(genre: str) -> str:
     if any(w in g for w in ["нуар", "noir", "детектив"]):
         # «Мрачный тон» — только нуару: любой детектив получал его (разбор базы 26.10)
         noir = any(w in g for w in ["нуар", "noir"])
+        # «Детектив: все лгут» убрано: то же точнее говорит правило разговора
+        # (своя цель, причина не отдавать сведения), а абсолют спорил с cozy
         return ("ЖАНРОВЫЕ ПРАВИЛА:\n"
-                "- Детектив: все лгут — ищи зачем, не что\n"
                 + ("- Нуар: мрачный тон без оправданий, горькие победы\n" if noir else "")
                 + "- Диалог: минимум атрибуции, подтекст важнее текста\n")
     if any(w in g for w in ["триллер", "thriller"]):
+        # Абсолюты «ни в одном абзаце», «каждая глава» спорили с планом (разбор 26.10)
         return ("ЖАНРОВЫЕ ПРАВИЛА:\n"
-                "- Напряжение не провисает ни в одном абзаце\n"
                 "- Протагонист активен: принимает решения, не только реагирует\n"
-                "- Каждая глава заканчивается хуже чем началась\n")
+                "- Как правило, глава кончается для героя хуже, чем началась; развязка книги — по плану\n")
     if any(w in g for w in ["хоррор", "horror", "ужасы"]):
         return ("ЖАНРОВЫЕ ПРАВИЛА:\n"
                 "- Страх через ощущения, не через называние\n"
                 "- Угроза нарастает постепенно — не взрыв в начале\n"
-                "- Что-то теряется в каждой главе\n")
+                "- Угроза чего-то стоит героям\n")
     if any(w in g for w in ["романтика", "роман", "romance"]):
         return ("ЖАНРОВЫЕ ПРАВИЛА:\n"
                 "- Химия показана, не объявлена\n"
@@ -285,12 +296,20 @@ def _genre_rules(genre: str) -> str:
     return ""
 
 
-def _director_block(note: str | None) -> str:
+def _director_block(note: str | None, source: str | None = None) -> str:
+    """Заметка к главе под заголовком по источнику (pipeline_context.note_header)."""
     if not note:
         return ""
     from .plan_check import plan_writer_lines
     end = plan_writer_lines(note)
-    return f"{DIRECTOR_MARKER}\n{note}\n\n" + (f"{end}\n\n" if end else "")
+    return f"{note_header(source)}\n{note}\n\n" + (f"{end}\n\n" if end else "")
+
+
+def _has_scene_plan(note: str | None) -> bool:
+    """У главы план со сценами: скелет «СЦЕНЫ» и меню финала шаблона с ним спорят —
+    кнопка без плана так сочиняла свою главу рядом с планом (CHANGELOG 20.10)."""
+    from .plan_check import plan_end_line
+    return bool(note and plan_end_line(note))
 
 
 # ─── Шаблоны промптов ─────────────────────────────────────────────────────────
@@ -310,16 +329,14 @@ def _director_block(note: str | None) -> str:
 # 1. САМОПРОВЕРКА добавлена во все три. Из проверенных формулировок она
 #    единственная дала прирост; разбивка на сцены — нет.
 #
-# 2. ЧИСЛО АБЗАЦЕВ выровнено на 25-35. В quick стояло 15-20 — это 125-200
-#    слов на абзац, втрое больше обычного, и противоречило двум соседним
-#    промптам. Якорем к сокращению оно, судя по выдаче, не было: модели
-#    пишут 58-86 абзацев по 20-30 слов и подсказку про абзацы игнорируют.
-#    Убрано как расхождение, а не как причина недобора.
+# 2. ЧИСЛА АБЗАЦЕВ нет (27.10). В сентябре 15-20 и 25-35 выровняли, но
+#    модели пишут 58-86 абзацев по 20-30 слов и подсказку игнорируют, а с
+#    голосом автора («абзац — до пяти предложений») 25-35 спорило.
 #
 # Настоящая причина недобора в другом и промптом не лечится: модели
 # систематически недодают по объёму. Haiku упирается около 1900-2000 за
-# вызов, как ни проси, — поэтому 3000 берётся либо моделью посильнее,
-# либо вторым проходом через «Продолжить главу».
+# вызов, как ни проси; сильные модели (Опус, Sonnet 5.5 с самопроверкой)
+# берут объём сами, короткую законченную главу движок дописывает.
 
 def _scene_words(weights, i: int) -> int:
     """
@@ -333,10 +350,10 @@ def _scene_words(weights, i: int) -> int:
     return scene_word_budget(weights)[i]
 
 
-def _volume_block(with_paragraphs: bool = True) -> str:
+def _volume_block() -> str:
     """Требование к объёму — из pipeline_config, не литералом."""
     from .pipeline_config import volume_rule_for_prompt
-    return volume_rule_for_prompt(with_paragraphs)
+    return volume_rule_for_prompt()
 
 
 def _volume_check() -> str:
@@ -394,11 +411,22 @@ def _structure_block() -> str:
     return structure_rule_for_prompt()
 
 
-def _quick_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None):
+def _quick_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None,
+                  note_source=None):
     genre_id = _genre_identity(genre)
     genre_rules = _genre_rules(genre)
+    # С планом со сценами скелет сцен и меню финала не выводятся: конец задаёт план
+    skeleton = "" if _has_scene_plan(director_note) else """СЦЕНЫ:
+1. [Место. Что происходит. Чем заканчивается — 2 предложения]
+2. [То же]
+
+ТОНАЛЬНОСТЬ: [напряжённая / тихая / экшн / эмоциональная]
+ЗАКАНЧИВАЕТСЯ НА: [событие или состояние героя — не вывод]
+
+"""
+    # Без «Режим: черновик, высокий темп» (QUICK — основной режим, темп задаёт тон
+    # главы), «провала задания» и объёма трижды; детали и ритм — по разу (были дважды)
     return f"""# ПРОМПТ: QUICK — Глава {num} / {name}
-# Режим: черновик, высокий темп
 
 ## ═══ СИСТЕМНЫЙ ПРОМПТ ═══
 
@@ -407,17 +435,10 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 {_cliche_block()}
 
 {genre_rules}
-ОБЪЁМ: {_volume_block(False)}. Короче — провал задания. Пиши полную главу.
-
-СТРУКТУРА ({_volume_block(False)}):
+СТРУКТУРА:
 - Первые 200-300 слов: крюк, без предисловий, сразу в действие
-- Середина 60%: каждый абзац двигает вперёд — ситуацию или персонажа
-- Последние 200-300 слов: поворот или клиффхэнгер
-
-{_detail_block()}
-
-{_rhythm_block()}
 - Нет длинных описательных блоков в середине сцены действия
+- Конец — последняя сцена плана или задачи; крючок, если его просит стиль, — внутри неё
 
 ЗАПРЕЩЕНО:
 - {_em_dash()}
@@ -440,17 +461,10 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 ПЕРСОНАЖИ В ЭТОЙ ГЛАВЕ:
 {char_prefill}
 
-{_director_block(director_note)}ЗАДАЧА ГЛАВЫ (одно конкретное предложение):
+{_director_block(director_note, note_source)}ЗАДАЧА ГЛАВЫ (одно конкретное предложение):
 [например: "Кира узнаёт что наставник знал о предательстве"]
 
-СЦЕНЫ:
-1. [Место. Что происходит. Чем заканчивается — 2 предложения]
-2. [То же]
-
-ТОНАЛЬНОСТЬ: [напряжённая / тихая / экшн / эмоциональная]
-ЗАКАНЧИВАЕТСЯ НА: [клиффхэнгер / тихий финал / открытый вопрос]
-
-{_detail_block()}
+{skeleton}{_detail_block()}
 
 {_rhythm_block()}
 
@@ -462,15 +476,30 @@ def _quick_prompt(num, genre, name, state, next_context, char_prefill="", direct
 """
 
 
-def _quality_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None):
+def _quality_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None,
+                    note_source=None):
     genre_id = _genre_identity(genre)
     genre_rules = _genre_rules(genre)
+    skeleton = "" if _has_scene_plan(director_note) else f"""СЦЕНА 1 [~{_scene_words((1,1), 0)} слов]:
+Место: []
+Персонажи: []
+Что происходит: []
+Чем заканчивается: []
+
+СЦЕНА 2 [~{_scene_words((1,1), 1)} слов]:
+Место: []
+Что происходит: []
+Финал главы: [событие или состояние героя — не вывод]
+
+"""
+    # Без подписи режима и «Высокого стандарта», без трёх лишних формулировок
+    # финала и чисел частей (сумма 1100–1500 при 2500–3000; модель следует
+    # расписанному по частям — pipeline_config.scene_word_budget)
     return f"""# ПРОМПТ: QUALITY — Глава {num} / {name}
-# Режим: важная глава, поворот, кульминация
 
 ## ═══ СИСТЕМНЫЙ ПРОМПТ ═══
 
-Ты пишешь {genre_id} на русском языке. Жанр: {genre}. Высокий стандарт.
+Ты пишешь {genre_id} на русском языке. Жанр: {genre}.
 
 {_cliche_block()}
 
@@ -479,18 +508,13 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 - Объяснять эмоцию после того как она показана действием или деталью
 - Называть что символизирует образ или деталь
 - Финал с выводом, резюме или прямым называнием смысла
-- Называть внутреннее состояние персонажа если оно уже видно через действие
 - {_em_dash()}
-
-ПОСЛЕДНЯЯ СТРОКА — конкретный образ или физическое действие, не вывод.
 
 ОБЯЗАТЕЛЬНО:
 - Каждая сцена меняет знание / отношения / ситуацию
 - Первое предложение без вводных конструкций, сразу в действие
-- Последнее предложение несёт вес — читатель унесёт его с собой
 
-СТРУКТУРА ({_volume_block(False)}):
-Крюк [150-200] → Нарастание [300-400] → Пик [200-300] → Спад/последствие [300-400] → Финал [150-200]
+СТРУКТУРА: крюк → нарастание → пик → последствие → конец главы
 
 ---
 
@@ -513,24 +537,13 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 ПЕРСОНАЖИ НА СТАРТЕ ГЛАВЫ:
 {char_prefill}
 
-{_director_block(director_note)}ЗАДАЧА ГЛАВЫ (одно предложение, конкретно):
+{_director_block(director_note, note_source)}ЗАДАЧА ГЛАВЫ (одно предложение, конкретно):
 []
 
 ЧТО МЕНЯЕТСЯ К КОНЦУ:
 []
 
-СЦЕНА 1 [~{_scene_words((1,1), 0)} слов]:
-Место: []
-Персонажи: []
-Что происходит: []
-Чем заканчивается: []
-
-СЦЕНА 2 [~{_scene_words((1,1), 1)} слов]:
-Место: []
-Что происходит: []
-Финал главы: [клиффхэнгер / тихий удар / открытый вопрос]
-
-ТОНАЛЬНОСТЬ: []
+{skeleton}ТОНАЛЬНОСТЬ: []
 ДОМИНИРУЮЩЕЕ ОЩУЩЕНИЕ (одно слово): [предательство / одиночество / надежда которая рушится / ...]
 
 {_detail_block()}
@@ -545,14 +558,32 @@ def _quality_prompt(num, genre, name, state, next_context, char_prefill="", dire
 """
 
 
-def _master_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None):
+def _master_prompt(num, genre, name, state, next_context, char_prefill="", director_note=None,
+                   note_source=None):
     genre_id = _genre_identity(genre)
     genre_rules = _genre_rules(genre)
+    skeleton = "" if _has_scene_plan(director_note) else f"""СЦЕНА 1 [~{_scene_words((9,7,7), 0)} слов]:
+Место: [конкретно, через деталь, которую персонаж задевает или ощущает]
+Кто: []
+Динамика: [кто контролирует ситуацию и как меняется]
+Финал сцены: []
+
+СЦЕНА 2 — КУЛЬМИНАЦИЯ [~{_scene_words((9,7,7), 1)} слов]:
+Выбор или действие: []
+Цена: [что теряется]
+
+СЦЕНА 3 — ПОСЛЕДСТВИЕ [~{_scene_words((9,7,7), 2)} слов]:
+Как выглядит мир после: []
+Последняя строка: [событие или состояние героя — не вывод]
+
+"""
+    # Без «высшего стандарта» (так само приложение описывает плохую установку —
+    # director_note), дублей и чисел частей, не сходившихся с объёмом и сценами
     return f"""# ПРОМПТ: MASTER — Глава {num} / {name}
 
 ## ═══ СИСТЕМНЫЙ ПРОМПТ ═══
 
-Ты пишешь {genre_id} на русском языке. Жанр: {genre}. Высший стандарт письма — каждая деталь работает, ничего лишнего.
+Ты пишешь {genre_id} на русском языке. Жанр: {genre}.
 
 {genre_rules}
 ═══ СОСТОЯНИЕ МИРА ═══
@@ -576,12 +607,9 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 - {_em_dash()}
 
 ОБЯЗАТЕЛЬНО:
-- Последняя строка — конкретный образ или действие, не вывод
-- Физика момента: что ощущает тело, что слышит, что видит — конкретно
-- Если что-то "значит" — пусть читатель сам это поймёт
+- Место и вещи — через то, что персонаж трогает, слышит, видит, конкретно
 
-СТРУКТУРА ({_volume_block(False)}):
-Вход [100-150] → Нарастание [600-700] → Кульминация [300-400] → Последствие [400-500]
+СТРУКТУРА: вход → нарастание → кульминация → последствие
 
 ---
 
@@ -592,27 +620,13 @@ def _master_prompt(num, genre, name, state, next_context, char_prefill="", direc
 ЧТО ПРИВЕЛО К ЭТОМУ МОМЕНТУ:
 {next_context if next_context else "[заполни: 3-5 предложений, только факты]"}
 
-{_director_block(director_note)}ЧТО ЧИТАТЕЛЬ ЖДЁТ:
+{_director_block(director_note, note_source)}ЧТО ЧИТАТЕЛЬ ЖДЁТ:
 []
 
 ПЕРСОНАЖИ НА СТАРТЕ ГЛАВЫ:
 {char_prefill}
 
-СЦЕНА 1 [~{_scene_words((9,7,7), 0)} слов]:
-Место: [конкретно, через деталь, которую персонаж задевает или ощущает]
-Кто: []
-Динамика: [кто контролирует ситуацию и как меняется]
-Финал сцены: []
-
-СЦЕНА 2 — КУЛЬМИНАЦИЯ [~{_scene_words((9,7,7), 1)} слов]:
-Выбор или действие: []
-Цена: [что теряется]
-
-СЦЕНА 3 — ПОСЛЕДСТВИЕ [~{_scene_words((9,7,7), 2)} слов]:
-Как выглядит мир после: []
-Последняя строка: [клиффхэнгер / закрытие / образ]
-
-ЯКОРНЫЕ ДЕТАЛИ (должны быть в главе):
+{skeleton}ЯКОРНЫЕ ДЕТАЛИ (должны быть в главе):
 - []
 
 ПОСЛЕ ЭТОЙ ГЛАВЫ НЕВОЗМОЖНО:

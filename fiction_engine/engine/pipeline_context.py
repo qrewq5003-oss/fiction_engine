@@ -170,8 +170,17 @@ def build_consolidated_voice(active_voice: dict | None,
 # 10 тыс. символов терял биографии, а сюжет — раздел «ДЕТАЛИ СЕРИИ».
 STATE_RAW_MAX_CHARS = 12000
 
-# Заголовок заметки к главе — тот же, что у build_prompt (state_prompts._director_block)
+# Заголовок заметки к главе — тот же, что у build_prompt (state_prompts._director_block).
+# По источнику: план из планировщика и запись автора шли под «от редактора после
+# предыдущей» — так подписана только заметка движка (разбор формулировок 26.10)
 DIRECTOR_MARKER = "ЗАМЕТКА ДЛЯ ЭТОЙ ГЛАВЫ (от редактора после предыдущей):"
+AUTHOR_NOTE_MARKER = "ОТ АВТОРА К ЭТОЙ ГЛАВЕ:"
+NOTE_MARKERS = (DIRECTOR_MARKER, AUTHOR_NOTE_MARKER)
+
+
+def note_header(source: str | None) -> str:
+    """Заголовок заметки к главе по её источнику (db.get_director_note_source)."""
+    return DIRECTOR_MARKER if source == "auto" else AUTHOR_NOTE_MARKER
 PLOT_RAW_MAX_CHARS = 4000
 MEMORY_RAW_MAX_CHARS = 2000
 
@@ -505,14 +514,15 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
     # кладёт её в промпт), а конвейер собирает контекст из промпта автора — и
     # план главы из планировщика до писателя не доходил (проверка 16.10).
     director_block = ""
-    if DIRECTOR_MARKER not in base_prompt:
+    if not any(m in base_prompt for m in NOTE_MARKERS):
         try:
-            from .db import get_director_note
+            from .db import get_director_note, get_director_note_source
             note = (get_director_note(project_id, chapter_num) or "").strip()
             if note:
                 from .plan_check import plan_writer_lines
                 end = plan_writer_lines(note)
-                director_block = f"\n{DIRECTOR_MARKER}\n{note}\n" + (f"\n{end}\n" if end else "")
+                header = note_header(get_director_note_source(project_id, chapter_num))
+                director_block = f"\n{header}\n{note}\n" + (f"\n{end}\n" if end else "")
         except Exception as e:
             handle_error("build_context director_note", e, level=ErrorLevel.RECOVERABLE)
 

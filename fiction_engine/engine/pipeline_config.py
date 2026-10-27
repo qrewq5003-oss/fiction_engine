@@ -311,16 +311,16 @@ def scene_word_budget(weights: tuple[int, ...]) -> list[int]:
     return out
 
 
-def volume_rule_for_prompt(with_paragraphs: bool = True) -> str:
+def volume_rule_for_prompt() -> str:
     """
     Требование к объёму — из тех же чисел, по которым его потом проверяют.
 
     detect_truncation ругается ниже MIN_ACCEPTABLE_WORDS, промпт требует
     MIN_CHAPTER_WORDS–TARGET_CHAPTER_WORDS. Раньше эти числа стояли в
-    промптах девятью литералами.
+    промптах девятью литералами. Числа абзацев нет (27.10): модели его не
+    слушали (58–86 абзацев против 25–35), а с голосом автора оно спорило.
     """
-    tail = " (25-35 абзацев)" if with_paragraphs else ""
-    return (f"СТРОГО {MIN_CHAPTER_WORDS}-{TARGET_CHAPTER_WORDS} слов{tail}")
+    return f"СТРОГО {MIN_CHAPTER_WORDS}-{TARGET_CHAPTER_WORDS} слов"
 
 
 def volume_check_for_prompt() -> str:
@@ -369,13 +369,14 @@ def extension_prompt(text: str) -> str:
 
     «Финал главы и крюк — в конце ТВОЕГО продолжения» и «можно со смены сцены» спорили
     с концом главы по плану (plan_end_line, #172) в том же вызове — убраны 26.10.
+    «Сцены сжаты, глава закончилась раньше, чем раскрылась задача» — диагноз без
+    проверки (глава просто короче) — убран 27.10.
     """
     have = len(text.split())
     need = extension_words(have)
     return (
         f"\n\n---\nГЛАВА НАПИСАНА НЕ ЦЕЛИКОМ. Ниже — то, что уже есть: {have} слов "
-        f"при требуемых {MIN_CHAPTER_WORDS}-{TARGET_CHAPTER_WORDS}.\n"
-        f"Сцены сжаты, глава закончилась раньше, чем раскрылась задача.\n\n"
+        f"при требуемых {MIN_CHAPTER_WORDS}-{TARGET_CHAPTER_WORDS}.\n\n"
         f"=== УЖЕ НАПИСАНО ===\n{text}\n=== КОНЕЦ НАПИСАННОГО ===\n\n"
         f"Напиши ПРОДОЛЖЕНИЕ — ещё {need}-{need + 300} слов: то, что по плану и задаче главы "
         f"ещё не случилось.\n"
@@ -437,7 +438,7 @@ def detail_rule_for_prompt() -> str:
         "- Место показывай через то, что персонаж задевает, слышит, обходит, "
         "а не через опись обстановки.\n"
         "- Деталь без последствия вычёркивай: если её убрать и ничего не "
-        "изменится, она лишняя."
+        "изменится, она лишняя. Улики и то, что вернётся позже, — не лишние."
     )
 
 
