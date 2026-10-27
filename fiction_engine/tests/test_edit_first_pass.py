@@ -128,12 +128,14 @@ def test_result_is_the_edited_text_not_the_draft(project, monkeypatch):
     assert res["stage"] == "edit"
 
 
-def test_measured_rhythm_reaches_the_editor(project, monkeypatch):
+def test_measured_signals_reach_the_editor(project, monkeypatch):
     """
-    Замер ритма движок уже делает для критика. Редактору он тоже нужен:
-    опыт показал, что модели правят ритм, когда видят своё число, и не
-    правят, когда им просто описывают норму.
+    Счёт по тексту (text_signals.editor_signals) — заданием редактору: тире в
+    авторской речи, рубленые куски, повторы. Доля коротких фраз по всей главе
+    с репликами («РИТМ ПРЕДЛОЖЕНИЙ (R05)») редактору больше не идёт (26.10).
     """
+    import engine.text_signals as ts
+    monkeypatch.setattr(ts, "editor_signals", lambda text: ["Тире в авторской речи: «X»"])
     seen = _stub_calls(monkeypatch, [])
     from engine.pipeline import run_pipeline_step, PIPELINE_GENERATE_AND_EDIT
     from engine.db_narrative import create_pipeline_run
@@ -144,8 +146,8 @@ def test_measured_rhythm_reaches_the_editor(project, monkeypatch):
                       model_editor="m::m", model_judge="m::m",
                       steps=PIPELINE_GENERATE_AND_EDIT)
     edit_calls = [c for c in seen if "ОРИГИНАЛЬНЫЙ ТЕКСТ" in c["user"]]
-    assert "РИТМ ПРЕДЛОЖЕНИЙ" in edit_calls[0]["user"], \
-        "редактор не получил замеренную долю коротких предложений"
+    assert "ЗАМЕРЕНО (счёт по тексту):\n- Тире в авторской речи: «X»" in edit_calls[0]["user"]
+    assert "РИТМ ПРЕДЛОЖЕНИЙ" not in edit_calls[0]["user"]
 
 
 # ─── Прежнее поведение не сломано ────────────────────────────────────────────

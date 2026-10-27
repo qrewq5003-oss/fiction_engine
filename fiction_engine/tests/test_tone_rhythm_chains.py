@@ -52,9 +52,9 @@ def test_base_prompt_swaps_rhythm_rule_only_for_that_chapter(project_id, mode):
     project = get_project(project_id)
     lyric = build_prompt(project_id, 3, mode, project)
     plain = build_prompt(project_id, 4, mode, project)
-    assert rhythm_rule_for_prompt() in plain
-    assert rhythm_rule_for_prompt() not in lyric
-    assert "его задаёт тон «Лирика»" in lyric
+    # Общей нормы нет ни там, ни там (27.10); ритм тона — только у его главы
+    assert rhythm_rule_for_prompt() not in plain and rhythm_rule_for_prompt() not in lyric
+    assert "его задаёт тон «Лирика»" in lyric and "его задаёт тон" not in plain
 
 
 # ─── Цепочки ─────────────────────────────────────────────────────────────────

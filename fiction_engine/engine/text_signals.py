@@ -84,6 +84,68 @@ def _same_start(narr: str) -> str:
     return ""
 
 
+# Короткая фраза — та же граница, что у счёта ритма (pipeline_config.RHYTHM_SHORT_MAX)
+SHORT_RUN = 4               # столько коротких фраз подряд в одном абзаце авторской речи
+SHORT_RUNS_CHOPPY = 3       # столько таких серий — глава рубленая (26.10: у Опуса 0–8 на главу)
+
+
+def narration_dashes(text: str) -> list[str]:
+    """
+    Абзацы авторской речи с длинным тире. Тире только в диалоге — правило
+    автора (26.10); в репликах тире стоит законно, в авторской речи — нет.
+    Замер 27.10: 5 мест на 31 главу Опуса и Sonnet — редко, но точно.
+    """
+    return [p.strip() for p in _narration(text).split("\n") if "—" in p]
+
+
+def short_runs(text: str) -> list[str]:
+    """
+    Серии из SHORT_RUN и больше коротких фраз подряд в одном абзаце авторской
+    речи — «рубленый» кусок. Доля коротких по всей главе вводила в заблуждение:
+    реплики короткие на 80–93 %, а в авторской речи их 29–52 % (замер 26.10).
+    """
+    from .pipeline_config import RHYTHM_SHORT_MAX
+    out: list[str] = []
+    for para in _narration(text).split("\n"):
+        run: list[str] = []
+        for s in [s for s in re.split(r"(?<=[.!?…])\s+", para.strip()) if s] + [""]:
+            if s and len(re.findall(r"[\w-]+", s)) < RHYTHM_SHORT_MAX:
+                run.append(s)
+                continue
+            if len(run) >= SHORT_RUN:
+                out.append(" ".join(run))
+            run = []
+    return out
+
+
+def editor_signals(text: str) -> list[str]:
+    """
+    Счёт по тексту — заданием точечному редактору («ЗАМЕРЕНО»), с цитатой, чтобы
+    он нашёл место. Раньше сигналы видел только автор, а редактор получал долю
+    коротких фраз по всей главе вместе с репликами (разбор формулировок 26.10).
+    """
+    out = [f"Тире в авторской речи (тире только в диалоге): {_example(p, 120)} — замени запятой, "
+           f"точкой или двоеточием." for p in narration_dashes(text)[:3]]
+    runs = short_runs(text)
+    if len(runs) >= SHORT_RUNS_CHOPPY:
+        for r in sorted(runs, key=len, reverse=True)[:2]:
+            out.append(f"Рубленый кусок — короткие фразы подряд: {_example(r, 140)} — соедини две-три "
+                       f"фразы в одну, смысл и детали не меняй.")
+    out += chapter_signals(text)
+    return out
+
+
+def dash_signal(text: str) -> str:
+    """
+    Подсказка автору о тире в авторской речи. Не среди chapter_signals: те —
+    выбросы по 9 главам из 10, а это правило автора (у GLM, Kimi и DeepSeek тире
+    в авторской речи в 43 главах из 64 — сигнал «выброса» был бы почти всегда).
+    """
+    dashes = narration_dashes(text)
+    return (f"Тире в авторской речи ({len(dashes)}): {_example(dashes[0])} — тире только в диалоге."
+            if dashes else "")
+
+
 def chapter_signals(text: str) -> list[str]:
     """Сигналы автору по готовой главе. Пусто — глава ничем не выделяется."""
     text = text or ""

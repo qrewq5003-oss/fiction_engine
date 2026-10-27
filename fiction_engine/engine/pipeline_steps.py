@@ -354,8 +354,9 @@ def step_generate(run_id: int, iteration: int, chapter_num: int,
     gen_text, foreign = clean_foreign_words(gen_text, model_gen, full_prompt, call_fn)
     if foreign:
         results["foreign_words"] = foreign
-    from .text_signals import chapter_signals
-    signals = chapter_signals(gen_text)
+    from .text_signals import chapter_signals, dash_signal
+    # Тире в авторской речи — правило автора, отдельной строкой (не «выброс»)
+    signals = [s for s in [dash_signal(gen_text)] if s] + chapter_signals(gen_text)
     if signals:
         results["text_signals"] = signals
     chains = and_chains_note(gen_text)
@@ -575,9 +576,13 @@ def step_edit(run_id: int, iteration: int, generation_prompt: str,
         # лучше исходника через раз (point_edit.EDIT_MODES). Круг по-прежнему
         # идёт после критика — без разбора шаг пропускается, как раньше
         critique = SELF_REVIEW
-    rhythm_hint = (results.get("sentence_rhythm") or {}).get("hint", "")
-    if rhythm_hint:
-        critique = f"{critique}\n\nЗАМЕРЕНО: {rhythm_hint}"
+    # Счёт по тексту — кодом, а не моделью: тире в авторской речи, рубленые
+    # куски, повторы и обороты-привычки (text_signals.editor_signals). Раньше —
+    # доля коротких фраз по всей главе с репликами против нормы 30/50/20
+    from .text_signals import editor_signals
+    measured = editor_signals(text)
+    if measured:
+        critique = f"{critique}\n\nЗАМЕРЕНО (счёт по тексту):\n" + "\n".join(f"- {m}" for m in measured)
     # Присказки из карточек и правила голоса в тексте — счётчик, не модель:
     # редактор в режиме self сам их не замечал («Фон», 19.10)
     from .text_signals import project_echo_signals
