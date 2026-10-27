@@ -552,8 +552,8 @@ DEFAULT_ROLE_MODELS = {
 # может, поэтому главы Sonnet есть кому оценить
 # (bench/ab-writers-gpt61-2026-10-15.json).
 SUBSCRIPTION_WRITERS = (
-    "claude_subscription::claude-sonnet-5-5",
-    "chatgpt_subscription::gpt-6.1-sol@medium",
+    "claude_subscription::claude-sonnet-5-5@xhigh",
+    "chatgpt_subscription::gpt-6.1-sol@xhigh",
 )
 
 
@@ -572,9 +572,9 @@ SUBSCRIPTION_WRITERS = (
 # подписку ChatGPT, где у набора Sonnet судья и проверка непрерывности.
 # Судье Sonnet разбор не передаётся (JUDGE_WITHOUT_CRITIQUE); критик в наборе
 # GPT нужен для анализа главы, дрейфа голоса и разбора автору.
-CRITIC_MODEL = "claude_subscription::claude-haiku-5-5"
+CRITIC_MODEL = "claude_subscription::claude-haiku-5-5@xhigh"
 # Без подписки Claude — Luna по подписке ChatGPT; модели nano не используются нигде (решение автора)
-CRITIC_FALLBACK = "chatgpt_subscription::gpt-6-luna@medium"
+CRITIC_FALLBACK = "chatgpt_subscription::gpt-6-luna@xhigh"
 
 
 def default_role_models() -> dict[str, str]:
@@ -618,8 +618,8 @@ def default_role_models() -> dict[str, str]:
 
 # Судьи запасного набора, по порядку: подписки, затем API-ключи
 RESERVE_JUDGES = (
-    "chatgpt_subscription::gpt-6.1-sol@medium",
-    "claude_subscription::claude-sonnet-5-5",
+    "chatgpt_subscription::gpt-6.1-sol@xhigh",
+    "claude_subscription::claude-sonnet-5-5@xhigh",
     "openai_direct::gpt-4o",
     "anthropic_direct::claude-sonnet-4-6",
 )
@@ -633,9 +633,11 @@ RESERVE_JUDGES = (
 # Правщик по находкам в обоих — Sonnet: на пилоте 15.10 104 → 10, DeepSeek
 # ломал связность; GPT-правщик не замерен. Анализ (L3, модули) — Haiku по
 # подписке: короткие вызовы, судейства в них нет.
-SONNET = "claude_subscription::claude-sonnet-5-5"
-SOL = "chatgpt_subscription::gpt-6.1-sol@medium"
-HAIKU_SUB = "claude_subscription::claude-haiku-5-5"
+# С 27.10 подписки — на очень высоком размышлении (@xhigh, решение автора; Claude по
+# подписке — CLI --effort). Основание и что не замерено — bench/presets-xhigh-2026-10-27.json
+SONNET = "claude_subscription::claude-sonnet-5-5@xhigh"
+SOL = "chatgpt_subscription::gpt-6.1-sol@xhigh"
+HAIKU_SUB = "claude_subscription::claude-haiku-5-5@xhigh"
 ROLE_PRESET_KEY = "role_preset"
 ROLE_PRESETS: dict[str, dict] = {
     "sonnet": {
@@ -676,28 +678,28 @@ ROLE_PRESETS: dict[str, dict] = {
 # константы меняла бы и наборы, и снимок разом, и тест молчал бы.
 BENCHED_PRESETS = {
     "sonnet": {
-        "roles": {"gen": "claude_subscription::claude-sonnet-5-5",
-                  "editor": "claude_subscription::claude-sonnet-5-5",
-                  "critic": "claude_subscription::claude-haiku-5-5",
-                  "judge": "chatgpt_subscription::gpt-6.1-sol@medium"},
-        "settings": {"continuity_model": "chatgpt_subscription::gpt-6.1-sol@medium",
-                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
-                     "scorer_model": "chatgpt_subscription::gpt-6.1-sol@medium",
-                     "resolver_model": "claude_subscription::claude-haiku-5-5",
-                     "l3_model": "claude_subscription::claude-sonnet-5-5"},
-        "bench": "2026-10-18",
+        "roles": {"gen": "claude_subscription::claude-sonnet-5-5@xhigh",
+                  "editor": "claude_subscription::claude-sonnet-5-5@xhigh",
+                  "critic": "claude_subscription::claude-haiku-5-5@xhigh",
+                  "judge": "chatgpt_subscription::gpt-6.1-sol@xhigh"},
+        "settings": {"continuity_model": "chatgpt_subscription::gpt-6.1-sol@xhigh",
+                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5@xhigh",
+                     "scorer_model": "chatgpt_subscription::gpt-6.1-sol@xhigh",
+                     "resolver_model": "claude_subscription::claude-haiku-5-5@xhigh",
+                     "l3_model": "claude_subscription::claude-sonnet-5-5@xhigh"},
+        "bench": "2026-10-27",
     },
     "gpt": {
-        "roles": {"gen": "chatgpt_subscription::gpt-6.1-sol@medium",
-                  "editor": "chatgpt_subscription::gpt-6.1-sol@medium",
-                  "critic": "claude_subscription::claude-haiku-5-5",
-                  "judge": "claude_subscription::claude-sonnet-5-5"},
-        "settings": {"continuity_model": "claude_subscription::claude-sonnet-5-5",
-                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5",
-                     "scorer_model": "claude_subscription::claude-sonnet-5-5",
-                     "resolver_model": "claude_subscription::claude-haiku-5-5",
-                     "l3_model": "claude_subscription::claude-sonnet-5-5"},
-        "bench": "2026-10-18",
+        "roles": {"gen": "chatgpt_subscription::gpt-6.1-sol@xhigh",
+                  "editor": "chatgpt_subscription::gpt-6.1-sol@xhigh",
+                  "critic": "claude_subscription::claude-haiku-5-5@xhigh",
+                  "judge": "claude_subscription::claude-sonnet-5-5@xhigh"},
+        "settings": {"continuity_model": "claude_subscription::claude-sonnet-5-5@xhigh",
+                     "continuity_fix_model": "claude_subscription::claude-sonnet-5-5@xhigh",
+                     "scorer_model": "claude_subscription::claude-sonnet-5-5@xhigh",
+                     "resolver_model": "claude_subscription::claude-haiku-5-5@xhigh",
+                     "l3_model": "claude_subscription::claude-sonnet-5-5@xhigh"},
+        "bench": "2026-10-27",
     },
 }
 

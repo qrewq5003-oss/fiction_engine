@@ -157,6 +157,23 @@ class TestCallsReachFe:
         assert "СЦЕНА ДО: Обвал — подвал рушится" in prompt and "СЦЕНА ПОСЛЕ: Больница" in prompt
         assert prompt.index("=== ЭТА СЦЕНА ===") > prompt.index("=== КНИГА")
 
+    def test_ai_assist_sees_day_and_hold_from_card(self, client, project_id, fake_fe):
+        """День и «Пока не раскрывать» карточки — в задании помощи, даже если окно их не
+        прислало: приписка просит «не переносить время», а времени модель не видела (разбор 26.10)."""
+        from engine.db import create_scene, update_scene
+        sid = create_scene(project_id)
+        update_scene(sid, {"title": "Причал", "day": "пятница", "time_of_day": "Утро",
+                           "hold": "кто звонил в 2:14"})
+        fake_fe.responses["/api/inline_call"] = (200, {"ok": True, "result": "x"})
+        with client.session_transaction() as sess:
+            sess["project_id"] = project_id
+        client.post("/api/ai/assist", json={"scene_id": sid, "action": "rewrite",
+                                            "model": "deepseek_direct::deepseek-chat",
+                                            "scene": {"title": "Причал"}})
+        prompt = next(r for r in fake_fe.received if r["path"] == "/api/inline_call")["body"]["prompt"]
+        assert "Когда: пятница, утро" in prompt and "Пока не раскрывать: кто звонил в 2:14" in prompt
+        assert "толкований не пиши" in prompt
+
     def test_ai_assist_calls_inline(self, client, project_id, fake_fe):
         from engine.db import create_scene
         sid = create_scene(project_id)

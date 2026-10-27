@@ -37,7 +37,7 @@ from engine.pipeline import _call                          # noqa: E402
 from engine.pipeline_steps import step_critique, step_judge  # noqa: E402
 
 JUDGE, EXCLUDE, OUT = sys.argv[1], sys.argv[2], Path(sys.argv[3])
-CRITIC = os.environ.get("CALIB_CRITIC", "claude_subscription::claude-haiku-5-5")
+CRITIC = os.environ.get("CALIB_CRITIC", "claude_subscription::claude-haiku-5-5@xhigh")
 GENRES = ["detective_classic", "realism_psychological", "thriller_psychological", "fantasy_dark"]
 
 ws = json.loads((ROOT / "bench/ab-writers-sonnet-2026-10-13.json").read_text(encoding="utf-8"))

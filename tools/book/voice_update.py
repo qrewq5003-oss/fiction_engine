@@ -31,7 +31,7 @@ FE = os.environ.get("BOOK_FE", "http://127.0.0.1:5000")   # копия прил�
 H = fe_auth.headers()
 BOOK = json.load(open(B / "book.json", encoding="utf-8"))
 # Оценивает и выбирает эталоны судья набора — другая семья, чем писатель (Claude не судит текст Claude)
-SOL = (BOOK.get("roles") or {}).get("model_judge") or "chatgpt_subscription::gpt-6.1-sol@medium"
+SOL = (BOOK.get("roles") or {}).get("model_judge") or "chatgpt_subscription::gpt-6.1-sol@xhigh"
 SETUP = json.load(open(B / "setup.json", encoding="utf-8"))
 OUT = B / "voice_update.json"
 a, b = int(sys.argv[1]), int(sys.argv[2])

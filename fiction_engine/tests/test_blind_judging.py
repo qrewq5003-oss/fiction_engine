@@ -112,12 +112,12 @@ def test_writer_by_subscription_when_enabled(monkeypatch):
     # Подписка считается включённой только при установленном CLI — в CI его нет
     with patch("engine.api.shutil.which", return_value="/usr/bin/cli"):
         monkeypatch.setenv("FE_CHATGPT_SUBSCRIPTION", "1")
-        assert default_role_models()["gen"] == "chatgpt_subscription::gpt-6.1-sol@medium"
+        assert default_role_models()["gen"] == "chatgpt_subscription::gpt-6.1-sol@xhigh"
         monkeypatch.setenv("FE_CLAUDE_SUBSCRIPTION", "1")
         got = default_role_models()
-    assert got["gen"] == "claude_subscription::claude-sonnet-5-5"
+    assert got["gen"] == "claude_subscription::claude-sonnet-5-5@xhigh"
     # Судья — подписка другого семейства, редактор — писатель
-    assert got["judge"] == "chatgpt_subscription::gpt-6.1-sol@medium"
+    assert got["judge"] == "chatgpt_subscription::gpt-6.1-sol@xhigh"
     assert got["editor"] == got["gen"]
 
 

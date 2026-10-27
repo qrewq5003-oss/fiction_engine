@@ -53,8 +53,8 @@ ROOT = Path(__file__).resolve().parents[1]
 # Писатель и судья — по подписке, разных семейств: модель узнаёт свой слог
 # (tests/test_blind_judging.py). Модели nano не используются нигде (решение
 # автора; были GLM-писатель и судьи Kimi/DeepSeek).
-DEFAULT_GEN = "claude_subscription::claude-sonnet-5-5"
-DEFAULT_JUDGES = ["chatgpt_subscription::gpt-6.1-sol@medium"]
+DEFAULT_GEN = "claude_subscription::claude-sonnet-5-5@xhigh"
+DEFAULT_JUDGES = ["chatgpt_subscription::gpt-6.1-sol@xhigh"]
 
 # GLM 5.3 примерно в половине вызовов отдаёт пустое содержимое (bench.py,
 # EMPTY_RETRIES). Без повтора такая глава выпала бы из пары.
