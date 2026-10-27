@@ -44,8 +44,8 @@ class TestFormatContinuityForPrompt:
         from engine.continuity_checker import format_continuity_for_prompt
         violations = [{"fact": "Герой боялся высоты", "violation": "Прыгнул без страха", "severity": "critical"}]
         result = format_continuity_for_prompt(violations)
-        assert "❌" in result
-        assert "КРИТИЧНО" in result
+        # С 27.10 — без «❌ КРИТИЧНО»: проверка по выжимке, без цитат (сверка, а не приговор)
+        assert "вероятно" in result and "КРИТИЧНО" not in result
         assert "Прыгнул без страха" in result
         assert "Герой боялся высоты" in result
 
@@ -53,8 +53,7 @@ class TestFormatContinuityForPrompt:
         from engine.continuity_checker import format_continuity_for_prompt
         violations = [{"fact": "Меч был серебряным", "violation": "Назван стальным", "severity": "warning"}]
         result = format_continuity_for_prompt(violations)
-        assert "⚠" in result
-        assert "ПРЕДУПРЕЖДЕНИЕ" in result
+        assert "возможно" in result
         assert "Назван стальным" in result
 
     def test_critical_before_warnings(self):
