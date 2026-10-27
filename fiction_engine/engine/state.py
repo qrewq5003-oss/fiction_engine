@@ -3,12 +3,10 @@ state.py — State Engine: анализ глав и CRUD.
 
 Сборка промптов для генерации вынесена в state_prompts.py.
 """
-from typing import Callable
-
 from .db import get_l3_summaries
 from .l3_memory import normalize_promises, get_active_promises
 from .api import call_model
-from .db import (get_state, get_chapter, save_state_update, get_api_key)
+from .db import (get_chapter, save_state_update, get_api_key)
 
 
 SYSTEM_ANALYZER = """Ты — редактор серии. Анализируешь главу и возвращаешь только изменения в State Engine.
@@ -31,9 +29,6 @@ def analyze_chapter(project_id: int, chapter_num: int, model_value: str) -> dict
 
     # Загружаем активные promises чтобы модель могла отметить закрытые
     try:
-        from .cognitive_memory import get_weighted_promises
-        from .l3_memory import normalize_promises, get_active_promises
-        from .db import get_l3_summaries
         summaries = get_l3_summaries(project_id, chapter_num, n=20)
         active_promises: list[dict] = []
         for s in summaries:
@@ -144,23 +139,20 @@ def _build_analysis_prompt(
       "name": "Имя персонажа",
       "состояние": "новое состояние (или пусто если не изменилось)",
       "локация": "новая локация (или пусто)",
-      "цель": "новая цель (или пусто)",
-      "узнал": "что узнал в этой главе (или пусто)",
-      "перестал_знать": "что оказалось ложью (или пусто)"
+      "цель": "новая цель (или пусто)"
     }}
   ],
   "plot_changes": {{
     "где_сейчас": "где и когда закончилась глава: место, время, кто рядом — одной фразой",
-    "следующий_шаг": "что логично произойдёт дальше",
-    "статус": "активна | приостановлена | завершена",
+    "следующий_шаг": "что герои в тексте решили или объявили сделать дальше (или пусто)",
+    "статус": "статус главной линии: активна | приостановлена | завершена",
     "новые_линии": ["название новой линии"],
     "закрытые_линии": ["название закрытой линии"]
   }},
   "memory_changes": [
     {{
       "name": "Имя",
-      "knows": ["новый факт 1", "новый факт 2"],
-      "no_longer_knows": ["факт который оказался ложью"]
+      "knows": ["что герой узнал в этой главе"]
     }}
   ],
   "world_moment": "текущий момент мира одним предложением (или пусто)",
@@ -174,7 +166,8 @@ def _build_analysis_prompt(
 ПРАВИЛА:
 - Только реальные изменения. Пустая строка если поле не изменилось.
 - global_state_changes: только персонажи у которых что-то изменилось.
-- next_context: обязательно, это ключевой блок для следующей генерации.
+- memory_changes: каждое новое знание героя — один раз, здесь.
+- следующий_шаг: только то, что сказано в тексте; своих догадок о продолжении не пиши.
 - resolved_promises: список id обещаний которые получили payoff в этой главе. Пустой список [] если ни одно не закрыто.
 - bible: ВСЕ проверяемые факты главы о местах (адрес, этаж, номер, как выглядит), вещах (чья, где лежит,
   как выглядит, цвет) и событиях (день недели, дата, время) — то, что сказано в тексте прямо. Уже
@@ -195,58 +188,3 @@ from .state_prompts import (  # noqa: E402, F401
     _genre_rules,
     _director_block,
 )
-
-
-# ─── Авто-очередь State Engine из pipeline ────────────────────────────────────
-
-def queue_state_update_from_analysis(
-    project_id: int,
-    chapter_num: int,
-    chapter_text: str,
-    call_fn: Callable[..., str],   # fn(prompt: str) -> str — дешёвая модель
-) -> bool:
-    """
-    Запускает analyze_chapter() фоново и складывает результат в очередь
-    state_updates как pending update (пользователь применяет одним кликом).
-
-    Вызывается из step_chapter_analysis() после успешного сохранения ChapterAnalysis.
-    Использует дешёвую модель — не блокирует основной pipeline.
-
-    Возвращает True если update успешно поставлен в очередь, False при любой ошибке.
-    Никогда не бросает исключений — RECOVERABLE по контракту.
-    """
-    try:
-        if not chapter_text or len(chapter_text.strip()) < 100:
-            return False
-
-        state = get_state(project_id)
-
-        # Загружаем активные promises — передаём в промпт
-        try:
-            summaries = get_l3_summaries(project_id, chapter_num, n=20)
-            active_promises: list[dict] = []
-            for s in summaries:
-                ch_num   = s["chapter_num"]
-                promises = normalize_promises(s.get("promises", []), ch_num)
-                active_promises.extend(get_active_promises(promises, chapter_num))
-        except Exception:
-            active_promises = []
-
-        from .series_bible import known_for_analysis
-        prompt = _build_analysis_prompt(chapter_num, state, chapter_text, active_promises,
-                                        known_for_analysis(project_id, chapter_num, chapter_text))
-
-        analysis_text = call_fn(prompt)
-        if not analysis_text or len(analysis_text.strip()) < 20:
-            return False
-
-        save_state_update(project_id, chapter_num, analysis_text)
-        return True
-
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"queue_state_update_from_analysis failed (project={project_id}, "
-            f"ch={chapter_num}): {e}"
-        )
-        return False

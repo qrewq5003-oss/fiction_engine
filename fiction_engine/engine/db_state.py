@@ -4,7 +4,6 @@ db_state.py — State Engine: хранение и разбор.
 Ответственность:
   - get/update/snapshot/restore state
   - parse_structured_state — структурированный разбор текста state
-  - extract_freeform_with_llm — разбор свободного текста моделью
 
 Слияние анализа главы в State — engine/state_merge.py; его публичные функции
 доступны и отсюда, как раньше.
@@ -12,7 +11,6 @@ db_state.py — State Engine: хранение и разбор.
 
 import re
 from collections import Counter
-from typing import Callable
 from .db_core import get_conn, _default_global, _default_plot, _default_memory
 from .error_policy import handle_error, ErrorLevel
 from .state_merge import (  # noqa: F401 — прежние точки входа
@@ -377,126 +375,3 @@ def get_structured_state(project_id: int) -> dict:
     return parse_structured_state(get_state(project_id))
 
 
-# ─── LLM-экстракция freeform state ───────────────────────────────────────────
-
-_SYS_FREEFORM_EXTRACT = """Ты — ассистент структурирования данных.
-Тебе дан свободный текст о персонажах и состоянии истории.
-Извлеки структурированные данные в JSON. Отвечай ТОЛЬКО валидным JSON, без текста до и после."""
-
-_PROMPT_FREEFORM_EXTRACT = """Из этого текста извлеки данные о персонажах и мире истории:
-
-{text}
-
-Верни JSON в формате:
-{{
-  "characters": [
-    {{
-      "name": "Имя",
-      "state": "эмоциональное/физическое состояние",
-      "location": "где находится",
-      "goal": "текущая цель",
-      "knows": "ключевое знание",
-      "ignores": "чего не знает"
-    }}
-  ],
-  "world": {{
-    "moment": "текущий момент истории (1 предложение)",
-    "threat": "главная угроза или напряжение",
-    "forbidden": "что нельзя допустить"
-  }},
-  "plot": {{
-    "next": "следующий сюжетный шаг",
-    "must_not": "что нельзя забыть"
-  }}
-}}
-
-Если информации нет — пустая строка в поле.
-Только персонажи которые явно упомянуты. Не придумывай."""
-
-
-def extract_freeform_with_llm(freeform_text: str,
-                              api_call_fn: Callable[[str], str] | None) -> dict | None:
-    """
-    Извлечь структурированные данные из свободного текста через LLM.
-
-    Возвращает dict совместимый с parse_structured_state или None при ошибке.
-    Вызывать только когда structured parsing вернул пустой результат.
-
-    api_call_fn: callable(prompt: str) -> str  — лёгкая модель (haiku/flash).
-    """
-    if not freeform_text or not freeform_text.strip():
-        return None
-    if not api_call_fn:
-        return None
-
-    try:
-        import json
-        prompt = _PROMPT_FREEFORM_EXTRACT.format(text=freeform_text[:2000])
-        raw = api_call_fn(prompt)
-
-        from .pipeline_llm import parse_json
-        data = parse_json(raw)
-        if not isinstance(data, dict):
-            raise ValueError("модель не вернула объект")
-
-        # Конвертируем в формат parse_structured_state
-        characters = {}
-        char_names = []
-        for ch in data.get("characters", []):
-            name = ch.get("name", "").strip()
-            if not name:
-                continue
-            char_names.append(name)
-            characters[name] = {
-                "state":    ch.get("state", ""),
-                "location": ch.get("location", ""),
-                "goal":     ch.get("goal", ""),
-                "knows":    ch.get("knows", ""),
-                "ignores":  ch.get("ignores", ""),
-            }
-
-        world_raw = data.get("world", {})
-        plot_raw  = data.get("plot", {})
-
-        return {
-            "characters": characters,
-            "char_names": char_names,
-            "world": {
-                "moment":    world_raw.get("moment", ""),
-                "threat":    world_raw.get("threat", ""),
-                "forbidden": world_raw.get("forbidden", ""),
-            },
-            "plot": {
-                "next":     plot_raw.get("next", ""),
-                "must_not": plot_raw.get("must_not", ""),
-            },
-            "raw": {},
-            "_source": "llm_freeform",
-        }
-    except Exception as e:
-        handle_error("extract_freeform_with_llm", e, level=ErrorLevel.RECOVERABLE)
-        return None
-
-
-def parse_structured_state_smart(state: dict,
-                                 api_call_fn: Callable[[str], str] | None = None) -> dict:
-    """
-    Улучшенный парсер: сначала structured parsing, при пустом результате — LLM.
-
-    Используй вместо parse_structured_state() когда доступен api_call_fn.
-    Совместим по формату возврата.
-    """
-    result = parse_structured_state(state)
-
-    # Если structured parsing вернул данные — готово
-    if result["char_names"]:
-        return result
-
-    # Пробуем LLM если есть freeform текст и caller
-    global_text = state.get("global_state", "")
-    if global_text.strip() and api_call_fn:
-        llm_result = extract_freeform_with_llm(global_text, api_call_fn)
-        if llm_result and llm_result["char_names"]:
-            return llm_result
-
-    return result

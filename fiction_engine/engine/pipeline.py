@@ -652,7 +652,7 @@ def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
     if not (final_text or "").strip():
         return False
     import json
-    from .chapter_analyzer import ChapterAnalysis, analyze_chapter_deep
+    from .chapter_analyzer import ANALYSIS_SYSTEM, ChapterAnalysis, analyze_chapter_deep
     from .db import save_chapter_analysis
     from .plan_check import _text_hash
     run = get_pipeline_run(run_id) if run_id else None
@@ -663,7 +663,7 @@ def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
                 try:
                     data = json.loads(it["output_text"])
                     data.update(project_id=project_id, chapter_num=chapter_num)
-                    save_chapter_analysis(project_id, chapter_num, ChapterAnalysis(**data).to_dict())
+                    save_chapter_analysis(project_id, chapter_num, ChapterAnalysis.from_dict(data).to_dict())
                     return True
                 except Exception as e:
                     handle_error("record_accepted_analysis: анализ из запуска", e, level=ErrorLevel.RECOVERABLE)
@@ -671,7 +671,8 @@ def record_accepted_analysis(project_id: int, chapter_num: int, final_text: str,
         model = run.get("model_critic") or run.get("model_gen") or model
     if not model:
         return False
-    analysis = analyze_chapter_deep(project_id, chapter_num, final_text, lambda p: _call(model, "", p))
+    analysis = analyze_chapter_deep(project_id, chapter_num, final_text,
+                                    lambda p: _call(model, ANALYSIS_SYSTEM, p))
     return analysis.analysis_quality == "ok"
 
 

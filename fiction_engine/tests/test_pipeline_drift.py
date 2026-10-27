@@ -3,10 +3,9 @@ test_pipeline_drift.py — engine/pipeline_drift.py
 
 Покрываем:
   A. _parse_drift_result — парсинг ответа LLM
-     1. Полный корректный ответ → score, issues, critical
+     1. Полный корректный ответ → score, issues
      2. Нет ОЦЕНКА: → None, проверка не засчитана
-     3. КРИТИЧНО: нет → critical=False
-     4. КРИТИЧНО: да → critical=True
+     3. В задании нет «КРИТИЧНО» (не читалось, убрано 27.10)
      5. Нет ПРОБЛЕМЫ: → issues=""
      6. Дробный score (8.5/10) → float
 
@@ -40,49 +39,38 @@ class TestParseDriftResult:
     def test_full_correct_response(self):
         from engine.pipeline_drift import _parse_drift_result
         text = "ОЦЕНКА: 8/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: нет"
-        score, issues, critical = _parse_drift_result(text)
+        score, issues = _parse_drift_result(text)
         assert score == pytest.approx(8.0)
         assert issues == "нет"
-        assert critical is False
 
     def test_no_score_is_none(self):
         # Раньше — 7.0, и она записывалась в журнал дрейфа как настоящая
         from engine.pipeline_drift import _parse_drift_result
-        score, _, _ = _parse_drift_result("ПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
+        score, _ = _parse_drift_result("ПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
         assert score is None
 
-    def test_critical_da(self):
-        from engine.pipeline_drift import _parse_drift_result
-        _, _, critical = _parse_drift_result("ОЦЕНКА: 4/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: да")
-        assert critical is True
-
-    def test_critical_net(self):
-        from engine.pipeline_drift import _parse_drift_result
-        _, _, critical = _parse_drift_result("ОЦЕНКА: 9/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
-        assert critical is False
+    def test_prompt_has_no_unread_line(self):
+        """«КРИТИЧНО: да/нет» не читал никто — предупреждение строится по баллу (27.10)."""
+        from engine.pipeline_drift import _DRIFT_PROMPT
+        assert "КРИТИЧНО" not in _DRIFT_PROMPT
 
     def test_no_problems_field(self):
         from engine.pipeline_drift import _parse_drift_result
-        _, issues, _ = _parse_drift_result("ОЦЕНКА: 7/10\nКРИТИЧНО: нет")
+        _, issues = _parse_drift_result("ОЦЕНКА: 7/10\nКРИТИЧНО: нет")
         assert issues == ""
 
     def test_fractional_score(self):
         from engine.pipeline_drift import _parse_drift_result
-        score, _, _ = _parse_drift_result("ОЦЕНКА: 8.5/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
+        score, _ = _parse_drift_result("ОЦЕНКА: 8.5/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: нет")
         assert score == pytest.approx(8.5)
 
     def test_issues_multiword(self):
         from engine.pipeline_drift import _parse_drift_result
-        _, issues, _ = _parse_drift_result(
+        _, issues = _parse_drift_result(
             "ОЦЕНКА: 6/10\nПРОБЛЕМЫ: темп предложений; атрибуция диалогов\nКРИТИЧНО: нет"
         )
         assert "темп" in issues
         assert "атрибуция" in issues
-
-    def test_case_insensitive_critical(self):
-        from engine.pipeline_drift import _parse_drift_result
-        _, _, critical = _parse_drift_result("ОЦЕНКА: 4/10\nПРОБЛЕМЫ: нет\nКРИТИЧНО: ДА")
-        assert critical is True
 
 
 class TestBuildWarning:

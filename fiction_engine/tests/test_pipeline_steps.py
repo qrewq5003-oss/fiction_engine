@@ -318,31 +318,22 @@ class TestStepChapterAnalysis:
         # Нет исключения — ок
         assert "chapter_analysis_block" not in results or True
 
-    def test_writes_analysis_block_on_success(self, project_id):
+    def test_analysis_goes_with_its_system_prompt(self, project_id):
+        """Анализ — со своим системным промптом (до 27.10 уходил пустой), данные
+        круга — критику; блок для промпта не собирается: его не читал никто."""
         from engine.pipeline_steps import step_chapter_analysis
-        from engine.chapter_analyzer import ChapterAnalysis
-        results = {}
+        from engine.chapter_analyzer import ANALYSIS_SYSTEM
+        seen, results = {}, {}
 
-        # Поля tension_level / mood / pacing / raw_json в ChapterAnalysis
-        # не существуют — остались от прежней версии структуры
-        mock_analysis = ChapterAnalysis(
-            project_id=project_id, chapter_num=1,
-            analysis_quality="ok",
-            opening_type="action", closing_type="cliffhanger",
-            causal_chains=[], logical_gaps=[], opened_promises=[],
-            pacing_note="быстро",
-        )
+        def call(model, system, user, **kw):
+            seen["system"] = system
+            return '{"logical_gaps": ["разрыв"], "opening_type": "action", "pacing_note": "быстро"}'
+        step_chapter_analysis(project_id, 1, "текст главы " * 20, "model", call, results)
 
-        with patch("engine.chapter_analyzer.analyze_chapter_deep",
-                  return_value=mock_analysis), \
-             patch("engine.chapter_analyzer.format_analysis_for_prompt",
-                   return_value="БЛОК АНАЛИЗА"), \
-             patch("engine.state.queue_state_update_from_analysis",
-                   side_effect=Exception("skip")):
-            step_chapter_analysis(project_id, 1, "текст", "model",
-                                  lambda *a, **kw: "resp", results)
-
-        assert results.get("chapter_analysis_block") == "БЛОК АНАЛИЗА"
+        assert seen["system"] == ANALYSIS_SYSTEM
+        assert results["chapter_analysis_data"]["pacing_note"] == "быстро"
+        assert results["logical_gaps"] == ["разрыв"] and results["opening_type"] == "action"
+        assert "chapter_analysis_block" not in results
 
 
 # ─── Редактуры на первом проходе нет ─────────────────────────────────────────

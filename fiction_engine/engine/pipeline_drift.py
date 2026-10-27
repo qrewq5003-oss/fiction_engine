@@ -29,8 +29,7 @@ _DRIFT_PROMPT = """{label}:
 
 Формат ответа — строго:
 ОЦЕНКА: [число]/10
-ПРОБЛЕМЫ: [список через ; или "нет"]
-КРИТИЧНО: [да/нет]"""
+ПРОБЛЕМЫ: [список через ; или "нет"]"""
 
 
 def _get_reference(project_id: int, chapter_num: int) -> tuple[str, str] | None:
@@ -70,26 +69,25 @@ def _get_reference(project_id: int, chapter_num: int) -> tuple[str, str] | None:
     return None
 
 
-def _parse_drift_result(text: str) -> tuple[float | None, str, bool]:
+def _parse_drift_result(text: str) -> tuple[float | None, str]:
     """
-    Парсинг ответа модели → (score, issues, critical); оценки нет — score None.
+    Парсинг ответа модели → (score, issues); оценки нет — score None.
     Раньше вместо неё подставлялось 7.0 и записывалось в журнал дрейфа как
-    настоящая оценка.
+    настоящая оценка. «КРИТИЧНО: да/нет» убрано 27.10: его не читал никто —
+    предупреждение строится по баллу.
     """
     # Без разметки: «**ОЦЕНКА:** 7/10» не разбиралось, и проверка не засчитывалась (разбор 21.10)
     from .pipeline_llm import _plain
     text = _plain(text)
     score_m    = re.search(r'ОЦЕНКА:\s*(\d+(?:[.,]\d+)?)\s*/\s*10', text)
     issues_m   = re.search(r'ПРОБЛЕМЫ:\s*(.+?)(?:\n|$)', text)
-    critical_m = re.search(r'КРИТИЧНО:\s*(да|нет)', text, re.IGNORECASE)
 
     if not score_m:
         from .logger import get_logger
         get_logger(__name__).warning("_parse_drift_result: ОЦЕНКА не найдена — проверка не засчитана")
     score    = float(score_m.group(1).replace(",", ".")) if score_m else None
     issues   = issues_m.group(1).strip() if issues_m else ""
-    critical = critical_m and critical_m.group(1).lower() == "да"
-    return score, issues, bool(critical)
+    return score, issues
 
 
 def _build_warning(score: float, issues: str) -> str | None:
@@ -164,7 +162,7 @@ def check_voice_drift(project_id: int, chapter_num: int,
 
     try:
         raw             = call_fn(model_value, SYS_DRIFT, prompt, max_tokens=300)
-        score, issues, critical = _parse_drift_result(raw)
+        score, issues = _parse_drift_result(raw)
         if score is None:
             return {"checked": False, "reason": "unparsed", "raw": (raw or "")[:300]}
         if save:
@@ -173,7 +171,6 @@ def check_voice_drift(project_id: int, chapter_num: int,
             "checked":   True,
             "score":     score,
             "issues":    issues,
-            "critical":  critical,
             "warning":   _build_warning(score, issues),
             "reference": label,
         }

@@ -27,14 +27,13 @@ log = get_logger(__name__)
 
 # ─── Промпты ─────────────────────────────────────────────────────────────────
 
-_SYS_ARC = """Ты — аналитик нарративных арок. Анализируешь эволюцию персонажей
-по серии саммари. Отвечай только валидным JSON."""
-
-_SYS_CONTRADICTION = """Ты — редактор серии. Ищешь только явные фактические
-противоречия между главами. Отвечай только валидным JSON."""
-
-_PROMISE_RESOLUTION_SYS = """Ты — нарративный аналитик. Определяешь выполнены ли
-сюжетные обещания. Отвечай только валидным JSON."""
+# Потолок ответа на вызов анализа серии. Вызывался с умолчанием 400 токенов:
+# у моделей без размышления (без «@»; с ним api поднимает потолок до 128K)
+# арки до 15 глав и до 40 обещаний в 400 токенов не помещаются, JSON рвался
+# (замер 12.09 — 5 отказов из 5 при 400, pipeline_llm._make_model_caller), а
+# сбой давал пустые арки и «все обещания не выполнены» (разбор 26.10).
+# Системные промпты _SYS_ARC и другие были, но не уходили модели — убраны.
+NARRATIVE_MAX_TOKENS = 2500
 
 
 # ─── Вспомогательные ─────────────────────────────────────────────────────────
@@ -331,8 +330,11 @@ class NarrativeIntelligence:
 
         mood_trajectory  = self._extract_mood_trajectory(summaries)
         conflict_density, pacing_coverage = self._extract_conflict_density(summaries)
-        promise_status   = self._track_promises(summaries, through_chapter, api_call_fn)
-        arc_health       = self._analyze_arcs(summaries, api_call_fn, project_id, through_chapter)
+        failures: list[str] = []   # сбой проверки — автору, а не «всё в порядке»
+        promise_status   = self._track_promises(summaries, through_chapter, api_call_fn,
+                                                failures=failures)
+        arc_health       = self._analyze_arcs(summaries, api_call_fn, project_id, through_chapter,
+                                              failures=failures)
         contradictions   = self._detect_contradictions(summaries, api_call_fn, project_id, through_chapter)
 
         try:
@@ -356,6 +358,7 @@ class NarrativeIntelligence:
             genre_family=_genre_family,
             pacing_coverage=pacing_coverage,
         )
+        warnings = failures + warnings
         ok = not any("блокирующ" in c.lower() for c in contradictions)
 
         report = NarrativeReport(
@@ -403,7 +406,8 @@ class NarrativeIntelligence:
     # ─── Arc Tracking ─────────────────────────────────────────────────────────
 
     def _analyze_arcs(self, summaries: list, api_call_fn: LLMCaller,
-                      project_id: int, through_chapter: int) -> dict[str, ArcStatus]:
+                      project_id: int, through_chapter: int,
+                      failures: list[str] | None = None) -> dict[str, ArcStatus]:
         if not summaries:
             return {}
 
@@ -420,7 +424,7 @@ class NarrativeIntelligence:
             "Проанализируй эволюцию персонажей по саммари глав.\n\n"
             f"САММАРИ:\n{chr(10).join(lines)}\n\n"
             'Верни JSON: {"arcs": [{"character":"Имя","status":"active|stalled|resolved|unknown",'
-            '"evolution":"...","stalled":true/false,"last_chapter":N}]}\n'
+            '"evolution":"до 10 слов","stalled":true/false,"last_chapter":N}]}\n'
             "Статусы: active — развивается, stalled — ≥3 глав без изменений, "
             "resolved — завершена, unknown — мало данных.\nТолько JSON."
         )
@@ -440,12 +444,15 @@ class NarrativeIntelligence:
             }
         except Exception as e:
             log.error("NIL _analyze_arcs failed", exc=e, project_id=project_id)
+            if failures is not None:
+                failures.append(f"⚠️ Разбор арок героев не прошёл: {str(e)[:150]}")
             return {}
 
     # ─── Promise Tracking ─────────────────────────────────────────────────────
 
     def _track_promises(self, summaries: list, through_chapter: int,
-                        api_call_fn: LLMCaller) -> list[PromiseItem]:
+                        api_call_fn: LLMCaller,
+                        failures: list[str] | None = None) -> list[PromiseItem]:
         raw = self._extract_raw_promises(summaries)
         if not raw:
             return []
@@ -455,6 +462,14 @@ class NarrativeIntelligence:
             for s in summaries
         }
         resolved_map = self._check_promise_resolutions(raw, events_by_chapter, api_call_fn)
+        if resolved_map is None:
+            # Сбой — не «ни одно не выполнено»: просроченными их не считаем
+            if failures is not None:
+                failures.append("⚠️ Проверка выполнения обещаний не прошла — "
+                                "просроченные обещания не посчитаны")
+            return [PromiseItem(text=text, introduced_chapter=ch, resolved=False,
+                                resolved_chapter=None, overdue=False)
+                    for ch, text in raw]
 
         return [
             PromiseItem(
@@ -496,11 +511,18 @@ class NarrativeIntelligence:
         return result
 
     def _check_promise_resolutions(self, raw_promises: list, events_by_chapter: dict,
-                                    api_call_fn: LLMCaller) -> dict[str, dict]:
+                                    api_call_fn: LLMCaller) -> dict[str, dict] | None:
+        """
+        Текст обещания → {"resolved", "chapter"}; None — ответ не разобран.
+
+        Модель называет обещание номером, а не переписывает его текст: до 40
+        обещаний текстом не помещались в ответ (разбор 26.10).
+        """
         if not raw_promises or not events_by_chapter:
             return {}
 
-        promises_block = "\n".join(f"- Гл.{ch}: {text}" for ch, text in raw_promises[-40:])  # все, а не первые 10 (разбор 21.10)
+        shown = raw_promises[-40:]  # все, а не первые 10 (разбор 21.10)
+        promises_block = "\n".join(f"{i}. Гл.{ch}: {text}" for i, (ch, text) in enumerate(shown, 1))
         events_lines   = [
             f"Гл.{ch}: {events[:150]}"
             for ch, events in sorted(events_by_chapter.items())
@@ -511,17 +533,24 @@ class NarrativeIntelligence:
         prompt = (
             "Проверь: выполнены ли сюжетные обещания в последующих главах?\n\n"
             f"ОБЕЩАНИЯ:\n{promises_block}\n\nСОБЫТИЯ:\n{events_block}\n\n"
-            'Верни JSON: {"resolutions": [{"promise":"текст","resolved":true/false,"chapter":N_или_null}]}'
+            'Верни JSON: {"resolutions": [{"n":номер_обещания,"resolved":true/false,"chapter":N_или_null}]}'
             "\nТолько JSON."
         )
 
         try:
             data   = _parse_json(api_call_fn(prompt))
-            result = {
-                item["promise"]: {"resolved": item.get("resolved", False), "chapter": item.get("chapter")}
-                for item in data.get("resolutions", [])
-                if item.get("promise")
-            }
+            if not isinstance(data, dict) or not isinstance(data.get("resolutions"), list):
+                raise ValueError("нет списка resolutions")
+            result = {}
+            for item in data["resolutions"]:
+                if not isinstance(item, dict):
+                    continue
+                n = item.get("n")
+                text = (shown[n - 1][1] if isinstance(n, int) and 1 <= n <= len(shown)
+                        else item.get("promise"))
+                if text:
+                    result[text] = {"resolved": item.get("resolved", False),
+                                    "chapter": item.get("chapter")}
             # Нечёткое сопоставление для ненайденных
             for _, promise_text in raw_promises:
                 if promise_text not in result:
@@ -532,7 +561,7 @@ class NarrativeIntelligence:
             return result
         except Exception as e:
             log.error("NIL _check_promise_resolutions failed", exc=e)
-            return {}
+            return None
 
     # ─── Contradiction Detection ──────────────────────────────────────────────
 

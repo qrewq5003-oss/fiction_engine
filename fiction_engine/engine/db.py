@@ -68,7 +68,6 @@ from .db_projects import (
     get_pending_updates,
     get_last_update,
     parse_structured_state,
-    parse_structured_state_smart,
     get_structured_state,
     merge_analysis_into_state,
     # Генерации
@@ -142,7 +141,6 @@ from .db_chapters import (
     save_chapter_analysis,
     get_chapter_analysis,
     get_analyses_range,
-    get_all_logical_gaps,
     # Score history (пункт 3: judge calibration)
     get_judge_score_history,
     format_score_history,

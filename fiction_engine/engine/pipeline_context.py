@@ -180,14 +180,22 @@ DETAILS_RELATED = 15    # и ранних, где есть слова задач
 
 
 def extract_relevant_state(state: dict, prompt_text: str,
-                           api_call_fn=None, before_chapter: int | None = None,
+                           before_chapter: int | None = None,
                            with_next: bool = True) -> str:
-    """with_next=False — без «СЛЕДУЮЩИЙ ШАГ» State: у главы есть план со сценами,
-    и догадка анализа «что логично дальше» спорила с ним (разбор формулировок 26.10)."""
-    import re
-    from .db import parse_structured_state_smart
+    """
+    with_next=False — без «СЛЕДУЮЩИЙ ШАГ» State: у главы есть план со сценами,
+    и догадка анализа «что логично дальше» спорила с ним (разбор формулировок 26.10).
 
-    structured  = parse_structured_state_smart(state, api_call_fn)
+    State свободным текстом идёт писателю как есть (ниже). Разбор его моделью
+    в режиме master убран 27.10: модель видела только первые 2000 символов
+    State (писатель так получает до 12 тыс.), «⚠ НЕЛЬЗЯ» и «СЛЕДУЮЩИЙ ШАГ»
+    досочиняла, а у моделей без размышления (без «@») вызов шёл с потолком
+    выбора модулей в 200 токенов — JSON рвался, сбой уходил в журнал.
+    """
+    import re
+    from .db import parse_structured_state
+
+    structured  = parse_structured_state(state)
     prompt_lower = prompt_text.lower()
 
     char_names = structured["char_names"]
@@ -467,13 +475,11 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
             handle_error("build_context: план главы для State", e, level=ErrorLevel.RECOVERABLE)
             plan_note = ""
         from .plan_check import plan_end_line
-        smart_state = extract_relevant_state(state, base_prompt + "\n" + plan_note, api_call_fn, chapter_num,
+        smart_state = extract_relevant_state(state, base_prompt + "\n" + plan_note, chapter_num,
                                              with_next=not plan_end_line(plan_note))
         state_block = f"\n{STATE_HEADER}\n{smart_state}\n"
 
-    # ── ChapterAnalysis предыдущей главы — замыкаем петлю ────────────────────
-    # logical_gaps и opened_promises из анализа предыдущей главы
-    # попадают в контекст генерации следующей.
+    # ── ChapterAnalysis предыдущей главы: сдвиги арок и темп ─────────────────
     prev_analysis_block = ""
     if chapter_num > 1:
         try:
@@ -485,12 +491,9 @@ def build_context(project_id: int, chapter_num: int, base_prompt: str,
                     project_id=project_id,
                     chapter_num=chapter_num - 1,
                     arc_progress=prev_data.get("arc_progress", {}),
-                    opened_promises=prev_data.get("opened_promises", []),
-                    logical_gaps=prev_data.get("logical_gaps", []),
-                    conflict_score=prev_data.get("conflict_score", 0.0),
                     pacing_note=prev_data.get("pacing_note", ""),
                 )
-                formatted = format_analysis_for_prompt(prev_analysis, for_writer=True)
+                formatted = format_analysis_for_prompt(prev_analysis)
                 if formatted:
                     prev_analysis_block = f"\n{formatted}\n"
         except Exception as e:

@@ -75,10 +75,13 @@ def state_import():
     if not raw_text:
         return jsonify({"error": "Нет текста"}), 400
     raw_text = raw_text[:40000]
-    prompt = f"""Структурируй материал для State Engine. Отвечай только JSON.
+    from engine.db_core import STATE_IMPORT_FORMAT
+    prompt = f"""Перенеси материал в State Engine. Отвечай только JSON.
 ТЕКСТ:
 {raw_text}
-{{"global_state":"## ПЕРСОНАЖИ\\n...","plot_matrix":"## ОСНОВНАЯ ЛИНИЯ\\n...","memory_graph":"## КЛЮЧЕВЫЕ СОБЫТИЯ\\n..."}}"""
+
+{STATE_IMPORT_FORMAT}
+{{"global_state":"## ПЕРСОНАЖИ\\n\\n### Имя\\nСОСТОЯНИЕ: …","plot_matrix":"## ОСНОВНАЯ ЛИНИЯ\\n…","memory_graph":"## КТО ЧТО ЗНАЕТ\\n…"}}"""
     try:
         from engine.pipeline import call_json
         parsed = call_json(model_value, "Ты помощник писателя. Только JSON.",

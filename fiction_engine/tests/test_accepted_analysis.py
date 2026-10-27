@@ -25,7 +25,7 @@ def _analysis(chapter=1, gap="ошибка черновика"):
 
 def test_round_analysis_is_not_written_and_not_queued(project_id, monkeypatch):
     """Круг анализирует черновик для критика, но в chapter_analysis и в очередь State не пишет."""
-    from engine import chapter_analyzer, state
+    from engine import chapter_analyzer
     from engine.db import get_chapter_analysis, get_pending_updates
     from engine.pipeline_steps import step_chapter_analysis
     seen = {}
@@ -34,8 +34,6 @@ def test_round_analysis_is_not_written_and_not_queued(project_id, monkeypatch):
         seen["persist"] = persist
         return _analysis()
     monkeypatch.setattr(chapter_analyzer, "analyze_chapter_deep", fake)
-    monkeypatch.setattr(state, "queue_state_update_from_analysis",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("черновик в очередь State")))
     res = {}
     step_chapter_analysis(project_id, 1, DRAFT, CRITIC, lambda *a, **k: "", res)
     assert seen["persist"] is False and res["logical_gaps"] == ["ошибка черновика"]

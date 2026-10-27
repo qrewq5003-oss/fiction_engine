@@ -394,8 +394,37 @@ def drop_template_characters(global_text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", _TEMPLATE_CHAR.sub(keep, global_text or ""))
 
 
-def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str:
-    """Изменения персонажей: поля известных, ЗНАЕТ += «узнал», новые — запись целиком."""
+def _knows_by_name(memory_changes: list) -> dict[str, str]:
+    """Новые знания героев из memory_changes: имя → «факт; факт»."""
+    out: dict[str, str] = {}
+    for mem in memory_changes or []:
+        if not isinstance(mem, dict):
+            continue
+        name = (mem.get("name") or "").strip()
+        facts = [k.strip() for k in (mem.get("knows") or []) if isinstance(k, str) and k.strip()]
+        if name and facts:
+            out[name] = "; ".join(facts)
+    return out
+
+
+def _add_char_knows(name: str, knows: str, global_text: str, ch: _Changes) -> str:
+    char_m = _find_char_block(global_text, name) if _is_real_value(knows) else None
+    if not char_m:
+        return global_text
+    block = _apply_char_knows(knows, char_m.group(2), name, ch.record)
+    return global_text[:char_m.start(2)] + block + global_text[char_m.end(2):]
+
+
+def _merge_characters(changes_list: list, global_text: str, ch: _Changes,
+                      knows: dict[str, str] | None = None) -> str:
+    """
+    Изменения персонажей: поля известных, ЗНАЕТ += новые знания, новые — запись целиком.
+
+    knows — знания из memory_changes (_knows_by_name). До 27.10 анализ просил
+    одно знание дважды: «узнал» сюда и knows в «кто что знает»; теперь одно
+    поле на оба раздела. «узнал» читается для анализов, сохранённых раньше.
+    """
+    pending = {k.lower(): (k, v) for k, v in (knows or {}).items()}
     global_text = drop_template_characters(global_text)
     for char in changes_list:
         name = (char.get("name") or "").strip()
@@ -408,12 +437,9 @@ def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str
                 if _is_real_value(val):
                     global_text = _apply_existing_char(name, f"{field_key}: {val}",
                                                        global_text, ch.record)
-            # Поле "узнал" — дописываем к ЗНАЕТ
-            uznal = (char.get("узнал") or "").strip()
-            char_m = _find_char_block(global_text, name) if _is_real_value(uznal) else None
-            if char_m:
-                block = _apply_char_knows(uznal, char_m.group(2), name, ch.record)
-                global_text = global_text[:char_m.start(2)] + block + global_text[char_m.end(2):]
+            from_memory = pending.pop(name.lower(), ("", ""))[1]
+            learned = (char.get("узнал") or "").strip() or from_memory
+            global_text = _add_char_knows(name, learned, global_text, ch)
             continue
         # Новый персонаж — единственный шаблон через _create_char_entry
         state_val = (char.get("состояние") or "").strip()
@@ -422,6 +448,9 @@ def _merge_characters(changes_list: list, global_text: str, ch: _Changes) -> str
         global_text = _append_char(global_text, new_entry)
         ch.new_chars.append(name)
         ch.add(f"{name} (новый персонаж)", "", state_val if _is_real_value(state_val) else "добавлен")
+    # Знания героев, у которых других перемен нет, и новых героев
+    for name, facts in pending.values():
+        global_text = _add_char_knows(name, facts, global_text, ch)
     return global_text
 
 
@@ -624,7 +653,8 @@ def _merge_from_json(data: dict, project_id: int, chapter_num: int = 0) -> dict:
     stale = bool(chapter_num and not middle and _was_applied(project_id, chapter_num)
                  and not _snapshot_before(project_id, chapter_num))
     if not middle:
-        global_text = _merge_characters(data.get("global_state_changes", []), global_text, ch)
+        global_text = _merge_characters(data.get("global_state_changes", []), global_text, ch,
+                                        _knows_by_name(data.get("memory_changes", [])))
         world_moment = (data.get("world_moment") or "").strip()
         if _is_real_value(world_moment):
             global_text = _apply_doc_field("момент", "МОМЕНТ", world_moment[:200],

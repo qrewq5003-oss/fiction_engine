@@ -325,13 +325,13 @@ def init_generation_history() -> None: pass  # таблица создаётся
 
 def _parse_analysis_row(d: dict) -> dict:
     """Десериализовать JSON-поля анализа главы."""
-    for key in ("arc_progress", "plot_threads"):
-        try:
-            d[key] = json.loads(d.get(key) or "{}")
-        except Exception:
-            d[key] = {}
-    for key in ("character_deltas", "opened_promises", "closed_promises",
-                "causal_chains", "logical_gaps"):
+    # character_deltas, closed_promises, plot_threads — столбцы остались в
+    # таблице, но с 27.10 не пишутся и не читаются (их не читал никто)
+    try:
+        d["arc_progress"] = json.loads(d.get("arc_progress") or "{}")
+    except Exception:
+        d["arc_progress"] = {}
+    for key in ("opened_promises", "causal_chains", "logical_gaps"):
         try:
             d[key] = json.loads(d.get(key) or "[]")
         except Exception:
@@ -344,24 +344,21 @@ def save_chapter_analysis(project_id: int, chapter_num: int, data: dict) -> bool
     with get_conn() as conn:
         conn.execute("""
         INSERT OR REPLACE INTO chapter_analysis
-            (project_id, chapter_num, arc_progress, character_deltas,
-             opened_promises, closed_promises, causal_chains, logical_gaps,
+            (project_id, chapter_num, arc_progress,
+             opened_promises, causal_chains, logical_gaps,
              conflict_score, pacing_note, opening_type, closing_type,
-             plot_threads, analysis_quality, raw_data)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             analysis_quality, raw_data)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             project_id, chapter_num,
             json.dumps(data.get("arc_progress", {}),       ensure_ascii=False),
-            json.dumps(data.get("character_deltas", []),   ensure_ascii=False),
             json.dumps(data.get("opened_promises", []),    ensure_ascii=False),
-            json.dumps(data.get("closed_promises", []),    ensure_ascii=False),
             json.dumps(data.get("causal_chains", []),      ensure_ascii=False),
             json.dumps(data.get("logical_gaps", []),       ensure_ascii=False),
             float(data.get("conflict_score", 0.0)),
             data.get("pacing_note", ""),
             data.get("opening_type", ""),
             data.get("closing_type", ""),
-            json.dumps(data.get("plot_threads", {}),       ensure_ascii=False),
             data.get("analysis_quality", "ok"),
             json.dumps(data, ensure_ascii=False)[:8000],
         ))
@@ -389,27 +386,6 @@ def get_analyses_range(project_id: int, from_chapter: int, to_chapter: int) -> l
         ORDER BY chapter_num
         """, (project_id, from_chapter, to_chapter)).fetchall()
     return [_parse_analysis_row(dict(row)) for row in rows]
-
-
-@error_boundary(level=ErrorLevel.RECOVERABLE, fallback=[])
-def get_all_logical_gaps(project_id: int, before_chapter: int) -> list[dict]:
-    """Все незакрытые логические разрывы до указанной главы."""
-    with get_conn() as conn:
-        rows = conn.execute("""
-        SELECT chapter_num, logical_gaps FROM chapter_analysis
-        WHERE project_id=? AND chapter_num < ? AND logical_gaps != '[]'
-        ORDER BY chapter_num DESC LIMIT 10
-        """, (project_id, before_chapter)).fetchall()
-    result = []
-    for row in rows:
-        try:
-            gaps = json.loads(row["logical_gaps"] or "[]")
-            if gaps:
-                result.append({"chapter_num": row["chapter_num"], "gaps": gaps})
-        except Exception as e:
-            handle_error(f"get_all_logical_gaps: bad JSON in ch{row['chapter_num']}", e,
-                         level=ErrorLevel.RECOVERABLE)
-    return result
 
 
 # ─── История оценок судьи (пункт 3: score calibration) ───────────────────────

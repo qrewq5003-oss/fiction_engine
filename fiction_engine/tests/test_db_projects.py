@@ -516,16 +516,3 @@ class TestChapterAnalysis:
         result = get_analyses_range(project_id, 2, 4)
         assert len(result) == 3
         assert all(2 <= r["chapter_num"] <= 4 for r in result)
-
-    def test_get_all_logical_gaps(self, project_id):
-        from engine.db_projects import save_chapter_analysis, get_all_logical_gaps
-        data = self._make_analysis()
-        data["logical_gaps"] = ["пропущена мотивация"]
-        save_chapter_analysis(project_id, 1, data)
-        gaps = get_all_logical_gaps(project_id, before_chapter=5)
-        assert len(gaps) == 1
-        assert gaps[0]["gaps"] == ["пропущена мотивация"]
-
-    def test_get_all_logical_gaps_empty(self, project_id):
-        from engine.db_projects import get_all_logical_gaps
-        assert get_all_logical_gaps(project_id, before_chapter=10) == []

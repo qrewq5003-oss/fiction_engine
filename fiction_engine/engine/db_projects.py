@@ -20,14 +20,14 @@ from .db_chapters import (
     save_generation_score, save_chapter_score,
     get_generation_history, get_generation_by_id,
     save_chapter_analysis, get_chapter_analysis,
-    get_analyses_range, get_all_logical_gaps,
+    get_analyses_range,
     init_generation_history,
 )
 from .db_state import (
     get_state, update_state, save_state_update, mark_update_applied,
     get_pending_updates, get_last_update,
     snapshot_state, get_state_history, restore_state_snapshot,
-    parse_structured_state, parse_structured_state_smart, get_structured_state, merge_analysis_into_state,
+    parse_structured_state, get_structured_state, merge_analysis_into_state,
 )
 from .db_narrative import (
     get_symbols, save_symbol, add_symbol_appearance, add_symbol_planned,

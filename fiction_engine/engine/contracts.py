@@ -313,14 +313,13 @@ class ChapterAnalysisDict(TypedDict, total=False):
     project_id: int
     chapter_num: int
     arc_progress: dict          # {character_name: str}
-    character_deltas: list      # list[CharacterDelta.to_dict()]
     opened_promises: list       # list[str]
-    closed_promises: list       # list[str]
     causal_chains: list         # list[CausalChain.to_dict()]
     logical_gaps: list          # list[str]
     conflict_score: float
     pacing_note: str
-    plot_threads: dict          # {thread_name: status_str}
+    opening_type: str
+    closing_type: str
     analysis_quality: str       # "ok" | "partial" | "failed"
 
 

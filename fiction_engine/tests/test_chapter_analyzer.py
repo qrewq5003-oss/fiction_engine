@@ -39,39 +39,26 @@ def test_format_failed_returns_empty():
     result = format_analysis_for_prompt(a)
     assert result == "", "format должен вернуть '' для failed анализа"
 
-def test_format_includes_logical_gaps():
+def test_format_for_writer_arcs_and_pace_only():
+    """Писателю: арки и темп. Без разрывов прошлой главы, без новых линий (их
+    даёт L3 в памяти серии) и без процента конфликта (разбор 26.10)."""
     from engine.chapter_analyzer import ChapterAnalysis, format_analysis_for_prompt
-    from dataclasses import field
     a = ChapterAnalysis(
         project_id=1, chapter_num=4,
+        arc_progress={"Марина": "впервые солгала отцу"},
         logical_gaps=["Марина знала код — но ей его никто не давал"],
-        conflict_score=0.5,
-    )
-    result = format_analysis_for_prompt(a)
-    assert "Марина" in result or "разрыв" in result.lower()
-
-def test_format_includes_opened_promises():
-    from engine.chapter_analyzer import ChapterAnalysis, format_analysis_for_prompt
-    a = ChapterAnalysis(
-        project_id=1, chapter_num=4,
         opened_promises=["Убийца вернётся в город"],
-        conflict_score=0.3,
+        conflict_score=0.9, pacing_note="нарастающий",
     )
     result = format_analysis_for_prompt(a)
-    assert "Убийца" in result
+    assert "впервые солгала" in result and "Темп: нарастающий" in result
+    assert "код" not in result and "Убийца" not in result
+    assert "%" not in result and "Конфликт" not in result
 
-def test_format_limits_gaps_to_three():
+def test_format_nothing_to_say_is_empty():
     from engine.chapter_analyzer import ChapterAnalysis, format_analysis_for_prompt
-    a = ChapterAnalysis(
-        project_id=1, chapter_num=4,
-        logical_gaps=[f"разрыв {i}" for i in range(10)],
-        conflict_score=0.4,
-    )
-    result = format_analysis_for_prompt(a)
-    # Считаем именно пункты списка: строка-заголовок «Возможные разрывы:»
-    # тоже содержит слово «разрыв» и раньше учитывалась как четвёртый пункт
-    count = sum(1 for ln in result.splitlines() if ln.strip().startswith("- разрыв"))
-    assert count <= 3, f"Ожидалось ≤3 разрывов, нашлось {count}"
+    a = ChapterAnalysis(project_id=1, chapter_num=4, logical_gaps=["разрыв"], conflict_score=0.4)
+    assert format_analysis_for_prompt(a) == ""
 
 def test_format_limits_arcs_to_four():
     from engine.chapter_analyzer import ChapterAnalysis, format_analysis_for_prompt
