@@ -182,8 +182,6 @@
            font-size:12px;border:1px solid #92400e;background:#431407;color:#fbbf24;
            align-items:center;gap:10px;justify-content:space-between;">
         <span id="cut-banner-text"></span>
-        <button class="btn btn-primary btn-sm" style="white-space:nowrap;"
-                onclick="continuePipeline()">✂️ Продолжить главу</button>
       </div>
     </div>
 
@@ -219,18 +217,6 @@
         <button class="btn btn-secondary btn-sm"
                 onclick="copyToClipboard(document.getElementById('result-text').textContent)">
           📋 Копировать
-        </button>
-        <button class="btn btn-secondary btn-sm" id="pl-btn-continue" onclick="plSetContinue()"
-                style="display:none;" title="Сохранить хвост текста для продолжения">
-          ✂️ Продолжить
-        </button>
-        <button class="btn btn-secondary btn-sm" id="pl-btn-merge" onclick="plMergeWithPrev()"
-                style="display:none;" title="Склеить с предыдущей частью для полной оценки">
-          🔗 Склеить
-        </button>
-        <button class="btn btn-primary btn-sm" id="btn-continue-pipeline" onclick="continuePipeline()"
-                style="display:none;" title="Сгенерировать продолжение прямо здесь">
-          ▶️ Продолжить главу
         </button>
       </div>
       <div id="pl-continuity-card" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;"></div>
@@ -904,11 +890,6 @@ function showResults(data) {
   });
 
   document.getElementById('result-text').textContent = data.generated_text || '';
-  if (data.generated_text) {
-    document.getElementById('pl-btn-continue').style.display = 'inline-flex';
-    document.getElementById('pl-btn-merge').style.display = 'inline-flex';
-    document.getElementById('btn-continue-pipeline').style.display = 'inline-flex';
-  }
   document.getElementById('result-critique').textContent = data.critique || '';
   document.getElementById('result-judgment').textContent = data.judgment || '';
   // Без критика и судьи — только писатель: разборов нет, есть «Разбор и оценка»
@@ -944,8 +925,11 @@ function showResults(data) {
     // Сообщение само говорит, что случилось (потолок, полуслово, объём);
     // обрыв на полуслове раньше подписывался «короче требуемого»
     const short = data.cut_reason === 'short';
+    // Кнопки «Продолжить главу» и «Склеить» убраны 27.10: сильные модели добирают
+    // объём сами, короткую законченную главу движок дописывает сам — здесь совет
     document.getElementById('cut-banner-text').textContent =
-      (short ? '📏 ' : '✂️ ') + (data.truncation_warning || '');
+      (short ? '📏 ' : '✂️ ') + (data.truncation_warning || '') +
+      ' Судья такую главу не примет: «Ещё круг» или запусти главу заново.';
     cutBanner.style.display = 'flex';
   } else {
     cutBanner.style.display = 'none';
@@ -1293,154 +1277,5 @@ onReviewToggle();
   document.getElementById('pl-model-gen').addEventListener('change', loadEngineModules);
 })();
 
-// ─── Продолжение и склейка для Pipeline ──────────────────────────────────────
-async function plSetContinue() {
-  const text = document.getElementById('result-text').textContent.trim();
-  if (!text) { alert('Нет текста'); return; }
-
-  const words = text.split(/\s+/);
-  const tail  = words.slice(-400).join(' ');
-  const chapterNum = state.chapterNum;
-
-  const note = `⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ — СТРОГИЕ ИНСТРУКЦИИ ДЛЯ ВСЕХ ЭТАПОВ\n\n` +
-               `ДЛЯ ГЕНЕРАТОРА:\n` +
-               `- Это вторая часть главы. Первая уже написана и сохранена.\n` +
-               `- Начинай СТРОГО с того места где обрывается текст ниже.\n` +
-               `- Не повторяй уже написанное. Не вводи персонажей заново.\n` +
-               `- Доведи главу до финала: 1500-1700 слов, полный финал с крюком.\n\n` +
-               `ДЛЯ КРИТИКА И СУДЬИ:\n` +
-               `- Это ВТОРАЯ ЧАСТЬ главы, не самостоятельный текст.\n` +
-               `- ЗАПРЕЩЕНО снижать оценку за отсутствие экспозиции, знакомства с персонажами или завязки.\n` +
-               `- ЗАПРЕЩЕНО снижать оценку за резкое начало.\n` +
-               `- Оценивай: органичность продолжения, качество финала, ритм, диалог, финальный крюк.\n\n` +
-               `КОНЕЦ ПЕРВОЙ ЧАСТИ:\n\n${tail}\n\nПродолжай отсюда.`;
-
-  const r = await fetch(`/api/director_note/${chapterNum}/save`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ note, continue: true })     // к плану главы, а не вместо него
-  }).then(x=>x.json()).catch(()=>null);
-
-  if (r && r.ok) {
-    alert(`✂️ Сохранено. Запусти Pipeline для главы ${chapterNum} снова — продолжит с этого места.`);
-  } else {
-    alert('Ошибка сохранения');
-  }
-}
-
-async function plMergeWithPrev() {
-  const currentText = document.getElementById('result-text').textContent.trim();
-  if (!currentText) { alert('Нет текста'); return; }
-
-  const chapterNum = state.chapterNum;
-  const r = await fetch(`/api/chapter/${chapterNum}/text`).then(x=>x.json()).catch(()=>null);
-
-  if (!r || !r.text) {
-    alert('Нет сохранённой первой части. Сначала сохрани первую часть.');
-    return;
-  }
-
-  const merged = r.text.trimEnd() + '\n\n' + currentText;
-  document.getElementById('result-text').textContent = merged;
-  // «Принять» берёт state.currentText: без этого принималась одна вторая часть
-  state.currentText = merged;
-  document.getElementById('pl-btn-merge').style.display = 'none';
-  const words = merged.trim().split(/\s+/).length;
-  alert(`🔗 Склеено. Итого ~${words} слов. Теперь можно сохранить как главу.`);
-}
-
-// ─── Продолжение главы без перезапуска ───────────────────────────────────────
-async function continuePipeline() {
-  const text = document.getElementById('result-text').textContent.trim();
-  if (!text) { showToast('Нет текста для продолжения', 'error'); return; }
-
-  const chapterNum = state.chapterNum;
-  if (!chapterNum) { showToast('Нет номера главы', 'error'); return; }
-
-  // Сохраняем хвост в director_note
-  const words = text.split(/\s+/);
-  const tail  = words.slice(-400).join(' ');
-
-  const note = `⚠️ РЕЖИМ: ПРОДОЛЖЕНИЕ ГЛАВЫ — СТРОГИЕ ИНСТРУКЦИИ ДЛЯ ВСЕХ ЭТАПОВ\n\n` +
-               `ДЛЯ ГЕНЕРАТОРА:\n` +
-               `- Это вторая часть главы. Первая уже написана и сохранена.\n` +
-               `- Начинай СТРОГО с того места где обрывается текст ниже.\n` +
-               `- Не повторяй уже написанное. Не вводи персонажей заново.\n` +
-               `- Доведи главу до финала: 1500-1700 слов, полный финал с крюком.\n\n` +
-               `ДЛЯ КРИТИКА И СУДЬИ:\n` +
-               `- Это ВТОРАЯ ЧАСТЬ главы, не самостоятельный текст.\n` +
-               `- ЗАПРЕЩЕНО снижать оценку за отсутствие экспозиции и завязки.\n` +
-               `- ЗАПРЕЩЕНО снижать оценку за резкое начало.\n` +
-               `- Оценивай: органичность продолжения, качество финала, ритм, крюк.\n\n` +
-               `КОНЕЦ ПЕРВОЙ ЧАСТИ:\n\n${tail}\n\nПродолжай отсюда.`;
-
-  const saveR = await fetch(`/api/director_note/${chapterNum}/save`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ note, continue: true })     // к плану главы, а не вместо него
-  }).then(x=>x.json()).catch(()=>null);
-
-  if (!saveR || !saveR.ok) {
-    showToast('Ошибка сохранения заметки', 'error'); return;
-  }
-
-  // Запускаем pipeline с теми же параметрами
-  const modelGen    = document.getElementById('pl-model-gen').value;
-  const modelCritic = document.getElementById('pl-model-critic').value;
-  const modelEditor = document.getElementById('pl-model-editor').value;
-  const modelJudge  = document.getElementById('pl-model-judge').value;
-  const prompt      = state.prompt;
-
-  state.iteration += 1;
-
-  document.getElementById('iteration-results').style.display = 'none';
-  document.getElementById('step-status').style.display = 'flex';
-  document.getElementById('iter-num').textContent = state.iteration;
-  document.getElementById('pl-btn-continue').style.display = 'none';
-  document.getElementById('pl-btn-merge').style.display = 'none';
-  document.getElementById('btn-continue-pipeline').style.display = 'none';
-
-  setStep('gen'); setStatus('Генерирую продолжение главы...');
-
-  // Меняем задачу — модель должна продолжить, а не начать заново
-  const continuePrompt = `ПРОДОЛЖЕНИЕ ГЛАВЫ ${chapterNum}. НЕ НАЧИНАЙ ЗАНОВО.
-Первая часть уже написана. Продолжи строго с того места где обрывается текст в director_note.
-Не повторяй уже написанное. Не вводи персонажей заново.
-Доведи главу до финала: 1500-1700 слов, полный финал с крюком.
-${prompt}`;
-
-  // Последние 250 слов как prefill — модель физически продолжает с этого места
-  const allWords = text.split(/\s+/);
-  const prefillText = allWords.slice(-250).join(' ');
-
-  const result = await apiPost('/pipeline/start', {
-    chapter_num: chapterNum,
-    generation_prompt: continuePrompt,
-    model_gen: modelGen,
-    model_critic: modelCritic,
-    model_editor: modelEditor,
-    model_judge: modelJudge,
-    prefill: prefillText,
-    // Выбор автора — как у обычного запуска: без них критик и судья шли всегда
-    review: document.getElementById('pl-review').checked,
-    engine_mode: engineMode(),
-  });
-
-  if (result.error) { showToast('Ошибка: ' + result.error, 'error'); return; }
-
-  state.runId = result.run_id;
-  state.currentText = result.generated_text;
-  state.currentCritique = result.critique;
-
-  // Весь результат, как у обычного запуска: вердикт и сверка прошлого запуска не остаются на экране
-  showResults(result);
-  document.getElementById('pl-btn-continue').style.display = 'inline-flex';
-  document.getElementById('pl-btn-merge').style.display = 'inline-flex';
-  document.getElementById('btn-continue-pipeline').style.display = 'inline-flex';
-
-  setStep('judge'); setStatus('');
-  document.getElementById('step-status').style.display = 'none';
-  document.getElementById('iteration-results').style.display = 'block';
-}
 </script>
 {% endblock %}

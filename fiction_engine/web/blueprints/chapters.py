@@ -345,10 +345,11 @@ def continuity_check():
         if why:
             return jsonify({"ok": True, "violations": [], "count": 0, "skipped": why})
 
+        # Тот же системный промпт, что у проверки в конвейере (разбор 26.10)
+        from engine.continuity_checker import SYS_CONTINUITY
+
         def api_fn(prompt):
-            return llm_call(model_value,
-                           "Ты редактор серии. Ищешь нарушения непрерывности. Только JSON.",
-                           prompt, max_tokens=600)
+            return llm_call(model_value, SYS_CONTINUITY, prompt, max_tokens=600)
 
         violations = check_continuity_or_raise(current["id"], chapter_num, text, api_fn)
         return jsonify({"ok": True, "violations": violations, "count": len(violations)})

@@ -34,7 +34,7 @@ def test_pages_send_project_and_do_not_restore_state(project_id):
     assert f'<meta name="fe-project" content="{project_id}">' in state_html
     assert 'id="ta-global" data-nopersist' in state_html and 'name="state_version"' in state_html
     pipe = c.get("/pipeline").get_data(as_text=True)
-    assert f"'ps_{project_id}_' + key" in pipe and "state.currentText = merged;" in pipe
+    assert f"'ps_{project_id}_' + key" in pipe     # «Склеить» убрана 27.10 — проверки склейки нет
     assert 'data-nopersist' in c.get("/prep").get_data(as_text=True)
 
 
