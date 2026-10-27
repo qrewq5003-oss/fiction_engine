@@ -55,32 +55,15 @@ def test_every_mode_states_the_word_target(prompts):
         assert re.search(r"2500-3000 слов", text), f"{mode}: нет требования объёма"
 
 
-def test_paragraph_ranges_agree_across_modes(prompts):
+def test_no_paragraph_count(prompts):
     """
-    Одно требование — одна арифметика. Расхождение 15-20 против 25-35
-    означало, что в quick абзац втрое длиннее, чем в остальных.
+    Числа абзацев нет (27.10). Расхождение 15-20 против 25-35 было убрано ещё
+    в сентябре, но и 25-35 модели не слушали (пишут 58-86 абзацев), а голос
+    автора говорит «абзац — до пяти предложений»: 2500 слов на 30 абзацев —
+    по восемь фраз. Одно требование — слова.
     """
-    ranges = {}
     for mode, text in prompts.items():
-        m = re.search(r"\((\d+)-(\d+) абзацев\)", text)
-        assert m, f"{mode}: не сказано, сколько абзацев"
-        ranges[mode] = (int(m.group(1)), int(m.group(2)))
-    assert len(set(ranges.values())) == 1, f"режимы расходятся в абзацах: {ranges}"
-
-
-def test_paragraph_range_is_arithmetically_possible(prompts):
-    """
-    Слов на абзац должно получаться правдоподобно. 2500-3000 слов в
-    15-20 абзацах — это 125-200 слов на абзац; в текстах прогона выходило
-    20-30. Верхняя граница держит формулировку в пределах разумного.
-    """
-    text = prompts["quick"]
-    words = [int(x) for x in re.search(r"(\d+)-(\d+) слов", text).groups()]
-    paras = [int(x) for x in re.search(r"\((\d+)-(\d+) абзацев\)", text).groups()]
-    per_para = words[1] / paras[0]
-    assert per_para <= 120, (
-        f"{per_para:.0f} слов на абзац — столько не пишут; "
-        "требование объёма и требование абзацев противоречат друг другу")
+        assert not re.search(r"\d+-\d+ абзацев", text), mode
 
 
 def test_every_mode_asks_the_model_to_check_its_own_length(prompts):

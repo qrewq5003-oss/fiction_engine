@@ -520,6 +520,18 @@ def get_director_note(project_id: int, for_chapter: int) -> str | None:
     return row["note"] if row else None
 
 
+def get_director_note_source(project_id: int, for_chapter: int) -> str | None:
+    """Чья заметка к главе: «auto» — заметка движка после прошлой главы, иначе автора
+    (план из планировщика, своя запись). Заметки нет — None."""
+    with get_conn() as conn:
+        ensure_note_source(conn)
+        row = conn.execute(
+            "SELECT source FROM director_notes WHERE project_id=? AND after_chapter=?",
+            (project_id, for_chapter - 1)
+        ).fetchone()
+    return (row["source"] or "author") if row else None
+
+
 # ─── Тон главы ────────────────────────────────────────────────────────────────
 
 def set_chapter_tone(project_id: int, chapter_num: int, tone: str | None) -> None:

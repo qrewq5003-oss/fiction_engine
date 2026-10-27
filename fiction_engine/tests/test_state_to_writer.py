@@ -37,16 +37,20 @@ def test_raw_state_is_capped_at_line_boundary():
 
 
 def test_pipeline_context_carries_chapter_plan(project_id):
-    """План главы из планировщика доходит до писателя и в конвейере, ровно один раз."""
+    """План главы из планировщика доходит до писателя и в конвейере, ровно один раз,
+    под подписью автора — «от редактора после предыдущей» только заметка движка."""
     from engine.db import save_director_note
-    from engine.pipeline_context import DIRECTOR_MARKER, build_context
+    from engine.pipeline_context import AUTHOR_NOTE_MARKER, DIRECTOR_MARKER, build_context
     from engine.state_prompts import build_prompt
     from engine.db_projects import get_project
     save_director_note(project_id, 1, "ПЛАН ГЛАВЫ 2\nСЦЕНА 1: Визит к вдове")
     ctx = build_context(project_id, 2, "Вера едет к вдове.", "quick")
-    assert DIRECTOR_MARKER in ctx and "СЦЕНА 1: Визит к вдове" in ctx
+    assert AUTHOR_NOTE_MARKER in ctx and DIRECTOR_MARKER not in ctx and "СЦЕНА 1: Визит к вдове" in ctx
     full = build_context(project_id, 2, build_prompt(project_id, 2, "quick", get_project(project_id)), "quick")
-    assert full.count(DIRECTOR_MARKER) == 1          # в обычной генерации — без дубля
+    assert full.count(AUTHOR_NOTE_MARKER) == 1       # в обычной генерации — без дубля
+    save_director_note(project_id, 2, "Вера ещё не знает про ключ.", source="auto")
+    ctx3 = build_context(project_id, 3, "Вера едет к вдове.", "quick")
+    assert DIRECTOR_MARKER in ctx3 and AUTHOR_NOTE_MARKER not in ctx3
 
 
 def test_prompt_assist_uses_model_from_page_and_sees_state(project_id, monkeypatch):
