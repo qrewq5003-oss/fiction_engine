@@ -491,6 +491,17 @@ GENRE_VOICE_FOR: dict[str, str] = {
     "romance_contemporary":    "romance_voice",
     "romance_historical":      "romance_voice",
     "romance_paranormal":      "romance_voice",
+    "romance_lfr":             "romance_voice",
+    "romance_divorce":         "romance_voice",
+    "romance_dark":            "romance_voice",
+    "detective_ironic":        "classic_detective_voice",
+    # Разговорный голос с колкостями — ближе к дерзкому герою прогрессии,
+    # чем торжественный эпический
+    "fantasy_litrpg":          "urban_fantasy_voice",
+    "fantasy_boyarka":         "urban_fantasy_voice",
+    "fantasy_cultivation":     "epic_fantasy_voice",
+    "fantasy_household":       "romance_voice",
+    "fantasy_slavic":          "epic_fantasy_voice",
     # Пресет триллера написан под триллер действия (счёт времени, процедуры);
     # психотриллеру он вредил: −0.45 и −0.20 ± 0.22 (замеры 03–04.10)
     "thriller_psychological":  "psychological_thriller_voice",

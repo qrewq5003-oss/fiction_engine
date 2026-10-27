@@ -9,7 +9,7 @@
 
 Fiction Engine читает базу сам и вставляет выжимки в промпт каждой главы.
 Что именно он читает — перечислено в `INDEX.json` → `runtime_files`
-(177 файлов из 249). Справочник для автора — руководства, шаблоны, разборы —
+(188 файлов из 260). Справочник для автора — руководства, шаблоны, разборы —
 лежит отдельно, в `_reference/`, с той же структурой папок: в промпт он не
 попадает. В рабочих папках остались только файлы, которые читает движок, и их
 README.
@@ -56,7 +56,7 @@ python tests/unified_trace.py                                            # ес�
 00_CORE/             — ядро: правила, стиль, клише, антиклише
 01_WRITING_CORE/     — техники письма: диалоги, описания, эмоции (7 модулей)
 03_ADVANCED_ENGINES/ — 25 модулей с секциями PROMPT
-04_GENRE_ENGINE/     — 35 жанровых каталогов
+04_GENRE_ENGINE/     — 46 жанровых каталогов
 05_CHARACTER_ENGINE/ — профили персонажей по жанрам и стилям, антагонисты
 06_PATTERN_LIBRARY/  — хуки, переходы, ситуации, паттерны сцен и диалогов
 10_VALIDATION/       — чек-листы глав для судьи
@@ -124,12 +124,13 @@ _archive/            — устаревшее: не читается движк�
 
 Доступные жанры в `04_GENRE_ENGINE/catalog/`:
 
-**Детектив:** detective_action, detective_classic, detective_cozy, detective_noir, detective_procedural, detective_psychological  
-**Фэнтези:** fantasy_dark, fantasy_epic, fantasy_romantic, fantasy_sword_sorcery, fantasy_urban  
-**Хоррор:** horror_cosmic, horror_gothic, horror_survival  
-**Романтика:** romance_contemporary, romance_historical, romance_paranormal  
-**НФ:** scifi_cyberpunk, scifi_hard, scifi_post_apocalyptic, scifi_social, scifi_space_opera, scifi_steampunk  
-**Реализм:** realism_family_saga, realism_psychological, realism_social
+**Детектив:** detective_action, detective_classic, detective_cozy, detective_ironic, detective_noir, detective_procedural, detective_psychological  
+**Фэнтези:** fantasy_boyarka, fantasy_cultivation, fantasy_dark, fantasy_epic, fantasy_household, fantasy_litrpg, fantasy_romantic, fantasy_slavic, fantasy_sword_sorcery, fantasy_urban  
+**Хоррор:** horror_cosmic, horror_folk, horror_gothic, horror_psychological, horror_survival  
+**Романтика:** romance_contemporary, romance_dark, romance_divorce, romance_historical, romance_lfr, romance_paranormal  
+**НФ:** scifi_alt_history, scifi_cyberpunk, scifi_hard, scifi_post_apocalyptic, scifi_social, scifi_space_opera, scifi_steampunk  
+**Триллер:** thriller_adventure, thriller_legal, thriller_medical, thriller_psychological, thriller_spy, thriller_survival  
+**Реализм:** realism_family_saga, realism_magical, realism_psychological, realism_social, realism_youth
 
 Для смешивания жанров: `04_GENRE_ENGINE/GENRE_MERGER.md`  
 Для автоматического выбора модулей: `04_GENRE_ENGINE/AUTO_ROUTER.md`

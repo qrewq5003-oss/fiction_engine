@@ -97,6 +97,28 @@ class TestDetectGenreBoundaries:
         from engine.unified_engine import detect_genre
         assert detect_genre(text) == expected
 
+    @pytest.mark.parametrize("text, expected", [
+        # Русские сетевые жанры: раньше все — None или чужой жанр
+        ("ЛитРПГ",                       "fantasy_litrpg"),
+        ("боярка",                       "fantasy_boyarka"),
+        ("культивация, уся",             "fantasy_cultivation"),
+        ("бытовое фэнтези",              "fantasy_household"),      # было fantasy_epic
+        ("славянское фэнтези",           "fantasy_slavic"),         # было fantasy_epic
+        ("любовное фэнтези",             "romance_lfr"),            # было fantasy_romantic
+        ("любовно-фантастический роман", "romance_lfr"),            # было scifi_hard
+        ("попаданка в академию магии",   "romance_lfr"),
+        ("попаданец в 1941",             "scifi_alt_history"),      # мужское прогрессорство
+        ("развод с драконом",            "romance_divorce"),
+        ("dark romance",                 "romance_dark"),           # было romance_contemporary
+        ("молодёжная проза",             "realism_youth"),          # было realism_psychological
+        ("иронический детектив",         "detective_ironic"),       # было detective_classic
+        ("фолк-хоррор",                  "horror_folk"),
+        ("ромэнтези",                    "fantasy_romantic"),
+    ])
+    def test_russian_web_genres(self, text, expected):
+        from engine.unified_engine import detect_genre
+        assert detect_genre(text) == expected
+
     def test_every_keyword_maps_to_its_own_genre(self):
         """Ни один ключ не перехвачен другим жанром — ни целиком, ни частью."""
         from engine.engine_config import GENRE_KEYWORDS

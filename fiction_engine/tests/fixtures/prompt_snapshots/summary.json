@@ -85,7 +85,7 @@
     }
   },
   "horror_gothic__master": {
-    "chars": 48708,
+    "chars": 48713,
     "orphan_headings": 0,
     "meta_sections": 0,
     "foreign_genre_variants": 0,
@@ -93,7 +93,7 @@
       "_base_rules": 135,
       "_catalog": 315,
       "_genre_rules": 494,
-      "_contract": 756,
+      "_contract": 761,
       "_anticliche": 3020,
       "_dialectics": 1466,
       "_dialectics_genre": 752,

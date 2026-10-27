@@ -99,7 +99,8 @@ def update_index(kb: pathlib.Path) -> None:
     data["files"] = files
     data["total_files"] = sum(len(v) for v in files.values())
     data["runtime_files"] = sorted(traced_runtime_files(kb))
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # newline: на Windows write_text без него пишет CRLF, и diff — весь файл
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
