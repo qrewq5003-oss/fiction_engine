@@ -271,6 +271,17 @@ def _tail_for_message(text: str, n: int = 40) -> str:
     return (text or "").rstrip()[-n:]
 
 
+# Ответ дописывания — пояснение вместо прозы. Гл.1 «Третьего пара» (28.10): глава
+# кончилась последней сценой плана, Опус отказался писать после неё («Продолжения
+# после последней фразы не пишу…») и предложил вставки «Сцена 1, после строки «…»».
+# Ответ приклеился к главе целиком, 452 слова; судья дал этому кругу 42. Заметки
+# work_note_lines — английские, эти русские; их ловит этот образец
+EXTENSION_NOTES = re.compile(
+    r"(?mi)^\s*(?:продолжени[ея][^\n]{0,60}не\s+пиш|ниже[^\n]{0,20}вставк"
+    r"|\d+\.\s*сцена\s+\d+[^\n]{0,40}(?:после|перед)\s+строк"
+    r"|===\s*(?:уже написано|конец написанного)|глава написана не целиком)")
+
+
 def extend_short_chapter(text: str, model_value: str, sys_prompt: str,
                          user_prompt: str, call_fn) -> tuple[str, str]:
     """
@@ -300,6 +311,9 @@ def extend_short_chapter(text: str, model_value: str, sys_prompt: str,
     more = strip_reasoning(more or "")[0].strip()
     if not more:
         return text, ""
+    if EXTENSION_NOTES.search(more) or work_note_lines(more):
+        return text, (f"Дописывание отклонено: модель ответила пояснением, а не текстом главы. "
+                      f"Глава оставлена как есть ({have} слов).")
     merged = text.rstrip() + "\n\n" + more
     return merged, f"Глава дописана вторым запросом: {have} → {len(merged.split())} слов."
 
