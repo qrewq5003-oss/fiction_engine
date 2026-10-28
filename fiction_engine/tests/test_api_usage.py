@@ -218,7 +218,11 @@ def test_anthropic_caller_uses_the_first_text_block(monkeypatch):
                     stop_reason="end_turn")
     client = MagicMock()
     client.messages.create.return_value = msg
-    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    # Подменяется ссылка engine.api.anthropic, а не атрибут общего мока модуля:
+    # pytest 9.2 после теста удаляет атрибут, которого не было в __dict__,
+    # а удалённый атрибут MagicMock остаётся удалённым — следующий тест падал
+    # с «has no attribute 'Anthropic'».
+    monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
 
     got = api._call_anthropic("claude-sonnet-5", "sys", "usr", "key", 100)
     assert got == "разбор главы", "вызов не использует первый текстовый блок"
@@ -244,7 +248,7 @@ class TestThinkingIsDisabled:
                         usage=MagicMock(input_tokens=10, output_tokens=5))
         client = MagicMock()
         client.messages.create.side_effect = lambda **kw: (sent.update(kw), msg)[1]
-        monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+        monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
         api._call_anthropic(model_id, "sys", "usr", "key", 1200)
         return sent
 
@@ -298,7 +302,7 @@ def test_model_that_wants_between_tools(monkeypatch):
                                'instead of {"type": "disabled"}.')
         return msg
     client = MagicMock(); client.messages.create.side_effect = create
-    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
     assert api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100) == "ИТОГ: 33"
     assert api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100) == "ИТОГ: 33"
     assert sent == [{"type": "disabled"}, {"type": "between_tools"}, {"type": "between_tools"}]
@@ -308,7 +312,7 @@ def test_other_bad_request_is_not_retried(monkeypatch):
     import engine.api as api
     monkeypatch.setattr(api, "_THINKING_OFF", {})
     client = MagicMock(); client.messages.create.side_effect = _bad_request("prompt is too long")
-    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
     with pytest.raises(Exception, match="too long"):
         api._call_anthropic("claude-sonnet-5-5", "sys", "usr", "key", 100)
     assert client.messages.create.call_count == 1
@@ -331,7 +335,7 @@ def _thinking_client(monkeypatch):
     client = MagicMock()
     client.messages.stream.side_effect = lambda **kw: _Stream(**kw)
     client.messages.create.side_effect = AssertionError("с размышлением — только поток")
-    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
     return api, sent
 
 
