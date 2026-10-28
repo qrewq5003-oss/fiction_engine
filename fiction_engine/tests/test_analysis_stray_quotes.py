@@ -87,7 +87,7 @@ def test_zero_means_no_cap(monkeypatch):
     block = MagicMock(); block.type = "text"; block.text = "{}"
     msg = MagicMock(content=[block], stop_reason="end_turn", usage=MagicMock(input_tokens=1, output_tokens=1))
     client = MagicMock(); client.messages.create.side_effect = lambda **kw: (sent.update(kw), msg)[1]
-    monkeypatch.setattr(api.anthropic, "Anthropic", lambda **k: client)
+    monkeypatch.setattr(api, "anthropic", MagicMock(Anthropic=lambda **k: client))
     monkeypatch.setattr(api, "_record_usage", lambda *a, **k: None)
     api.call_model("anthropic_direct::claude-sonnet-5-5", "s", "u", anthropic_key="k", max_tokens=0)
     assert sent["max_tokens"] == api.NO_CAP_TOKENS and sent["timeout"] >= 600
