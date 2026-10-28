@@ -56,6 +56,32 @@ def test_short_finished_chapter_is_extended():
     assert sent["max_tokens"] == PROSE_MAX_TOKENS
 
 
+# Ответ Опуса в гл.1 «Третьего пара» (28.10), начало: отказ и вставки вместо продолжения
+REFUSAL = (
+    "Продолжения после последней фразы не пишу: по плану глава кончается тем, что Варя "
+    "до утра лежит без сна, и эта строка уже стоит в тексте. Довести объём до 2500 можно "
+    "только внутри сцен 1 и 2. Ниже вставки, всего около 340 слов, с указанием места для каждой.\n\n"
+    "1. Сцена 1, после строки «— Кутья стынет, — сказала Агафья.»\n\n"
+    "Варя пошла последней. Всю дорогу до избы она переводила шестьдесят серебряников в медь.\n\n"
+    "2. Сцена 2, предбанник, после строки «…на сапоги посыпался лист, сухой, как бумага.»\n\n"
+    "Варя подняла фонарь и пересчитала веники.")
+
+
+def test_notes_instead_of_prose_are_rejected():
+    """Пояснение модели к главе не приклеивается; автор видит, что дописывание отклонено."""
+    out, note, call = _extend(SHORT, call=Recorder(REFUSAL))
+    assert len(call.calls) == 1
+    assert out == SHORT
+    assert "отклонено" in note and "1750 слов" in note
+
+
+def test_prose_starting_with_word_continuation_is_kept():
+    """Слово «продолжение» в самой прозе — не заметка."""
+    prose = "Продолжение разговора Варя отложила до утра. " * 120
+    out, note, _ = _extend(SHORT, call=Recorder(prose))
+    assert out.endswith(prose.strip()) and "дописана" in note
+
+
 def test_full_chapter_untouched():
     out, note, call = _extend(FULL)
     assert out == FULL and not note and not call.calls
