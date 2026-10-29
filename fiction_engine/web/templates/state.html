@@ -23,8 +23,17 @@
 {% endfor %}
 {% endif %}
 
+<!-- Независимая сверка памяти: отдельный скрипт, приложение его не запускает -->
+<div class="format-hint-bar" style="margin-top:8px;flex-wrap:wrap" id="memory-audit-hint">
+  <span class="format-hint-label">🔎 Сверка памяти с текстом</span>
+  <span style="font-size:12px;color:var(--text-muted)">Отдельный скрипт вне приложения сверяет State и библию
+    с принятыми главами: должности у имён, имена, цитаты, числа. Базу только читает, моделей не зовёт.
+    Из папки репозитория:</span>
+  <code style="font-size:12px">python tools\memory_audit.py {{ current.id }} --out audit.md</code>
+</div>
+
 <!-- Импорт материала -->
-<div class="format-hint-bar" style="margin-top:8px">
+<div class="format-hint-bar">
   <span class="format-hint-label">📥 Импорт материала</span>
   <button class="btn btn-secondary btn-sm" onclick="toggleImport()">Загрузить файл / вставить текст</button>
 </div>
