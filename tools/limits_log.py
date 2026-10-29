@@ -49,7 +49,7 @@ def codex_cmd() -> list[str]:
     return [exe]
 
 
-def kill(p: subprocess.Popen) -> None:
+def _stop_proc(p: subprocess.Popen) -> None:
     if p.poll() is not None:
         return
     if os.name == "nt":
@@ -62,7 +62,7 @@ def kill(p: subprocess.Popen) -> None:
 def read_limits() -> dict:
     p = subprocess.Popen(codex_cmd() + ["app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.DEVNULL, text=True, encoding="utf-8", creationflags=NO_WINDOW)
-    watchdog = threading.Timer(60, kill, [p])     # не ответил — не ждать вечно
+    watchdog = threading.Timer(60, _stop_proc, [p])     # не ответил — не ждать вечно
     watchdog.start()
     try:
         def rpc(i, method, params):
@@ -77,40 +77,40 @@ def read_limits() -> dict:
         snap = (rpc(2, "account/rateLimits/read", {}).get("result") or {}).get("rateLimits") or {}
     finally:
         watchdog.cancel()
-        kill(p)
+        _stop_proc(p)
     return snap
 
 
-def iso(ts) -> str | None:
+def _iso(ts) -> str | None:
     return dt.datetime.fromtimestamp(ts).astimezone().isoformat(timespec="minutes") if ts else None
 
 
-def load() -> list[dict]:
+def _load_rows() -> list[dict]:
     if not LOG.exists():
         return []
     rows = [json.loads(x) for x in LOG.read_text(encoding="utf-8").splitlines() if x.strip()]
     return sorted(rows, key=lambda r: r["t"])
 
 
-def append(rows: list[dict]) -> None:
+def _append_rows(rows: list[dict]) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a", encoding="utf-8", newline="\n") as f:
         f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
 
 
-def sample() -> dict:
+def take_sample() -> dict:
     snap = read_limits()
     week, win = snap.get("secondary") or {}, snap.get("primary") or {}
     row = {"t": dt.datetime.now().astimezone().isoformat(timespec="minutes"),
            "week": week.get("usedPercent"), "window": win.get("usedPercent"),
-           "week_resets": iso(week.get("resetsAt")), "window_resets": iso(win.get("resetsAt")),
+           "week_resets": _iso(week.get("resetsAt")), "window_resets": _iso(win.get("resetsAt")),
            "plan": snap.get("planType"), "src": "замер"}
-    prev = next((r for r in reversed(load()) if r.get("week") is not None), None)
+    prev = next((r for r in reversed(_load_rows()) if r.get("week") is not None), None)
     if prev and row["week"] is not None:
         reset = is_reset(prev, row)
         if reset:
             row["reset"] = reset
-    append([row])
+    _append_rows([row])
     return row
 
 
@@ -131,7 +131,7 @@ LINE = re.compile(r"^(?:(\d\d)\.(\d\d) )?(\d\d):(\d\d)(?::\d\d)?\s.*?ChatGPT н�
 
 
 def import_logs(files: list[str]) -> int:
-    have = {r["t"][:16] for r in load()}
+    have = {r["t"][:16] for r in _load_rows()}
     rows = []
     for f in files:
         mt = dt.datetime.fromtimestamp(os.path.getmtime(f))
@@ -153,14 +153,14 @@ def import_logs(files: list[str]) -> int:
                 have.add(ts[:16])
                 rows.append({"t": ts, "week": float(week), "window": float(win), "src": src})
     rows.sort(key=lambda r: r["t"])
-    append(rows)
+    _append_rows(rows)
     return len(rows)
 
 
 # ---------------------------------------------------------------- сводка
 
-def report() -> str:
-    rows = [r for r in load() if r.get("week") is not None]
+def build_report() -> str:
+    rows = [r for r in _load_rows() if r.get("week") is not None]
     if not rows:
         return "Журнал пуст: сделайте замер (python tools/limits_log.py)."
     out = [f"Журнал лимитов ChatGPT: {len(rows)} замеров, {rows[0]['t'][:16]} — {rows[-1]['t'][:16]}", ""]
@@ -195,7 +195,7 @@ def report() -> str:
 
 # ---------------------------------------------------------------- планировщик Windows
 
-def install(minutes: int) -> None:
+def install_task(minutes: int) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     CFG.write_text(json.dumps({"codex": codex_cmd()}, ensure_ascii=False), encoding="utf-8")
     py = Path(sys.executable)
@@ -207,7 +207,7 @@ def install(minutes: int) -> None:
     print(r.stdout.strip() or r.stderr.strip())
 
 
-def uninstall() -> None:
+def uninstall_task() -> None:
     r = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK], capture_output=True, text=True, check=False)
     print(r.stdout.strip() or r.stderr.strip())
 
@@ -222,15 +222,15 @@ def main():
     if sys.stdout:
         sys.stdout.reconfigure(encoding="utf-8")
     if a.install:
-        install(a.install)
+        install_task(a.install)
     elif a.uninstall:
-        uninstall()
+        uninstall_task()
     elif a.import_log:
         print(f"дописано строк: {import_logs(a.import_log)}")
     elif a.report:
-        print(report())
+        print(build_report())
     else:
-        row = sample()
+        row = take_sample()
         if sys.stdout:
             print(json.dumps(row, ensure_ascii=False))
 

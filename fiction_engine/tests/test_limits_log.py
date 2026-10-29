@@ -35,6 +35,6 @@ def test_import_logs_and_report(tmp_path, monkeypatch):
     assert ll.import_logs([str(log)]) == 0                  # повторный импорт не дублирует
     rows = [json.loads(x) for x in ll.LOG.read_text(encoding="utf-8").splitlines()]
     assert [r["week"] for r in rows] == [63.0, 69.0, 1.0, 2.0]
-    rep = ll.report()
+    rep = ll.build_report()
     assert "Сбросы недели: 1" in rep and "69 % → 1 %" in rep
     assert "Израсходовано" in rep and "Сейчас: неделя 2 %" in rep
