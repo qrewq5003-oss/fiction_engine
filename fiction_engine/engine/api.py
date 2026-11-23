@@ -68,6 +68,10 @@ MODELS = {
         "models": [
             # Замер 15.10 (bench/ab-writers-gpt61-2026-10-15.json): лучше DeepSeek,
             # почти вровень с Sonnet; ≈3 % окна 5 часов Plus на главу
+            # 6.2 (Codex CLI ≥ 0.171.0, 20.11): не замерены — порог судьи общий, не 30 как у 6.1
+            {"id": "gpt-6.2-sol@medium",  "name": "GPT-6.2 Sol — через подписку ChatGPT (Codex), новая, не замерена"},
+            {"id": "gpt-6.2-sol@xhigh",   "name": "GPT-6.2 Sol, размышление очень высокое — через подписку ChatGPT (Codex), новая, не замерена"},
+            {"id": "gpt-6.2-astra@xhigh", "name": "GPT-6.2 Astra, размышление очень высокое — через подписку ChatGPT (Codex), новая"},
             {"id": "gpt-6.1-sol@medium",  "name": "GPT-6.1 Sol ★ через подписку ChatGPT (Codex) — сильнее DeepSeek, вровень с Sonnet"},
             {"id": "gpt-6.1-sol@xhigh",   "name": "GPT-6.1 Sol, размышление очень высокое — через подписку ChatGPT (Codex), больше лимита"},
             {"id": "gpt-6-astra@medium",  "name": "GPT-6 Astra — через подписку ChatGPT (Codex)"},

@@ -378,3 +378,14 @@ def test_effort_models_listed():
     ids = {m["id"] for m in MODELS["anthropic_direct"]["models"]}
     assert {"claude-opus-5-5@xhigh", "claude-sonnet-5-5@xhigh", "claude-haiku-5-5@xhigh"} <= ids
     assert "gpt-6.1-sol@xhigh" in {m["id"] for m in MODELS["chatgpt_subscription"]["models"]}
+
+
+def test_sol_62_in_subscription_list():
+    """GPT-6.2 Sol и Astra (Codex CLI 0.171.0) — в списке подписки ChatGPT рядом с 6.1."""
+    from engine.api import MODELS
+    from engine.pipeline_config import accept_total_for, ACCEPT_TOTAL
+    ids = {m["id"] for m in MODELS["chatgpt_subscription"]["models"]}
+    assert {"gpt-6.2-sol@medium", "gpt-6.2-sol@xhigh", "gpt-6.2-astra@xhigh", "gpt-6.1-sol@xhigh"} <= ids
+    # порог 30 выверен на 6.1; 6.2 до замера — общий
+    assert accept_total_for("chatgpt_subscription::gpt-6.2-sol@xhigh") == ACCEPT_TOTAL
+    assert accept_total_for("chatgpt_subscription::gpt-6.1-sol@xhigh") == 30
